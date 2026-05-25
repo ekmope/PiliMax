@@ -565,6 +565,14 @@ class _GalleryViewerState extends State<GalleryViewer>
             DialogOption(
               onPressed: () {
                 Get.back();
+                ImageUtils.copyImg(item.url);
+              },
+              child: const Text('澶嶅埗鍥剧墖', style: TextStyle(fontSize: 14)),
+            ),
+          if (PlatformUtils.isDesktop)
+            DialogOption(
+              onPressed: () {
+                Get.back();
                 PageUtils.launchURL(item.url);
               },
               child: const Text('网页打开', style: TextStyle(fontSize: 14)),

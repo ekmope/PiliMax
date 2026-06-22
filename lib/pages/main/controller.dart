@@ -60,7 +60,7 @@ class MainController extends GetxController
   final mainTabBarView = Pref.mainTabBarView;
   late final optTabletNav = Pref.optTabletNav;
 
-  late bool directExitOnBack = Pref.directExitOnBack;
+  late final RxBool directExitOnBack = Pref.directExitOnBack.obs;
   late bool showTrayIcon = Pref.showTrayIcon;
   late bool minimizeOnExit = Pref.minimizeOnExit;
   late bool pauseOnMinimize = Pref.pauseOnMinimize;

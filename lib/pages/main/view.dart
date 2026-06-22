@@ -46,15 +46,38 @@ class _MainAppState extends PopScopeState<MainApp>
         TrayListener {
   final _mainController = Get.put(MainController());
   late final _setting = GStorage.setting;
+  late final List<Worker> _backPopWorkers;
   late EdgeInsets _padding;
   late ThemeData theme;
 
   @override
-  bool get initCanPop => false;
+  bool get initCanPop => _allowAndroidPredictiveExit;
+
+  bool get _allowAndroidPredictiveExit =>
+      Platform.isAndroid &&
+      (_mainController.directExitOnBack.value ||
+          _mainController.selectedIndex.value == 0);
+
+  void _syncAndroidPredictiveBack() {
+    if (canPopNotifier.value != _allowAndroidPredictiveExit) {
+      canPopNotifier.value = _allowAndroidPredictiveExit;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _backPopWorkers = [
+      ever<int>(
+        _mainController.selectedIndex,
+        (_) => _syncAndroidPredictiveBack(),
+      ),
+      ever<bool>(
+        _mainController.directExitOnBack,
+        (_) => _syncAndroidPredictiveBack(),
+      ),
+    ];
+    _syncAndroidPredictiveBack();
     addObserverMobile(this);
     if (PlatformUtils.isDesktop) {
       windowManager
@@ -124,6 +147,9 @@ class _MainAppState extends PopScopeState<MainApp>
       windowManager.removeListener(this);
     }
     removeObserverMobile(this);
+    for (final worker in _backPopWorkers) {
+      worker.dispose();
+    }
     PiliScheme.listener?.cancel();
     GStorage.close();
     super.dispose();
@@ -269,7 +295,13 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   void onPopInvokedWithResult(bool didPop, Object? result) {
-    if (_mainController.directExitOnBack) {
+    if (didPop) {
+      return;
+    }
+    if (_allowAndroidPredictiveExit) {
+      return;
+    }
+    if (_mainController.directExitOnBack.value) {
       _onBack();
     } else {
       if (_mainController.selectedIndex.value != 0) {

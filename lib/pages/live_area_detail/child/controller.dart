@@ -1,11 +1,11 @@
-import 'dart:math';
+﻿import 'dart:math';
 
-import 'package:PiliPlus/http/live.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/live/live_feed_index/card_data_list_item.dart';
-import 'package:PiliPlus/models_new/live/live_second_list/data.dart';
-import 'package:PiliPlus/models_new/live/live_second_list/tag.dart';
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
+import 'package:PiliMax/http/live.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models_new/live/live_feed_index/card_data_list_item.dart';
+import 'package:PiliMax/models_new/live/live_second_list/data.dart';
+import 'package:PiliMax/models_new/live/live_second_list/tag.dart';
+import 'package:PiliMax/pages/common/common_list_controller.dart';
 import 'package:get/get.dart';
 
 class LiveAreaChildController

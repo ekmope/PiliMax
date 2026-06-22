@@ -1,4 +1,4 @@
-// Copyright 2014 The Flutter Authors. All rights reserved.
+﻿// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole, lerpDouble;
 
-import 'package:PiliPlus/pages/main/controller.dart';
+import 'package:PiliMax/pages/main/controller.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';

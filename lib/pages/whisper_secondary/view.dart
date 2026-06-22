@@ -1,11 +1,11 @@
-import 'package:PiliPlus/common/skeleton/whisper_item.dart';
-import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/grpc/bilibili/app/im/v1.pb.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/pages/whisper/widgets/item.dart';
-import 'package:PiliPlus/pages/whisper_secondary/controller.dart';
-import 'package:PiliPlus/utils/extension/three_dot_ext.dart';
+﻿import 'package:PiliMax/common/skeleton/whisper_item.dart';
+import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/pages/whisper/widgets/item.dart';
+import 'package:PiliMax/pages/whisper_secondary/controller.dart';
+import 'package:PiliMax/utils/extension/three_dot_ext.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

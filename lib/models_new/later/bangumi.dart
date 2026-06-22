@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/later/season.dart';
+﻿import 'package:PiliMax/models_new/later/season.dart';
 
 class Bangumi {
   int? epId;

@@ -1,7 +1,7 @@
-import 'package:PiliPlus/models/common/reply/reply_search_type.dart';
-import 'package:PiliPlus/pages/video/reply_search_item/child/controller.dart';
-import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
-import 'package:PiliPlus/utils/utils.dart';
+﻿import 'package:PiliMax/models/common/reply/reply_search_type.dart';
+import 'package:PiliMax/pages/video/reply_search_item/child/controller.dart';
+import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

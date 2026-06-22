@@ -1,9 +1,9 @@
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/msg.dart';
-import 'package:PiliPlus/models_new/msg/msg_like_detail/card.dart';
-import 'package:PiliPlus/models_new/msg/msg_like_detail/data.dart';
-import 'package:PiliPlus/models_new/msg/msg_like_detail/item.dart';
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
+﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/msg.dart';
+import 'package:PiliMax/models_new/msg/msg_like_detail/card.dart';
+import 'package:PiliMax/models_new/msg/msg_like_detail/data.dart';
+import 'package:PiliMax/models_new/msg/msg_like_detail/item.dart';
+import 'package:PiliMax/pages/common/common_list_controller.dart';
 import 'package:get/get.dart';
 
 class LikeDetailController

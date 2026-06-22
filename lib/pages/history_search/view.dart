@@ -1,10 +1,10 @@
-import 'package:PiliPlus/models_new/history/data.dart';
-import 'package:PiliPlus/models_new/history/list.dart';
-import 'package:PiliPlus/pages/common/search/common_search_page.dart';
-import 'package:PiliPlus/pages/history/widgets/item.dart';
-import 'package:PiliPlus/pages/history_search/controller.dart';
-import 'package:PiliPlus/utils/grid.dart';
-import 'package:PiliPlus/utils/utils.dart';
+﻿import 'package:PiliMax/models_new/history/data.dart';
+import 'package:PiliMax/models_new/history/list.dart';
+import 'package:PiliMax/pages/common/search/common_search_page.dart';
+import 'package:PiliMax/pages/history/widgets/item.dart';
+import 'package:PiliMax/pages/history_search/controller.dart';
+import 'package:PiliMax/utils/grid.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

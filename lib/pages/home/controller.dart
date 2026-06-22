@@ -1,16 +1,16 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math';
 
-import 'package:PiliPlus/http/api.dart';
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/models/common/home_tab_type.dart';
-import 'package:PiliPlus/pages/common/common_controller.dart';
-import 'package:PiliPlus/pages/main/controller.dart';
-import 'package:PiliPlus/services/account_service.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:PiliPlus/utils/wbi_sign.dart';
+import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/models/common/home_tab_type.dart';
+import 'package:PiliMax/pages/common/common_controller.dart';
+import 'package:PiliMax/pages/main/controller.dart';
+import 'package:PiliMax/services/account_service.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/wbi_sign.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';

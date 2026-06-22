@@ -1,19 +1,19 @@
-import 'dart:math';
+﻿import 'dart:math';
 
-import 'package:PiliPlus/common/skeleton/msg_feed_top.dart';
-import 'package:PiliPlus/common/widgets/button/more_btn.dart';
-import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models/common/follow_order_type.dart';
-import 'package:PiliPlus/models_new/follow/list.dart';
-import 'package:PiliPlus/pages/common/fab_mixin.dart';
-import 'package:PiliPlus/pages/follow/child/child_controller.dart';
-import 'package:PiliPlus/pages/follow/controller.dart';
-import 'package:PiliPlus/pages/follow/widgets/follow_item.dart';
-import 'package:PiliPlus/pages/follow_type/follow_same/view.dart';
-import 'package:PiliPlus/pages/share/view.dart' show UserModel;
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliMax/common/skeleton/msg_feed_top.dart';
+import 'package:PiliMax/common/widgets/button/more_btn.dart';
+import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models/common/follow_order_type.dart';
+import 'package:PiliMax/models_new/follow/list.dart';
+import 'package:PiliMax/pages/common/fab_mixin.dart';
+import 'package:PiliMax/pages/follow/child/child_controller.dart';
+import 'package:PiliMax/pages/follow/controller.dart';
+import 'package:PiliMax/pages/follow/widgets/follow_item.dart';
+import 'package:PiliMax/pages/follow_type/follow_same/view.dart';
+import 'package:PiliMax/pages/share/view.dart' show UserModel;
+import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

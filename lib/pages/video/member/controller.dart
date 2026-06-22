@@ -1,12 +1,12 @@
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/member.dart';
-import 'package:PiliPlus/models/common/member/archive_order_type_app.dart';
-import 'package:PiliPlus/models/member/info.dart';
-import 'package:PiliPlus/models_new/space/space_archive/data.dart';
-import 'package:PiliPlus/models_new/space/space_archive/item.dart';
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
+﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/member.dart';
+import 'package:PiliMax/models/common/member/archive_order_type_app.dart';
+import 'package:PiliMax/models/member/info.dart';
+import 'package:PiliMax/models_new/space/space_archive/data.dart';
+import 'package:PiliMax/models_new/space/space_archive/item.dart';
+import 'package:PiliMax/pages/common/common_list_controller.dart';
+import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:get/get.dart';
 
 class HorizontalMemberPageController

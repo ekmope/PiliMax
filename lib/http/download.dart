@@ -1,17 +1,17 @@
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/video.dart';
-import 'package:PiliPlus/models/common/account_type.dart';
-import 'package:PiliPlus/models/common/video/audio_quality.dart';
-import 'package:PiliPlus/models/common/video/video_decode_type.dart';
-import 'package:PiliPlus/models/common/video/video_quality.dart';
-import 'package:PiliPlus/models/common/video/video_type.dart';
-import 'package:PiliPlus/models/video/play/url.dart';
-import 'package:PiliPlus/models_new/download/bili_download_entry_info.dart';
-import 'package:PiliPlus/models_new/download/bili_download_media_file_info.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:PiliPlus/utils/video_utils.dart';
+﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/video.dart';
+import 'package:PiliMax/models/common/account_type.dart';
+import 'package:PiliMax/models/common/video/audio_quality.dart';
+import 'package:PiliMax/models/common/video/video_decode_type.dart';
+import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/video_type.dart';
+import 'package:PiliMax/models/video/play/url.dart';
+import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
+import 'package:PiliMax/models_new/download/bili_download_media_file_info.dart';
+import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/extension/iterable_ext.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/video_utils.dart';
 import 'package:collection/collection.dart';
 
 abstract final class DownloadHttp {

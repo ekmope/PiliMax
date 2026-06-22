@@ -1,16 +1,16 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
-import 'package:PiliPlus/build_config.dart';
-import 'package:PiliPlus/common/constants.dart';
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/sponsor_block_api.dart';
-import 'package:PiliPlus/models/common/sponsor_block/post_segment_model.dart';
-import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
-import 'package:PiliPlus/models_new/sponsor_block/segment_item.dart';
-import 'package:PiliPlus/models_new/sponsor_block/user_info.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliMax/build_config.dart';
+import 'package:PiliMax/common/constants.dart';
+import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/sponsor_block_api.dart';
+import 'package:PiliMax/models/common/sponsor_block/post_segment_model.dart';
+import 'package:PiliMax/models/common/sponsor_block/segment_type.dart';
+import 'package:PiliMax/models_new/sponsor_block/segment_item.dart';
+import 'package:PiliMax/models_new/sponsor_block/user_info.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 

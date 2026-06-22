@@ -1,10 +1,10 @@
-import 'package:PiliPlus/common/constants.dart';
-import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart';
-import 'package:PiliPlus/grpc/bilibili/pagination.pb.dart';
-import 'package:PiliPlus/grpc/grpc_req.dart';
-import 'package:PiliPlus/grpc/url.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+﻿import 'package:PiliMax/common/constants.dart';
+import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart';
+import 'package:PiliMax/grpc/bilibili/pagination.pb.dart';
+import 'package:PiliMax/grpc/grpc_req.dart';
+import 'package:PiliMax/grpc/url.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:fixnum/fixnum.dart';
 
 abstract final class ReplyGrpc {

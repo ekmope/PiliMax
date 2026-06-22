@@ -1,5 +1,5 @@
-import 'package:PiliPlus/models/model_owner.dart';
-import 'package:PiliPlus/models_new/sub/sub/list.dart';
+﻿import 'package:PiliMax/models/model_owner.dart';
+import 'package:PiliMax/models_new/sub/sub/list.dart';
 
 class SpaceFavItemModel extends SubItemModel {
   int? mediaId;

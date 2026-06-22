@@ -1,16 +1,16 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
-import 'package:PiliPlus/common/constants.dart';
-import 'package:PiliPlus/common/widgets/button/icon_button.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
-import 'package:PiliPlus/services/logger.dart';
-import 'package:PiliPlus/utils/date_utils.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliMax/common/constants.dart';
+import 'package:PiliMax/common/widgets/button/icon_button.dart';
+import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliMax/services/logger.dart';
+import 'package:PiliMax/utils/date_utils.dart';
+import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:catcher_2/catcher_2.dart';
 import 'package:catcher_2/utils/log_printer.dart';
 import 'package:flutter/foundation.dart';

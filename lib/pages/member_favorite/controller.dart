@@ -1,10 +1,10 @@
-import 'package:PiliPlus/http/api.dart';
-import 'package:PiliPlus/http/fav.dart';
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/space/space_fav/data.dart';
-import 'package:PiliPlus/models_new/space/space_fav/list.dart';
-import 'package:PiliPlus/pages/common/common_data_controller.dart';
+﻿import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/fav.dart';
+import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models_new/space/space_fav/data.dart';
+import 'package:PiliMax/models_new/space/space_fav/list.dart';
+import 'package:PiliMax/pages/common/common_data_controller.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

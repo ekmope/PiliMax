@@ -1,18 +1,18 @@
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
-import 'package:PiliPlus/common/widgets/stat/stat.dart';
-import 'package:PiliPlus/common/widgets/video_popup_menu.dart';
-import 'package:PiliPlus/models/common/badge_type.dart';
-import 'package:PiliPlus/models/common/stat_type.dart';
-import 'package:PiliPlus/models_new/space/space_archive/item.dart';
-import 'package:PiliPlus/utils/date_utils.dart';
-import 'package:PiliPlus/utils/duration_utils.dart';
-import 'package:PiliPlus/utils/extension/dimension_ext.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
+﻿import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/badge.dart';
+import 'package:PiliMax/common/widgets/image/image_save.dart';
+import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/progress_bar/video_progress_indicator.dart';
+import 'package:PiliMax/common/widgets/stat/stat.dart';
+import 'package:PiliMax/common/widgets/video_popup_menu.dart';
+import 'package:PiliMax/models/common/badge_type.dart';
+import 'package:PiliMax/models/common/stat_type.dart';
+import 'package:PiliMax/models_new/space/space_archive/item.dart';
+import 'package:PiliMax/utils/date_utils.dart';
+import 'package:PiliMax/utils/duration_utils.dart';
+import 'package:PiliMax/utils/extension/dimension_ext.dart';
+import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 
 // 视频卡片 - 水平布局

@@ -1,7 +1,7 @@
-import 'dart:async';
+﻿import 'dart:async';
 
-import 'package:PiliPlus/models/user/info.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliMax/models/user/info.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:get/get.dart';
 
 class AccountService extends GetxService {

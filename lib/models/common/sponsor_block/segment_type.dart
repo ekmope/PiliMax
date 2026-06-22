@@ -1,8 +1,8 @@
-// ignore_for_file: constant_identifier_names
+﻿// ignore_for_file: constant_identifier_names
 
 import 'dart:ui';
 
-import 'package:PiliPlus/models/common/sponsor_block/action_type.dart';
+import 'package:PiliMax/models/common/sponsor_block/action_type.dart';
 
 enum SegmentType {
   sponsor(

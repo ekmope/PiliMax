@@ -1,15 +1,15 @@
-// Wbi签名 用于生成 REST API 请求中的 w_rid 和 wts 字段
+﻿// Wbi签名 用于生成 REST API 请求中的 w_rid 和 wts 字段
 // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/sign/wbi.md
 // import md5 from 'md5'
 // import axios from 'axios'
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:PiliPlus/http/api.dart';
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hive_ce/hive.dart';
 

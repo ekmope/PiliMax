@@ -1,14 +1,14 @@
-import 'package:PiliPlus/http/fav.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/pgc.dart';
-import 'package:PiliPlus/models/common/home_tab_type.dart';
-import 'package:PiliPlus/models_new/fav/fav_pgc/list.dart';
-import 'package:PiliPlus/models_new/pgc/pgc_index_result/list.dart';
-import 'package:PiliPlus/models_new/pgc/pgc_timeline/result.dart';
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
-import 'package:PiliPlus/services/account_service.dart';
-import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+﻿import 'package:PiliMax/http/fav.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/pgc.dart';
+import 'package:PiliMax/models/common/home_tab_type.dart';
+import 'package:PiliMax/models_new/fav/fav_pgc/list.dart';
+import 'package:PiliMax/models_new/pgc/pgc_index_result/list.dart';
+import 'package:PiliMax/models_new/pgc/pgc_timeline/result.dart';
+import 'package:PiliMax/pages/common/common_list_controller.dart';
+import 'package:PiliMax/services/account_service.dart';
+import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/widgets.dart' show ScrollController;
 import 'package:get/get.dart';
 

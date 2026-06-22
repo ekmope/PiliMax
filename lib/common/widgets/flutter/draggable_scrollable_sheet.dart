@@ -1,4 +1,4 @@
-// Copyright 2014 The Flutter Authors. All rights reserved.
+﻿// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,8 +11,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' hide DraggableScrollableSheet;
 
-part 'package:PiliPlus/common/widgets/draggable_sheet/dyn.dart';
-part 'package:PiliPlus/common/widgets/draggable_sheet/topic.dart';
+part 'package:PiliMax/common/widgets/draggable_sheet/dyn.dart';
+part 'package:PiliMax/common/widgets/draggable_sheet/topic.dart';
 
 /// Controls a [DraggableScrollableSheet].
 ///

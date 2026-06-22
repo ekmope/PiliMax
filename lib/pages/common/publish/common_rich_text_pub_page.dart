@@ -1,28 +1,28 @@
-import 'dart:io';
+﻿import 'dart:io';
 
-import 'package:PiliPlus/common/widgets/button/icon_button.dart';
-import 'package:PiliPlus/common/widgets/button/toolbar_icon_button.dart';
-import 'package:PiliPlus/common/widgets/flutter/text_field/controller.dart';
-import 'package:PiliPlus/common/widgets/flutter/text_field/text_field.dart';
-import 'package:PiliPlus/http/msg.dart';
-import 'package:PiliPlus/models/common/image_preview_type.dart';
-import 'package:PiliPlus/models/common/publish_panel_type.dart';
-import 'package:PiliPlus/models/dynamics/result.dart'
+import 'package:PiliMax/common/widgets/button/icon_button.dart';
+import 'package:PiliMax/common/widgets/button/toolbar_icon_button.dart';
+import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
+import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';
+import 'package:PiliMax/http/msg.dart';
+import 'package:PiliMax/models/common/image_preview_type.dart';
+import 'package:PiliMax/models/common/publish_panel_type.dart';
+import 'package:PiliMax/models/dynamics/result.dart'
     show PicModel, FilePicModel, OpusPicModel;
-import 'package:PiliPlus/models_new/dynamic/dyn_mention/item.dart';
-import 'package:PiliPlus/models_new/emote/emote.dart' as e;
-import 'package:PiliPlus/models_new/live/live_emote/emoticon.dart';
-import 'package:PiliPlus/pages/common/publish/common_publish_page.dart';
-import 'package:PiliPlus/pages/dynamics_mention/view.dart';
-import 'package:PiliPlus/utils/cache_manager.dart';
-import 'package:PiliPlus/utils/extension/file_ext.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/extension/string_ext.dart';
-import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:PiliPlus/utils/feed_back.dart';
-import 'package:PiliPlus/utils/image_utils.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliMax/models_new/dynamic/dyn_mention/item.dart';
+import 'package:PiliMax/models_new/emote/emote.dart' as e;
+import 'package:PiliMax/models_new/live/live_emote/emoticon.dart';
+import 'package:PiliMax/pages/common/publish/common_publish_page.dart';
+import 'package:PiliMax/pages/dynamics_mention/view.dart';
+import 'package:PiliMax/utils/cache_manager.dart';
+import 'package:PiliMax/utils/extension/file_ext.dart';
+import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/extension/string_ext.dart';
+import 'package:PiliMax/utils/extension/theme_ext.dart';
+import 'package:PiliMax/utils/feed_back.dart';
+import 'package:PiliMax/utils/image_utils.dart';
+import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart'
     hide CacheManager;
 import 'package:dio/dio.dart' show CancelToken;

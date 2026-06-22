@@ -1,12 +1,12 @@
-// 视频or合集
-import 'package:PiliPlus/common/assets.dart';
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/models/common/badge_type.dart';
-import 'package:PiliPlus/models/dynamics/result.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/num_utils.dart';
+﻿// 视频or合集
+import 'package:PiliMax/common/assets.dart';
+import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/badge.dart';
+import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/models/common/badge_type.dart';
+import 'package:PiliMax/models/dynamics/result.dart';
+import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/num_utils.dart';
 import 'package:flutter/material.dart';
 
 Widget videoSeasonWidget(

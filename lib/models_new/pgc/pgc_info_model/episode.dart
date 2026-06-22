@@ -1,5 +1,5 @@
-import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
-import 'package:PiliPlus/models_new/video/video_detail/episode.dart'
+﻿import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
+import 'package:PiliMax/models_new/video/video_detail/episode.dart'
     show BaseEpisodeItem;
 
 class EpisodeItem extends BaseEpisodeItem {

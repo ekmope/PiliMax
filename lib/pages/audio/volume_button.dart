@@ -1,9 +1,9 @@
-import 'dart:async' show Timer;
+﻿import 'dart:async' show Timer;
 import 'dart:math' as math;
 
-import 'package:PiliPlus/common/widgets/flutter/vertical_slider.dart';
-import 'package:PiliPlus/pages/audio/controller.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliMax/common/widgets/flutter/vertical_slider.dart';
+import 'package:PiliMax/pages/audio/controller.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderProxyBox, BoxHitTestResult;
 import 'package:get/get.dart';

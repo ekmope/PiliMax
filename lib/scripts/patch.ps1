@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$platform = ""
 )
 
@@ -8,25 +8,25 @@ $NewOverScrollIndicator = "362b1de29974ffc1ed6faa826e1df870d7bec75f";
 
 $BottomSheetAndroidPatch = "lib/scripts/bottom_sheet_android.patch"
 
-# https://github.com/bggRGjQaUbCoE/PiliPlus/issues/1906
+# https://github.com/ekmope/PiliMax/issues/1906
 $BottomSheetIOSFlutterPatch = "lib/scripts/bottom_sheet_ios_flutter.patch"
-$BottomSheetIOSPiliPlusPatch = "lib/scripts/bottom_sheet_ios_piliplus.patch"
+$BottomSheetIOSPiliMaxPatch = "lib/scripts/bottom_sheet_ios_piliplus.patch"
 
-# https://github.com/bggRGjQaUbCoE/PiliPlus/issues/1662
+# https://github.com/ekmope/PiliMax/issues/1662
 $ScrollViewPatch = "lib/scripts/scroll_view.patch"
 
-# https://github.com/bggRGjQaUbCoE/PiliPlus/issues/2106
+# https://github.com/ekmope/PiliMax/issues/2106
 $TextSelectionPatch = "lib/scripts/text_selection.patch"
 
-# https://github.com/bggRGjQaUbCoE/PiliPlus/issues/1947
+# https://github.com/ekmope/PiliMax/issues/1947
 $NavigatorPatch = "lib/scripts/navigator.patch"
 
-# https://github.com/bggRGjQaUbCoE/PiliPlus/issues/2107
+# https://github.com/ekmope/PiliMax/issues/2107
 $ImageAnimPatch = "lib/scripts/image_anim.patch"
 
 $LayoutBuilderPatch = "lib/scripts/layout_builder.patch"
 
-# https://github.com/bggRGjQaUbCoE/PiliPlus/issues/2308
+# https://github.com/ekmope/PiliMax/issues/2308
 $NavigationDrawerPatch = "lib/scripts/navigation_drawer.patch"
 
 # TODO: remove
@@ -40,9 +40,9 @@ $MouseCursorPatch = "lib/scripts/mouse_cursor.patch"
 $GeetestIOSPatch = "lib/scripts/geetest_ios.patch"
 
 if ($platform.ToLower() -eq "ios") {
-    git apply $BottomSheetIOSPiliPlusPatch
+    git apply $BottomSheetIOSPiliMaxPatch
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "$BottomSheetIOSPiliPlusPatch applied"
+        Write-Host "$BottomSheetIOSPiliMaxPatch applied"
     }
     git apply $GeetestIOSPatch
     if ($LASTEXITCODE -eq 0) {

@@ -1,8 +1,8 @@
-import 'package:PiliPlus/models/horizontal_video_model.dart';
-import 'package:PiliPlus/models/model_owner.dart';
-import 'package:PiliPlus/models/model_video.dart';
-import 'package:PiliPlus/models_new/video/video_detail/dimension.dart';
-import 'package:PiliPlus/pages/common/multi_select/base.dart';
+﻿import 'package:PiliMax/models/horizontal_video_model.dart';
+import 'package:PiliMax/models/model_owner.dart';
+import 'package:PiliMax/models/model_video.dart';
+import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
+import 'package:PiliMax/pages/common/multi_select/base.dart';
 
 // 稍后再看, 排行榜等网页返回也使用该类
 class HotVideoItemModel extends HorizontalVideoModel with MultiSelectData {

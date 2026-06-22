@@ -1,13 +1,13 @@
-// Copyright 2014 The Flutter Authors. All rights reserved.
+﻿// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import 'dart:io' show File;
 import 'dart:math' as math;
 
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
-import 'package:PiliPlus/common/widgets/image_viewer/viewer.dart';
+import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
+import 'package:PiliMax/common/widgets/image_viewer/viewer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show DoubleTapGestureRecognizer;
 import 'package:flutter/material.dart';

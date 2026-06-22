@@ -1,8 +1,8 @@
-import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/pages/log_table/controller.dart';
-import 'package:PiliPlus/utils/extension/widget_ext.dart';
+﻿import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/pages/log_table/controller.dart';
+import 'package:PiliMax/utils/extension/widget_ext.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

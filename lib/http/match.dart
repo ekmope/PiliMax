@@ -1,8 +1,8 @@
-import 'package:PiliPlus/http/api.dart';
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/match/match_info/contest.dart';
-import 'package:PiliPlus/models_new/match/match_info/data.dart';
+﻿import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models_new/match/match_info/contest.dart';
+import 'package:PiliMax/models_new/match/match_info/data.dart';
 
 abstract final class MatchHttp {
   static Future<LoadingState<MatchContest?>> matchInfo(Object cid) async {

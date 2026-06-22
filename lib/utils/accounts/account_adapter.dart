@@ -1,5 +1,5 @@
-import 'package:PiliPlus/models/common/account_type.dart';
-import 'package:PiliPlus/utils/accounts/account.dart';
+﻿import 'package:PiliMax/models/common/account_type.dart';
+import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:hive_ce/hive.dart';
 

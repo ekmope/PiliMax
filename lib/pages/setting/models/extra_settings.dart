@@ -1,47 +1,48 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:math' show max;
 
-import 'package:PiliPlus/common/widgets/custom_icon.dart';
-import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
+import 'package:PiliMax/build_config.dart';
+import 'package:PiliMax/common/widgets/custom_icon.dart';
+import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show deviceTouchSlop, touchSlopH;
-import 'package:PiliPlus/common/widgets/image_grid/image_grid_view.dart'
+import 'package:PiliMax/common/widgets/image_grid/image_grid_view.dart'
     show ImageGridView, ImageModel;
-import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
-import 'package:PiliPlus/grpc/reply.dart';
-import 'package:PiliPlus/http/fav.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models/common/audio_normalization.dart';
-import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
-import 'package:PiliPlus/models/common/member/tab_type.dart';
-import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
-import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
-import 'package:PiliPlus/models/common/super_resolution_type.dart';
-import 'package:PiliPlus/models/dynamics/result.dart'
+import 'package:PiliMax/common/widgets/pendant_avatar.dart';
+import 'package:PiliMax/grpc/reply.dart';
+import 'package:PiliMax/http/fav.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models/common/audio_normalization.dart';
+import 'package:PiliMax/models/common/dynamic/dynamics_type.dart';
+import 'package:PiliMax/models/common/member/tab_type.dart';
+import 'package:PiliMax/models/common/reply/reply_sort_type.dart';
+import 'package:PiliMax/models/common/sponsor_block/skip_type.dart';
+import 'package:PiliMax/models/common/super_resolution_type.dart';
+import 'package:PiliMax/models/dynamics/result.dart'
     show DynamicsDataModel, ItemModulesModel;
-import 'package:PiliPlus/pages/common/slide/common_slide_page.dart';
-import 'package:PiliPlus/pages/home/controller.dart';
-import 'package:PiliPlus/pages/main/controller.dart';
-import 'package:PiliPlus/pages/setting/models/model.dart';
-import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
-import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
-import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
-import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/services/download/download_service.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/cache_manager.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/feed_back.dart';
-import 'package:PiliPlus/utils/filtering_text.dart';
-import 'package:PiliPlus/utils/global_data.dart';
-import 'package:PiliPlus/utils/image_utils.dart';
-import 'package:PiliPlus/utils/path_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:PiliPlus/utils/update.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
+import 'package:PiliMax/pages/home/controller.dart';
+import 'package:PiliMax/pages/main/controller.dart';
+import 'package:PiliMax/pages/setting/models/model.dart';
+import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
+import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
+import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
+import 'package:PiliMax/plugin/pl_player/controller.dart';
+import 'package:PiliMax/services/download/download_service.dart';
+import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/cache_manager.dart';
+import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/feed_back.dart';
+import 'package:PiliMax/utils/filtering_text.dart';
+import 'package:PiliMax/utils/global_data.dart';
+import 'package:PiliMax/utils/image_utils.dart';
+import 'package:PiliMax/utils/path_utils.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/update.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart' hide RefreshIndicator;
@@ -200,13 +201,14 @@ List<SettingsModel> get extraSettings => [
     setKey: SettingBoxKey.reverseFromFirst,
     defaultVal: true,
   ),
-  const SwitchModel(
-    title: '禁用 SSL 证书验证',
-    subtitle: '谨慎开启，禁用容易受到中间人攻击',
-    leading: Icon(Icons.security),
-    needReboot: true,
-    setKey: SettingBoxKey.badCertificateCallback,
-  ),
+  if (kDebugMode || BuildConfig.allowInsecureCertificates)
+    const SwitchModel(
+      title: '禁用 SSL 证书验证',
+      subtitle: '谨慎开启，禁用容易受到中间人攻击',
+      leading: Icon(Icons.security),
+      needReboot: true,
+      setKey: SettingBoxKey.badCertificateCallback,
+    ),
   const SwitchModel(
     title: '显示继续播放分P提示',
     leading: Icon(Icons.local_parking),

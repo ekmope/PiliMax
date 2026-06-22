@@ -1,20 +1,20 @@
-import 'package:PiliPlus/common/constants.dart';
-import 'package:PiliPlus/http/api.dart';
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models/common/fav_order_type.dart';
-import 'package:PiliPlus/models_new/fav/fav_article/data.dart';
-import 'package:PiliPlus/models_new/fav/fav_detail/data.dart';
-import 'package:PiliPlus/models_new/fav/fav_folder/data.dart';
-import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
-import 'package:PiliPlus/models_new/fav/fav_note/list.dart';
-import 'package:PiliPlus/models_new/fav/fav_pgc/data.dart';
-import 'package:PiliPlus/models_new/fav/fav_topic/data.dart';
-import 'package:PiliPlus/models_new/space/space_cheese/data.dart';
-import 'package:PiliPlus/models_new/space/space_fav/data.dart';
-import 'package:PiliPlus/models_new/sub/sub_detail/data.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/app_sign.dart';
+﻿import 'package:PiliMax/common/constants.dart';
+import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models/common/fav_order_type.dart';
+import 'package:PiliMax/models_new/fav/fav_article/data.dart';
+import 'package:PiliMax/models_new/fav/fav_detail/data.dart';
+import 'package:PiliMax/models_new/fav/fav_folder/data.dart';
+import 'package:PiliMax/models_new/fav/fav_folder/list.dart';
+import 'package:PiliMax/models_new/fav/fav_note/list.dart';
+import 'package:PiliMax/models_new/fav/fav_pgc/data.dart';
+import 'package:PiliMax/models_new/fav/fav_topic/data.dart';
+import 'package:PiliMax/models_new/space/space_cheese/data.dart';
+import 'package:PiliMax/models_new/space/space_fav/data.dart';
+import 'package:PiliMax/models_new/sub/sub_detail/data.dart';
+import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/app_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class FavHttp {

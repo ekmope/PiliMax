@@ -1,11 +1,11 @@
-import 'dart:async';
+﻿import 'dart:async';
 
-import 'package:PiliPlus/common/widgets/dialog/dialog.dart';
-import 'package:PiliPlus/models_new/download/download_info.dart';
-import 'package:PiliPlus/pages/common/multi_select/base.dart'
+import 'package:PiliMax/common/widgets/dialog/dialog.dart';
+import 'package:PiliMax/models_new/download/download_info.dart';
+import 'package:PiliMax/pages/common/multi_select/base.dart'
     show BaseMultiSelectMixin;
-import 'package:PiliPlus/services/download/download_service.dart';
-import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliMax/services/download/download_service.dart';
+import 'package:PiliMax/utils/storage.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart' show Text;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

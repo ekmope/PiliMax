@@ -1,6 +1,6 @@
-import 'package:PiliPlus/models_new/history/history.dart';
-import 'package:PiliPlus/pages/common/multi_select/base.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+﻿import 'package:PiliMax/models_new/history/history.dart';
+import 'package:PiliMax/pages/common/multi_select/base.dart';
+import 'package:PiliMax/utils/extension/iterable_ext.dart';
 
 class HistoryItemModel with MultiSelectData {
   String? title;

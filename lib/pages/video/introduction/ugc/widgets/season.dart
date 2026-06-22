@@ -1,12 +1,12 @@
-import 'dart:async';
+﻿import 'dart:async';
 
-import 'package:PiliPlus/common/assets.dart';
-import 'package:PiliPlus/models_new/video/video_detail/data.dart';
-import 'package:PiliPlus/models_new/video/video_detail/episode.dart';
-import 'package:PiliPlus/models_new/video/video_detail/section.dart';
-import 'package:PiliPlus/pages/video/controller.dart';
-import 'package:PiliPlus/pages/video/introduction/ugc/controller.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
+import 'package:PiliMax/common/assets.dart';
+import 'package:PiliMax/models_new/video/video_detail/data.dart';
+import 'package:PiliMax/models_new/video/video_detail/episode.dart';
+import 'package:PiliMax/models_new/video/video_detail/section.dart';
+import 'package:PiliMax/pages/video/controller.dart';
+import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
+import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

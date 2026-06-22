@@ -1,4 +1,4 @@
-import 'package:PiliPlus/utils/platform_utils.dart';
+﻿import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 abstract final class ConnectivityUtils {

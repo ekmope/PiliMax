@@ -1,35 +1,35 @@
-/*
- * This file is part of PiliPlus
+﻿/*
+ * This file is part of PiliMax
  *
- * PiliPlus is free software: you can redistribute it and/or modify
+ * PiliMax is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * PiliPlus is distributed in the hope that it will be useful,
+ * PiliMax is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with PiliPlus.  If not, see <https://www.gnu.org/licenses/>.
+ * along with PiliMax.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import 'dart:io' show Platform;
 
-import 'package:PiliPlus/common/assets.dart';
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/badge.dart';
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/common/widgets/image_grid/image_grid_builder.dart';
-import 'package:PiliPlus/models/common/image_preview_type.dart';
-import 'package:PiliPlus/utils/extension/context_ext.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/extension/size_ext.dart';
-import 'package:PiliPlus/utils/image_utils.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliMax/common/assets.dart';
+import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/badge.dart';
+import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/image_grid/image_grid_builder.dart';
+import 'package:PiliMax/models/common/image_preview_type.dart';
+import 'package:PiliMax/utils/extension/context_ext.dart';
+import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/extension/size_ext.dart';
+import 'package:PiliMax/utils/image_utils.dart';
+import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:get/get_core/src/get_main.dart';

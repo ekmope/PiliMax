@@ -1,15 +1,15 @@
-import 'package:PiliPlus/common/assets.dart';
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
-import 'package:PiliPlus/models/common/image_type.dart';
-import 'package:PiliPlus/models/dynamics/up.dart';
-import 'package:PiliPlus/pages/dynamics/controller.dart';
-import 'package:PiliPlus/pages/live_follow/view.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/feed_back.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
+﻿import 'package:PiliMax/common/assets.dart';
+import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/models/common/dynamic/up_panel_position.dart';
+import 'package:PiliMax/models/common/image_type.dart';
+import 'package:PiliMax/models/dynamics/up.dart';
+import 'package:PiliMax/pages/dynamics/controller.dart';
+import 'package:PiliMax/pages/live_follow/view.dart';
+import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/feed_back.dart';
+import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

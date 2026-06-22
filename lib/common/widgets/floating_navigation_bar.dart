@@ -1,8 +1,8 @@
-// Copyright 2014 The Flutter Authors. All rights reserved.
+﻿// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:PiliPlus/utils/extension/theme_ext.dart';
+import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:flutter/material.dart';
 
 const double _kMaxLabelTextScaleFactor = 1.3;

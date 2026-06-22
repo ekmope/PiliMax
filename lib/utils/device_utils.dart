@@ -1,5 +1,5 @@
-import 'package:PiliPlus/utils/android/bindings.g.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
+﻿import 'package:PiliMax/utils/android/bindings.g.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/widgets.dart' show WidgetsBinding, Size;
 
 abstract final class DeviceUtils {

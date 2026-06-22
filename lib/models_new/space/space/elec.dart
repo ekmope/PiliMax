@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models/model_owner.dart';
+﻿import 'package:PiliMax/models/model_owner.dart';
 
 class Elec {
   int? total;

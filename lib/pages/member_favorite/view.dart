@@ -1,12 +1,12 @@
-import 'package:PiliPlus/common/skeleton/video_card_h.dart';
-import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/sliver/sliver_pinned_header.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/space/space_fav/data.dart';
-import 'package:PiliPlus/pages/member_favorite/controller.dart';
-import 'package:PiliPlus/pages/member_favorite/widget/item.dart';
-import 'package:PiliPlus/utils/grid.dart';
+﻿import 'package:PiliMax/common/skeleton/video_card_h.dart';
+import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/sliver/sliver_pinned_header.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models_new/space/space_fav/data.dart';
+import 'package:PiliMax/pages/member_favorite/controller.dart';
+import 'package:PiliMax/pages/member_favorite/widget/item.dart';
+import 'package:PiliMax/utils/grid.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

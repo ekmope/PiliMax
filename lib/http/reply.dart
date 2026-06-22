@@ -1,14 +1,14 @@
-import 'package:PiliPlus/common/constants.dart';
-import 'package:PiliPlus/http/api.dart';
-import 'package:PiliPlus/http/init.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/emote/data.dart';
-import 'package:PiliPlus/models_new/emote/package.dart';
-import 'package:PiliPlus/models_new/reply/data.dart';
-import 'package:PiliPlus/models_new/reply2reply/data.dart';
-import 'package:PiliPlus/models_new/reply_interaction/data.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/accounts/account.dart';
+﻿import 'package:PiliMax/common/constants.dart';
+import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models_new/emote/data.dart';
+import 'package:PiliMax/models_new/emote/package.dart';
+import 'package:PiliMax/models_new/reply/data.dart';
+import 'package:PiliMax/models_new/reply2reply/data.dart';
+import 'package:PiliMax/models_new/reply_interaction/data.dart';
+import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 

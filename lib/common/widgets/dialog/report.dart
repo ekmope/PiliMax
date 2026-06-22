@@ -1,7 +1,7 @@
-import 'package:PiliPlus/common/widgets/radio_widget.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/utils/extension/string_ext.dart';
-import 'package:PiliPlus/utils/utils.dart';
+﻿import 'package:PiliMax/common/widgets/radio_widget.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/utils/extension/string_ext.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

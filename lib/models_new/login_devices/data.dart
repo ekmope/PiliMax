@@ -1,4 +1,4 @@
-import 'package:PiliPlus/models_new/login_devices/device.dart';
+﻿import 'package:PiliMax/models_new/login_devices/device.dart';
 
 class LoginDevicesData {
   List<LoginDevice>? devices;

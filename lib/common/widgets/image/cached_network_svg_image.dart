@@ -1,8 +1,8 @@
-// code from cached_network_svg_image;
+﻿// code from cached_network_svg_image;
 
 import 'dart:developer';
 
-import 'package:PiliPlus/utils/cache_manager.dart';
+import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';

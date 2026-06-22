@@ -1,7 +1,7 @@
-import 'package:PiliPlus/common/widgets/pair.dart';
-import 'package:PiliPlus/common/widgets/reorder_mixin.dart';
-import 'package:PiliPlus/models/common/enum_with_label.dart';
-import 'package:PiliPlus/utils/storage.dart';
+﻿import 'package:PiliMax/common/widgets/pair.dart';
+import 'package:PiliMax/common/widgets/reorder_mixin.dart';
+import 'package:PiliMax/models/common/enum_with_label.dart';
+import 'package:PiliMax/utils/storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

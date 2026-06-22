@@ -1,7 +1,7 @@
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/reply.dart';
-import 'package:PiliPlus/models_new/emote/package.dart';
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
+﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/reply.dart';
+import 'package:PiliMax/models_new/emote/package.dart';
+import 'package:PiliMax/pages/common/common_list_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

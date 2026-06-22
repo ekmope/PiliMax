@@ -1,7 +1,7 @@
-import 'package:PiliPlus/common/skeleton/dynamic_card.dart';
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/utils/global_data.dart';
-import 'package:PiliPlus/utils/grid.dart';
+﻿import 'package:PiliMax/common/skeleton/dynamic_card.dart';
+import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/utils/global_data.dart';
+import 'package:PiliMax/utils/grid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SliverConstraints;
 import 'package:waterfall_flow/waterfall_flow.dart'

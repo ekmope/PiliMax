@@ -13,4 +13,7 @@ abstract final class BuildConfig {
     'pili.hash',
     defaultValue: 'N/A',
   );
+  static const bool allowInsecureCertificates = bool.fromEnvironment(
+    'pili.allowInsecureCertificates',
+  );
 }

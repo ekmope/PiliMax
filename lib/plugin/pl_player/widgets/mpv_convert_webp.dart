@@ -1,11 +1,11 @@
-// ignore_for_file: implementation_imports
+﻿// ignore_for_file: implementation_imports
 
 import 'dart:async';
 import 'dart:ffi';
 
-import 'package:PiliPlus/http/browser_ua.dart';
-import 'package:PiliPlus/http/constants.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliMax/http/browser_ua.dart';
+import 'package:PiliMax/http/constants.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:get/get_rx/get_rx.dart';

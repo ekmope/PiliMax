@@ -1,10 +1,10 @@
-import 'package:PiliPlus/common/widgets/button/icon_button.dart';
-import 'package:PiliPlus/pages/video/introduction/ugc/widgets/menu_row.dart';
-import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
-import 'package:PiliPlus/utils/extension/num_ext.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/theme_utils.dart';
+﻿import 'package:PiliMax/common/widgets/button/icon_button.dart';
+import 'package:PiliMax/pages/video/introduction/ugc/widgets/menu_row.dart';
+import 'package:PiliMax/plugin/pl_player/controller.dart';
+import 'package:PiliMax/plugin/pl_player/utils/danmaku_options.dart';
+import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/theme_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

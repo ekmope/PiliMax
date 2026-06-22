@@ -1,14 +1,14 @@
-import 'package:PiliPlus/common/widgets/avatars.dart';
-import 'package:PiliPlus/common/widgets/image/image_save.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models/dynamics/result.dart';
-import 'package:PiliPlus/pages/dynamics/widgets/action_panel.dart';
-import 'package:PiliPlus/pages/dynamics/widgets/author_panel.dart';
-import 'package:PiliPlus/pages/dynamics/widgets/dyn_content.dart';
-import 'package:PiliPlus/pages/dynamics/widgets/interaction.dart';
-import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:PiliPlus/utils/page_utils.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
+﻿import 'package:PiliMax/common/widgets/avatars.dart';
+import 'package:PiliMax/common/widgets/image/image_save.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models/dynamics/result.dart';
+import 'package:PiliMax/pages/dynamics/widgets/action_panel.dart';
+import 'package:PiliMax/pages/dynamics/widgets/author_panel.dart';
+import 'package:PiliMax/pages/dynamics/widgets/dyn_content.dart';
+import 'package:PiliMax/pages/dynamics/widgets/interaction.dart';
+import 'package:PiliMax/utils/extension/theme_ext.dart';
+import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 
 class DynamicPanel extends StatelessWidget {

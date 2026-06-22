@@ -1,7 +1,7 @@
-import 'package:PiliPlus/models/model_avatar.dart';
-import 'package:PiliPlus/models_new/article/article_view/ops.dart';
-import 'package:PiliPlus/models_new/article/article_view/opus.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+﻿import 'package:PiliMax/models/model_avatar.dart';
+import 'package:PiliMax/models_new/article/article_view/ops.dart';
+import 'package:PiliMax/models_new/article/article_view/opus.dart';
+import 'package:PiliMax/utils/extension/iterable_ext.dart';
 
 class ArticleViewData {
   int? id;

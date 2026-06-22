@@ -1,9 +1,9 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:PiliPlus/services/logger.dart';
+import 'package:PiliMax/services/logger.dart';
 import 'package:brotli/brotli.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

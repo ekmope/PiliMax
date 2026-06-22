@@ -1,14 +1,14 @@
-import 'dart:io' show File;
+﻿import 'dart:io' show File;
 
-import 'package:PiliPlus/common/widgets/button/icon_button.dart';
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/common/widgets/time_picker.dart';
-import 'package:PiliPlus/models/dynamics/vote_model.dart';
-import 'package:PiliPlus/pages/dynamics_create_vote/controller.dart';
-import 'package:PiliPlus/utils/date_utils.dart';
-import 'package:PiliPlus/utils/extension/file_ext.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliMax/common/widgets/button/icon_button.dart';
+import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/time_picker.dart';
+import 'package:PiliMax/models/dynamics/vote_model.dart';
+import 'package:PiliMax/pages/dynamics_create_vote/controller.dart';
+import 'package:PiliMax/utils/date_utils.dart';
+import 'package:PiliMax/utils/extension/file_ext.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/material.dart' hide showTimePicker;
 import 'package:flutter/services.dart';

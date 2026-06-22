@@ -1,6 +1,6 @@
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/models_new/live/live_medal_wall/uinfo_medal.dart';
-import 'package:PiliPlus/utils/color_utils.dart';
+﻿import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/models_new/live/live_medal_wall/uinfo_medal.dart';
+import 'package:PiliMax/utils/color_utils.dart';
 import 'package:flutter/material.dart';
 
 const _kFontSize = 10.0;

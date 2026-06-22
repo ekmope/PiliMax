@@ -1,5 +1,5 @@
-import 'package:PiliPlus/models_new/msg/msg_at/cursor.dart';
-import 'package:PiliPlus/models_new/msg/msg_at/item.dart';
+﻿import 'package:PiliMax/models_new/msg/msg_at/cursor.dart';
+import 'package:PiliMax/models_new/msg/msg_at/item.dart';
 
 class MsgAtData {
   Cursor? cursor;

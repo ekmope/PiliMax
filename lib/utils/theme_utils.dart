@@ -1,6 +1,6 @@
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+﻿import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/utils/extension/theme_ext.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/cupertino.dart' show CupertinoThemeData;
 import 'package:flutter/foundation.dart' show PlatformDispatcher;
 import 'package:flutter/material.dart';

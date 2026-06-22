@@ -1,18 +1,18 @@
-import 'dart:io' show Platform;
+﻿import 'dart:io' show Platform;
 
-import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/reply.dart';
-import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
-import 'package:PiliPlus/utils/accounts.dart';
-import 'package:PiliPlus/utils/accounts/account.dart';
-import 'package:PiliPlus/utils/android/android_helper.dart';
-import 'package:PiliPlus/utils/extension/iterable_ext.dart';
-import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:PiliPlus/utils/id_utils.dart';
-import 'package:PiliPlus/utils/theme_utils.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/reply.dart';
+import 'package:PiliMax/models/common/reply/reply_sort_type.dart';
+import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/accounts/account.dart';
+import 'package:PiliMax/utils/android/android_helper.dart';
+import 'package:PiliMax/utils/extension/iterable_ext.dart';
+import 'package:PiliMax/utils/extension/theme_ext.dart';
+import 'package:PiliMax/utils/id_utils.dart';
+import 'package:PiliMax/utils/theme_utils.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

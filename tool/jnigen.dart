@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+﻿import 'dart:io' show Platform;
 
 import 'package:jnigen/jnigen.dart';
 
@@ -15,7 +15,7 @@ void main(List<String> args) {
       androidSdkConfig: AndroidSdkConfig(addGradleDeps: true),
       sourcePath: [packageRoot.resolve('android/app/src/main/java')],
       classes: [
-        'com.example.piliplus.AndroidHelper',
+        'com.PiliMaxa.android.AndroidHelper',
         'java.lang.Runnable',
       ],
     ),

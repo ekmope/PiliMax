@@ -1,10 +1,10 @@
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/user.dart';
-import 'package:PiliPlus/models_new/later/data.dart';
-import 'package:PiliPlus/models_new/later/list.dart';
-import 'package:PiliPlus/pages/common/multi_select/base.dart';
-import 'package:PiliPlus/pages/common/search/common_search_controller.dart';
-import 'package:PiliPlus/pages/later/controller.dart' show BaseLaterController;
+﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/user.dart';
+import 'package:PiliMax/models_new/later/data.dart';
+import 'package:PiliMax/models_new/later/list.dart';
+import 'package:PiliMax/pages/common/multi_select/base.dart';
+import 'package:PiliMax/pages/common/search/common_search_controller.dart';
+import 'package:PiliMax/pages/later/controller.dart' show BaseLaterController;
 import 'package:get/get.dart';
 
 class LaterSearchController

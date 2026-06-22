@@ -1,4 +1,4 @@
-import com.android.build.gradle.internal.api.ApkVariantOutputImpl
+﻿import com.android.build.gradle.internal.api.ApkVariantOutputImpl
 import org.jetbrains.kotlin.konan.properties.Properties
 
 plugins {
@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.piliplus"
+    namespace = "com.PiliMaxa.android"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -18,7 +18,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.piliplus"
+        applicationId = "com.PiliMaxa.android"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -60,7 +60,7 @@ android {
                 resValue(
                     type = "string",
                     name = "app_name",
-                    value = "PiliPlus dev",
+                    value = "PiliMax dev",
                 )
             }
 //            proguardFiles(

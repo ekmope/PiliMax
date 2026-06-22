@@ -1,4 +1,4 @@
-// Copyright 2014 The Flutter Authors. All rights reserved.
+﻿// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -11,7 +11,7 @@
 
 import 'dart:math' as math;
 
-import 'package:PiliPlus/common/widgets/flutter/page/scrollable.dart';
+import 'package:PiliMax/common/widgets/flutter/page/scrollable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart'
     hide EdgeDraggingAutoScroller, Scrollable, ScrollableState;

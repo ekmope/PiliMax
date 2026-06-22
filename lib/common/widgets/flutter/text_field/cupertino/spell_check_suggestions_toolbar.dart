@@ -1,4 +1,4 @@
-// Copyright 2014 The Flutter Authors. All rights reserved.
+﻿// Copyright 2014 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,7 @@
 /// @docImport 'package:flutter/material.dart';
 library;
 
-import 'package:PiliPlus/common/widgets/flutter/text_field/editable_text.dart';
+import 'package:PiliMax/common/widgets/flutter/text_field/editable_text.dart';
 import 'package:flutter/cupertino.dart'
     hide EditableText, EditableTextState, CupertinoSpellCheckSuggestionsToolbar;
 import 'package:flutter/scheduler.dart';

@@ -1,14 +1,14 @@
-import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
-import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/bubble/dyn_list.dart';
-import 'package:PiliPlus/pages/bubble/controller.dart';
-import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
-import 'package:PiliPlus/utils/grid.dart';
+﻿import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
+import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliMax/common/widgets/keep_alive_wrapper.dart';
+import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models_new/bubble/dyn_list.dart';
+import 'package:PiliMax/pages/bubble/controller.dart';
+import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
+import 'package:PiliMax/utils/grid.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart'
     hide ListTile, SliverGridDelegateWithMaxCrossAxisExtent;

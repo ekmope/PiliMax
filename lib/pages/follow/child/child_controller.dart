@@ -1,15 +1,15 @@
-import 'package:PiliPlus/http/follow.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/member.dart';
-import 'package:PiliPlus/http/user.dart';
-import 'package:PiliPlus/models/common/follow_order_type.dart';
-import 'package:PiliPlus/models_new/follow/data.dart';
-import 'package:PiliPlus/models_new/follow/list.dart';
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
-import 'package:PiliPlus/pages/follow/controller.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/storage_pref.dart';
+﻿import 'package:PiliMax/http/follow.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/member.dart';
+import 'package:PiliMax/http/user.dart';
+import 'package:PiliMax/models/common/follow_order_type.dart';
+import 'package:PiliMax/models_new/follow/data.dart';
+import 'package:PiliMax/models_new/follow/list.dart';
+import 'package:PiliMax/pages/common/common_list_controller.dart';
+import 'package:PiliMax/pages/follow/controller.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:get/get.dart';
 
 class FollowChildController

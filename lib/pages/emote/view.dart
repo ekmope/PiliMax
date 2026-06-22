@@ -1,15 +1,15 @@
-import 'package:PiliPlus/common/widgets/button/icon_button.dart';
-import 'package:PiliPlus/common/widgets/custom_tooltip.dart';
-import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/loading_widget.dart';
-import 'package:PiliPlus/common/widgets/scroll_physics.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models/common/image_type.dart';
-import 'package:PiliPlus/models_new/emote/emote.dart';
-import 'package:PiliPlus/models_new/emote/package.dart';
-import 'package:PiliPlus/pages/emote/controller.dart';
-import 'package:PiliPlus/utils/extension/theme_ext.dart';
-import 'package:PiliPlus/utils/theme_utils.dart';
+﻿import 'package:PiliMax/common/widgets/button/icon_button.dart';
+import 'package:PiliMax/common/widgets/custom_tooltip.dart';
+import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models/common/image_type.dart';
+import 'package:PiliMax/models_new/emote/emote.dart';
+import 'package:PiliMax/models_new/emote/package.dart';
+import 'package:PiliMax/pages/emote/controller.dart';
+import 'package:PiliMax/utils/extension/theme_ext.dart';
+import 'package:PiliMax/utils/theme_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

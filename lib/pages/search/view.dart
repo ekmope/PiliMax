@@ -1,19 +1,19 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
-import 'package:PiliPlus/common/widgets/dialog/export_import.dart';
-import 'package:PiliPlus/common/widgets/disabled_icon.dart';
-import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliPlus/common/widgets/sliver_wrap.dart';
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/models_new/search/search_rcmd/data.dart';
-import 'package:PiliPlus/pages/search/controller.dart';
-import 'package:PiliPlus/pages/search/widgets/hot_keyword.dart';
-import 'package:PiliPlus/pages/search/widgets/search_text.dart';
-import 'package:PiliPlus/utils/em.dart' show Em;
-import 'package:PiliPlus/utils/extension/size_ext.dart';
-import 'package:PiliPlus/utils/storage.dart';
-import 'package:PiliPlus/utils/storage_key.dart';
-import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliMax/common/widgets/dialog/export_import.dart';
+import 'package:PiliMax/common/widgets/disabled_icon.dart';
+import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/sliver_wrap.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models_new/search/search_rcmd/data.dart';
+import 'package:PiliMax/pages/search/controller.dart';
+import 'package:PiliMax/pages/search/widgets/hot_keyword.dart';
+import 'package:PiliMax/pages/search/widgets/search_text.dart';
+import 'package:PiliMax/utils/em.dart' show Em;
+import 'package:PiliMax/utils/extension/size_ext.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

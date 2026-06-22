@@ -1,9 +1,9 @@
-import 'package:PiliPlus/common/widgets/sliver/sliver_floating_header.dart';
-import 'package:PiliPlus/models/search/result.dart';
-import 'package:PiliPlus/pages/search_panel/article/controller.dart';
-import 'package:PiliPlus/pages/search_panel/article/widgets/item.dart';
-import 'package:PiliPlus/pages/search_panel/view.dart';
-import 'package:PiliPlus/utils/grid.dart';
+﻿import 'package:PiliMax/common/widgets/sliver/sliver_floating_header.dart';
+import 'package:PiliMax/models/search/result.dart';
+import 'package:PiliMax/pages/search_panel/article/controller.dart';
+import 'package:PiliMax/pages/search_panel/article/widgets/item.dart';
+import 'package:PiliMax/pages/search_panel/view.dart';
+import 'package:PiliMax/utils/grid.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

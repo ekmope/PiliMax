@@ -1,11 +1,11 @@
-import 'package:PiliPlus/grpc/bilibili/app/listener/v1.pbenum.dart'
+﻿import 'package:PiliMax/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
-import 'package:PiliPlus/http/loading_state.dart';
-import 'package:PiliPlus/http/member.dart';
-import 'package:PiliPlus/models_new/space/space_audio/data.dart';
-import 'package:PiliPlus/models_new/space/space_audio/item.dart';
-import 'package:PiliPlus/pages/audio/view.dart';
-import 'package:PiliPlus/pages/common/common_list_controller.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/member.dart';
+import 'package:PiliMax/models_new/space/space_audio/data.dart';
+import 'package:PiliMax/models_new/space/space_audio/item.dart';
+import 'package:PiliMax/pages/audio/view.dart';
+import 'package:PiliMax/pages/common/common_list_controller.dart';
 
 class MemberAudioController
     extends CommonListController<SpaceAudioData, SpaceAudioItem> {

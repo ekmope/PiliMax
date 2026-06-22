@@ -1,23 +1,23 @@
-import 'dart:io' show Platform;
+﻿import 'dart:io' show Platform;
 import 'dart:math' as math;
 
-import 'package:PiliPlus/common/style.dart';
-import 'package:PiliPlus/common/widgets/flutter/draggable_scrollable_sheet.dart';
-import 'package:PiliPlus/common/widgets/marquee.dart';
-import 'package:PiliPlus/models/common/video/live_quality.dart';
-import 'package:PiliPlus/pages/live_room/controller.dart';
-import 'package:PiliPlus/pages/setting/models/play_settings.dart'
+import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/flutter/draggable_scrollable_sheet.dart';
+import 'package:PiliMax/common/widgets/marquee.dart';
+import 'package:PiliMax/models/common/video/live_quality.dart';
+import 'package:PiliMax/pages/live_room/controller.dart';
+import 'package:PiliMax/pages/setting/models/play_settings.dart'
     show showPlayerVolumeDialog;
-import 'package:PiliPlus/pages/video/widgets/header_control.dart';
-import 'package:PiliPlus/plugin/pl_player/controller.dart';
-import 'package:PiliPlus/plugin/pl_player/widgets/common_btn.dart';
-import 'package:PiliPlus/services/shutdown_timer_service.dart'
+import 'package:PiliMax/pages/video/widgets/header_control.dart';
+import 'package:PiliMax/plugin/pl_player/controller.dart';
+import 'package:PiliMax/plugin/pl_player/widgets/common_btn.dart';
+import 'package:PiliMax/services/shutdown_timer_service.dart'
     show shutdownTimerService;
-import 'package:PiliPlus/utils/android/bindings.g.dart';
-import 'package:PiliPlus/utils/extension/context_ext.dart';
-import 'package:PiliPlus/utils/extension/size_ext.dart';
-import 'package:PiliPlus/utils/extension/string_ext.dart';
-import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliMax/utils/android/bindings.g.dart';
+import 'package:PiliMax/utils/extension/context_ext.dart';
+import 'package:PiliMax/utils/extension/size_ext.dart';
+import 'package:PiliMax/utils/extension/string_ext.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';

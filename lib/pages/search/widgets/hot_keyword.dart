@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/assets.dart';
+import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/models_new/search/search_trending/list.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/image_utils.dart';

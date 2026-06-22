@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';

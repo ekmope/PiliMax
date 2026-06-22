@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/live/live_emote/datum.dart';
+import 'package:PiliMax/models_new/live/live_emote/datum.dart';
 
 class LiveEmoteData {
   List<LiveEmoteDatum>? data;

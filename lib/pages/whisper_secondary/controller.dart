@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart'
+import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart'
     show Offset, Session, SessionPageType, SessionSecondaryReply, ThreeDotItem;
 import 'package:PiliMax/grpc/im.dart';
 import 'package:PiliMax/http/loading_state.dart';

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show SearchItemReply, SearchItem, SearchItemType;
 import 'package:PiliMax/grpc/reply.dart';
 import 'package:PiliMax/http/loading_state.dart';

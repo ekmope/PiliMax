@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/later/list.dart';
+import 'package:PiliMax/models_new/later/list.dart';
 
 class LaterData {
   int? count;

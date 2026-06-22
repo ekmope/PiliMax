@@ -1,11 +1,13 @@
-﻿import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show MainListReply, ReplyInfo;
 import 'package:PiliMax/grpc/reply.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/pages/common/reply_controller.dart';
 import 'package:PiliMax/pages/video/controller.dart';
+import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/id_utils.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:get/get.dart';
 
 class VideoReplyController extends ReplyController<MainListReply> {
@@ -20,6 +22,9 @@ class VideoReplyController extends ReplyController<MainListReply> {
 
   final String heroTag;
   late final videoCtr = Get.find<VideoDetailController>(tag: heroTag);
+
+  // 是否正在进入应用内小窗
+  bool isEnteringPip = false;
 
   @override
   dynamic get sourceId => IdUtils.av2bv(aid);
@@ -37,4 +42,17 @@ class VideoReplyController extends ReplyController<MainListReply> {
     cursorNext: cursorNext,
     offset: paginationReply?.nextOffset,
   );
+
+  @override
+  void onClose() {
+    if (kDebugMode) {
+      print(
+        '[PiliMax] VideoReplyController onClose called, isEnteringPip: $isEnteringPip',
+      );
+    }
+    if (isEnteringPip) {
+      return;
+    }
+    super.onClose();
+  }
 }

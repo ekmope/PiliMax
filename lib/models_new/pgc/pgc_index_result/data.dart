@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/pgc/pgc_index_result/list.dart';
+import 'package:PiliMax/models_new/pgc/pgc_index_result/list.dart';
 
 class PgcIndexResult {
   int? hasNext;

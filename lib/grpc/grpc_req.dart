@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:PiliMax/grpc/bilibili/rpc.pb.dart';

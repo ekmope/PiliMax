@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/dynamics/result.dart' show ModuleBlocked;
+import 'package:PiliMax/models/dynamics/result.dart' show ModuleBlocked;
 import 'package:PiliMax/pages/article/widgets/opus_content.dart'
     show moduleBlockedItem;
 import 'package:flutter/material.dart';

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/common/badge_type.dart';
+import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:flutter/material.dart';

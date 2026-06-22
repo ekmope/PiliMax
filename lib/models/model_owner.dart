@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_video.dart';
+import 'package:PiliMax/models/model_video.dart';
 import 'package:PiliMax/utils/parse_int.dart';
 import 'package:hive_ce/hive.dart';
 

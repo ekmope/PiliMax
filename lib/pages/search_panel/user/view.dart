@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/msg_feed_top.dart';
+import 'package:PiliMax/common/skeleton/msg_feed_top.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pages/search_panel/user/controller.dart';

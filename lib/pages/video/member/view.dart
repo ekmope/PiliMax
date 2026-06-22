@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/video_card_h.dart';
+import 'package:PiliMax/common/skeleton/video_card_h.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/radio_widget.dart';
+import 'package:PiliMax/common/widgets/radio_widget.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/utils.dart';

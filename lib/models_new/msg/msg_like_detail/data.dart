@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/msg/msg_like_detail/card.dart';
+import 'package:PiliMax/models_new/msg/msg_like_detail/card.dart';
 import 'package:PiliMax/models_new/msg/msg_like_detail/item.dart';
 import 'package:PiliMax/models_new/msg/msg_like_detail/page.dart';
 

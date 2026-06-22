@@ -1,8 +1,9 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
+import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/date_utils.dart';
@@ -111,7 +112,7 @@ class _LogsPageState extends State<LogsPage> {
       appBar: AppBar(
         title: const Text('日志'),
         actions: [
-          PopupMenuButton(
+          StaticPopupMenuButton(
             itemBuilder: (_) => [
               if (kDebugMode)
                 PopupMenuItem(

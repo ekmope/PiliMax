@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/dynamic/dyn_topic_pub_search/page_info.dart';
+import 'package:PiliMax/models_new/dynamic/dyn_topic_pub_search/page_info.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_topic_top/topic_item.dart';
 
 class TopicPubSearchData {

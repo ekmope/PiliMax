@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/scroll_physics.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/fav_type.dart';

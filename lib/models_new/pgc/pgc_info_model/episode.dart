@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
+import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart'
     show BaseEpisodeItem;
 

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_video.dart';
+import 'package:PiliMax/models/model_video.dart';
 import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
 
 abstract class HorizontalVideoModel extends BaseVideoItemModel {

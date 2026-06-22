@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:PiliMax/common/skeleton/msg_feed_top.dart';
 import 'package:PiliMax/common/widgets/button/more_btn.dart';

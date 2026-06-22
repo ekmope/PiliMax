@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart'
+import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart'
     show GetImSettingsReply, IMSettingType, Setting;
 import 'package:PiliMax/grpc/im.dart';
 import 'package:PiliMax/http/loading_state.dart';

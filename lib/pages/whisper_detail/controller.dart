@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:PiliMax/grpc/bilibili/im/interfaces/v1.pb.dart'

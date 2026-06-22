@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:PiliMax/common/skeleton/video_card_h.dart';
 import 'package:PiliMax/common/style.dart';

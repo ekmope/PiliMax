@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';

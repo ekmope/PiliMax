@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/video/video_detail/section.dart';
+import 'package:PiliMax/models_new/video/video_detail/section.dart';
 
 class UgcSeason {
   int? id;

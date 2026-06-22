@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/member_card_info/card.dart';
+import 'package:PiliMax/models_new/member_card_info/card.dart';
 
 class MemberCardInfoData {
   Card? card;

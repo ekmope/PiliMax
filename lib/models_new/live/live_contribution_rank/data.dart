@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/live/live_contribution_rank/item.dart';
+import 'package:PiliMax/models_new/live/live_contribution_rank/item.dart';
 
 class LiveContributionRankData {
   List<LiveContributionRankItem>? item;

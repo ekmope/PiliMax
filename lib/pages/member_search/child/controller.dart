@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/grpc/bilibili/app/interfaces/v1.pb.dart'
+import 'package:PiliMax/grpc/bilibili/app/interfaces/v1.pb.dart'
     show SearchArchiveReply;
 import 'package:PiliMax/grpc/space.dart';
 import 'package:PiliMax/http/loading_state.dart';

@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart'
     show SelectItem, Setting, SettingSwitch;

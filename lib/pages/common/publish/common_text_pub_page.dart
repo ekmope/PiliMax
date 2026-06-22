@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/pages/common/publish/common_publish_page.dart';
+import 'package:PiliMax/pages/common/publish/common_publish_page.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:flutter/material.dart';
 

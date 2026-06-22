@@ -1,4 +1,4 @@
-﻿// Microsoft Visual C++ generated resource script.
+// Microsoft Visual C++ generated resource script.
 //
 #pragma code_page(65001)
 #include "resource.h"
@@ -89,10 +89,10 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "ekmope" "\0"
+            VALUE "CompanyName", "PiliMax" "\0"
             VALUE "FileDescription", "PiliMax" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "PiliMax" "\0"
+            VALUE "InternalName", "pilimax" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2023 PiliMax. All rights reserved." "\0"
             VALUE "OriginalFilename", "pilimax.exe" "\0"
             VALUE "ProductName", "PiliMax" "\0"

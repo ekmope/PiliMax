@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/grpc/bilibili/app/listener/v1.pbenum.dart'
+import 'package:PiliMax/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/member.dart';

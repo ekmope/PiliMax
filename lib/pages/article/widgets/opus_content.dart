@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';

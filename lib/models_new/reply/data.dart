@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/reply/control.dart';
+import 'package:PiliMax/models_new/reply/control.dart';
 import 'package:PiliMax/models_new/reply/cursor.dart';
 import 'package:PiliMax/models_new/reply/reply.dart';
 import 'package:PiliMax/models_new/reply/top.dart';

@@ -1,4 +1,4 @@
-﻿import 'dart:io' show Platform;
+import 'dart:io' show Platform;
 
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;

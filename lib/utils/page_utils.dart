@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:PiliMax/common/widgets/fractionally_sized_box.dart';
 import 'package:PiliMax/common/widgets/image_viewer/gallery_viewer.dart';
@@ -224,6 +224,7 @@ abstract final class PageUtils {
   static Future<void> pushDynDetail(
     DynamicItemModel item, {
     bool isPush = false,
+    ValueChanged<DynamicItemModel>? onUpdate,
   }) async {
     feedBack();
 
@@ -237,14 +238,11 @@ abstract final class PageUtils {
           },
         );
       } else {
-        if (item.linkFolded) {
-          pushDynFromId(id: item.idStr);
-          return;
-        }
         toDupNamed(
           '/dynamicDetail',
           arguments: {
             'item': item,
+            if (onUpdate != null) 'onUpdate': onUpdate,
           },
         );
       }

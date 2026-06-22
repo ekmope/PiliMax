@@ -1,7 +1,8 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
+import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
@@ -425,7 +426,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
         onPressed: () => PageUtils.inAppWebview(controller.url),
         icon: const Icon(Icons.open_in_browser_outlined, size: 19),
       ),
-      PopupMenuButton(
+      StaticPopupMenuButton(
         icon: const Icon(Icons.more_vert, size: 19),
         itemBuilder: (BuildContext context) => <PopupMenuEntry>[
           PopupMenuItem(

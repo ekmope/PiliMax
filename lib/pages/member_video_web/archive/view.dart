@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/self_sized_horizontal_list.dart';
+import 'package:PiliMax/common/widgets/self_sized_horizontal_list.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliMax/models/common/member/archive_order_type_web.dart';
 import 'package:PiliMax/models_new/member/search_archive/data.dart';

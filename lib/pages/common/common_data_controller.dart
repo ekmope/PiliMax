@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/common/common_controller.dart';
 import 'package:get/get.dart';
 

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/dialog/dialog.dart';
+import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';

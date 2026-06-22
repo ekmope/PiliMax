@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/style.dart' as common_style;
+import 'package:PiliMax/common/style.dart' as common_style;
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/models/dynamics/vote_model.dart';
 import 'package:PiliMax/utils/color_utils.dart';

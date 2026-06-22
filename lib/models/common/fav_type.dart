@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/pages/fav/article/view.dart';
+import 'package:PiliMax/pages/fav/article/view.dart';
 import 'package:PiliMax/pages/fav/cheese/view.dart';
 import 'package:PiliMax/pages/fav/note/view.dart';
 import 'package:PiliMax/pages/fav/pgc/view.dart';

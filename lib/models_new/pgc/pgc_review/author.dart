@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_avatar.dart' show Vip;
+import 'package:PiliMax/models/model_avatar.dart' show Vip;
 
 class Author {
   String? avatar;

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/constants.dart';
+import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/grpc_headers.dart';

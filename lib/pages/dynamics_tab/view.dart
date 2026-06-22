@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -66,6 +66,7 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
   Widget build(BuildContext context) {
     super.build(context);
     return refreshIndicator(
+      key: controller.refreshKey,
       onRefresh: () {
         dynamicsController.queryFollowUp();
         return controller.onRefresh();
@@ -105,6 +106,10 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
                                 controller.onRemove(index, idStr),
                             onBlock: () => controller.onBlock(index),
                             onUnfold: () => controller.onUnfold(item, index),
+                            onUpdate: (newItem) {
+                              response[index] = newItem;
+                              controller.loadingState.refresh();
+                            },
                           );
                         },
                         childCount: response.length,
@@ -122,6 +127,10 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
                               controller.onRemove(index, idStr),
                           onBlock: () => controller.onBlock(index),
                           onUnfold: () => controller.onUnfold(item, index),
+                          onUpdate: (newItem) {
+                            response[index] = newItem;
+                            controller.loadingState.refresh();
+                          },
                         );
                       },
                       itemCount: response.length,

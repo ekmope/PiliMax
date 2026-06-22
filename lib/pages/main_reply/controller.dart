@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
+import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show MainListReply, ReplyInfo;
 import 'package:PiliMax/grpc/reply.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 class MainReplyController extends ReplyController<MainListReply> {
   late final int oid;
   late final int replyType;
+  late final String? heroTag;
 
   @override
   int get sourceId => oid;
@@ -18,6 +19,7 @@ class MainReplyController extends ReplyController<MainListReply> {
     final args = Get.arguments;
     oid = args['oid'];
     replyType = args['replyType'];
+    heroTag = args['heroTag'];
 
     queryData();
   }

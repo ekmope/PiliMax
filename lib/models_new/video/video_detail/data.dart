@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_owner.dart';
+import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models_new/video/video_detail/argue_info.dart';
 import 'package:PiliMax/models_new/video/video_detail/desc_v2.dart';
 import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
@@ -7,6 +7,7 @@ import 'package:PiliMax/models_new/video/video_detail/rights.dart';
 import 'package:PiliMax/models_new/video/video_detail/staff.dart';
 import 'package:PiliMax/models_new/video/video_detail/stat.dart';
 import 'package:PiliMax/models_new/video/video_detail/ugc_season.dart';
+import 'package:PiliMax/models/common/list_order.dart';
 import 'package:PiliMax/utils/parse_string.dart';
 
 class VideoDetailData {
@@ -33,7 +34,8 @@ class VideoDetailData {
   UgcSeason? ugcSeason;
   List<Staff>? staff;
   String? redirectUrl;
-  bool isPageReversed = false;
+  ListOrder listOrder = ListOrder.asc;
+  List<Part>? originalPages;
 
   VideoDetailData({
     this.bvid,

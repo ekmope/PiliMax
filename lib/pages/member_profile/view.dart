@@ -1,4 +1,4 @@
-﻿import 'dart:io' show File;
+import 'dart:io' show File;
 
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';

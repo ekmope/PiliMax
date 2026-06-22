@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:PiliMax/common/widgets/dialog/export_import.dart';
 import 'package:PiliMax/common/widgets/disabled_icon.dart';

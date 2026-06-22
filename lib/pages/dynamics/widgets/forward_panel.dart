@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/image/image_save.dart';
+import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/widgets/dyn_content.dart';
 import 'package:PiliMax/pages/dynamics/widgets/module_panel.dart';

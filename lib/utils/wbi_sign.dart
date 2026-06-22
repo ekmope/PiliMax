@@ -1,4 +1,4 @@
-﻿// Wbi签名 用于生成 REST API 请求中的 w_rid 和 wts 字段
+// Wbi签名 用于生成 REST API 请求中的 w_rid 和 wts 字段
 // https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/sign/wbi.md
 // import md5 from 'md5'
 // import axios from 'axios'

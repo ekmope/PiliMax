@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/custom_height_widget.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';

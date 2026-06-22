@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/live/live_search/user_item.dart';
+import 'package:PiliMax/models_new/live/live_search/user_item.dart';
 
 class User {
   List<LiveSearchUserItemModel>? list;

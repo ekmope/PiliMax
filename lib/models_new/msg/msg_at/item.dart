@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/msg/msg_at/content.dart';
+import 'package:PiliMax/models_new/msg/msg_at/content.dart';
 import 'package:PiliMax/models_new/msg/msg_at/user.dart';
 
 class MsgAtItem {

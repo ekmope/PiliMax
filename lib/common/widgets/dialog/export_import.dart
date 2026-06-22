@@ -1,4 +1,4 @@
-﻿import 'dart:async' show FutureOr;
+import 'dart:async' show FutureOr;
 import 'dart:convert' show utf8, jsonDecode;
 
 import 'package:PiliMax/common/style.dart';

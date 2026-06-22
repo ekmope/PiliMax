@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 
 abstract final class BrowserUa {
   static String get platform => PlatformUtils.isMobile ? mob : pc;

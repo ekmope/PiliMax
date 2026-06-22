@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/history/data.dart';
+import 'package:PiliMax/models_new/history/data.dart';
 import 'package:PiliMax/models_new/history/list.dart';
 import 'package:PiliMax/pages/common/search/common_search_page.dart';
 import 'package:PiliMax/pages/history/widgets/item.dart';

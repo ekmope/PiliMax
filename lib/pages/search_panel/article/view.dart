@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/sliver/sliver_floating_header.dart';
+import 'package:PiliMax/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pages/search_panel/article/controller.dart';
 import 'package:PiliMax/pages/search_panel/article/widgets/item.dart';
@@ -29,6 +29,10 @@ class _SearchArticlePanelState
     with GridMixin {
   @override
   late final SearchArticleController controller;
+
+  @override
+  String? getTitle(SearchArticleItemModel item) =>
+      item.title.map((e) => e.text).join();
 
   @override
   void initState() {
@@ -76,11 +80,14 @@ class _SearchArticlePanelState
                   padding: WidgetStatePropertyAll(EdgeInsets.zero),
                 ),
                 onPressed: () => controller.onShowFilterDialog(context),
-                icon: Icon(
-                  Icons.filter_list_outlined,
+                icon: Obx(() => Icon(
+                  controller.includeKeywords.isNotEmpty ||
+                          controller.excludeKeywords.isNotEmpty
+                      ? Icons.filter_list
+                      : Icons.filter_list_off,
                   size: 18,
                   color: theme.colorScheme.primary,
-                ),
+                )),
               ),
             ),
           ],

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/models/common/member/contribute_type.dart';
 import 'package:PiliMax/models_new/space/space/tab2.dart';
 import 'package:PiliMax/pages/member_article/view.dart';

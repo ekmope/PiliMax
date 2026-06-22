@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/space_setting/privacy.dart';
+import 'package:PiliMax/models_new/space_setting/privacy.dart';
 
 class SpaceSettingData {
   Privacy? privacy;

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/api.dart';
 
 enum VideoType {
   ugc(

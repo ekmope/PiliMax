@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/space/space/item.dart';
+import 'package:PiliMax/models_new/space/space/item.dart';
 
 class SpaceSeries {
   List<Item>? item;

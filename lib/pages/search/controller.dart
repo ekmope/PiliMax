@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/http/loading_state.dart';

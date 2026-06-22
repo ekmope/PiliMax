@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/pair.dart';
+import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/http/live.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/live/live_feed_index/card_data_list_item.dart';

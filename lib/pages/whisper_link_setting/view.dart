@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/pendant_avatar.dart';
+import 'package:PiliMax/common/widgets/pendant_avatar.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/msg/im_user_infos/datum.dart';
 import 'package:PiliMax/models_new/msg/msg_dnd/uid_setting.dart';

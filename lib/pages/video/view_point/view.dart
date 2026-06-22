@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/progress_bar/segment_progress_bar.dart';
@@ -6,6 +6,8 @@ import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -54,8 +56,15 @@ class _ViewPointsPageState extends State<ViewPointsPage>
               scale: 0.8,
               child: Switch(
                 value: videoDetailController.showVP.value,
-                onChanged: (value) =>
-                    videoDetailController.showVP.value = value,
+                onChanged: (value) {
+                  videoDetailController.showVP.value = value;
+                  if (plPlayerController?.tempPlayerConf != true) {
+                    GStorage.setting.put(
+                      SettingBoxKey.showViewPointsOverlay,
+                      value,
+                    );
+                  }
+                },
               ),
             ),
           ),

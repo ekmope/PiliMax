@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/pgc.dart';
 import 'package:PiliMax/models/common/pgc_review_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_review/data.dart';

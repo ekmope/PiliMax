@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/assets.dart';
+import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
@@ -31,11 +31,13 @@ import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
+import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/request_utils.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:expandable/expandable.dart';
 import 'package:flutter/material.dart';
@@ -49,6 +51,7 @@ class UgcIntroPanel extends StatefulWidget {
     super.key,
     required this.heroTag,
     required this.showAiBottomSheet,
+    required this.showAiChatBottomSheet,
     required this.showEpisodes,
     required this.onShowMemberPage,
     required this.isPortrait,
@@ -56,6 +59,7 @@ class UgcIntroPanel extends StatefulWidget {
   });
   final String heroTag;
   final Function showAiBottomSheet;
+  final VoidCallback showAiChatBottomSheet;
   final Function showEpisodes;
   final ValueChanged<int?> onShowMemberPage;
   final bool isPortrait;
@@ -605,6 +609,14 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                 ? NumUtils.numFormat(videoDetail.stat!.share!)
                 : null,
           ),
+          if (Pref.enableAiChat)
+            ActionItem(
+              icon: const Icon(Icons.auto_awesome),
+              onTap: widget.showAiChatBottomSheet,
+              selectStatus: false,
+              semanticsLabel: 'AI分析',
+              text: 'AI',
+            ),
         ],
       ),
     );
@@ -922,18 +934,36 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
               officialType: userStat.card?.official?.type,
             ),
             const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  userStat.card?.name ?? "",
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                Text.rich(
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isVip && userStat.card?.vip?.type == 2
-                        ? theme.colorScheme.vipColor
-                        : null,
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: userStat.card?.name ?? "",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isVip && userStat.card?.vip?.type == 2
+                              ? theme.colorScheme.vipColor
+                              : null,
+                        ),
+                      ),
+                      if (GlobalData().remarkMids[
+                              int.tryParse(userStat.card?.mid ?? '')]
+                          case final String remark
+                          when remark.isNotEmpty)
+                        TextSpan(
+                          text: '（$remark）',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 0),
@@ -945,6 +975,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                   ),
                 ),
               ],
+              ),
             ),
           ],
         );

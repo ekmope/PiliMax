@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/utils/parse_int.dart';
+import 'package:PiliMax/utils/parse_int.dart';
 
 class FollowUpModel {
   FollowUpModel({

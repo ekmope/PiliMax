@@ -1,4 +1,4 @@
-﻿// 视频or合集
+// 视频or合集
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';

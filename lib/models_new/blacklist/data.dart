@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/blacklist/list.dart';
+import 'package:PiliMax/models_new/blacklist/list.dart';
 
 class BlackListData {
   List<BlackListItem>? list;

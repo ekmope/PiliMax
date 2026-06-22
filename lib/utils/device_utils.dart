@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/utils/android/bindings.g.dart';
+import 'package:PiliMax/utils/android/bindings.g.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/widgets.dart' show WidgetsBinding, Size;
 

@@ -1,4 +1,4 @@
-﻿import 'dart:io' show Platform;
+import 'dart:io' show Platform;
 
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';

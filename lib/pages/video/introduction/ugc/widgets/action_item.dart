@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/custom_arc.dart';
+import 'package:PiliMax/common/widgets/custom_arc.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';

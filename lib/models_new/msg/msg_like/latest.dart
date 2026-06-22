@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/msg/msg_like/item.dart';
+import 'package:PiliMax/models_new/msg/msg_like/item.dart';
 
 class Latest {
   List<MsgLikeItem>? items;

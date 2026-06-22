@@ -1,4 +1,4 @@
-﻿// edit from package:dio_cookie_manager
+// edit from package:dio_cookie_manager
 import 'dart:async';
 import 'dart:io';
 

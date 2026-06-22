@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/space/space/list.dart';
+import 'package:PiliMax/models_new/space/space/list.dart';
 import 'package:PiliMax/models_new/space/space_article/item.dart';
 
 class Article {

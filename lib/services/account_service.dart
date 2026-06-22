@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/models/user/info.dart';
 import 'package:PiliMax/utils/storage_pref.dart';

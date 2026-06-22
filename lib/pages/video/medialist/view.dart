@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/badge.dart';
+import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
@@ -10,6 +10,7 @@ import 'package:PiliMax/models/common/stat_type.dart';
 import 'package:PiliMax/models_new/media_list/media_list.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart';
 import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
+import 'package:PiliMax/models/common/list_order.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +27,7 @@ class MediaListPanel extends CommonSlidePage {
     required this.bvid,
     required this.loadMoreMedia,
     required this.count,
-    required this.desc,
+    required this.listOrder,
     required this.onReverse,
     required this.loadPrevious,
     this.onDelete,
@@ -38,7 +39,7 @@ class MediaListPanel extends CommonSlidePage {
   final String bvid;
   final VoidCallback loadMoreMedia;
   final int? count;
-  final bool desc;
+  final ListOrder listOrder;
   final VoidCallback onReverse;
   final RefreshCallback? loadPrevious;
   final void Function(MediaListItemModel item, int index)? onDelete;
@@ -77,10 +78,12 @@ class _MediaListPanelState extends State<MediaListPanel>
             actions: [
               iconButton(
                 iconSize: 20,
-                tooltip: widget.desc ? '顺序播放' : '倒序播放',
-                icon: widget.desc
-                    ? const Icon(MdiIcons.sortAscending)
-                    : const Icon(MdiIcons.sortDescending),
+                tooltip: widget.listOrder.label,
+                icon: switch (widget.listOrder) {
+                  ListOrder.desc => const Icon(MdiIcons.sortDescending),
+                  ListOrder.shuffle => const Icon(Icons.shuffle),
+                  _ => const Icon(MdiIcons.sortAscending),
+                },
                 onPressed: () {
                   Get.back();
                   widget.onReverse();

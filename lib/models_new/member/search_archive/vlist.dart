@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/horizontal_video_model.dart';
+import 'package:PiliMax/models/horizontal_video_model.dart';
 import 'package:PiliMax/models/model_video.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 

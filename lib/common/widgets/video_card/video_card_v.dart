@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
@@ -16,6 +16,7 @@ import 'package:PiliMax/utils/extension/dimension_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:intl/intl.dart';
@@ -124,6 +125,17 @@ class VideoCardV extends StatelessWidget {
                                 videoItem.duration,
                               ),
                             ),
+                          if (videoItem case RcmdVideoItemAppModel(
+                            :final canPlay,
+                          ) when canPlay != 1)
+                            const PBadge(
+                              text: '充电专属',
+                              top: 6,
+                              right: 6,
+                              size: .small,
+                              type: .error,
+                              fontSize: 10,
+                            ),
                         ],
                       );
                     },
@@ -180,7 +192,7 @@ class VideoCardV extends StatelessWidget {
                     type: .line_primary,
                     fontSize: 9,
                   ),
-                if (videoItem.rcmdReason != null)
+                if (Pref.showRcmdReason && videoItem.rcmdReason != null)
                   PBadge(
                     text: videoItem.rcmdReason,
                     isStack: false,
@@ -195,7 +207,7 @@ class VideoCardV extends StatelessWidget {
                     type: .line_primary,
                     fontSize: 9,
                   ),
-                if (videoItem.isFollowed)
+                if (Pref.showRcmdReason && videoItem.isFollowed)
                   const PBadge(
                     text: '已关注',
                     isStack: false,

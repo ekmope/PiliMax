@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:PiliMax/common/widgets/custom_tooltip.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/common/video/cdn_type.dart';
+import 'package:PiliMax/models/common/video/cdn_type.dart';
 import 'package:PiliMax/models_new/live/live_room_play_info/codec.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/storage_pref.dart';

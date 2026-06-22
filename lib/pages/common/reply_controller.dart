@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
+import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show MainListReply, ReplyInfo, SubjectControl, Mode;
 import 'package:PiliMax/grpc/bilibili/pagination.pb.dart';

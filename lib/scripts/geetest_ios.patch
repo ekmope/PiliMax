@@ -1,4 +1,4 @@
-﻿diff --git a/lib/pages/login/geetest/geetest_plugin.dart b/lib/pages/login/geetest/geetest_plugin.dart
+diff --git a/lib/pages/login/geetest/geetest_plugin.dart b/lib/pages/login/geetest/geetest_plugin.dart
 new file mode 100644
 index 000000000..2823c2188
 --- /dev/null

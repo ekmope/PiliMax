@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
@@ -217,6 +217,7 @@ class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
               isVideoDetail: false,
               replyType: controller.replyType,
               firstFloor: replyItem,
+              heroTag: arguments?['heroTag'],
             ),
           ).constraintWidth(),
         ),

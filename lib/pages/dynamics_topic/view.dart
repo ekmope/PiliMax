@@ -1,6 +1,7 @@
-﻿import 'package:PiliMax/common/assets.dart';
+import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/dynamic_sliver_app_bar/dynamic_sliver_app_bar.dart';
+import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -329,7 +330,7 @@ class _DynTopicPageState extends State<DynTopicPage>
             // https://www.bilibili.com/v/topic/detail?topic_id=${_controller.topicId}
             icon: const Icon(MdiIcons.share),
           ),
-          PopupMenuButton(
+          StaticPopupMenuButton(
             itemBuilder: (context) {
               return [
                 PopupMenuItem(

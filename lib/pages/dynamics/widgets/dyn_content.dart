@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/dynamics/result.dart';
+import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/widgets/additional_panel.dart';
 import 'package:PiliMax/pages/dynamics/widgets/blocked_item.dart';
 import 'package:PiliMax/pages/dynamics/widgets/content_panel.dart';

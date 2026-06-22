@@ -1,4 +1,4 @@
-﻿part of 'package:PiliMax/common/widgets/flutter/draggable_scrollable_sheet.dart';
+part of 'package:PiliMax/common/widgets/flutter/draggable_scrollable_sheet.dart';
 
 class TopicDraggableScrollableSheet extends DraggableScrollableSheet {
   const TopicDraggableScrollableSheet({

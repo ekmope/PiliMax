@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/match/match_info/contest.dart';
+import 'package:PiliMax/models_new/match/match_info/contest.dart';
 
 class MatchInfoData {
   MatchContest? contest;

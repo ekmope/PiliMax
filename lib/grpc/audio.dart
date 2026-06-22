@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/grpc/bilibili/app/archive/middleware/v1.pb.dart';
+import 'package:PiliMax/grpc/bilibili/app/archive/middleware/v1.pb.dart';
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pb.dart';
 import 'package:PiliMax/grpc/bilibili/pagination.pb.dart';
 import 'package:PiliMax/grpc/grpc_req.dart';

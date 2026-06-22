@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/scroll_physics.dart' show ReloadMixin;
+import 'package:PiliMax/common/widgets/scroll_physics.dart' show ReloadMixin;
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/model_hot_video_item.dart';

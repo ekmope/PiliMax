@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_avatar.dart';
+import 'package:PiliMax/models/model_avatar.dart';
 import 'package:PiliMax/models_new/live/live_feed_index/watched_show.dart';
 
 class MemberInfoModel {

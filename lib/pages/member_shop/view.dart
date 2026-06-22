@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/space_opus.dart';
+import 'package:PiliMax/common/skeleton/space_opus.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';

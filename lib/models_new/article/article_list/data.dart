@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_owner.dart';
+import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models_new/article/article_list/article.dart';
 import 'package:PiliMax/models_new/article/article_list/list.dart';
 

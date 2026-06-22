@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/dialog/dialog.dart';
+import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart'
     show ThreeDotItem, ThreeDotItemType, IMSettingType;
 import 'package:PiliMax/pages/common/common_whisper_controller.dart';

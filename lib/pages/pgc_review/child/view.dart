@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/video_reply.dart';
+import 'package:PiliMax/common/skeleton/video_reply.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';

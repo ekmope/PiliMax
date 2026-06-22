@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/constants.dart';
+import 'package:PiliMax/http/constants.dart';
 
 abstract final class Api {
   // 推荐视频
@@ -277,6 +277,9 @@ abstract final class Api {
 
   static const String roomEntryAction =
       '${HttpString.liveBaseUrl}/xlive/web-room/v1/index/roomEntryAction';
+
+  static const String mobileHeartBeat =
+      'https://live-trace.bilibili.com/xlive/data-interface/v1/heartbeat/mobileHeartBeat';
 
   static const String mediaListHistory = '/x/v1/medialist/history';
 
@@ -882,6 +885,8 @@ abstract final class Api {
   static const String vipExpAdd = '/x/vip/experience/add';
 
   static const String coinLog = '/x/member/web/coin/log';
+
+  static const String coinTodayExp = '/x/web-interface/coin/today/exp';
 
   static const String dynTopicRcmd = '/x/topic/web/dynamic/rcmd';
 

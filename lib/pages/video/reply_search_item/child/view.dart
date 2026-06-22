@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show SearchItem;

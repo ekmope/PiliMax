@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/live/live_room_play_info/stream.dart';
+import 'package:PiliMax/models_new/live/live_room_play_info/stream.dart';
 
 class Playurl {
   List<Stream> stream;

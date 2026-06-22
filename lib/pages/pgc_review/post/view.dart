@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/custom_icon.dart';
+import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/http/pgc.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:flutter/material.dart';

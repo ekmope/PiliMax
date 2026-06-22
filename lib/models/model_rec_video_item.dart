@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_owner.dart';
+import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models/model_video.dart';
 
 abstract class BaseRcmdVideoItemModel extends BaseVideoItemModel {

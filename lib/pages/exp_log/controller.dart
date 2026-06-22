@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models_new/coin_log/data.dart';
 import 'package:PiliMax/models_new/coin_log/list.dart';

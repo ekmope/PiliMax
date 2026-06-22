@@ -1,4 +1,4 @@
-﻿// code from cached_network_svg_image;
+// code from cached_network_svg_image;
 
 import 'dart:developer';
 

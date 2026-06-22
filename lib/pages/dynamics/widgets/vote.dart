@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/common/widgets/avatars.dart';
 import 'package:PiliMax/common/widgets/badge.dart';

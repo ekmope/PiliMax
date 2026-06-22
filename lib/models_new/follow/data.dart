@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/follow/list.dart';
+import 'package:PiliMax/models_new/follow/list.dart';
 
 class FollowData {
   late List<FollowItemModel> list;

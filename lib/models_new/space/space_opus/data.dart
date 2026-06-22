@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/space/space_opus/item.dart';
+import 'package:PiliMax/models_new/space/space_opus/item.dart';
 
 class SpaceOpusData {
   bool? hasMore;

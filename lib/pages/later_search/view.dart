@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/common/video/source_type.dart';
+import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models_new/later/data.dart';
 import 'package:PiliMax/models_new/later/list.dart';
 import 'package:PiliMax/pages/common/search/common_search_page.dart';

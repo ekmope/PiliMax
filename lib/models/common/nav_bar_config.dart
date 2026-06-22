@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/common/enum_with_label.dart';
+import 'package:PiliMax/models/common/enum_with_label.dart';
 import 'package:PiliMax/pages/dynamics/view.dart';
 import 'package:PiliMax/pages/home/view.dart';
 import 'package:PiliMax/pages/mine/view.dart';

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/user.dart';
+import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';

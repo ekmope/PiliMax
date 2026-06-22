@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/constants.dart';
+import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';

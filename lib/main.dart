@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:PiliMax/build_config.dart';
 import 'package:PiliMax/common/constants.dart';
@@ -12,11 +12,14 @@ import 'package:PiliMax/models/common/theme/theme_color_type.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliMax/router/app_pages.dart';
 import 'package:PiliMax/services/account_service.dart';
+import 'package:PiliMax/services/download/download_collection_service.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/services/service_locator.dart';
+import 'package:PiliMax/utils/app_font.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/calc_window_position.dart';
+import 'package:PiliMax/utils/danmaku_font.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/json_file_handler.dart';
@@ -99,6 +102,8 @@ void main() async {
     if (kDebugMode) debugPrint('GStorage init error: $e');
     exit(0);
   }
+  await AppFont.init();
+  await DanmakuFont.init();
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;
   await Future.wait([
     _initDownPath(),
@@ -107,6 +112,7 @@ void main() async {
   ]);
   Get
     ..lazyPut(AccountService.new)
+    ..lazyPut(DownloadCollectionService.new)
     ..lazyPut(DownloadService.new);
   HttpOverrides.global = _CustomHttpOverrides();
 
@@ -295,10 +301,40 @@ class MyApp extends StatelessWidget {
     );
   }
 
+  // 修复后的 Builder 方法
   static Widget _builder(BuildContext context, Widget? child) {
-    final uiScale = Pref.uiScale;
     final mediaQuery = MediaQuery.of(context);
+    final uiScale = Pref.uiScale;
     final textScaler = TextScaler.linear(Pref.defaultTextScale);
+
+    // --- Fix for Flutter SDK bug on HyperOS windowed mode (Android only) ---
+    // https://github.com/flutter/flutter/issues/164092
+    // https://github.com/flutter/flutter/issues/161086
+    EdgeInsets effectiveViewPadding = mediaQuery.viewPadding;
+    EdgeInsets effectivePadding = mediaQuery.padding;
+
+    if (Platform.isAndroid) {
+      // Fallback padding values based on typical Android status/navigation bar heights
+      const fallbackPadding = EdgeInsets.only(top: 25, bottom: 35);
+
+      // Threshold for detecting abnormal padding:
+      // - Normal status bars are typically 20-48 dp
+      // - Values > 50 indicate the Flutter SDK bug on HyperOS windowed mode
+      // - Values == 0 are valid in fullscreen/immersive mode
+      // - Check both top AND bottom to avoid misdetecting during orientation changes
+      const maxNormalPadding = 50.0;
+
+      final hasAbnormalPadding =
+          mediaQuery.viewPadding.top > maxNormalPadding &&
+          mediaQuery.viewPadding.bottom > maxNormalPadding;
+
+      if (hasAbnormalPadding) {
+        effectiveViewPadding = fallbackPadding;
+        effectivePadding = fallbackPadding;
+      }
+    }
+    // -----------------------------------------------------------------------
+
     if (uiScale != 1.0) {
       child = MediaQuery(
         data: mediaQuery.copyWith(
@@ -315,8 +351,8 @@ class MyApp extends StatelessWidget {
       child = MediaQuery(
         data: mediaQuery.copyWith(
           textScaler: textScaler,
-          padding: tmpPadding,
-          viewPadding: tmpPadding,
+          padding: tmpPadding ?? effectivePadding,
+          viewPadding: tmpPadding ?? effectiveViewPadding,
         ),
         child: child!,
       );
@@ -383,7 +419,7 @@ class _CustomHttpOverrides extends HttpOverrides {
     // ..maxConnectionsPerHost = 32
     /// The default value is 15 seconds.
     //   ..idleTimeout = const Duration(seconds: 15);
-    if (Request.allowBadCertificates) {
+    if (kDebugMode || Pref.badCertificateCallback) {
       client.badCertificateCallback = (cert, host, port) => true;
     }
     return client;

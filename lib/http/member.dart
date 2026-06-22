@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/http/api.dart';

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/live/live_superchat/item.dart';
+import 'package:PiliMax/models_new/live/live_superchat/item.dart';
 
 class SuperChatData {
   List<SuperChatItem>? list;

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/fav/fav_pgc/new_ep.dart';
+import 'package:PiliMax/models_new/fav/fav_pgc/new_ep.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
 
 class FavPgcItemModel with MultiSelectData {

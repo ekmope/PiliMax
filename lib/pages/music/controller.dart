@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/music.dart';
 import 'package:PiliMax/models_new/music/bgm_detail.dart';
 import 'package:PiliMax/pages/common/dyn/common_dyn_controller.dart';

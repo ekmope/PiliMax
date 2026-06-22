@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/fav.dart';
+import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/pgc.dart';
 import 'package:PiliMax/models/common/home_tab_type.dart';

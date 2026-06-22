@@ -1,4 +1,4 @@
-﻿import 'dart:async' show Timer;
+import 'dart:async' show Timer;
 import 'dart:math' as math;
 
 import 'package:PiliMax/common/widgets/flutter/vertical_slider.dart';

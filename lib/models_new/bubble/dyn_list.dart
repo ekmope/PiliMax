@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/bubble/meta.dart';
+import 'package:PiliMax/models_new/bubble/meta.dart';
 
 class DynList {
   String? dynId;

@@ -1,4 +1,4 @@
-﻿import 'dart:io' show Platform;
+import 'dart:io' show Platform;
 
 import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/android/bindings.g.dart';

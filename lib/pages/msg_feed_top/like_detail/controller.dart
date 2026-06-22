@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/msg.dart';
 import 'package:PiliMax/models_new/msg/msg_like_detail/card.dart';
 import 'package:PiliMax/models_new/msg/msg_like_detail/data.dart';

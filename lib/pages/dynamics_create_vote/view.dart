@@ -1,6 +1,7 @@
-﻿import 'dart:io' show File;
+import 'dart:io' show File;
 
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
+import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/time_picker.dart';
 import 'package:PiliMax/models/dynamics/vote_model.dart';
@@ -187,7 +188,7 @@ class _CreateVotePageState extends State<CreateVotePage> {
                 return Listener(
                   onPointerDown: (_) =>
                       FocusManager.instance.primaryFocus?.unfocus(),
-                  child: PopupMenuButton<int>(
+                  child: StaticPopupMenuButton<int>(
                     initialValue: choiceCnt,
                     requestFocus: false,
                     child: Text(

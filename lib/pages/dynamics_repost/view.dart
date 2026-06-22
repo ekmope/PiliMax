@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/flutter/draggable_scrollable_sheet.dart';
+import 'package:PiliMax/common/widgets/flutter/draggable_scrollable_sheet.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/http/dynamics.dart';

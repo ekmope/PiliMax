@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/log_table/controller.dart';

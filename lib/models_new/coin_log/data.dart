@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/coin_log/list.dart';
+import 'package:PiliMax/models_new/coin_log/list.dart';
 
 class CoinLogData {
   CoinLogData({this.list});

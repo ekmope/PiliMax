@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/id_utils.dart';

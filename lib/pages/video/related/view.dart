@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/video_card/video_card_h.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/model_hot_video_item.dart';

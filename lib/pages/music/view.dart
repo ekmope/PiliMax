@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:PiliMax/common/widgets/badge.dart';

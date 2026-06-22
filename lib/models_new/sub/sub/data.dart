@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/sub/sub/list.dart';
+import 'package:PiliMax/models_new/sub/sub/list.dart';
 
 class SubData {
   List<SubItemModel>? list;

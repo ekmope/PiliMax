@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/assets.dart';
+import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';

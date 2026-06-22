@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/follow.dart';
+import 'package:PiliMax/http/follow.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/member.dart';
 import 'package:PiliMax/http/user.dart';

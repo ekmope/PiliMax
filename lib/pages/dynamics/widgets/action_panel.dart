@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/dynamics/result.dart';
+import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';

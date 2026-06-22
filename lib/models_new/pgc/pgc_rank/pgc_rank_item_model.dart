@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/pgc/pgc_rank/new_ep.dart';
+import 'package:PiliMax/models_new/pgc/pgc_rank/new_ep.dart';
 import 'package:PiliMax/models_new/pgc/pgc_rank/stat.dart';
 
 class PgcRankItemModel {

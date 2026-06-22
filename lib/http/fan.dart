@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/error_msg.dart';
 import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';

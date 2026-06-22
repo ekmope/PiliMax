@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
+import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';

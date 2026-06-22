@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/msg/msg_like/latest.dart';
+import 'package:PiliMax/models_new/msg/msg_like/latest.dart';
 import 'package:PiliMax/models_new/msg/msg_like/total.dart';
 
 class MsgLikeData {

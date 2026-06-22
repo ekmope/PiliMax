@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/msg/msg_like/cursor.dart';
+import 'package:PiliMax/models_new/msg/msg_like/cursor.dart';
 import 'package:PiliMax/models_new/msg/msg_like/item.dart';
 
 class Total {

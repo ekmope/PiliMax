@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/live.dart';
+import 'package:PiliMax/http/live.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/live/live_contribution_rank_type.dart';
 import 'package:PiliMax/models_new/live/live_contribution_rank/data.dart';

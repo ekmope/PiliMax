@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart';

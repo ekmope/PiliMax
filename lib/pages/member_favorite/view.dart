@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/video_card_h.dart';
+import 'package:PiliMax/common/skeleton/video_card_h.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_header.dart';

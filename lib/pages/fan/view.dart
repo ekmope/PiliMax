@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/dialog/dialog.dart';
+import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/models_new/follow/list.dart';
 import 'package:PiliMax/pages/fan/controller.dart';
 import 'package:PiliMax/pages/follow_type/view.dart';

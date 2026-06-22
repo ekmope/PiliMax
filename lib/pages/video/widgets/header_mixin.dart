@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/button/icon_button.dart';
+import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/menu_row.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/utils/danmaku_options.dart';

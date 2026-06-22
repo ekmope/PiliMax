@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/common/sponsor_block/segment_type.dart';
+import 'package:PiliMax/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliMax/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliMax/models_new/sponsor_block/segment_item.dart';
 import 'package:PiliMax/pages/sponsor_block/block_mixin.dart';

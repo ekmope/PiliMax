@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/dialog/dialog.dart';
+import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/msg.dart';

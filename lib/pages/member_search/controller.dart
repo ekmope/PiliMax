@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/common/member/search_type.dart';
+import 'package:PiliMax/models/common/member/search_type.dart';
 import 'package:PiliMax/pages/member_search/child/controller.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliMax/utils/utils.dart';

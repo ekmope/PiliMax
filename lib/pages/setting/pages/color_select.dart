@@ -1,4 +1,4 @@
-﻿import 'dart:io' show Platform;
+import 'dart:io' show Platform;
 
 import 'package:PiliMax/common/widgets/color_palette.dart';
 import 'package:PiliMax/main.dart' show MyApp;

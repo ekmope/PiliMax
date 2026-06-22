@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
+import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';

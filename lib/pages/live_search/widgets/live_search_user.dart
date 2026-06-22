@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/assets.dart';
+import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models_new/live/live_search/user_item.dart';

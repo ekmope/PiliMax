@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
+import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/models_new/video/video_ai_conclusion/model_result.dart';
 import 'package:PiliMax/pages/common/slide/common_slide_page.dart';

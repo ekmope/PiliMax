@@ -1,5 +1,6 @@
-﻿import 'package:PiliMax/common/constants.dart';
+import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/dial_prefix.dart';
+import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
@@ -375,7 +376,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(width: 12),
                 Builder(
                   builder: (context) {
-                    return PopupMenuButton(
+                    return StaticPopupMenuButton(
                       padding: EdgeInsets.zero,
                       tooltip:
                           '选择国际冠码，'

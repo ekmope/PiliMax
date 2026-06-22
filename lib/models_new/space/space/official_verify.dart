@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_avatar.dart';
+import 'package:PiliMax/models/model_avatar.dart';
 
 class OfficialVerify extends BaseOfficialVerify {
   String? spliceTitle;

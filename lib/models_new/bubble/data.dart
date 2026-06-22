@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/bubble/base_info.dart';
+import 'package:PiliMax/models_new/bubble/base_info.dart';
 import 'package:PiliMax/models_new/bubble/category.dart';
 import 'package:PiliMax/models_new/bubble/content.dart';
 import 'package:PiliMax/models_new/bubble/sort_info.dart';

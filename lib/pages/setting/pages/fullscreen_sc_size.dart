@@ -1,4 +1,4 @@
-﻿import 'dart:io' show Platform;
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:PiliMax/common/widgets/custom_icon.dart';

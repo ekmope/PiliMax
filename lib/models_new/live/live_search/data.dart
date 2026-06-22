@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/live/live_search/room.dart';
+import 'package:PiliMax/models_new/live/live_search/room.dart';
 import 'package:PiliMax/models_new/live/live_search/user.dart';
 
 class LiveSearchData {

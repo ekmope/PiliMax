@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/upower_rank/level_info.dart';
+import 'package:PiliMax/models_new/upower_rank/level_info.dart';
 import 'package:PiliMax/models_new/upower_rank/rank_info.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 

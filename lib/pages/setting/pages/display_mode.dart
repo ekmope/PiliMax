@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;

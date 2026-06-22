@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/appbar/appbar.dart';
+import 'package:PiliMax/common/widgets/appbar/appbar.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';

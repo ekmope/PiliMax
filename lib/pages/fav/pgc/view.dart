@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/pages/fav/pgc/child_view.dart';
+import 'package:PiliMax/pages/fav/pgc/child_view.dart';
 import 'package:PiliMax/pages/fav/pgc/controller.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:flutter/material.dart';

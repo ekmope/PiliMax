@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/pair.dart';
+import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/common/widgets/reorder_mixin.dart';
 import 'package:PiliMax/models/common/enum_with_label.dart';
 import 'package:PiliMax/utils/storage.dart';

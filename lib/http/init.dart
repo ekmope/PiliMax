@@ -1,8 +1,7 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:PiliMax/build_config.dart';
 import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -35,10 +34,6 @@ class Request {
   static Dio get http11Dio =>
       _http11Dio ??= _enableHttp2 ? _cloneHttp11Dio() : dio;
   factory Request() => _instance;
-
-  static bool get allowBadCertificates =>
-      kDebugMode ||
-      (BuildConfig.allowInsecureCertificates && Pref.badCertificateCallback);
 
   /// 设置cookie
   static void setCookie() {
@@ -151,35 +146,31 @@ class Request {
     }
 
     final http11Adapter = IOHttpClientAdapter(
-      createHttpClient: () {
-        final client = HttpClient()
-          ..idleTimeout = const Duration(seconds: 15)
-          ..autoUncompress = false; // Http2Adapter没有自动解压, 统一行为
-        if (enableSystemProxy) {
-          client.findProxy = (_) => 'PROXY $systemProxyHost:$systemProxyPort';
-        }
-        if (allowBadCertificates) {
-          client.badCertificateCallback = (cert, host, port) => true;
-        }
-        return client;
-      },
+      createHttpClient: enableSystemProxy
+          ? () => HttpClient()
+              ..idleTimeout = const Duration(seconds: 15)
+              ..autoUncompress = false
+              ..findProxy = ((_) => 'PROXY $systemProxyHost:$systemProxyPort')
+              ..badCertificateCallback = (cert, host, port) => true
+          : () => HttpClient()
+              ..idleTimeout = const Duration(seconds: 15)
+              ..autoUncompress = false, // Http2Adapter没有自动解压, 统一行为
     );
 
     final connectionManager = _enableHttp2
         ? ConnectionManager(
             idleTimeout: const Duration(seconds: 15),
-            onClientCreate: (_, config) {
-              if (enableSystemProxy) {
-                config.proxy = Uri(
-                  scheme: 'http',
-                  host: systemProxyHost,
-                  port: systemProxyPort,
-                );
-              }
-              if (allowBadCertificates) {
-                config.onBadCertificate = (_) => true;
-              }
-            },
+            onClientCreate: enableSystemProxy
+                ? (_, config) => config
+                    ..proxy = Uri(
+                      scheme: 'http',
+                      host: systemProxyHost,
+                      port: systemProxyPort,
+                    )
+                    ..onBadCertificate = (_) => true
+                : Pref.badCertificateCallback
+                ? (_, config) => config.onBadCertificate = (_) => true
+                : null,
           )
         : null;
     return (http11Adapter, connectionManager);

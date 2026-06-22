@@ -1,14 +1,16 @@
-﻿import 'package:PiliMax/http/fav.dart';
+import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models/common/account_type.dart';
+import 'package:PiliMax/models_new/history/list.dart';
+import 'package:PiliMax/models_new/later/list.dart';
+import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/models/common/theme/theme_type.dart';
 import 'package:PiliMax/models/user/info.dart';
 import 'package:PiliMax/models/user/stat.dart';
 import 'package:PiliMax/models_new/fav/fav_folder/data.dart';
 import 'package:PiliMax/pages/common/common_data_controller.dart';
 import 'package:PiliMax/services/account_service.dart';
-import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliMax/utils/storage.dart';
@@ -26,6 +28,12 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
   AccountService accountService = Get.find<AccountService>();
 
   int? favFolderCount;
+
+  final Rx<LoadingState<List<HistoryItemModel>?>> historyLoadingState =
+      LoadingState<List<HistoryItemModel>?>.loading().obs;
+
+  final Rx<LoadingState<List<LaterItemModel>?>> toViewLoadingState =
+      LoadingState<List<LaterItemModel>?>.loading().obs;
 
   // 用户信息 头像、昵称、lv
   final Rx<UserInfoData> userInfo = UserInfoData().obs;
@@ -88,6 +96,30 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       userInfo.value = userInfoCache;
       queryData();
       queryUserInfo();
+      queryHistory();
+      queryToView();
+    }
+  }
+
+  Future<void> queryToView() async {
+    final res = await UserHttp.seeYouLater(page: 1);
+    if (res case Success(:final response)) {
+      toViewLoadingState.value = Success(response.list?.take(20).toList());
+    } else if (res case Error(:final errMsg, :final code)) {
+      toViewLoadingState.value = Error(errMsg, code: code);
+    }
+  }
+
+  Future<void> queryHistory() async {
+    final res = await UserHttp.historyList(
+      type: 'all',
+      account: Accounts.history,
+    );
+    if (res case Success(:final response)) {
+      historyLoadingState.value =
+          Success(response.list?.take(20).toList());
+    } else if (res case Error(:final errMsg, :final code)) {
+      historyLoadingState.value = Error(errMsg, code: code);
     }
   }
 
@@ -293,6 +325,8 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       return Future.syncValue(null);
     }
     queryUserInfo();
+    queryHistory();
+    queryToView();
     return super.onRefresh().whenComplete(() {
       if (isManual) {
         scrollController.jumpToTop();
@@ -308,6 +342,8 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       userInfo.value = UserInfoData();
       userStat.value = const UserStat();
       loadingState.value = LoadingState.loading();
+      historyLoadingState.value = LoadingState.loading();
+      toViewLoadingState.value = LoadingState.loading();
     }
   }
 }

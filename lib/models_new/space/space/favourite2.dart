@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/space/space_fav/list.dart';
+import 'package:PiliMax/models_new/space/space_fav/list.dart';
 
 class Favourite2 {
   int? count;

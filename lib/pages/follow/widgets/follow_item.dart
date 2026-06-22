@@ -1,7 +1,8 @@
-﻿import 'package:PiliMax/common/widgets/pendant_avatar.dart';
+import 'package:PiliMax/common/widgets/pendant_avatar.dart';
 import 'package:PiliMax/models_new/follow/list.dart';
 import 'package:PiliMax/pages/share/view.dart' show UserModel;
 import 'package:PiliMax/utils/feed_back.dart';
+import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/request_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -94,6 +95,17 @@ class FollowItem extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 13,
                           color: colorScheme.outline,
+                        ),
+                      ),
+                    if (GlobalData().remarkMids[item.mid] case final String remark
+                        when remark.isNotEmpty)
+                      Text(
+                        '备注：$remark',
+                        maxLines: 1,
+                        overflow: .ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.primary,
                         ),
                       ),
                   ],

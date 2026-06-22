@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 
 class RadioWidget<T> extends StatefulWidget {

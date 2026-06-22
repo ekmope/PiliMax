@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/scroll_physics.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/pages/fan/view.dart';
 import 'package:PiliMax/pages/follow/child/child_view.dart';
 import 'package:PiliMax/pages/follow_search/view.dart';

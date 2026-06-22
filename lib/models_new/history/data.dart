@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/history/list.dart';
+import 'package:PiliMax/models_new/history/list.dart';
 import 'package:PiliMax/models_new/history/tab.dart';
 
 class HistoryData {

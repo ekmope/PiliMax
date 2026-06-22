@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math';
 
 import 'package:PiliMax/common/assets.dart';

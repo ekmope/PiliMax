@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/msg_feed_sys_msg_.dart';
+import 'package:PiliMax/common/skeleton/msg_feed_sys_msg_.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';

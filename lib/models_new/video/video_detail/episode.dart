@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/video/video_detail/arc.dart';
+import 'package:PiliMax/models_new/video/video_detail/arc.dart';
 import 'package:PiliMax/models_new/video/video_detail/page.dart';
 
 class BaseEpisodeItem {

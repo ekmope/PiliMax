@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/pages/video/pay_coins/view.dart';
 import 'package:PiliMax/utils/global_data.dart';

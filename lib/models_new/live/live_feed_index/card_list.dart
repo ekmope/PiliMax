@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/live/live_feed_index/card_data.dart';
+import 'package:PiliMax/models_new/live/live_feed_index/card_data.dart';
 
 class LiveCardList {
   String? cardType;

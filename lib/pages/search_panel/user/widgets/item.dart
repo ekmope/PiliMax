@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/pendant_avatar.dart';
+import 'package:PiliMax/common/widgets/pendant_avatar.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';

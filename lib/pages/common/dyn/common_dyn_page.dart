@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/video_reply.dart';
+import 'package:PiliMax/common/skeleton/video_reply.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -187,6 +187,7 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
             isVideoDetail: !showBackBtn,
             replyType: controller.replyType,
             firstFloor: replyItem,
+            heroTag: arguments?['heroTag'],
             upMid: controller.upMid,
           ),
         );

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/utils/feed_back.dart';
+import 'package:PiliMax/utils/feed_back.dart';
 import 'package:flutter/material.dart';
 
 class ActionRowLineItem extends StatelessWidget {

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/space/space/archive.dart';
+import 'package:PiliMax/models_new/space/space/archive.dart';
 import 'package:PiliMax/models_new/space/space/article.dart';
 import 'package:PiliMax/models_new/space/space/audios.dart';
 import 'package:PiliMax/models_new/space/space/card.dart';

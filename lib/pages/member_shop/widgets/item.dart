@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/badge.dart';
+import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/space/space_shop/item.dart';

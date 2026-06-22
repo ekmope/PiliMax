@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/fav/fav_article/item.dart';
+import 'package:PiliMax/models_new/fav/fav_article/item.dart';
 
 class FavArticleData {
   List<FavArticleItemModel>? items;

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/assets.dart';
+import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';

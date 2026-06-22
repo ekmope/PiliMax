@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/models/common/rank_type.dart';
 import 'package:PiliMax/pages/common/common_controller.dart';

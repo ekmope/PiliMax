@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/pages/common/common_list_controller.dart';
 

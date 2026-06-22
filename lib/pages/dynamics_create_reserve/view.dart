@@ -1,4 +1,5 @@
-﻿import 'package:PiliMax/common/widgets/time_picker.dart';
+import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/common/widgets/time_picker.dart';
 import 'package:PiliMax/pages/dynamics_create_reserve/controller.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
@@ -64,7 +65,7 @@ class _CreateReservePageState extends State<CreateReservePage> {
                 child: Text('类型', style: _leadingStyle),
               ),
               Obx(
-                () => PopupMenuButton(
+                () => StaticPopupMenuButton(
                   requestFocus: false,
                   initialValue: _controller.subType.value,
                   onSelected: (value) => _controller.subType.value = value,

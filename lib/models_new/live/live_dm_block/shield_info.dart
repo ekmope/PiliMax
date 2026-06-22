@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/live/live_dm_block/shield_rules.dart';
+import 'package:PiliMax/models_new/live/live_dm_block/shield_rules.dart';
 import 'package:PiliMax/models_new/live/live_dm_block/shield_user_list.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 

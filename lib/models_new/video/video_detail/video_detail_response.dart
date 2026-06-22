@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/video/video_detail/data.dart';
+import 'package:PiliMax/models_new/video/video_detail/data.dart';
 
 class VideoDetailResponse {
   int? code;

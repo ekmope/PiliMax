@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/reorder_mixin.dart';
+import 'package:PiliMax/common/widgets/reorder_mixin.dart';
 import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/fav/fav_detail/media.dart';

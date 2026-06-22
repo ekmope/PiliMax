@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_owner.dart';
+import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models_new/fav/fav_detail/cnt_info.dart';
 import 'package:PiliMax/models_new/fav/fav_detail/ogv.dart';
 import 'package:PiliMax/models_new/fav/fav_detail/ugc.dart';

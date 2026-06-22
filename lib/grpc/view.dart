@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/grpc/bilibili/app/viewunite/v1.pb.dart'
+import 'package:PiliMax/grpc/bilibili/app/viewunite/v1.pb.dart'
     show ViewReq, ViewReply;
 import 'package:PiliMax/grpc/grpc_req.dart';
 import 'package:PiliMax/grpc/url.dart';

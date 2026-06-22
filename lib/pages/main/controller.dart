@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/grpc/dyn.dart';

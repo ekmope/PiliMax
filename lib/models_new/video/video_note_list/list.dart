@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/video/video_note_list/author.dart';
+import 'package:PiliMax/models_new/video/video_note_list/author.dart';
 
 class VideoNoteItemModel {
   int? cvid;

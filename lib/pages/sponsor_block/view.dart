@@ -1,4 +1,5 @@
-﻿import 'package:PiliMax/common/widgets/pair.dart';
+import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -566,7 +567,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
               ),
               Builder(
                 builder: (btnContext) {
-                  return PopupMenuButton<SkipType>(
+                  return StaticPopupMenuButton<SkipType>(
                     initialValue: item.second,
                     onSelected: (e) {
                       final updateItem = isDisable || e == SkipType.disable;

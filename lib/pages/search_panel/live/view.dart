@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/video_card_v.dart';
+import 'package:PiliMax/common/skeleton/video_card_v.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pages/search_panel/controller.dart';

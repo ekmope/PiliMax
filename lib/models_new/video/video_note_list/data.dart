@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/video/video_note_list/list.dart';
+import 'package:PiliMax/models_new/video/video_note_list/list.dart';
 import 'package:PiliMax/models_new/video/video_note_list/page.dart';
 
 class VideoNoteData {

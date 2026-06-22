@@ -1,4 +1,4 @@
-﻿// 定时关闭服务
+// 定时关闭服务
 import 'dart:async';
 import 'dart:io';
 

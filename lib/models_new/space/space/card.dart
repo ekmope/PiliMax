@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_avatar.dart';
+import 'package:PiliMax/models/model_avatar.dart';
 import 'package:PiliMax/models_new/space/space/achieve.dart';
 import 'package:PiliMax/models_new/space/space/followings_followed_upper.dart';
 import 'package:PiliMax/models_new/space/space/level_info.dart';

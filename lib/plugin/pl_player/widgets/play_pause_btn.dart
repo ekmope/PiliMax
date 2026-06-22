@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:flutter/material.dart';

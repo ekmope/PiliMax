@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/fav/fav_folder/list.dart';
 import 'package:PiliMax/pages/common/common_intro_controller.dart';

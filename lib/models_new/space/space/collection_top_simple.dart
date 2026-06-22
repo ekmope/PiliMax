@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/space/space/top.dart';
+import 'package:PiliMax/models_new/space/space/top.dart';
 
 class CollectionTopSimple {
   Top? top;

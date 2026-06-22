@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/member.dart';
 import 'package:PiliMax/models/common/member/archive_sort_type_app.dart';
 import 'package:PiliMax/models/common/member/web_ss_type.dart';

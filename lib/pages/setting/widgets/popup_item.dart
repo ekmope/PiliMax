@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
+import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/models/common/enum_with_label.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart' hide ListTile;

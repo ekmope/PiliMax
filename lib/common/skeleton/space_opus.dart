@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/skeleton.dart';
+import 'package:PiliMax/common/skeleton/skeleton.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
 

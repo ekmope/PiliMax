@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/member.dart';
 import 'package:PiliMax/models/member/tags.dart';

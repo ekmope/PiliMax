@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/models_new/article/article_view/ops.dart';

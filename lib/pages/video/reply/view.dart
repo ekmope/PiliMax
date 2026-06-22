@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/video_reply.dart';
+import 'package:PiliMax/common/skeleton/video_reply.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -250,6 +250,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
           replyType: _videoReplyController.videoType.replyType,
           isVideoDetail: true,
           isNested: widget.isNested,
+          heroTag: heroTag,
           upMid: _videoReplyController.upMid,
         ),
       );

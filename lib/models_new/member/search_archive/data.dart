@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/member/search_archive/list.dart';
+import 'package:PiliMax/models_new/member/search_archive/list.dart';
 import 'package:PiliMax/models_new/member/search_archive/page.dart';
 
 class SearchArchiveData {

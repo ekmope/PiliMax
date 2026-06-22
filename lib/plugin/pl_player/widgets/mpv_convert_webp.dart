@@ -1,4 +1,4 @@
-﻿// ignore_for_file: implementation_imports
+// ignore_for_file: implementation_imports
 
 import 'dart:async';
 import 'dart:ffi';

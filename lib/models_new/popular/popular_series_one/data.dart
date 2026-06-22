@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_hot_video_item.dart';
+import 'package:PiliMax/models/model_hot_video_item.dart';
 import 'package:PiliMax/models_new/popular/popular_series_one/config.dart';
 
 class PopularSeriesOneData {

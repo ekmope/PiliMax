@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/msg/msg_reply/content.dart';
+import 'package:PiliMax/models_new/msg/msg_reply/content.dart';
 import 'package:PiliMax/models_new/msg/msg_reply/user.dart';
 
 class MsgReplyItem {

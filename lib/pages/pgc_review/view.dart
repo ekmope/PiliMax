@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/common/pgc_review_type.dart';
+import 'package:PiliMax/models/common/pgc_review_type.dart';
 import 'package:PiliMax/pages/pgc_review/child/controller.dart';
 import 'package:PiliMax/pages/pgc_review/child/view.dart';
 import 'package:PiliMax/pages/pgc_review/post/view.dart';

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/emote/meta.dart';
+import 'package:PiliMax/models_new/emote/meta.dart';
 
 class Emote {
   String? text;

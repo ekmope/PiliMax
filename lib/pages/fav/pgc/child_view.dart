@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/fav_pgc_item.dart';
+import 'package:PiliMax/common/skeleton/fav_pgc_item.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';

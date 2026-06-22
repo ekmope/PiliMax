@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/custom_icon.dart';
+import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_topic_top/topic_item.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:flutter/material.dart';

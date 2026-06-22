@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/pages/home/controller.dart';
 import 'package:PiliMax/pages/main/controller.dart';
 import 'package:flutter/foundation.dart' show clampDouble;

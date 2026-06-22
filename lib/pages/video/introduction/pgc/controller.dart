@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math' show max;
 
 import 'package:PiliMax/http/constants.dart';
@@ -18,6 +18,7 @@ import 'package:PiliMax/pages/common/common_intro_controller.dart';
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
 import 'package:PiliMax/pages/video/reply/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
+import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/global_data.dart';
@@ -26,6 +27,7 @@ import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/share_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
+import 'package:flutter/foundation.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -42,6 +44,9 @@ class PgcIntroController extends CommonIntroController {
 
   late final bool isPgc;
   late final PgcInfoModel pgcItem;
+
+  // 是否正在进入应用内小窗
+  bool isEnteringPip = false;
 
   @override
   (Object, int) get getFavRidType => (epId!, 24);
@@ -72,6 +77,17 @@ class PgcIntroController extends CommonIntroController {
       }
       queryVideoTags();
     }
+  }
+
+  @override
+  void onClose() {
+    if (kDebugMode) {
+      logger.i(
+        '[PgcIntroController] onClose() called, isEnteringPip: $isEnteringPip',
+      );
+    }
+    if (isEnteringPip) return;
+    super.onClose();
   }
 
   // 获取点赞/投币/收藏状态

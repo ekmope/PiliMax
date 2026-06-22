@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/dynamics/up.dart';
+import 'package:PiliMax/models/dynamics/up.dart';
 import 'package:PiliMax/models/model_avatar.dart';
 
 class FollowItemModel extends UpItem {

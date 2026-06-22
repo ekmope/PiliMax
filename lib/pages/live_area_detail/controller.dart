@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:PiliMax/http/live.dart';
 import 'package:PiliMax/http/loading_state.dart';

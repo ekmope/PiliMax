@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/live/live_medal_wall/medal_info.dart';
+import 'package:PiliMax/models_new/live/live_medal_wall/medal_info.dart';
 import 'package:PiliMax/models_new/live/live_medal_wall/uinfo_medal.dart';
 
 class MedalWallItem {

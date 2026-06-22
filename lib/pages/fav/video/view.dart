@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/fav/fav_folder/list.dart';

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/space/space_season_series/page.dart';
+import 'package:PiliMax/models_new/space/space_season_series/page.dart';
 import 'package:PiliMax/models_new/space/space_season_series/season.dart';
 
 class SpaceSsData {

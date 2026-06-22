@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/member.dart';
+import 'package:PiliMax/http/member.dart';
 import 'package:PiliMax/models_new/follow/data.dart';
 import 'package:PiliMax/models_new/follow/list.dart';
 import 'package:PiliMax/pages/common/common_list_controller.dart';

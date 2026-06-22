@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/space/space_opus/cover.dart';
+import 'package:PiliMax/models_new/space/space_opus/cover.dart';
 import 'package:PiliMax/models_new/space/space_opus/stat.dart';
 
 class SpaceOpusItemModel {

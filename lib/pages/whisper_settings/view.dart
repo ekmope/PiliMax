@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart'
     show IMSettingType, Setting;
 import 'package:PiliMax/http/loading_state.dart';

@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/pages/follow_type/followed/controller.dart';
+import 'package:PiliMax/pages/follow_type/followed/controller.dart';
 import 'package:PiliMax/pages/follow_type/view.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/parse_int.dart';

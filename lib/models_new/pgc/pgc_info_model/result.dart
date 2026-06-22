@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/pgc/pgc_info_model/area.dart';
+import 'package:PiliMax/models_new/pgc/pgc_info_model/area.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/brief.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/cooperator.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart';

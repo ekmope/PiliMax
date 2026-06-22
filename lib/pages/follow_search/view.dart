@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/follow/data.dart';
+import 'package:PiliMax/models_new/follow/data.dart';
 import 'package:PiliMax/models_new/follow/list.dart';
 import 'package:PiliMax/pages/common/search/common_search_page.dart';
 import 'package:PiliMax/pages/follow/widgets/follow_item.dart';

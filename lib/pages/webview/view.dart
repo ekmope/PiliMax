@@ -1,5 +1,6 @@
-﻿import 'dart:io';
+import 'dart:io';
 
+import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/main.dart';
 import 'package:PiliMax/models/common/webview_menu_type.dart';
@@ -105,7 +106,7 @@ class _WebviewPageState extends State<WebviewPage> {
                 ),
               ),
               actions: [
-                PopupMenuButton(
+                StaticPopupMenuButton(
                   onSelected: (item) async {
                     switch (item) {
                       case WebviewMenuItem.refresh:

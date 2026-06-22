@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/user/danmaku_rule.dart';
+import 'package:PiliMax/models/user/danmaku_rule.dart';
 import 'package:hive_ce/hive.dart';
 
 class RuleFilterAdapter extends TypeAdapter<RuleFilter> {

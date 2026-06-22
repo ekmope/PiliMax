@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/space/space_article/stats.dart';
+import 'package:PiliMax/models_new/space/space_article/stats.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 
 class SpaceArticleItem {

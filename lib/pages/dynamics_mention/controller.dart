@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/dynamics.dart';
+import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_mention/group.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_mention/item.dart';

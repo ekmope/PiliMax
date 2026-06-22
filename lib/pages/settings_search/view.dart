@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliMax/pages/search/controller.dart' show DebounceStreamState;
 import 'package:PiliMax/pages/setting/models/extra_settings.dart';

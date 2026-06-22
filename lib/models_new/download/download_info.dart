@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
+import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart'
     show MultiSelectData;
 

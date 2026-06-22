@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models_new/video/video_note_list/data.dart';
 import 'package:PiliMax/models_new/video/video_note_list/list.dart';

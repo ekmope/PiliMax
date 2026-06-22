@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/dynamics.dart';
+import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/msg.dart';
 import 'package:PiliMax/models/common/dynamic/dynamics_type.dart';

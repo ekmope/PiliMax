@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/button/icon_button.dart';
+import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/self_sized_horizontal_list.dart';
 import 'package:PiliMax/models/common/image_type.dart';

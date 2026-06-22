@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/main.dart';
+import 'package:PiliMax/main.dart';
 import 'package:get/get.dart';
 
 extension GetExt on GetInterface {

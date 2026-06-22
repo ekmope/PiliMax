@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/utils/parse_string.dart';
+import 'package:PiliMax/utils/parse_string.dart';
 
 class ReservationCardItem {
   int? sid;

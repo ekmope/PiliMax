@@ -1,7 +1,8 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/models/common/list_order.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/flutter/page/tabs.dart';
@@ -23,6 +24,7 @@ import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/page.dart';
+import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
@@ -56,7 +58,7 @@ class EpisodePanel extends CommonSlidePage {
     this.seasonId,
     this.initialTabIndex = 0,
     this.isSupportReverse,
-    this.isReversed,
+    this.listOrder,
     this.onReverse,
     required this.onChangeEpisode,
     this.onClose,
@@ -76,7 +78,7 @@ class EpisodePanel extends CommonSlidePage {
   final int? seasonId;
   final int initialTabIndex;
   final bool? isSupportReverse;
-  final bool? isReversed;
+  final ListOrder? listOrder;
   final Future<bool> Function(ugc.BaseEpisodeItem) onChangeEpisode;
   final VoidCallback? onReverse;
   final VoidCallback? onClose;
@@ -603,14 +605,19 @@ class _EpisodePanelState extends State<EpisodePanel>
     };
   }
 
-  Widget get _buildReverseBtn => iconButton(
-    iconSize: 22,
-    tooltip: widget.isReversed == true ? '正序播放' : '倒序播放',
-    icon: widget.isReversed == true
-        ? const Icon(MdiIcons.sortDescending)
-        : const Icon(MdiIcons.sortAscending),
-    onPressed: () => widget.onReverse?.call(),
-  );
+  Widget get _buildReverseBtn {
+    final order = widget.listOrder;
+    return iconButton(
+      iconSize: 22,
+      tooltip: order?.label ?? '正序播放',
+      icon: switch (order) {
+        ListOrder.desc => const Icon(MdiIcons.sortDescending),
+        ListOrder.shuffle => const Icon(Icons.shuffle),
+        _ => const Icon(MdiIcons.sortAscending),
+      },
+      onPressed: () => widget.onReverse?.call(),
+    );
+  }
 
   void _animToTopOrBottom({bool top = true}) {
     final tabIndex = _currentTabIndex.value;

@@ -1,4 +1,4 @@
-﻿import 'dart:async' show FutureOr, Timer;
+import 'dart:async' show FutureOr, Timer;
 
 import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -240,7 +240,7 @@ mixin FavMixin on TripleMixin {
           if (result.isSuccess) {
             updateFavCount(hasFav ? -1 : 1);
             this.hasFav.value = !hasFav;
-            SmartDialog.showToast('${hasFav ? '取消' : ''}收藏成功');
+            SmartDialog.showToast(hasFav ? '已从默认收藏夹中移除' : '已加入默认收藏夹');
           } else {
             res.toast();
           }

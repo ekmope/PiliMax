@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/init.dart';

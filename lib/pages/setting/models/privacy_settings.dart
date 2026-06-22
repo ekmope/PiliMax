@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/common/account_type.dart';
+import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/api_type.dart';

@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:PiliMax/utils/android/bindings.g.dart';

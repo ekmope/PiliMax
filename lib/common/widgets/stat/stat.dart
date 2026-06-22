@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/common/stat_type.dart';
+import 'package:PiliMax/models/common/stat_type.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:flutter/material.dart';
 

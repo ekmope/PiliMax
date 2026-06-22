@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_owner.dart';
+import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models_new/live/live_danmaku/live_emote.dart';
 import 'package:PiliMax/models_new/live/live_medal_wall/uinfo_medal.dart';
 import 'package:PiliMax/pages/danmaku/danmaku_model.dart';

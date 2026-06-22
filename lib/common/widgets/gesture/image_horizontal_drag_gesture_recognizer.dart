@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
+import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:flutter/gestures.dart';
 
 class ImageHorizontalDragGestureRecognizer

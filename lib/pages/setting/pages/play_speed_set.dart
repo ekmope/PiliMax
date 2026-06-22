@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';

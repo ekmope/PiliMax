@@ -1,4 +1,4 @@
-﻿/*
+/*
  * This file is part of PiliMax
  *
  * PiliMax is free software: you can redistribute it and/or modify
@@ -152,6 +152,11 @@ class ImageGridView extends StatelessWidget {
             onTap: () => ImageUtils.onShareImg(item.url),
             child: const Text('分享', style: TextStyle(fontSize: 14)),
           ),
+        PopupMenuItem(
+          height: 42,
+          onTap: () => ImageUtils.copyImg(item.url),
+          child: const Text('复制图片', style: TextStyle(fontSize: 14)),
+        ),
         PopupMenuItem(
           height: 42,
           onTap: () => ImageUtils.downloadImg([item.url]),

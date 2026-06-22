@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
@@ -108,6 +108,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
               maxLines: 2,
               autofocus: false,
               readOnly: readOnly.value,
+              textInputAction: TextInputAction.send,
               onChanged: onChanged,
               onSubmitted: onSubmitted,
               focusNode: focusNode,

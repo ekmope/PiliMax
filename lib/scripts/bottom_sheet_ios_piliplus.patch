@@ -1,4 +1,4 @@
-﻿diff --git a/lib/pages/common/slide/common_slide_page.dart b/lib/pages/common/slide/common_slide_page.dart
+diff --git a/lib/pages/common/slide/common_slide_page.dart b/lib/pages/common/slide/common_slide_page.dart
 index 58ba68b7c..a6bb398ac 100644
 --- a/lib/pages/common/slide/common_slide_page.dart
 +++ b/lib/pages/common/slide/common_slide_page.dart

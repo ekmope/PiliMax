@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/match.dart';
 import 'package:PiliMax/models_new/match/match_info/contest.dart';
 import 'package:PiliMax/pages/common/dyn/common_dyn_controller.dart';

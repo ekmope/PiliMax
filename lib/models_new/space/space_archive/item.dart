@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_owner.dart';
+import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models/model_video.dart';
 import 'package:PiliMax/models_new/space/space_archive/badge.dart';
 import 'package:PiliMax/models_new/space/space_archive/history.dart';

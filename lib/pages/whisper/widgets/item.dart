@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/widgets/badge.dart';

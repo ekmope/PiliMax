@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math';
 
 import 'package:PiliMax/http/api.dart';
@@ -59,7 +59,7 @@ class HomeController extends GetxController
 
   @override
   Future<void> onRefresh() {
-    return controller.onRefresh().catchError((e) {
+    return controller.showRefresh().catchError((e) {
       if (kDebugMode) debugPrint(e.toString());
     });
   }

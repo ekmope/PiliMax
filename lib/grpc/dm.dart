@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/grpc/bilibili/community/service/dm/v1.pb.dart';
+import 'package:PiliMax/grpc/bilibili/community/service/dm/v1.pb.dart';
 import 'package:PiliMax/grpc/grpc_req.dart';
 import 'package:PiliMax/grpc/url.dart';
 import 'package:PiliMax/http/loading_state.dart';

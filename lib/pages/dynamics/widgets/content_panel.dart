@@ -1,4 +1,4 @@
-﻿// 内容
+// 内容
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/flutter/text/text.dart' as custom_text;
 import 'package:PiliMax/common/widgets/image_grid/image_grid_view.dart';

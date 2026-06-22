@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';

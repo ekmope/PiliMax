@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/dynamic_card.dart';
+import 'package:PiliMax/common/skeleton/dynamic_card.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/grid.dart';

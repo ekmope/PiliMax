@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models_new/live/live_room_play_info/codec.dart';
+import 'package:PiliMax/models_new/live/live_room_play_info/codec.dart';
 
 class Format {
   String? formatName;

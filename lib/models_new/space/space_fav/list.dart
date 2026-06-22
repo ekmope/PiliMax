@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_owner.dart';
+import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models_new/sub/sub/list.dart';
 
 class SpaceFavItemModel extends SubItemModel {

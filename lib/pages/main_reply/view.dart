@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/skeleton/video_reply.dart';
+import 'package:PiliMax/common/skeleton/video_reply.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -28,12 +28,14 @@ class MainReplyPage extends StatefulWidget {
   static void toMainReplyPage({
     required int oid,
     required int replyType,
+    String? heroTag,
   }) {
     Get.toNamed(
       '/mainReply',
       arguments: {
         'oid': oid,
         'replyType': replyType,
+        'heroTag': heroTag,
       },
     );
   }
@@ -239,6 +241,7 @@ class _MainReplyPageState extends State<MainReplyPage>
               isVideoDetail: false,
               replyType: _controller.replyType,
               firstFloor: replyItem,
+              heroTag: _controller.heroTag,
               upMid: _controller.upMid,
             ),
           ).constraintWidth(),

@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/constants.dart';
@@ -22,8 +22,9 @@ import 'package:PiliMax/utils/mobile_observer.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:get/get.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:win32/win32.dart' as kernel32;
@@ -81,7 +82,12 @@ class _MainAppState extends PopScopeState<MainApp>
       windowManager.setBrightness(brightness);
     }
     if (!_mainController.useSideBar) {
-      _mainController.useBottomNav = MediaQuery.sizeOf(context).isPortrait;
+      final size = MediaQuery.sizeOf(context);
+      if (Pref.autoSideBar) {
+        _mainController.useBottomNav = size.width < Pref.sideBarThreshold;
+      } else {
+        _mainController.useBottomNav = size.isPortrait;
+      }
     }
   }
 

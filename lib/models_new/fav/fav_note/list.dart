@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/pages/common/multi_select/base.dart';
+import 'package:PiliMax/pages/common/multi_select/base.dart';
 
 class FavNoteItemModel with MultiSelectData {
   FavNoteItemModel({

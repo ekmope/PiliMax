@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/models/model_owner.dart';
+import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models_new/later/bangumi.dart';
 import 'package:PiliMax/models_new/later/rights.dart';
 import 'package:PiliMax/models_new/later/stat.dart';

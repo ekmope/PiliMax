@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/http/constants.dart';

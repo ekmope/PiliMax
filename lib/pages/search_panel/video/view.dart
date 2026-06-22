@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/common/widgets/sliver/sliver_floating_header.dart';
+import 'package:PiliMax/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliMax/common/widgets/video_card/video_card_h.dart';
 import 'package:PiliMax/models/common/search/video_search_type.dart';
 import 'package:PiliMax/models/search/result.dart';
@@ -31,6 +31,9 @@ class _SearchVideoPanelState
     with GridMixin {
   @override
   late final SearchVideoController controller;
+
+  @override
+  String? getTitle(SearchVideoItemModel item) => item.title;
 
   @override
   void initState() {
@@ -88,11 +91,14 @@ class _SearchVideoPanelState
                   padding: WidgetStatePropertyAll(EdgeInsets.zero),
                 ),
                 onPressed: () => controller.onShowFilterDialog(context),
-                icon: Icon(
-                  Icons.filter_list_outlined,
+                icon: Obx(() => Icon(
+                  controller.includeKeywords.isNotEmpty ||
+                          controller.excludeKeywords.isNotEmpty
+                      ? Icons.filter_list
+                      : Icons.filter_list_off,
                   size: 18,
                   color: theme.colorScheme.primary,
-                ),
+                )),
               ),
             ),
           ],

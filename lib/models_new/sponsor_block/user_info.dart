@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/utils/duration_utils.dart';
+import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 
 class UserInfo {

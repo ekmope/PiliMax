@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';

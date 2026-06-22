@@ -103,6 +103,7 @@ class AudioController extends GetxController
 
   double? _lastVolume;
   late final RxDouble desktopVolume = RxDouble(Pref.desktopVolume);
+  bool? _previousBackgroundPlay;
 
   void toggleVolume() {
     if (_lastVolume == null) {
@@ -151,6 +152,22 @@ class AudioController extends GetxController
       } catch (_) {}
     }
 
+    _previousBackgroundPlay = videoPlayerServiceHandler?.enableBackgroundPlay;
+    videoPlayerServiceHandler
+      ?..enableBackgroundPlay = true
+      ..onPlay = onPlay
+      ..onPause = onPause
+      ..onSeek = onSeek;
+
+    animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+
+    shutdownTimerService
+      ..onPause = onPause
+      ..isPlaying = isPlaying;
+
     _queryPlayList(isInit: true);
 
     final String? audioUrl = args['audioUrl'];
@@ -165,33 +182,20 @@ class AudioController extends GetxController
         _queryPlayUrl();
       }
     });
-    videoPlayerServiceHandler
-      ?..onPlay = onPlay
-      ..onPause = onPause
-      ..onSeek = onSeek;
-
-    animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    );
-
-    if (shutdownTimerService.isActive) {
-      shutdownTimerService
-        ..onPause = onPause
-        ..isPlaying = isPlaying;
-    }
   }
 
   bool isPlaying() {
     return player?.state.playing ?? false;
   }
 
-  Future<void>? onPlay() {
-    return player?.play();
+  Future<void> onPlay() async {
+    await audioSessionHandler?.setActive(true);
+    await player?.play();
   }
 
-  Future<void>? onPause() {
-    return player?.pause();
+  Future<void> onPause() async {
+    await player?.pause();
+    await audioSessionHandler?.setActive(false);
   }
 
   Future<void>? onSeek(Duration duration) {
@@ -208,6 +212,11 @@ class AudioController extends GetxController
       item,
       (subId.firstOrNull ?? oid).toInt(),
       heroTag,
+    );
+    videoPlayerServiceHandler?.onStatusChange(
+      isPlaying() ? PlayerStatus.playing : PlayerStatus.paused,
+      false,
+      false,
     );
   }
 
@@ -319,6 +328,7 @@ class AudioController extends GetxController
     String? referer,
   }) async {
     await _initPlayerIfNeeded();
+    await audioSessionHandler?.setActive(true);
     player
       ?..setMediaHeader(
         userAgent: ua,
@@ -794,11 +804,17 @@ class AudioController extends GetxController
       ..onPause = null
       ..isPlaying = null
       ..reset();
-    videoPlayerServiceHandler
-      ?..onPlay = null
-      ..onPause = null
-      ..onSeek = null
-      ..onVideoDetailDispose(heroTag);
+    audioSessionHandler?.setActive(false);
+    final handler = videoPlayerServiceHandler;
+    if (handler != null) {
+      handler
+        ..onPlay = null
+        ..onPause = null
+        ..onSeek = null
+        ..onVideoDetailDispose(heroTag)
+        ..enableBackgroundPlay =
+            _previousBackgroundPlay ?? Pref.enableBackgroundPlay;
+    }
     _subscriptions?.forEach((e) => e.cancel());
     _subscriptions?.clear();
     _subscriptions = null;

@@ -421,6 +421,16 @@ class HeaderControlState extends State<HeaderControl>
                     leading: const Icon(Icons.image_outlined, size: 20),
                     title: const Text('保存封面', style: titleStyle),
                   ),
+                if (!isFileSource && videoDetailCtr.isUgc)
+                  ListTile(
+                    dense: true,
+                    onTap: () {
+                      Get.back();
+                      videoDetailCtr.toAudioPage();
+                    },
+                    leading: const Icon(Icons.headphones_outlined, size: 20),
+                    title: const Text('听视频', style: titleStyle),
+                  ),
                 ListTile(
                   dense: true,
                   onTap: () {
@@ -1817,7 +1827,7 @@ class HeaderControlState extends State<HeaderControl>
                       width: btnWidth,
                       height: btnHeight,
                       child: IconButton(
-                        tooltip: '听音频',
+                        tooltip: '听视频',
                         style: btnStyle,
                         onPressed: videoDetailCtr.toAudioPage,
                         icon: const Icon(

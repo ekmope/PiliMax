@@ -146,13 +146,18 @@ class _AudioPageState extends State<AudioPage> {
           IconButton(
             tooltip: '定时关闭',
             onPressed: () => shutdownTimerService
-              ..onPause ??= _controller.onPause
-              ..isPlaying ??= _controller.isPlaying
+              ..onPause = _controller.onPause
+              ..isPlaying = _controller.isPlaying
               ..showScheduleExitDialog(
                 context,
                 isFullScreen: false,
               ),
             icon: const Icon(Icons.schedule, size: 22),
+          ),
+          IconButton(
+            tooltip: '退出听视频',
+            onPressed: () => _exitAudioPage(),
+            icon: const Icon(Icons.close, size: 22),
           ),
           if (_controller.isUgc)
             IconButton(
@@ -209,6 +214,13 @@ class _AudioPageState extends State<AudioPage> {
               ),
       ),
     );
+  }
+
+  Future<void> _exitAudioPage() async {
+    await _controller.onPause();
+    if (mounted) {
+      Get.back();
+    }
   }
 
   void _showPlaylist() {

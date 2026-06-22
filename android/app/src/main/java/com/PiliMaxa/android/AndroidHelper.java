@@ -1,4 +1,4 @@
-﻿package com.PiliMaxa.android;
+package com.PiliMaxa.android;
 
 import android.app.Activity;
 import android.app.PendingIntent;

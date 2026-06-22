@@ -9,7 +9,7 @@
 <div align="center">
     
 </div>
-    <p>基于 PiliPlus / PiliNara 做的一些自用修改</p>
+    <p>基于 PiliPlus 做的一些自用修改</p>
     
 <img src="assets/screenshots/510shots_so.png" width="32%" alt="home" />
 <img src="assets/screenshots/174shots_so.png" width="32%" alt="home" />
@@ -23,7 +23,7 @@
 <br/>
 
 ## 项目说明
-- 本项目 PiliMax 合并了 [PiliNara](https://github.com/Starfallan/PiliNara) 的改动，并保留 PiliMax 的发布身份。
+- 本项目 PiliMax 合并了 [PiliNara](https://github.com/Starfallan/PiliNara) 的一些改动。
 - 本仓库保留了上游 PiliPlus/PiliNara 的主要功能，并在此基础上进行了部分自用的优化和调整。
 - 本项目会按需同步上游更新，并在此基础上进行修改和优化。
 - 本项目仅供个人学习和测试使用，目前只打包了安卓版本,如有需要请自行Fork后编译.
@@ -34,21 +34,15 @@
 
 ## 近期改动
 
-- Android 包名和发布身份已调整为 `com.PiliMax.android`，更新检查指向 `ekmope/PiliMax`。
-- 视频页“更多”面板新增“听视频”入口，位置位于“保存封面”下方、“定时关闭”上方。
-- 听视频支持独立页面播放，页面内提供定时关闭和退出按钮；Android 走后台媒体播放服务，锁屏/黑屏后仍可继续播放并执行定时关闭。
-- iOS 已开启系统后台音频能力，听视频走系统音频后台路线。
-- 视频页“投屏”入口保留在“更多”面板中，位于“定时关闭”下方、“播放地址”上方；播放器顶部不再单独显示听视频/投屏图标。
-- Android 主页返回手势支持预测性退出：在首页 tab 返回时交给系统执行回桌面动画，非首页 tab 仍先回到首页。
-- 移除了 Android 桌面长按的静态 App Shortcuts，不再显示“搜索”和“离线视频”快捷入口。
-- GitHub Actions 的 Android Release 构建要求配置固定签名密钥，缺少签名 Secrets 时会直接失败，避免生成不同签名的正式包。
+- 播放器界面精简 原来播放器顶部的听视频、投屏图标全部删掉；投屏按钮保留在更多面板，放在定时关闭下方、播放地址上方。
+- 安卓返回手势优化 首页标签页侧滑返回时直接调用系统动画退回桌面；其他标签页返回会先切回首页，适配安卓预测性返回手势规范。
+- 移除桌面快捷功能 删掉安卓桌面长按图标弹出的快捷菜单，不再提供搜索、离线视频快速入口。
 
-## 改动说明(未来计划？)
+## 改动说明(未来计划？) 并非有计划
 
 Fork特性：
 
 **基础适配与界面**
-- [x] 应用名称和发布身份调整为 PiliMax，做了各平台相应替换以实现共存
 - [x] 修复Flutter在澎湃小窗下无法正常显示的问题，参考Flutter官方issue [#161086](https://github.com/flutter/flutter/issues/161086)，该问题似乎在HyperOS3上被修复
    修复方案参考了[venera/pull/467](https://github.com/venera-app/venera/pull/467)
 - [x] 支持自定义「我的」页面卡片顺序和显示数量
@@ -58,8 +52,7 @@ Fork特性：
 - [x] Android 支持预测性返回动画，并补齐主页退出到桌面的预测返回效果
 - [x] 移除 Android 桌面长按的搜索/离线视频静态快捷方式
 - [x] 图片长按/右键菜单支持复制图片
-
-- [x] 优化了部分界面UI？
+- [x] 优化了部分界面UI？？？
 
 **播放、小窗与画质**
 - [x] 实现了类似于[Pilipro](https://github.com/naaammme/pilipro)的应用内小窗功能，感谢原作者naaammme的无私奉献,在实现时参考了其逻辑

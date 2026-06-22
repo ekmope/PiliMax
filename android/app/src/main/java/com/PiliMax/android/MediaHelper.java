@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.PiliMaxa.android;
+package com.PiliMax.android;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;

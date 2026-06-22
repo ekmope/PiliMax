@@ -74,7 +74,7 @@ jobs:
           printf "复制文件...\n"
           cp -r ../build/linux/x64/release/bundle/* opt/PiliMax
           cp -r ../assets/linux/DEBIAN .
-          cp ../assets/linux/com.PiliMaxa.android.desktop usr/share/applications
+          cp ../assets/linux/com.PiliMax.android.desktop usr/share/applications
           cp ../assets/images/logo/logo.png usr/share/icons/hicolor/512x512/apps/pilimax.png
 
           printf "修改控制文件...\n"
@@ -116,7 +116,7 @@ jobs:
           SRC_DIR="$PWD/pilimax-${{ env.version }}"
           mkdir -p "$SRC_DIR/bundle" "$SRC_DIR/assets"
           cp -r build/linux/x64/release/bundle/* "$SRC_DIR/bundle/"
-          cp assets/linux/com.PiliMaxa.android.desktop "$SRC_DIR/assets/com.PiliMaxa.android.desktop"
+          cp assets/linux/com.PiliMax.android.desktop "$SRC_DIR/assets/com.PiliMax.android.desktop"
           cp assets/images/logo/logo.png "$SRC_DIR/assets/pilimax.png"
           tar -zcvf "$RPM_BUILD_ROOT/SOURCES/pilimax-${{ env.version }}.tar.gz" -C "$PWD" "pilimax-${{ env.version }}"
 
@@ -149,7 +149,7 @@ jobs:
 
           # 桌面集成
           mkdir -p %{buildroot}/usr/share/applications
-          install -m 644 assets/com.PiliMaxa.android.desktop %{buildroot}/usr/share/applications/com.PiliMaxa.android.desktop
+          install -m 644 assets/com.PiliMax.android.desktop %{buildroot}/usr/share/applications/com.PiliMax.android.desktop
 
           mkdir -p %{buildroot}/usr/share/icons/hicolor/512x512/apps
           install -m 644 assets/pilimax.png %{buildroot}/usr/share/icons/hicolor/512x512/apps/pilimax.png
@@ -165,7 +165,7 @@ jobs:
           %files
           /opt/PiliMax
           /usr/bin/pilimax
-          /usr/share/applications/com.PiliMaxa.android.desktop
+          /usr/share/applications/com.PiliMax.android.desktop
           /usr/share/icons/hicolor/512x512/apps/pilimax.png
 
           %changelog
@@ -201,8 +201,8 @@ jobs:
           cp -r build/linux/x64/release/bundle/* "$APPDIR/usr/bin/"
 
           printf "复制桌面文件和图标...\n"
-          cp assets/linux/com.PiliMaxa.android.desktop "$APPDIR/com.PiliMaxa.android.desktop"
-          cp assets/linux/com.PiliMaxa.android.desktop "$APPDIR/usr/share/applications/com.PiliMaxa.android.desktop"
+          cp assets/linux/com.PiliMax.android.desktop "$APPDIR/com.PiliMax.android.desktop"
+          cp assets/linux/com.PiliMax.android.desktop "$APPDIR/usr/share/applications/com.PiliMax.android.desktop"
           cp assets/images/logo/logo.png "$APPDIR/pilimax.png"
           cp assets/images/logo/logo.png "$APPDIR/usr/share/icons/hicolor/512x512/apps/pilimax.png"
 
@@ -218,8 +218,8 @@ jobs:
           chmod +x "$APPDIR/AppRun"
 
           printf "修改桌面文件中的 Exec 路径...\n"
-          sed -i 's|Exec=pilimax|Exec=pilimax|g' "$APPDIR/com.PiliMaxa.android.desktop"
-          sed -i 's|Icon=pilimax|Icon=pilimax|g' "$APPDIR/com.PiliMaxa.android.desktop"
+          sed -i 's|Exec=pilimax|Exec=pilimax|g' "$APPDIR/com.PiliMax.android.desktop"
+          sed -i 's|Icon=pilimax|Icon=pilimax|g' "$APPDIR/com.PiliMax.android.desktop"
 
           printf "打包 AppImage...\n"
           ARCH=x86_64 ./appimagetool-x86_64.AppImage "$APPDIR" "PiliMax_linux_${{ env.version }}_amd64.AppImage"

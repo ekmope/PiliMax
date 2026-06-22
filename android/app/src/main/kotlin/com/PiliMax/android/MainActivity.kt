@@ -1,4 +1,4 @@
-package com.PiliMaxa.android
+package com.PiliMax.android
 
 import android.content.Intent
 import android.content.res.Configuration

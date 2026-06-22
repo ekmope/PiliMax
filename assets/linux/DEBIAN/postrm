@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 rm /usr/bin/pilimax
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
     if [ -x /usr/bin/update-desktop-database ]; then
@@ -19,8 +19,8 @@ fi
 
 if [ $1 = "purge" ]; then
     echo "Removing user data..."
-    rm -rf /home/*/.local/share/com.PiliMaxa.android || true
-    rm -rf /root/.local/share/com.PiliMaxa.android || true
+    rm -rf /home/*/.local/share/com.PiliMax.android || true
+    rm -rf /root/.local/share/com.PiliMax.android || true
 fi
 
 exit 0

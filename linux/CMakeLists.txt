@@ -1,4 +1,4 @@
-﻿# Project-level configuration.
+# Project-level configuration.
 cmake_minimum_required(VERSION 3.13)
 project(runner LANGUAGES C CXX)
 
@@ -7,7 +7,7 @@ project(runner LANGUAGES C CXX)
 set(BINARY_NAME "pilimax")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
-set(APPLICATION_ID "com.PiliMaxa.android")
+set(APPLICATION_ID "com.PiliMax.android")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

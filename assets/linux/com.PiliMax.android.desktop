@@ -1,4 +1,4 @@
-﻿[Desktop Entry]
+[Desktop Entry]
 Type=Application
 Name=PiliMax
 Comment=A third-party Bilibili Client developed in Flutter
@@ -6,5 +6,5 @@ Comment[zh_CN]=使用 Flutter 开发的 BiliBili 第三方客户端
 Exec=pilimax
 Icon=pilimax
 Terminal=false
-StartupWMClass=com.PiliMaxa.android
+StartupWMClass=com.PiliMax.android
 Categories=Video;AudioVideo;Player;

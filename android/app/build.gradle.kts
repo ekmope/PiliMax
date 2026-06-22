@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.PiliMaxa.android"
+    namespace = "com.PiliMax.android"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -18,7 +18,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.PiliMaxa.android"
+        applicationId = "com.PiliMax.android"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

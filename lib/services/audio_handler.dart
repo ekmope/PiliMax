@@ -1,4 +1,4 @@
-﻿import 'dart:io' show File, Platform;
+import 'dart:io' show File, Platform;
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:PiliMax/common/constants.dart';
@@ -22,7 +22,7 @@ Future<VideoPlayerServiceHandler> initAudioService() {
   return AudioService.init(
     builder: VideoPlayerServiceHandler.new,
     config: const AudioServiceConfig(
-      androidNotificationChannelId: 'com.PiliMaxa.android.audio',
+      androidNotificationChannelId: 'com.PiliMax.android.audio',
       androidNotificationChannelName: 'Audio Service ${Constants.appName}',
       androidNotificationOngoing: true,
       androidStopForegroundOnPause: true,

@@ -392,6 +392,22 @@ class LiveRoomController extends GetxController {
     }
   }
 
+  Future<void> onCast() async {
+    final url = videoUrl;
+    if (url == null || url.isEmpty) {
+      SmartDialog.showToast('播放地址未就绪');
+      return;
+    }
+    final castTitle = title.value.isNotEmpty ? title.value : null;
+    await Get.toNamed(
+      '/dlna',
+      parameters: {
+        'url': url,
+        'title': ?castTitle,
+      },
+    );
+  }
+
   void _showDialog(String title) {
     showDialog(
       context: Get.context!,

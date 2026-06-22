@@ -71,6 +71,8 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
     final isFullScreen = this.isFullScreen;
     showCurrTimeIfNeeded(isFullScreen);
     final liveController = widget.liveController;
+    final showCastButton =
+        PlatformUtils.isDesktop || !context.mediaQuerySize.isPortrait;
     Widget child;
     child = Obx(
       key: titleKey,
@@ -186,6 +188,17 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                 color: Colors.white,
               ),
             ),
+          if (showCastButton)
+            ComBtn(
+              height: 30,
+              tooltip: '投屏',
+              onTap: liveController.onCast,
+              icon: const Icon(
+                size: 18,
+                Icons.cast,
+                color: Colors.white,
+              ),
+            ),
           Obx(
             () {
               final onlyPlayAudio = plPlayerController.onlyPlayAudio.value;
@@ -261,6 +274,18 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                       ],
                     ),
                   ),
+                  if (!showCastButton)
+                    PopupMenuItem(
+                      height: 42,
+                      onTap: liveController.onCast,
+                      child: const Row(
+                        spacing: 8,
+                        children: [
+                          Icon(Icons.cast, size: 20),
+                          Text('投屏', style: TextStyle(fontSize: 14)),
+                        ],
+                      ),
+                    ),
                   PopupMenuItem(
                     height: 35,
                     child: const Row(

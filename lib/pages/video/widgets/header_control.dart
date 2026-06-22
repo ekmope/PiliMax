@@ -448,6 +448,15 @@ class HeaderControlState extends State<HeaderControl>
                     dense: true,
                     onTap: () {
                       Get.back();
+                      videoDetailCtr.onCast();
+                    },
+                    leading: const Icon(Icons.cast, size: 20),
+                    title: const Text('投屏', style: titleStyle),
+                  ),
+                  ListTile(
+                    dense: true,
+                    onTap: () {
+                      Get.back();
                       videoDetailCtr.editPlayUrl();
                     },
                     leading: const Icon(

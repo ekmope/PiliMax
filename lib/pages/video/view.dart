@@ -1757,11 +1757,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           onTap: videoDetailController.toAudioPage,
           child: const Text('听视频'),
         ),
-      if (!videoDetailController.isFileSource)
-        PopupMenuItem(
-          onTap: videoDetailController.onCast,
-          child: const Text('投屏'),
-        ),
       PopupMenuItem(
         onTap: () {
           if (!Accounts.main.isLogin) {

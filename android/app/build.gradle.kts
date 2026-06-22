@@ -1,4 +1,5 @@
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
+import org.gradle.api.GradleException
 import org.jetbrains.kotlin.konan.properties.Properties
 
 plugins {
@@ -51,17 +52,18 @@ android {
     }
 
     buildTypes {
-        all {
-            signingConfig = config ?: signingConfigs["debug"]
-        }
         release {
             if (project.hasProperty("dev")) {
+                signingConfig = config ?: signingConfigs["debug"]
                 applicationIdSuffix = ".dev"
                 resValue(
                     type = "string",
                     name = "app_name",
                     value = "PiliMax dev",
                 )
+            } else {
+                signingConfig = config
+                    ?: throw GradleException("Missing release signing config. Create android/key.properties or configure GitHub Actions signing secrets.")
             }
 //            proguardFiles(
 //                getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -69,6 +71,7 @@ android {
 //            )
         }
         debug {
+            signingConfig = signingConfigs["debug"]
             applicationIdSuffix = ".debug"
         }
     }

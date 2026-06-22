@@ -85,13 +85,15 @@ jobs:
             - name: Write key
               if: github.event_name == 'workflow_dispatch'
               run: |
-                  if [ ! -z "${{ secrets.SIGN_KEYSTORE_BASE64 }}" ]; then
-                    echo "${{ secrets.SIGN_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
-                    echo storeFile='key.jks' >> android/key.properties
-                    echo storePassword='${{ secrets.KEYSTORE_PASSWORD }}' >> android/key.properties
-                    echo keyAlias='${{ secrets.KEY_ALIAS }}' >> android/key.properties
-                    echo keyPassword='${{ secrets.KEY_PASSWORD }}' >> android/key.properties
+                  if [ -z "${{ secrets.SIGN_KEYSTORE_BASE64 }}" ] || [ -z "${{ secrets.KEYSTORE_PASSWORD }}" ] || [ -z "${{ secrets.KEY_ALIAS }}" ] || [ -z "${{ secrets.KEY_PASSWORD }}" ]; then
+                    echo "::error::Missing Android signing secrets. Configure SIGN_KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD in GitHub repository secrets."
+                    exit 1
                   fi
+                  echo "${{ secrets.SIGN_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
+                  echo storeFile='key.jks' >> android/key.properties
+                  echo storePassword='${{ secrets.KEYSTORE_PASSWORD }}' >> android/key.properties
+                  echo keyAlias='${{ secrets.KEY_ALIAS }}' >> android/key.properties
+                  echo keyPassword='${{ secrets.KEY_PASSWORD }}' >> android/key.properties
 
             - name: Set and Extract version
               if: ${{ github.event_name == 'workflow_dispatch' }}

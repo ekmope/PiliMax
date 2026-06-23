@@ -120,21 +120,6 @@ class _AboutPageState extends State<AboutPage> {
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium!.copyWith(height: 2),
             ),
-            subtitle: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '基于PiliMax做了一些自用修改',
-                  style: TextStyle(color: outline),
-                  semanticsLabel: '与你一起，发现不一样的世界',
-                ),
-                const Icon(
-                  Icons.accessibility_new,
-                  semanticLabel: "无障碍适配",
-                  size: 18,
-                ),
-              ],
-            ),
           ),
           ListTile(
             onTap: () => Update.checkUpdate(false),

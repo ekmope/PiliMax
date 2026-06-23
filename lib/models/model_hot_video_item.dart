@@ -51,7 +51,6 @@ class HotVideoItemModel extends HorizontalVideoModel with MultiSelectData {
 
 class HotStat extends Stat {
   int? reply;
-  int? favorite;
   num? coin;
   int? share;
   int? nowRank;

@@ -23,6 +23,7 @@ abstract class BaseOwner {
 abstract class BaseStat {
   int? view;
   int? like;
+  int? favorite;
   int? danmu;
 }
 
@@ -30,6 +31,7 @@ class Stat extends BaseStat {
   Stat.fromJson(Map<String, dynamic> json) {
     view = json["view"];
     like = json["like"];
+    favorite = json["favorite"];
     danmu = json['danmaku'];
   }
 }

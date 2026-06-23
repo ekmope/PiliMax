@@ -18,11 +18,15 @@ void imageSaveDialog({
   String? pubdateText,
   dynamic view,
   dynamic danmaku,
+  dynamic like,
+  dynamic favorite,
   String? ownerName,
 }) {
   final double imgWidth = MediaQuery.sizeOf(Get.context!).shortestSide - 16;
   SmartDialog.show(
     animationType: SmartAnimationType.centerScale_otherSlide,
+    backType: SmartBackType.normal,
+    useSystem: true,
     builder: (context) {
       const iconSize = 20.0;
       final theme = Theme.of(context);
@@ -35,6 +39,8 @@ void imageSaveDialog({
           '发布 ${DateFormatUtils.format(pubdate)}',
         if (view != null) '播放 ${NumUtils.numFormat(view)}',
         if (danmaku != null) '弹幕 ${NumUtils.numFormat(danmaku)}',
+        if (like != null) '点赞 ${NumUtils.numFormat(like)}',
+        if (favorite != null) '收藏 ${NumUtils.numFormat(favorite)}',
         if (ownerName?.isNotEmpty == true) 'UP $ownerName',
       ];
       return Container(
@@ -152,7 +158,7 @@ void imageSaveDialog({
                             ),
                           )
                           .toList(),
-                      ),
+                    ),
                   ],
                 ],
               ),

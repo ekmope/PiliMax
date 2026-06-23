@@ -25,12 +25,30 @@ import 'package:intl/intl.dart';
 class VideoCardV extends StatelessWidget {
   final BaseRcmdVideoItemModel videoItem;
   final VoidCallback? onRemove;
+  static final _pubdateTextPattern = RegExp(
+    r'刚刚|昨天|今天|前|\d{1,4}[-/.年]\d{1,2}|周[一二三四五六日天]',
+  );
 
   const VideoCardV({
     super.key,
     required this.videoItem,
     this.onRemove,
   });
+
+  String? get _previewPubdateText {
+    if (videoItem.pubdate != null) {
+      return null;
+    }
+    final desc = videoItem.desc?.trim();
+    if (desc == null || desc.isEmpty) {
+      return null;
+    }
+    final text = desc.split(' · ').last.trim();
+    if (text.isEmpty || !_pubdateTextPattern.hasMatch(text)) {
+      return null;
+    }
+    return text;
+  }
 
   Future<void> onPushDetail() async {
     switch (videoItem.goto) {
@@ -88,8 +106,11 @@ class VideoCardV extends StatelessWidget {
       cover: videoItem.cover,
       bvid: videoItem.bvid,
       pubdate: videoItem.pubdate,
+      pubdateText: _previewPubdateText,
       view: videoItem.stat.view,
       danmaku: videoItem.stat.danmu,
+      like: videoItem.stat.like,
+      favorite: videoItem.stat.favorite,
       ownerName: videoItem.owner.name,
     );
     return Stack(

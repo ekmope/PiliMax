@@ -19,6 +19,7 @@ import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:intl/intl.dart';
 
 // 视频卡片 - 垂直布局
 class VideoCardV extends StatelessWidget {

@@ -66,6 +66,7 @@ import 'package:PiliMax/utils/max_screen_size.dart';
 import 'package:PiliMax/utils/mobile_observer.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';

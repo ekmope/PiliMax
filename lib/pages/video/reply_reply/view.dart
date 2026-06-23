@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:PiliMax/common/skeleton/video_reply.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/colored_box_transition.dart';
@@ -51,6 +53,113 @@ class VideoReplyReplyPanel extends CommonSlidePage {
   @override
   State<VideoReplyReplyPanel> createState() => _VideoReplyReplyPanelState();
 
+  static Future<T?>? pushReplyRoute<T>({
+    required BuildContext context,
+    required WidgetBuilder builder,
+    String routeName = 'replyReply',
+    Object? arguments,
+  }) {
+    if (Platform.isAndroid) {
+      return Navigator.of(context).push<T>(
+        MaterialPageRoute<T>(
+          settings: RouteSettings(
+            name: routeName,
+            arguments: arguments,
+          ),
+          builder: builder,
+        ),
+      );
+    }
+    return Get.to<T>(
+      () => builder(context),
+      routeName: routeName,
+      arguments: arguments,
+    );
+  }
+
+  static Widget routePage({
+    int? id,
+    required int oid,
+    required int rpid,
+    int? dialog,
+    Uri? uri,
+    required int replyType,
+    ReplyInfo? firstFloor,
+    String? heroTag,
+    Int64? upMid,
+    Color? dividerColor,
+  }) {
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        title: Text(dialog == null ? '评论详情' : '对话列表'),
+        actions: uri == null
+            ? null
+            : [
+                IconButton(
+                  tooltip: '前往',
+                  onPressed: () => PiliScheme.routePush(
+                    uri,
+                    businessId: replyType,
+                  ),
+                  icon: const Icon(Icons.open_in_browser),
+                ),
+              ],
+        shape: dividerColor == null
+            ? null
+            : Border(bottom: BorderSide(color: dividerColor)),
+      ),
+      body: ViewSafeArea(
+        child: VideoReplyReplyPanel(
+          enableSlide: false,
+          id: id,
+          oid: oid,
+          rpid: rpid,
+          dialog: dialog,
+          isVideoDetail: false,
+          replyType: replyType,
+          firstFloor: firstFloor,
+          heroTag: heroTag,
+          upMid: upMid,
+        ),
+      ).constraintWidth(),
+    );
+  }
+
+  static Future<void>? toReplyPage({
+    required BuildContext context,
+    String routeName = 'replyReply',
+    Object? arguments,
+    int? id,
+    required int oid,
+    required int rpid,
+    int? dialog,
+    Uri? uri,
+    required int replyType,
+    ReplyInfo? firstFloor,
+    String? heroTag,
+    Int64? upMid,
+    Color? dividerColor,
+  }) {
+    return pushReplyRoute<void>(
+      context: context,
+      routeName: routeName,
+      arguments: arguments,
+      builder: (_) => routePage(
+        id: id,
+        oid: oid,
+        rpid: rpid,
+        dialog: dialog,
+        uri: uri,
+        replyType: replyType,
+        firstFloor: firstFloor,
+        heroTag: heroTag,
+        upMid: upMid,
+        dividerColor: dividerColor,
+      ),
+    )?.then((_) {});
+  }
+
   static Future<void>? toReply({
     required int oid,
     required int rootId,
@@ -60,15 +169,29 @@ class VideoReplyReplyPanel extends CommonSlidePage {
     Uri? uri,
   }) {
     final rpId = rpIdStr == null ? null : int.tryParse(rpIdStr);
+    final arguments = {
+      'oid': oid,
+      'rpid': rootId,
+      'id': ?rpId,
+      'type': type,
+      'heroTag': heroTag,
+      'enterUri': ?uri?.toString(), // save panel
+    };
+    final context = Get.context ?? Get.key.currentContext;
+    if (context != null) {
+      return toReplyPage(
+        context: context,
+        arguments: arguments,
+        oid: oid,
+        rpid: rootId,
+        uri: uri,
+        replyType: type,
+        id: rpId,
+        heroTag: heroTag,
+      );
+    }
     return Get.to(
-      arguments: {
-        'oid': oid,
-        'rpid': rootId,
-        'id': ?rpId,
-        'type': type,
-        'heroTag': heroTag,
-        'enterUri': ?uri?.toString(), // save panel
-      },
+      arguments: arguments,
       () => Scaffold(
         resizeToAvoidBottomInset: false,
         appBar: AppBar(
@@ -345,19 +468,38 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       onReply: (replyItem) => _controller.onReply(replyItem, index: index),
       onDelete: (item, subIndex) => _controller.onRemove(index, item, null),
       upMid: _controller.upMid,
-      showDialogue: () => Scaffold.of(context).showBottomSheet(
-        backgroundColor: Colors.transparent,
-        constraints: const BoxConstraints(),
-        (context) => VideoReplyReplyPanel(
-          oid: replyItem.oid.toInt(),
-          rpid: replyItem.root.toInt(),
-          dialog: replyItem.dialog.toInt(),
-          replyType: widget.replyType,
-          isVideoDetail: true,
-          isNested: widget.isNested,
-          heroTag: widget.heroTag,
-        ),
-      ),
+      showDialogue: () {
+        final oid = replyItem.oid.toInt();
+        final rpid = replyItem.root.toInt();
+        final dialog = replyItem.dialog.toInt();
+        if (Platform.isAndroid) {
+          VideoReplyReplyPanel.toReplyPage(
+            context: context,
+            routeName: 'replyReply-dialogue',
+            oid: oid,
+            rpid: rpid,
+            dialog: dialog,
+            replyType: widget.replyType,
+            heroTag: widget.heroTag,
+            upMid: widget.upMid ?? _controller.upMid,
+          );
+          return;
+        }
+        Scaffold.of(context).showBottomSheet(
+          backgroundColor: Colors.transparent,
+          constraints: const BoxConstraints(),
+          (context) => VideoReplyReplyPanel(
+            oid: oid,
+            rpid: rpid,
+            dialog: dialog,
+            replyType: widget.replyType,
+            isVideoDetail: true,
+            isNested: widget.isNested,
+            heroTag: widget.heroTag,
+            upMid: widget.upMid ?? _controller.upMid,
+          ),
+        );
+      },
       jumpToDialogue: () {
         if (!_controller.setIndexById(replyItem.parent)) {
           SmartDialog.showToast('评论可能已被删除');

@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:PiliMax/common/skeleton/video_reply.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
@@ -239,6 +241,19 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
     EasyThrottle.throttle('replyReply', const Duration(milliseconds: 500), () {
       int oid = replyItem.oid.toInt();
       int rpid = replyItem.id.toInt();
+      if (Platform.isAndroid) {
+        VideoReplyReplyPanel.toReplyPage(
+          context: context,
+          id: id,
+          oid: oid,
+          rpid: rpid,
+          firstFloor: replyItem.replyControl.isNote ? null : replyItem,
+          replyType: _videoReplyController.videoType.replyType,
+          heroTag: heroTag,
+          upMid: _videoReplyController.upMid,
+        );
+        return;
+      }
       Scaffold.of(context).showBottomSheet(
         backgroundColor: Colors.transparent,
         constraints: const BoxConstraints(),

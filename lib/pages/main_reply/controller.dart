@@ -6,6 +6,16 @@ import 'package:PiliMax/pages/common/reply_controller.dart';
 import 'package:get/get.dart';
 
 class MainReplyController extends ReplyController<MainListReply> {
+  MainReplyController({
+    this.initialOid,
+    this.initialReplyType,
+    this.initialHeroTag,
+  });
+
+  final int? initialOid;
+  final int? initialReplyType;
+  final String? initialHeroTag;
+
   late final int oid;
   late final int replyType;
   late final String? heroTag;
@@ -16,10 +26,10 @@ class MainReplyController extends ReplyController<MainListReply> {
   @override
   void onInit() {
     super.onInit();
-    final args = Get.arguments;
-    oid = args['oid'];
-    replyType = args['replyType'];
-    heroTag = args['heroTag'];
+    final args = Get.arguments as Map?;
+    oid = initialOid ?? (args?['oid'] as int);
+    replyType = initialReplyType ?? (args?['replyType'] as int);
+    heroTag = initialHeroTag ?? (args?['heroTag'] as String?);
 
     queryData();
   }

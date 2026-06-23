@@ -209,10 +209,11 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
       }
 
       if (isPortrait) {
-        Get.to(
-          replyReplyPage,
+        VideoReplyReplyPanel.pushReplyRoute(
+          context: context,
           routeName: 'dynamicDetail-Copy',
           arguments: arguments,
+          builder: (_) => replyReplyPage(),
         );
       } else {
         final scaffoldState = Scaffold.maybeOf(context);
@@ -223,10 +224,11 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
             (context) => replyReplyPage(showBackBtn: false),
           );
         } else {
-          Get.to(
-            replyReplyPage,
+          VideoReplyReplyPanel.pushReplyRoute(
+            context: context,
             routeName: 'dynamicDetail-Copy',
             arguments: arguments,
+            builder: (_) => replyReplyPage(),
           );
         }
       }

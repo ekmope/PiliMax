@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:PiliMax/common/skeleton/video_reply.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
@@ -20,7 +22,16 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class MainReplyPage extends StatefulWidget {
-  const MainReplyPage({super.key});
+  const MainReplyPage({
+    super.key,
+    this.oid,
+    this.replyType,
+    this.heroTag,
+  });
+
+  final int? oid;
+  final int? replyType;
+  final String? heroTag;
 
   @override
   State<MainReplyPage> createState() => _MainReplyPageState();
@@ -30,25 +41,53 @@ class MainReplyPage extends StatefulWidget {
     required int replyType,
     String? heroTag,
   }) {
+    final arguments = {
+      'oid': oid,
+      'replyType': replyType,
+      'heroTag': heroTag,
+    };
+    final context = Get.context ?? Get.key.currentContext;
+    if (Platform.isAndroid && context != null) {
+      Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          settings: RouteSettings(
+            name: '/mainReply',
+            arguments: arguments,
+          ),
+          builder: (_) => MainReplyPage(
+            oid: oid,
+            replyType: replyType,
+            heroTag: heroTag,
+          ),
+        ),
+      );
+      return;
+    }
     Get.toNamed(
       '/mainReply',
-      arguments: {
-        'oid': oid,
-        'replyType': replyType,
-        'heroTag': heroTag,
-      },
+      arguments: arguments,
     );
   }
 }
 
 class _MainReplyPageState extends State<MainReplyPage>
     with SingleTickerProviderStateMixin, BaseFabMixin, FabMixin {
-  final _controller = Get.put(
-    MainReplyController(),
-    tag: Utils.generateRandomString(8),
-  );
+  late final MainReplyController _controller;
 
   late EdgeInsets padding;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = Get.put(
+      MainReplyController(
+        initialOid: widget.oid,
+        initialReplyType: widget.replyType,
+        initialHeroTag: widget.heroTag,
+      ),
+      tag: Utils.generateRandomString(8),
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -221,6 +260,21 @@ class _MainReplyPageState extends State<MainReplyPage>
     EasyThrottle.throttle('replyReply', const Duration(milliseconds: 500), () {
       int oid = replyItem.oid.toInt();
       int rpid = replyItem.id.toInt();
+      if (Platform.isAndroid) {
+        VideoReplyReplyPanel.toReplyPage(
+          context: context,
+          routeName: 'dynamicDetail-Copy',
+          id: id,
+          oid: oid,
+          rpid: rpid,
+          replyType: _controller.replyType,
+          firstFloor: replyItem,
+          heroTag: _controller.heroTag,
+          upMid: _controller.upMid,
+          dividerColor: colorScheme.outline.withValues(alpha: 0.1),
+        );
+        return;
+      }
       Get.to(
         Scaffold(
           resizeToAvoidBottomInset: false,

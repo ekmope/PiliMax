@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/dynamic/dynamics_type.dart';
+import 'package:PiliMax/models/dynamics/up.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/controller.dart';
 import 'package:PiliMax/pages/dynamics/widgets/dynamic_panel.dart';
@@ -17,9 +16,14 @@ import 'package:waterfall_flow/waterfall_flow.dart'
     hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
 
 class DynamicsTabPage extends StatefulWidget {
-  const DynamicsTabPage({super.key, required this.dynamicsType});
+  const DynamicsTabPage({
+    super.key,
+    this.dynamicsType,
+    this.upItem,
+  }) : assert(dynamicsType != null || upItem != null);
 
-  final DynamicsTabType dynamicsType;
+  final DynamicsTabType? dynamicsType;
+  final UpItem? upItem;
 
   @override
   State<DynamicsTabPage> createState() => _DynamicsTabPageState();
@@ -27,10 +31,15 @@ class DynamicsTabPage extends StatefulWidget {
 
 class _DynamicsTabPageState extends State<DynamicsTabPage>
     with AutomaticKeepAliveClientMixin, DynMixin {
-  StreamSubscription? _listener;
-
   DynamicsController dynamicsController = Get.putOrFind(DynamicsController.new);
   late final DynamicsTabController controller;
+  late final DynamicsTabType dynamicsType =
+      widget.dynamicsType ??
+      (widget.upItem!.mid == -1 ? DynamicsTabType.all : DynamicsTabType.up);
+  late final int? mid = widget.upItem?.mid == -1 ? null : widget.upItem?.mid;
+  late final String tag = widget.upItem == null
+      ? dynamicsType.name
+      : DynamicsController.upTagForMid(widget.upItem!.mid);
 
   @override
   bool get wantKeepAlive => true;
@@ -38,28 +47,10 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
   @override
   void initState() {
     controller = Get.putOrFind(
-      () =>
-          DynamicsTabController(dynamicsType: widget.dynamicsType)
-            ..mid = dynamicsController.mid.value,
-      tag: widget.dynamicsType.name,
+      () => DynamicsTabController(dynamicsType: dynamicsType)..mid = mid,
+      tag: tag,
     );
     super.initState();
-    if (widget.dynamicsType == DynamicsTabType.up) {
-      _listener = dynamicsController.mid.listen((mid) {
-        if (mid != -1) {
-          controller
-            ..mid = mid
-            ..onReload();
-        }
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _listener?.cancel();
-    dynamicsController.mid.close();
-    super.dispose();
   }
 
   @override

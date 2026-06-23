@@ -22,9 +22,10 @@ class DynamicsController extends GetxController
   @override
   final ScrollController scrollController = ScrollController();
   late final TabController tabController;
+  late final PageController upPageController;
 
   late final RxInt mid = (-1).obs;
-  late int currentMid = -1;
+  late final RxInt currentMid = (-1).obs;
 
   Set<int> tempBannedList = <int>{};
 
@@ -44,22 +45,53 @@ class DynamicsController extends GetxController
   DynamicsTabController? get controller {
     try {
       return Get.find<DynamicsTabController>(
-        tag: DynamicsTabType.values[tabController.index].name,
+        tag: currentUpTag,
       );
     } catch (_) {
       return null;
     }
   }
 
-  bool get isAllTab => tabController.index == DynamicsTabType.all.index;
+  String get currentUpTag => upTagForMid(currentMid.value);
+
+  static String upTagForMid(int mid) => 'up-$mid';
+
+  bool get isAllTab => isAllUpPage;
+  bool get isAllUpPage => currentMid.value == -1;
 
   bool backToAllTab() {
-    if (isAllTab) {
-      return false;
+    if (!isAllUpPage) {
+      onSelectUp(-1);
+      return true;
     }
-    mid.value = -1;
-    tabController.animateTo(DynamicsTabType.all.index);
-    return true;
+    return false;
+  }
+
+  List<UpItem> get upPageItems {
+    final items = <UpItem>[
+      UpItem(face: '', uname: '全部动态', mid: -1),
+    ];
+    if (Pref.dynamicsShowSelfUp && accountService.isLogin.value) {
+      items.add(
+        UpItem(
+          uname: '我',
+          face: accountService.face.value,
+          mid: Accounts.main.mid,
+        ),
+      );
+    }
+    if (upState.value case Success<FollowUpModel>(:final response)) {
+      items.addAll(response.upList);
+    }
+    return items;
+  }
+
+  int indexOfMid(int mid) {
+    final index = upPageItems.indexWhere((item) => item.mid == mid);
+    if (index == -1) {
+      return 0;
+    }
+    return index;
   }
 
   @override
@@ -68,8 +100,9 @@ class DynamicsController extends GetxController
     tabController = TabController(
       length: DynamicsTabType.values.length,
       vsync: this,
-      initialIndex: Pref.defaultDynamicTypeIndex,
+      initialIndex: DynamicsTabType.all.index,
     );
+    upPageController = PageController(initialPage: indexOfMid(currentMid.value));
     queryFollowUp();
   }
 
@@ -187,8 +220,10 @@ class DynamicsController extends GetxController
   }
 
   void onSelectUp(int mid) {
+    final pageIndex = indexOfMid(mid);
     if (this.mid.value == mid) {
-      tabController.index = (mid == -1 ? 0 : 4);
+      currentMid.value = mid;
+      tabController.index = DynamicsTabType.all.index;
       if (mid == -1) {
         queryFollowUp();
       }
@@ -197,7 +232,29 @@ class DynamicsController extends GetxController
     }
 
     this.mid.value = mid;
-    tabController.index = (mid == -1 ? 0 : 4);
+    currentMid.value = mid;
+    tabController.index = DynamicsTabType.all.index;
+    if (upPageController.hasClients) {
+      upPageController.animateToPage(
+        pageIndex,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  void onUpPageChanged(int index) {
+    final items = upPageItems;
+    if (index < 0 || index >= items.length) {
+      return;
+    }
+    final mid = items[index].mid;
+    this.mid.value = mid;
+    currentMid.value = mid;
+    tabController.index = DynamicsTabType.all.index;
+    if (index >= items.length - 3) {
+      onLoadMoreUp();
+    }
   }
 
   @override
@@ -245,6 +302,7 @@ class DynamicsController extends GetxController
   @override
   void onClose() {
     tabController.dispose();
+    upPageController.dispose();
     scrollController.dispose();
     super.onClose();
   }

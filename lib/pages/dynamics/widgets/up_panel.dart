@@ -146,9 +146,7 @@ class _UpPanelState extends State<UpPanel> {
   }
 
   void _onSelect(UpItem data) {
-    controller
-      ..currentMid = data.mid
-      ..onSelectUp(data.mid);
+    controller.onSelectUp(data.mid);
 
     data.hasUpdate = false;
 
@@ -156,9 +154,7 @@ class _UpPanelState extends State<UpPanel> {
   }
 
   Widget upItemBuild(ThemeData theme, UpItem data) {
-    final currentMid = controller.currentMid;
     final isLive = data is LiveUserItem;
-    final isCurrent = isLive || currentMid == data.mid || currentMid == -1;
 
     final isAll = data.mid == -1;
     void toMemberPage() => Get.toNamed('/member?mid=${data.mid}');
@@ -240,31 +236,37 @@ class _UpPanelState extends State<UpPanel> {
         // onDoubleTap: isLive ? () => _onSelect(data) : null,
         onLongPress: !isAll ? toMemberPage : null,
         onSecondaryTap: !isAll && !PlatformUtils.isMobile ? toMemberPage : null,
-        child: Opacity(
-          opacity: isCurrent ? 1 : 0.6,
-          child: Column(
-            spacing: 4,
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              avatar,
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  isTop ? '${data.uname}\n' : data.uname!,
-                  maxLines: 2,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: currentMid == data.mid
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outline,
-                    height: 1.1,
-                    fontSize: 12.5,
+        child: Obx(
+          () {
+            final currentMid = controller.currentMid.value;
+            final isCurrent = isLive || currentMid == data.mid;
+            return Opacity(
+              opacity: isCurrent ? 1 : 0.6,
+              child: Column(
+                spacing: 4,
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  avatar,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      isTop ? '${data.uname}\n' : data.uname!,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: currentMid == data.mid
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outline,
+                        height: 1.1,
+                        fontSize: 12.5,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

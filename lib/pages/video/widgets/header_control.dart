@@ -37,6 +37,7 @@ import 'package:PiliMax/pages/video/widgets/header_mixin.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/data_source.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
+import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/services/shutdown_timer_service.dart'
     show shutdownTimerService;
 import 'package:PiliMax/utils/accounts.dart';
@@ -335,14 +336,7 @@ class HeaderControlState extends State<HeaderControl>
   static const TextStyle titleStyle = TextStyle(fontSize: 14);
 
   String get heroTag => widget.heroTag;
-  late final UgcIntroController ugcIntroController;
-  late final PgcIntroController pgcIntroController;
-  late final LocalIntroController localIntroController;
-  late CommonIntroController introController = isFileSource
-      ? localIntroController
-      : videoDetailCtr.isUgc
-      ? ugcIntroController
-      : pgcIntroController;
+  late CommonIntroController introController;
 
   @override
   bool get isPortrait => widget.isPortrait;
@@ -364,6 +358,30 @@ class HeaderControlState extends State<HeaderControl>
   }
 
   /// 设置面板
+  void _syncCurrentMediaSessionOnResume() {
+    if (videoPlayerServiceHandler == null) {
+      return;
+    }
+
+    if (introController case final LocalIntroController localIntroController) {
+      localIntroController.onVideoDetailChange(videoDetailCtr.entry);
+      return;
+    }
+
+    if (introController case final UgcIntroController ugcIntroController) {
+      videoPlayerServiceHandler?.onVideoDetailChange(
+        ugcIntroController.videoDetail.value,
+        videoDetailCtr.cid.value,
+        heroTag,
+      );
+      return;
+    }
+
+    if (introController case final PgcIntroController pgcIntroController) {
+      pgcIntroController.queryVideoIntro();
+    }
+  }
+
   void showSettingSheet() {
     showBottomSheet(
       (context, setState) {
@@ -430,6 +448,29 @@ class HeaderControlState extends State<HeaderControl>
                     },
                     leading: const Icon(Icons.headphones_outlined, size: 20),
                     title: const Text('听视频', style: titleStyle),
+                  ),
+                if (PlatformUtils.isMobile)
+                  Obx(
+                    () => ListTile(
+                      dense: true,
+                      onTap: () => plPlayerController
+                          .setContinuePlayInBackground(
+                            onEnable: _syncCurrentMediaSessionOnResume,
+                          ),
+                      leading: const Icon(
+                        Icons.play_circle_outline,
+                        size: 20,
+                      ),
+                      title: const Text('后台播放', style: titleStyle),
+                      trailing: IgnorePointer(
+                        child: Switch(
+                          value: plPlayerController
+                              .continuePlayInBackground
+                              .value,
+                          onChanged: (_) {},
+                        ),
+                      ),
+                    ),
                   ),
                 ListTile(
                   dense: true,

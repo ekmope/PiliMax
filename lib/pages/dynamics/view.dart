@@ -1,6 +1,5 @@
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliMax/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliMax/models/dynamics/up.dart';
 import 'package:PiliMax/pages/common/common_page.dart';
@@ -123,11 +122,20 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
     Widget? leading;
     List<Widget>? actions;
 
-    Widget child = tabBarView(
-      controller: _dynamicsController.tabController,
-      children: DynamicsTabType.values
-          .map((e) => DynamicsTabPage(dynamicsType: e))
-          .toList(),
+    Widget child = Obx(
+      () {
+        final items = _dynamicsController.upPageItems;
+        return PageView.builder(
+          controller: _dynamicsController.upPageController,
+          physics: clampingScrollPhysics,
+          onPageChanged: _dynamicsController.onUpPageChanged,
+          itemCount: items.length,
+          itemBuilder: (context, index) => DynamicsTabPage(
+            key: ValueKey('dyn-up-${items[index].mid}'),
+            upItem: items[index],
+          ),
+        );
+      },
     );
 
     switch (upPanelPosition) {

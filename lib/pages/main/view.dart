@@ -89,8 +89,11 @@ class _MainAppState extends PopScopeState<MainApp>
       ),
     ];
     if (_mainController.hasDyn) {
-      _mainController.dynamicController.tabController.addListener(
-        _syncAndroidPredictiveBack,
+      _backPopWorkers.add(
+        ever<int>(
+          _mainController.dynamicController.currentMid,
+          (_) => _syncAndroidPredictiveBack(),
+        ),
       );
     }
     _syncAndroidPredictiveBack();
@@ -165,11 +168,6 @@ class _MainAppState extends PopScopeState<MainApp>
     removeObserverMobile(this);
     for (final worker in _backPopWorkers) {
       worker.dispose();
-    }
-    if (_mainController.hasDyn) {
-      _mainController.dynamicController.tabController.removeListener(
-        _syncAndroidPredictiveBack,
-      );
     }
     PiliScheme.listener?.cancel();
     GStorage.close();

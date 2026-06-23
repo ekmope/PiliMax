@@ -94,6 +94,19 @@ class DynamicsController extends GetxController
     return index;
   }
 
+  void _markUpAsRead(int mid) {
+    var changed = false;
+    for (final item in upPageItems) {
+      if (item.mid == mid && item.hasUpdate == true) {
+        item.hasUpdate = false;
+        changed = true;
+      }
+    }
+    if (changed) {
+      upState.refresh();
+    }
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -224,6 +237,7 @@ class DynamicsController extends GetxController
     if (this.mid.value == mid) {
       currentMid.value = mid;
       tabController.index = DynamicsTabType.all.index;
+      _markUpAsRead(mid);
       if (mid == -1) {
         queryFollowUp();
       }
@@ -234,6 +248,7 @@ class DynamicsController extends GetxController
     this.mid.value = mid;
     currentMid.value = mid;
     tabController.index = DynamicsTabType.all.index;
+    _markUpAsRead(mid);
     if (upPageController.hasClients) {
       upPageController.animateToPage(
         pageIndex,
@@ -252,6 +267,7 @@ class DynamicsController extends GetxController
     this.mid.value = mid;
     currentMid.value = mid;
     tabController.index = DynamicsTabType.all.index;
+    _markUpAsRead(mid);
     if (index >= items.length - 3) {
       onLoadMoreUp();
     }

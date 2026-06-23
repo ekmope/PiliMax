@@ -40,8 +40,6 @@ void imageSaveDialog({
   );
   SmartDialog.show(
     animationType: SmartAnimationType.centerScale_otherSlide,
-    backType: SmartBackType.normal,
-    useSystem: true,
     builder: (context) {
       const iconSize = 20.0;
       final theme = Theme.of(context);

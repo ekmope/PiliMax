@@ -20,10 +20,12 @@ import 'package:hive_ce/hive.dart';
 class UpPanel extends StatefulWidget {
   const UpPanel({
     required this.dynamicsController,
+    required this.createDynamicButton,
     super.key,
   });
 
   final DynamicsController dynamicsController;
+  final Widget createDynamicButton;
 
   @override
   State<UpPanel> createState() => _UpPanelState();
@@ -50,6 +52,7 @@ class _UpPanelState extends State<UpPanel> {
       physics: const AlwaysScrollableScrollPhysics(),
       controller: controller.scrollController,
       slivers: [
+        SliverToBoxAdapter(child: widget.createDynamicButton),
         SliverToBoxAdapter(
           child: InkWell(
             onTap: () => setState(() {

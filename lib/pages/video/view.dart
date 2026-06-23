@@ -170,7 +170,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     }
   }
 
-  final videoReplyPanelKey = GlobalKey();
+  final videoReplyStateKey = GlobalKey<VideoReplyPanelState>();
   final videoRelatedKey = GlobalKey();
   final videoIntroKey = GlobalKey();
 
@@ -2461,7 +2461,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   }
 
   Widget videoReplyPanel({bool isNested = false}) => VideoReplyPanel(
-    key: videoReplyPanelKey,
+    key: videoReplyStateKey,
     isNested: isNested,
     heroTag: heroTag,
   );
@@ -2694,6 +2694,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   void _onPopInvokedWithResult(bool didPop, result) {
     final returningToVideoPage = _isReturningToVideoPageInStack();
+    if (!didPop && videoReplyStateKey.currentState?.collapseReplyDetail() == true) {
+      return;
+    }
     if (didPop && Platform.isAndroid) {
       // 参考上游逻辑：返回时立即强制清空 Auto-PiP 状态，切断系统自动进入的时机，防止误触
       plPlayerController?.disableAutoEnterPip();

@@ -28,28 +28,35 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
   @override
   bool get wantKeepAlive => true;
 
-  Widget _createDynamicBtn(ThemeData theme, {bool isRight = true}) => Center(
-    child: Container(
-      width: 34,
-      height: 34,
-      margin: EdgeInsets.only(left: !isRight ? 16 : 0, right: isRight ? 16 : 0),
-      child: IconButton(
-        tooltip: '发布动态',
-        style: ButtonStyle(
-          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-          backgroundColor: WidgetStatePropertyAll(
-            theme.colorScheme.secondaryContainer,
+  Widget _createDynamicBtn(ThemeData theme) {
+    final isTop = upPanelPosition == .top;
+    return Center(
+      child: Container(
+        width: isTop ? 70 : 64,
+        height: isTop ? 76 : 60,
+        alignment: Alignment.center,
+        padding: EdgeInsets.only(
+          left: isTop ? 12 : 0,
+          right: isTop ? 6 : 0,
+        ),
+        child: IconButton(
+          tooltip: '发布动态',
+          style: ButtonStyle(
+            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+            backgroundColor: WidgetStatePropertyAll(
+              theme.colorScheme.secondaryContainer,
+            ),
+          ),
+          onPressed: () => CreateDynPanel.onCreateDyn(context),
+          icon: Icon(
+            Icons.add,
+            size: 18,
+            color: theme.colorScheme.onSecondaryContainer,
           ),
         ),
-        onPressed: () => CreateDynPanel.onCreateDyn(context),
-        icon: Icon(
-          Icons.add,
-          size: 18,
-          color: theme.colorScheme.onSecondaryContainer,
-        ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget upPanelPart(ThemeData theme) {
     final isTop = upPanelPosition == .top;
@@ -79,6 +86,7 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
       Loading() => const SizedBox.shrink(),
       Success<FollowUpModel>() => UpPanel(
         dynamicsController: _dynamicsController,
+        createDynamicButton: _createDynamicBtn(Theme.of(context)),
       ),
       Error() => Center(
         child: IconButton(
@@ -119,8 +127,7 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
     Widget? drawer;
     Widget? endDrawer;
 
-    Widget? leading;
-    List<Widget>? actions;
+    PreferredSizeWidget? appBar;
 
     Widget child = Obx(
       () {
@@ -146,7 +153,6 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
             Expanded(child: child),
           ],
         );
-        actions = [_createDynamicBtn(theme)];
       case UpPanelPosition.leftFixed:
         child = Row(
           children: [
@@ -154,7 +160,6 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
             Expanded(child: child),
           ],
         );
-        actions = [_createDynamicBtn(theme)];
       case UpPanelPosition.rightFixed:
         child = Row(
           children: [
@@ -162,26 +167,43 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
             upPanelPart(theme),
           ],
         );
-        actions = [_createDynamicBtn(theme)];
       case UpPanelPosition.leftDrawer:
         drawer = upPanelPart(theme);
-        actions = [_createDynamicBtn(theme)];
+        appBar = AppBar(
+          primary: false,
+          toolbarHeight: 50,
+          backgroundColor: Colors.transparent,
+          actions: [
+            Builder(
+              builder: (context) => IconButton(
+                tooltip: 'UP',
+                icon: const Icon(Icons.people_alt_outlined),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+          ],
+        );
       case UpPanelPosition.rightDrawer:
         endDrawer = upPanelPart(theme);
-        leading = _createDynamicBtn(theme, isRight: false);
+        appBar = AppBar(
+          primary: false,
+          leading: Builder(
+            builder: (context) => IconButton(
+              tooltip: 'UP',
+              icon: const Icon(Icons.people_alt_outlined),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            ),
+          ),
+          leadingWidth: 50,
+          toolbarHeight: 50,
+          backgroundColor: Colors.transparent,
+        );
     }
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        primary: false,
-        leading: leading,
-        leadingWidth: 50,
-        toolbarHeight: 50,
-        backgroundColor: Colors.transparent,
-        actions: actions,
-      ),
+      appBar: appBar,
       drawer: drawer,
       endDrawer: endDrawer,
       body: onBuild(child),

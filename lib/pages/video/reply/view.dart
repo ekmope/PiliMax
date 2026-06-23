@@ -31,10 +31,10 @@ class VideoReplyPanel extends StatefulWidget {
   final bool isNested;
 
   @override
-  State<VideoReplyPanel> createState() => _VideoReplyPanelState();
+  State<VideoReplyPanel> createState() => VideoReplyPanelState();
 }
 
-class _VideoReplyPanelState extends State<VideoReplyPanel>
+class VideoReplyPanelState extends State<VideoReplyPanel>
     with
         AutomaticKeepAliveClientMixin,
         SingleTickerProviderStateMixin,
@@ -45,6 +45,16 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
 
   _ReplyDetailArgs? get _replyDetailArgs =>
       _replyDetailStack.isEmpty ? null : _replyDetailStack.last;
+
+  bool get hasReplyDetail => _replyDetailArgs != null;
+
+  bool collapseReplyDetail() {
+    if (!hasReplyDetail) {
+      return false;
+    }
+    _popReplyDetail();
+    return true;
+  }
 
   String get heroTag => widget.heroTag;
 
@@ -127,7 +137,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                   ? null
                   : _videoReplyController.scrollController,
               physics: const AlwaysScrollableScrollPhysics(),
-              key: const PageStorageKey(_VideoReplyPanelState),
+              key: const PageStorageKey(VideoReplyPanelState),
               slivers: [
                 SliverFloatingHeaderWidget(
                   backgroundColor: theme.colorScheme.surface,

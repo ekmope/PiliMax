@@ -1531,9 +1531,22 @@ class PlPlayerController with BlockConfigMixin {
   /// 设置后台播放
   void setBackgroundPlay(bool val) {
     videoPlayerServiceHandler?.enableBackgroundPlay = val;
+    if (!val) {
+      videoPlayerServiceHandler?.forceClear();
+    }
     if (!tempPlayerConf) {
       setting.put(SettingBoxKey.enableBackgroundPlay, val);
     }
+  }
+
+  void syncBackgroundMediaSession() {
+    final handler = videoPlayerServiceHandler;
+    if (handler == null || !handler.enableBackgroundPlay) {
+      return;
+    }
+    handler
+      ..onStatusChange(playerStatus.value, isBuffering.value, isLive)
+      ..onPositionChange(position);
   }
 
   set controls(bool visible) {
@@ -1910,13 +1923,23 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
-  void setContinuePlayInBackground() {
-    continuePlayInBackground.value = !continuePlayInBackground.value;
+  void setContinuePlayInBackground({VoidCallback? onEnable}) {
+    final enable = !continuePlayInBackground.value;
+    continuePlayInBackground.value = enable;
     if (!tempPlayerConf) {
       setting.put(
         SettingBoxKey.continuePlayInBackground,
-        continuePlayInBackground.value,
+        enable,
       );
+    }
+    if (enable) {
+      setBackgroundPlay(true);
+      onEnable?.call();
+      syncBackgroundMediaSession();
+      unawaited(audioSessionHandler?.setActive(playerStatus.isPlaying));
+    } else {
+      videoPlayerServiceHandler?.forceClear();
+      unawaited(audioSessionHandler?.setActive(false));
     }
   }
 

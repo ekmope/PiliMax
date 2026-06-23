@@ -293,7 +293,11 @@ class MainController extends GetxController
       if (mainTabBarView) {
         controller.animateTo(value);
       } else {
-        controller.jumpToPage(value);
+        controller.animateToPage(
+          value,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        );
       }
       if (currentNav == NavigationBarType.home) {
         checkDefaultSearch();

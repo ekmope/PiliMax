@@ -1757,6 +1757,38 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           onTap: videoDetailController.toAudioPage,
           child: const Text('听视频'),
         ),
+      if (PlatformUtils.isMobile)
+        PopupMenuItem(
+          onTap: () => videoDetailController
+              .plPlayerController
+              .setContinuePlayInBackground(
+                onEnable: _syncCurrentMediaSessionOnResume,
+              ),
+          child: Obx(
+            () => Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('后台播放'),
+                IgnorePointer(
+                  child: Switch(
+                    value: videoDetailController
+                        .plPlayerController
+                        .continuePlayInBackground
+                        .value,
+                    onChanged: (_) {},
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      PopupMenuItem(
+        onTap: () => shutdownTimerService.showScheduleExitDialog(
+          this.context,
+          isFullScreen: false,
+        ),
+        child: const Text('定时关闭'),
+      ),
       PopupMenuItem(
         onTap: () {
           if (!Accounts.main.isLogin) {

@@ -172,30 +172,6 @@ class _DynamicsPageState extends CommonPageState<DynamicsPage>
         leadingWidth: 50,
         toolbarHeight: 50,
         backgroundColor: Colors.transparent,
-        title: SizedBox(
-          height: 50,
-          child: TabBar(
-            dividerHeight: 0,
-            isScrollable: true,
-            tabAlignment: .center,
-            dividerColor: Colors.transparent,
-            labelColor: theme.colorScheme.primary,
-            indicatorColor: theme.colorScheme.primary,
-            controller: _dynamicsController.tabController,
-            unselectedLabelColor: theme.colorScheme.onSurface,
-            labelStyle:
-                TabBarTheme.of(context).labelStyle?.copyWith(fontSize: 13) ??
-                const TextStyle(fontSize: 13),
-            tabs: DynamicsTabType.values
-                .map((e) => Tab(text: e.label))
-                .toList(),
-            onTap: (index) {
-              if (!_dynamicsController.tabController.indexIsChanging) {
-                _dynamicsController.animateToTop();
-              }
-            },
-          ),
-        ),
         actions: actions,
       ),
       drawer: drawer,

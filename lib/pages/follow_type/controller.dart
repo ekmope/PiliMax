@@ -1,0 +1,50 @@
+import 'package:PiliMax/http/member.dart';
+import 'package:PiliMax/models_new/follow/data.dart';
+import 'package:PiliMax/models_new/follow/list.dart';
+import 'package:PiliMax/pages/common/common_list_controller.dart';
+import 'package:PiliMax/utils/accounts.dart';
+import 'package:get/get.dart';
+
+abstract class FollowTypeController
+    extends CommonListController<FollowData, FollowItemModel> {
+  late final int mid;
+  late final RxnString name;
+
+  RxInt total = 0.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    init();
+  }
+
+  void init() {
+    final ownerMid = Accounts.main.mid;
+    final Map? args = Get.arguments;
+    mid = args?['mid'] ?? ownerMid;
+    final String? name = args?['name'];
+    this.name = RxnString(name);
+    if (name == null) {
+      queryUserName();
+    }
+    queryData();
+  }
+
+  Future<void> queryUserName() async {
+    final res = await MemberHttp.memberCardInfo(mid: mid);
+    name.value = res.dataOrNull?.card?.name;
+  }
+
+  @override
+  List<FollowItemModel>? getDataList(FollowData response) {
+    total.value = response.total ?? 0;
+    return response.list;
+  }
+
+  @override
+  void checkIsEnd(int length) {
+    if (length >= total.value) {
+      isEnd = true;
+    }
+  }
+}

@@ -1,0 +1,205 @@
+import 'dart:io' show Platform;
+
+import 'package:collection/collection.dart';
+import 'package:PiliMax/build_config.dart';
+import 'package:PiliMax/common/constants.dart';
+import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/browser_ua.dart';
+import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/utils/accounts/account.dart';
+import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/material.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+
+abstract final class Update {
+  // 检查更新
+  static Future<void> checkUpdate([bool isAuto = true]) async {
+    if (kDebugMode) return;
+    SmartDialog.dismiss();
+    try {
+      final res = await Request().get(
+        Api.latestApp,
+        options: Options(
+          headers: {'user-agent': BrowserUa.mob},
+          extra: {'account': const NoAccount()},
+        ),
+      );
+      if (res.data is Map || res.data.isEmpty) {
+        if (!isAuto) {
+          SmartDialog.showToast('检查更新失败，GitHub接口未返回数据，请检查网络');
+        }
+        return;
+      }
+      final bool includePreRelease = Pref.preReleaseUpdate;
+      final data = (res.data as List).firstWhere(
+        (e) => includePreRelease || e['prerelease'] != true,
+        orElse: () => null,
+      );
+      if (data == null) {
+        if (!isAuto) {
+          SmartDialog.showToast('已是最新版本');
+        }
+        return;
+      }
+      final int latest =
+          DateTime.parse(data['created_at']).millisecondsSinceEpoch ~/ 1000;
+      if (BuildConfig.buildTime >= latest) {
+        if (!isAuto) {
+          SmartDialog.showToast('已是最新版本');
+        }
+      } else if (isAuto && Pref.skipVersion == data['tag_name']) {
+        // 用户已选择跳过此版本，静默忽略
+      } else {
+        Map<String, dynamic>? bestAsset;
+        if (Platform.isAndroid) {
+          bestAsset = await _findBestAsset(data);
+        }
+        SmartDialog.show(
+          animationType: SmartAnimationType.centerFade_otherSlide,
+          builder: (context) {
+            final colorScheme = ColorScheme.of(context);
+            Widget downloadBtn(String text, {String? ext, String? url}) =>
+                TextButton(
+                  onPressed: () => onDownload(data, ext: ext, url: url),
+                  child: Text(text),
+                );
+            return AlertDialog(
+              title: const Text('🎉 发现新版本 '),
+              content: SizedBox(
+                height: 280,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${data['tag_name']}',
+                        style: const TextStyle(fontSize: 20),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('${data['body']}'),
+                      TextButton(
+                        onPressed: () => PageUtils.launchURL(
+                          '${Constants.sourceCodeUrl}/commits/main',
+                        ),
+                        child: Text(
+                          "点此查看完整更新(即commit)内容",
+                          style: TextStyle(color: colorScheme.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                if (isAuto)
+                  TextButton(
+                    onPressed: () {
+                      SmartDialog.dismiss();
+                      GStorage.setting.put(
+                        SettingBoxKey.skipVersion,
+                        data['tag_name'],
+                      );
+                    },
+                    child: Text(
+                      '不再提醒',
+                      style: TextStyle(color: colorScheme.outline),
+                    ),
+                  ),
+                TextButton(
+                  onPressed: SmartDialog.dismiss,
+                  child: Text(
+                    '取消',
+                    style: TextStyle(color: colorScheme.outline), 
+                  ),
+                ),
+                if (Platform.isWindows) ...[
+                  downloadBtn('zip', ext: 'zip'),
+                  downloadBtn('exe', ext: 'exe'),
+                ] else if (Platform.isLinux) ...[
+                  downloadBtn('rpm', ext: 'rpm'),
+                  downloadBtn('deb', ext: 'deb'),
+                  downloadBtn('targz', ext: 'tar.gz'),
+                ] else if (Platform.isAndroid) ...[
+                  if (bestAsset != null)
+                    downloadBtn(
+                      '下载 APK (${bestAsset['name']})',
+                      url: bestAsset['browser_download_url'],
+                    )
+                  else
+                    downloadBtn('Github'),
+                ] else
+                  downloadBtn('Github'),
+              ],
+            );
+          },
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('failed to check update: $e');
+    }
+  }
+
+  // 下载适用于当前系统的安装包
+  static Future<void> onDownload(Map data, {String? ext, String? url}) async {
+    SmartDialog.dismiss();
+    if (url != null) {
+      PageUtils.launchURL(url);
+      return;
+    }
+    try {
+      void download(String plat) {
+        if (data['assets'].isNotEmpty) {
+          for (Map<String, dynamic> i in data['assets']) {
+            final String name = i['name'];
+            if (name.contains(plat) &&
+                (ext == null || ext.isEmpty ? true : name.endsWith(ext))) {
+              PageUtils.launchURL(i['browser_download_url']);
+              return;
+            }
+          }
+          throw UnsupportedError('platform not found: $plat');
+        }
+      }
+
+      if (Platform.isAndroid) {
+        // 获取设备信息
+        AndroidDeviceInfo androidInfo = await DeviceInfoPlugin().androidInfo;
+        // [arm64-v8a]
+        download(androidInfo.supportedAbis.first);
+      } else {
+        download(Platform.operatingSystem);
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('download error: $e');
+      PageUtils.launchURL('${Constants.sourceCodeUrl}/releases/latest');
+    }
+  }
+
+  static Future<Map<String, dynamic>?> _findBestAsset(Map data) async {
+    final List assets = data['assets'] ?? [];
+    if (assets.isEmpty) return null;
+
+    if (Platform.isAndroid) {
+      final AndroidDeviceInfo androidInfo =
+          await DeviceInfoPlugin().androidInfo;
+      final List<String> abis = androidInfo.supportedAbis;
+      for (final String abi in abis) {
+        final asset = assets.firstWhereOrNull(
+          (e) => e['name'].toString().toLowerCase().contains(abi.toLowerCase()),
+        );
+        if (asset != null) return asset;
+      }
+      // fallback to universal if available
+      return assets.firstWhereOrNull(
+        (e) => e['name'].toString().toLowerCase().contains('universal'),
+      );
+    }
+    return null;
+  }
+}

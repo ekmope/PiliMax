@@ -1,0 +1,74 @@
+import 'package:PiliMax/models/model_video.dart';
+import 'package:PiliMax/utils/global_data.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
+
+abstract final class RecommendFilter {
+  static int minDurationForRcmd = Pref.minDurationForRcmd;
+  static int minPlayForRcmd = Pref.minPlayForRcmd;
+  static int minLikeRatioForRecommend = Pref.minLikeRatioForRecommend;
+  static bool exemptFilterForFollowed = Pref.exemptFilterForFollowed;
+  static bool applyFilterToRelatedVideos = Pref.applyFilterToRelatedVideos;
+  static bool applyFilterToHotVideos = Pref.applyFilterToHotVideos;
+  static bool applyFilterToRankVideos = Pref.applyFilterToRankVideos;
+  static bool applyFilterToSearch = Pref.applyFilterToSearch;
+
+  static RegExp rcmdRegExp = RegExp(
+    Pref.parseBanWordToRegex(Pref.banWordForRecommend),
+    caseSensitive: false,
+  );
+  static bool enableFilter = rcmdRegExp.pattern.isNotEmpty;
+  static Map<int, String> recommendBlockedMids = Pref.recommendBlockedMids;
+
+  static bool isWhitelisted(int? mid) {
+    return mid != null && GlobalData().whitelistMids.containsKey(mid);
+  }
+
+  static bool filter(BaseVideoItemModel videoItem) {
+    if (isWhitelisted(videoItem.owner.mid)) {
+      return false;
+    }
+    //由于相关视频中没有已关注标签，只能视为非关注视频
+    if (videoItem.isFollowed && exemptFilterForFollowed) {
+      return false;
+    }
+    return filterAll(videoItem);
+  }
+
+  static bool filterLikeRatio(int? like, int? view) {
+    if (view != null) {
+      return (view > -1 && view < minPlayForRcmd) ||
+          (like != null &&
+              like > -1 &&
+              like * 100 < minLikeRatioForRecommend * view);
+    }
+    return false;
+  }
+
+  static bool filterTitle(String title) {
+    return (enableFilter && rcmdRegExp.hasMatch(title));
+  }
+
+  static bool filterUser(int? mid) {
+    return !isWhitelisted(mid) &&
+        recommendBlockedMids.isNotEmpty &&
+        mid != null &&
+        recommendBlockedMids.containsKey(mid);
+  }
+
+  static bool filterAll(BaseVideoItemModel videoItem) {
+    if (isWhitelisted(videoItem.owner.mid)) {
+      return false;
+    }
+    return (videoItem.duration > 0 &&
+            videoItem.duration < minDurationForRcmd) ||
+        filterLikeRatio(videoItem.stat.like, videoItem.stat.view) ||
+        filterTitle(videoItem.title) ||
+        filterUser(videoItem.owner.mid);
+  }
+
+  static bool searchShouldRemove(int? mid, String title) {
+    if (!applyFilterToSearch) return false;
+    if (isWhitelisted(mid)) return false;
+    return filterTitle(title) || filterUser(mid);
+  }
+}

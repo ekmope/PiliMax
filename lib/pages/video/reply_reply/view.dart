@@ -24,16 +24,6 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-typedef ShowReplyDialogueCallback =
-    void Function({
-      required int oid,
-      required int rpid,
-      required int dialog,
-      required int replyType,
-      String? heroTag,
-      Int64? upMid,
-    });
-
 class VideoReplyReplyPanel extends CommonSlidePage {
   const VideoReplyReplyPanel({
     super.key,
@@ -48,7 +38,6 @@ class VideoReplyReplyPanel extends CommonSlidePage {
     this.isNested = false,
     this.heroTag,
     this.upMid,
-    this.onShowDialogue,
   });
   final int? id;
   final int oid;
@@ -60,7 +49,6 @@ class VideoReplyReplyPanel extends CommonSlidePage {
   final bool isNested;
   final String? heroTag;
   final Int64? upMid;
-  final ShowReplyDialogueCallback? onShowDialogue;
 
   @override
   State<VideoReplyReplyPanel> createState() => _VideoReplyReplyPanelState();
@@ -480,49 +468,20 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       onReply: (replyItem) => _controller.onReply(replyItem, index: index),
       onDelete: (item, subIndex) => _controller.onRemove(index, item, null),
       upMid: _controller.upMid,
-      showDialogue: () {
-        final oid = replyItem.oid.toInt();
-        final rpid = replyItem.root.toInt();
-        final dialog = replyItem.dialog.toInt();
-        if (widget.onShowDialogue case final onShowDialogue?) {
-          onShowDialogue(
-            oid: oid,
-            rpid: rpid,
-            dialog: dialog,
-            replyType: widget.replyType,
-            heroTag: widget.heroTag,
-            upMid: widget.upMid ?? _controller.upMid,
-          );
-          return;
-        }
-        if (Platform.isAndroid) {
-          VideoReplyReplyPanel.toReplyPage(
-            context: context,
-            routeName: 'replyReply-dialogue',
-            oid: oid,
-            rpid: rpid,
-            dialog: dialog,
-            replyType: widget.replyType,
-            heroTag: widget.heroTag,
-            upMid: widget.upMid ?? _controller.upMid,
-          );
-          return;
-        }
-        Scaffold.of(context).showBottomSheet(
-          backgroundColor: Colors.transparent,
-          constraints: const BoxConstraints(),
-          (context) => VideoReplyReplyPanel(
-            oid: oid,
-            rpid: rpid,
-            dialog: dialog,
-            replyType: widget.replyType,
-            isVideoDetail: true,
-            isNested: widget.isNested,
-            heroTag: widget.heroTag,
-            upMid: widget.upMid ?? _controller.upMid,
-          ),
-        );
-      },
+      showDialogue: () => Scaffold.of(context).showBottomSheet(
+        backgroundColor: Colors.transparent,
+        constraints: const BoxConstraints(),
+        (context) => VideoReplyReplyPanel(
+          oid: replyItem.oid.toInt(),
+          rpid: replyItem.root.toInt(),
+          dialog: replyItem.dialog.toInt(),
+          replyType: widget.replyType,
+          isVideoDetail: true,
+          isNested: widget.isNested,
+          heroTag: widget.heroTag,
+          upMid: widget.upMid ?? _controller.upMid,
+        ),
+      ),
       jumpToDialogue: () {
         if (!_controller.setIndexById(replyItem.parent)) {
           SmartDialog.showToast('评论可能已被删除');

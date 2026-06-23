@@ -195,7 +195,11 @@ class Routes {
     GetPage(name: '/popularSeries', page: () => const PopularSeriesPage()),
     GetPage(name: '/popularPrecious', page: () => const PopularPreciousPage()),
     GetPage(name: '/audio', page: () => const AudioPage()),
-    GetPage(name: '/mainReply', page: () => const MainReplyPage()),
+    GetPage(
+      name: '/mainReply',
+      page: () => const MainReplyPage(),
+      transition: Transition.native,
+    ),
     GetPage(name: '/followed', page: () => const FollowedPage()),
     GetPage(name: '/sameFollowing', page: () => const FollowSamePage()),
     GetPage(name: '/download', page: () => const DownloadPage()),

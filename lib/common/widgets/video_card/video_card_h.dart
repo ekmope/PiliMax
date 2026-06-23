@@ -37,6 +37,10 @@ class VideoCardH extends StatelessWidget {
       bvid: videoItem.bvid,
       title: videoItem.title,
       cover: videoItem.cover,
+      pubdate: videoItem.pubdate,
+      view: videoItem.stat.view,
+      danmaku: videoItem.stat.danmu,
+      ownerName: videoItem.owner.name,
     );
     final theme = Theme.of(context);
     return Material(

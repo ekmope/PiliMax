@@ -59,20 +59,37 @@ Widget forwardPanel(
 
   void showMore() {
     String? title, cover, bvid;
+    dynamic view;
+    dynamic danmaku;
+    final moduleAuthor = orig.modules.moduleAuthor;
+    void setArchive(
+      DynamicArchiveModel archive, {
+      bool includeBvid = true,
+    }) {
+      title = archive.title;
+      cover = archive.cover;
+      if (includeBvid) {
+        bvid = archive.bvid;
+      }
+      view = archive.stat?.play;
+      danmaku = archive.stat?.danmu;
+    }
+
     switch (orig.type) {
       case 'DYNAMIC_TYPE_AV':
-        title = major?.archive?.title;
-        cover = major?.archive?.cover;
-        bvid = major?.archive?.bvid;
+        if (major?.archive case final archive?) {
+          setArchive(archive);
+        }
         break;
       case 'DYNAMIC_TYPE_UGC_SEASON':
-        title = major?.ugcSeason?.title;
-        cover = major?.ugcSeason?.cover;
-        bvid = major?.ugcSeason?.bvid;
+        if (major?.ugcSeason case final ugcSeason?) {
+          setArchive(ugcSeason);
+        }
         break;
       case 'DYNAMIC_TYPE_PGC' || 'DYNAMIC_TYPE_PGC_UNION':
-        title = major?.pgc?.title;
-        cover = major?.pgc?.cover;
+        if (major?.pgc case final pgc?) {
+          setArchive(pgc, includeBvid: false);
+        }
         break;
       case 'DYNAMIC_TYPE_LIVE_RCMD':
         title = major?.liveRcmd?.title;
@@ -90,6 +107,10 @@ Widget forwardPanel(
         title: title,
         cover: cover,
         bvid: bvid,
+        pubdate: moduleAuthor?.pubTs,
+        view: view,
+        danmaku: danmaku,
+        ownerName: moduleAuthor?.name,
       );
     }
   }

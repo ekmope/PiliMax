@@ -55,8 +55,19 @@ class _MainAppState extends PopScopeState<MainApp>
 
   bool get _allowAndroidPredictiveExit =>
       Platform.isAndroid &&
+      !_isOnDynamicsSubTab &&
       (_mainController.directExitOnBack.value ||
           _mainController.selectedIndex.value == 0);
+
+  bool get _isOnDynamicsSubTab {
+    if (!_mainController.hasDyn) {
+      return false;
+    }
+    return _mainController
+                .navigationBars[_mainController.selectedIndex.value] ==
+            NavigationBarType.dynamics &&
+        !_mainController.dynamicController.isAllTab;
+  }
 
   void _syncAndroidPredictiveBack() {
     if (canPopNotifier.value != _allowAndroidPredictiveExit) {
@@ -77,6 +88,11 @@ class _MainAppState extends PopScopeState<MainApp>
         (_) => _syncAndroidPredictiveBack(),
       ),
     ];
+    if (_mainController.hasDyn) {
+      _mainController.dynamicController.tabController.addListener(
+        _syncAndroidPredictiveBack,
+      );
+    }
     _syncAndroidPredictiveBack();
     addObserverMobile(this);
     if (PlatformUtils.isDesktop) {
@@ -149,6 +165,11 @@ class _MainAppState extends PopScopeState<MainApp>
     removeObserverMobile(this);
     for (final worker in _backPopWorkers) {
       worker.dispose();
+    }
+    if (_mainController.hasDyn) {
+      _mainController.dynamicController.tabController.removeListener(
+        _syncAndroidPredictiveBack,
+      );
     }
     PiliScheme.listener?.cancel();
     GStorage.close();
@@ -299,6 +320,11 @@ class _MainAppState extends PopScopeState<MainApp>
       return;
     }
     if (_allowAndroidPredictiveExit) {
+      return;
+    }
+    if (_isOnDynamicsSubTab &&
+        _mainController.dynamicController.backToAllTab()) {
+      _syncAndroidPredictiveBack();
       return;
     }
     if (_mainController.directExitOnBack.value) {

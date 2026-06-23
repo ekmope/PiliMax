@@ -165,6 +165,9 @@ class _MediaListPanelState extends State<MediaListPanel>
       cover: item.cover,
       aid: item.aid,
       bvid: item.bvid,
+      view: item.cntInfo?.play,
+      danmaku: item.cntInfo?.danmaku,
+      ownerName: item.upper?.name,
     );
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),

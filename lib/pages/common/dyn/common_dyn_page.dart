@@ -213,6 +213,7 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
           replyReplyPage,
           routeName: 'dynamicDetail-Copy',
           arguments: arguments,
+          transition: Transition.native,
         );
       } else {
         final scaffoldState = Scaffold.maybeOf(context);
@@ -227,6 +228,7 @@ abstract class CommonDynPageState<T extends StatefulWidget> extends State<T>
             replyReplyPage,
             routeName: 'dynamicDetail-Copy',
             arguments: arguments,
+            transition: Transition.native,
           );
         }
       }

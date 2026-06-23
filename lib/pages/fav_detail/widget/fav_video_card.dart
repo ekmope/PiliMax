@@ -52,6 +52,9 @@ class FavVideoCardH extends StatelessWidget {
             title: item.title,
             cover: item.cover,
             bvid: item.bvid,
+            view: item.cntInfo?.play,
+            danmaku: item.cntInfo?.danmaku,
+            ownerName: item.upper?.name,
           );
 
     return Material(

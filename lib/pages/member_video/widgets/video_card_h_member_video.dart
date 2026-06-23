@@ -36,6 +36,12 @@ class VideoCardHMemberVideo extends StatelessWidget {
       title: videoItem.title,
       cover: videoItem.cover,
       bvid: videoItem.bvid,
+      pubdateText: videoItem.season != null
+          ? DateFormatUtils.dateFormat(videoItem.season!.mtime)
+          : videoItem.publishTimeText,
+      view: videoItem.stat.view,
+      danmaku: videoItem.stat.danmu,
+      ownerName: videoItem.owner.name,
     );
     return Material(
       type: MaterialType.transparency,

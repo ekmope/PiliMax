@@ -78,6 +78,10 @@ class VideoCardVMemberHome extends StatelessWidget {
       cover: videoItem.cover,
       aid: videoItem.param,
       bvid: videoItem.bvid,
+      pubdateText: videoItem.publishTimeText,
+      view: videoItem.stat.view,
+      danmaku: videoItem.stat.danmu,
+      ownerName: videoItem.owner.name,
     );
     return Card(
       clipBehavior: Clip.hardEdge,

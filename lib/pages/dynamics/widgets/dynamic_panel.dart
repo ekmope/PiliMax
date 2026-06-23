@@ -149,26 +149,37 @@ class DynamicPanel extends StatelessWidget {
     String? title;
     String? cover;
     String? bvid;
+    dynamic view;
+    dynamic danmaku;
     late final major = item.modules.moduleDynamic?.major;
+    final moduleAuthor = item.modules.moduleAuthor;
+    void setArchive(
+      DynamicArchiveModel archive, {
+      bool includeBvid = true,
+    }) {
+      title = archive.title;
+      cover = archive.cover;
+      if (includeBvid) {
+        bvid = archive.bvid;
+      }
+      view = archive.stat?.play;
+      danmaku = archive.stat?.danmu;
+    }
+
     switch (item.type) {
       case 'DYNAMIC_TYPE_AV':
         if (major?.archive case final archive?) {
-          title = archive.title;
-          cover = archive.cover;
-          bvid = archive.bvid;
+          setArchive(archive);
         }
         break;
       case 'DYNAMIC_TYPE_UGC_SEASON':
         if (major?.ugcSeason case final ugcSeason?) {
-          title = ugcSeason.title;
-          cover = ugcSeason.cover;
-          bvid = ugcSeason.bvid;
+          setArchive(ugcSeason);
         }
         break;
       case 'DYNAMIC_TYPE_PGC' || 'DYNAMIC_TYPE_PGC_UNION':
         if (major?.pgc case final pgc?) {
-          title = pgc.title;
-          cover = pgc.cover;
+          setArchive(pgc, includeBvid: false);
         }
         break;
       case 'DYNAMIC_TYPE_LIVE_RCMD':
@@ -185,8 +196,7 @@ class DynamicPanel extends StatelessWidget {
         break;
       case 'DYNAMIC_TYPE_COURSES_SEASON':
         if (major?.courses case final courses?) {
-          title = courses.title;
-          cover = courses.cover;
+          setArchive(courses, includeBvid: false);
         }
         break;
       case 'DYNAMIC_TYPE_SUBSCRIPTION_NEW':
@@ -204,6 +214,10 @@ class DynamicPanel extends StatelessWidget {
       title: title,
       cover: cover,
       bvid: bvid,
+      pubdate: moduleAuthor?.pubTs,
+      view: view,
+      danmaku: danmaku,
+      ownerName: moduleAuthor?.name,
     );
   }
 

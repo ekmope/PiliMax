@@ -30,6 +30,9 @@ class SubVideoCardH extends StatelessWidget {
       title: videoItem.title,
       cover: videoItem.cover,
       bvid: videoItem.bvid,
+      pubdate: videoItem.pubtime,
+      view: videoItem.cntInfo?.play,
+      danmaku: videoItem.cntInfo?.danmaku,
     );
     return Material(
       type: MaterialType.transparency,

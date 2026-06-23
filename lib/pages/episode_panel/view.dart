@@ -423,7 +423,14 @@ class _EpisodePanelState extends State<EpisodePanel>
 
     void onLongPress() {
       if (cover?.isNotEmpty == true) {
-        imageSaveDialog(title: title, cover: cover, bvid: bvid);
+        imageSaveDialog(
+          title: title,
+          cover: cover,
+          bvid: bvid,
+          pubdate: pubdate,
+          view: view,
+          danmaku: danmaku,
+        );
       }
     }
 

@@ -87,6 +87,10 @@ class VideoCardV extends StatelessWidget {
       title: videoItem.title,
       cover: videoItem.cover,
       bvid: videoItem.bvid,
+      pubdate: videoItem.pubdate,
+      view: videoItem.stat.view,
+      danmaku: videoItem.stat.danmu,
+      ownerName: videoItem.owner.name,
     );
     return Stack(
       clipBehavior: Clip.none,

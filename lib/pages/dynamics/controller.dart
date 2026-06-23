@@ -51,6 +51,17 @@ class DynamicsController extends GetxController
     }
   }
 
+  bool get isAllTab => tabController.index == DynamicsTabType.all.index;
+
+  bool backToAllTab() {
+    if (isAllTab) {
+      return false;
+    }
+    mid.value = -1;
+    tabController.animateTo(DynamicsTabType.all.index);
+    return true;
+  }
+
   @override
   void onInit() {
     super.onInit();

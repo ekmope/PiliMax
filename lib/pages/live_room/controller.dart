@@ -232,7 +232,40 @@ class LiveRoomController extends GetxController {
         });
   }
 
-  Future<void> queryLiveUrl({bool autoFullScreenFlag = false}) async {
+  Future<void> toggleOnlyPlayAudio() {
+    return setOnlyPlayAudio(!plPlayerController.onlyPlayAudio.value);
+  }
+
+  Future<void> setOnlyPlayAudio(bool value) async {
+    if (plPlayerController.onlyPlayAudio.value == value) {
+      return;
+    }
+    final prevOnlyPlayAudio = plPlayerController.onlyPlayAudio.value;
+    plPlayerController.onlyPlayAudio.value = value;
+    final success = await queryLiveUrl();
+    if (!success) {
+      plPlayerController.onlyPlayAudio.value = prevOnlyPlayAudio;
+      return;
+    }
+    _syncAudioServiceState();
+  }
+
+  void _syncAudioServiceState() {
+    if (roomInfoH5.value case final roomInfo?) {
+      videoPlayerServiceHandler?.onVideoDetailChange(
+        roomInfo,
+        roomId,
+        heroTag,
+      );
+    }
+    videoPlayerServiceHandler?.onStatusChange(
+      plPlayerController.playerStatus.value,
+      plPlayerController.isBuffering.value,
+      true,
+    );
+  }
+
+  Future<bool> queryLiveUrl({bool autoFullScreenFlag = false}) async {
     currentQn ??= await ConnectivityUtils.isWiFi
         ? Pref.liveQuality
         : Pref.liveQualityCellular;
@@ -244,12 +277,12 @@ class LiveRoomController extends GetxController {
     if (res case Success(:final response)) {
       if (response.liveStatus != 1) {
         _showDialog('当前直播间未开播');
-        return;
+        return false;
       }
       final playurl = response.playurlInfo?.playurl;
       if (playurl == null) {
         _showDialog('无法获取播放地址');
-        return;
+        return false;
       }
       ruid = response.uid;
       if (response.roomId case final roomId?) {
@@ -272,8 +305,10 @@ class LiveRoomController extends GetxController {
         liveUrlIndex: liveUrlIndex,
       );
       isLoaded.value = true;
+      return true;
     } else {
       _showDialog(res.toString());
+      return false;
     }
   }
 
@@ -491,7 +526,7 @@ class LiveRoomController extends GetxController {
   }
 
   // 修改画质
-  Future<void>? changeQn(int qn) {
+  Future<bool>? changeQn(int qn) {
     if (currentQn == qn) {
       return null;
     }

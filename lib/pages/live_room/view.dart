@@ -398,7 +398,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
               upName: roomInfoH5?.anchorInfo?.baseInfo?.uname,
               plPlayerController: plPlayerController,
               onSendDanmaku: _liveRoomController.onSendDanmaku,
-              onPlayAudio: _liveRoomController.queryLiveUrl,
+              onPlayAudio: _liveRoomController.toggleOnlyPlayAudio,
               isPortrait: isPortrait,
               liveController: _liveRoomController,
               onlineWidget: onlineWidget,
@@ -495,6 +495,42 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         ],
       );
     }
+    player = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(child: player),
+        Obx(() {
+          if (isPipMode ||
+              plPlayerController.isDesktopPip ||
+              !plPlayerController.onlyPlayAudio.value) {
+            return const SizedBox.shrink();
+          }
+          return Center(
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 14,
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(6)),
+                  side: BorderSide(color: Colors.white, width: 1.2),
+                ),
+              ),
+              onPressed: () => _liveRoomController.setOnlyPlayAudio(false),
+              icon: const Icon(Icons.live_tv),
+              label: const Text('播放画面'),
+            ),
+          );
+        }),
+      ],
+    );
     return popScope(
       canPop: !isFullScreen && !plPlayerController.isDesktopPip,
       onPopInvokedWithResult: _onPopInvokedWithResult,

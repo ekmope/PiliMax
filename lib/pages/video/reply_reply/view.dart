@@ -96,7 +96,6 @@ class VideoReplyReplyPanel extends CommonSlidePage {
           ),
         ).constraintWidth(),
       ),
-      transition: Transition.native,
     );
   }
 }

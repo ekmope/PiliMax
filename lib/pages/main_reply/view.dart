@@ -247,7 +247,6 @@ class _MainReplyPageState extends State<MainReplyPage>
           ).constraintWidth(),
         ),
         routeName: 'dynamicDetail-Copy',
-        transition: Transition.native,
       );
     });
   }

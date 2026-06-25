@@ -64,7 +64,7 @@ class LiveRoomController extends GetxController {
 
   final liveTime = Rxn<int>();
 
-  // PiP 模式标志
+  // PiP 妯″紡鏍囧織
   RxBool isInPipMode = false.obs;
 
   Timer? liveTimeTimer;
@@ -91,7 +91,7 @@ class LiveRoomController extends GetxController {
         liveTime * 1000,
         DateTime.now().millisecondsSinceEpoch,
       );
-      text += duration.isEmpty ? '刚刚开播' : '开播$duration';
+      text += duration.isEmpty ? '鍒氬垰寮€鎾? : '寮€鎾?duration';
     }
     if (text.isEmpty) {
       return const SizedBox.shrink();
@@ -160,7 +160,7 @@ class LiveRoomController extends GetxController {
   void onInit() {
     super.onInit();
 
-    // 从参数中提取 roomId（支持 int 或 Map 格式）
+    // 浠庡弬鏁颁腑鎻愬彇 roomId锛堟敮鎸?int 鎴?Map 鏍煎紡锛?
     final args = Get.arguments;
     if (args is Map) {
       roomId = (args['roomId'] as int?) ?? (args['id'] as int? ?? 0);
@@ -173,7 +173,7 @@ class LiveRoomController extends GetxController {
     isLogin = account.isLogin;
     mid = account.mid;
 
-    // 直接透传构造函数传入的 fromPip 标志，因为它在 view.dart 中已经经过了校验
+    // 鐩存帴閫忎紶鏋勯€犲嚱鏁颁紶鍏ョ殑 fromPip 鏍囧織锛屽洜涓哄畠鍦?view.dart 涓凡缁忕粡杩囦簡鏍￠獙
     isReturningFromPip = fromPip;
 
     if (isReturningFromPip) {
@@ -198,17 +198,17 @@ class LiveRoomController extends GetxController {
     if (videoUrl == null) {
       return null;
     }
-    // 如果是从小窗返回，播放器已在播放，跳过初始化
+    // 濡傛灉鏄粠灏忕獥杩斿洖锛屾挱鏀惧櫒宸插湪鎾斁锛岃烦杩囧垵濮嬪寲
     if (isReturningFromPip) {
       return null;
     }
 
-    // 如果播放器已被彻底销毁（例如在其他页面关闭了小窗），重新获取单例实例
+    // 濡傛灉鎾斁鍣ㄥ凡琚交搴曢攢姣侊紙渚嬪鍦ㄥ叾浠栭〉闈㈠叧闂簡灏忕獥锛夛紝閲嶆柊鑾峰彇鍗曚緥瀹炰緥
     if (plPlayerController.videoPlayerController == null) {
       plPlayerController = PlPlayerController.ensureInstance(isLive: true);
     }
 
-    // 确保播放器处于直播模式
+    // 纭繚鎾斁鍣ㄥ浜庣洿鎾ā寮?
     plPlayerController.isLive = true;
 
     return plPlayerController
@@ -276,12 +276,12 @@ class LiveRoomController extends GetxController {
     );
     if (res case Success(:final response)) {
       if (response.liveStatus != 1) {
-        _showDialog('当前直播间未开播');
+        _showDialog('褰撳墠鐩存挱闂存湭寮€鎾?);
         return false;
       }
       final playurl = response.playurlInfo?.playurl;
       if (playurl == null) {
-        _showDialog('无法获取播放地址');
+        _showDialog('鏃犳硶鑾峰彇鎾斁鍦板潃');
         return false;
       }
       ruid = response.uid;
@@ -297,6 +297,8 @@ class LiveRoomController extends GetxController {
       stream = playurl.stream;
       if (isReturningFromPip) {
         isReturningFromPip = false;
+      } else {
+        _initStreamIndex();
       }
       await initLiveUrl(
         streamIndex: streamIndex,
@@ -318,6 +320,32 @@ class LiveRoomController extends GetxController {
   int codecIndex = 0;
   int liveUrlIndex = 0;
 
+  void _initStreamIndex() {
+    final pref = Pref.liveStream;
+    if (pref != null) {
+      try {
+        final protocolName = pref[0];
+        final formatName = pref[1];
+        final codecName = pref[2];
+        for (var i in stream.indexed) {
+          if (i.$2.protocolName == protocolName) {
+            streamIndex = i.$1;
+            for (var j in i.$2.format.indexed) {
+              if (j.$2.formatName == formatName) {
+                formatIndex = j.$1;
+                for (var k in j.$2.codec.indexed) {
+                  if (k.$2.codecName == codecName) {
+                    codecIndex = k.$1;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
   Future<void>? initLiveUrl({
     int streamIndex = 0,
     int formatIndex = 0,
@@ -335,7 +363,7 @@ class LiveRoomController extends GetxController {
         .getOrFirst(formatIndex)
         .codec
         .getOrFirst(codecIndex);
-    // 以服务端返回的码率为准
+    // 浠ユ湇鍔＄杩斿洖鐨勭爜鐜囦负鍑?
     currentQn = item.currentQn;
     acceptQnList = item.acceptQn.map((e) {
       return (
@@ -370,7 +398,7 @@ class LiveRoomController extends GetxController {
           TextButton(
             onPressed: Get.back,
             child: Text(
-              '关闭',
+              '鍏抽棴',
               style: TextStyle(color: ThemeUtils.theme.colorScheme.outline),
             ),
           ),
@@ -383,7 +411,7 @@ class LiveRoomController extends GetxController {
                 ..back()
                 ..back();
             },
-            child: const Text('退出'),
+            child: const Text('閫€鍑?),
           ),
         ],
       ),
@@ -502,9 +530,9 @@ class LiveRoomController extends GetxController {
 
   @override
   void onClose() {
-    // 心跳定时器是静态的，无论是否小窗都要取消
+    // 蹇冭烦瀹氭椂鍣ㄦ槸闈欐€佺殑锛屾棤璁烘槸鍚﹀皬绐楅兘瑕佸彇娑?
     LiveHttp.cancelLiveHeartbeat();
-    // 如果在小窗模式，不清理资源
+    // 濡傛灉鍦ㄥ皬绐楁ā寮忥紝涓嶆竻鐞嗚祫婧?
     if (!isInPipMode.value) {
       closeLiveMsg();
       cancelLikeTimer();
@@ -525,7 +553,7 @@ class LiveRoomController extends GetxController {
     super.onClose();
   }
 
-  // 修改画质
+  // 淇敼鐢昏川
   Future<bool>? changeQn(int qn) {
     if (currentQn == qn) {
       return null;
@@ -571,7 +599,7 @@ class LiveRoomController extends GetxController {
   @pragma('vm:notify-debugger-on-exception')
   void _danmakuListener(dynamic obj) {
     try {
-      // logger.i(' 原始弹幕消息 ======> ${jsonEncode(obj)}');
+      // logger.i(' 鍘熷寮瑰箷娑堟伅 ======> ${jsonEncode(obj)}');
       switch (obj['cmd']) {
         case 'DANMU_MSG':
           final info = obj['info'];
@@ -713,7 +741,7 @@ class LiveRoomController extends GetxController {
       anchorId: roomInfoH5.value?.roomInfo?.uid,
     );
     if (res.isSuccess) {
-      SmartDialog.showToast('点赞成功');
+      SmartDialog.showToast('鐐硅禐鎴愬姛');
     } else {
       res.toast();
     }
@@ -722,7 +750,7 @@ class LiveRoomController extends GetxController {
 
   void onSendDanmaku([bool fromEmote = false]) {
     if (kReleaseMode && !isLogin) {
-      SmartDialog.showToast('账号未登录');
+      SmartDialog.showToast('璐﹀彿鏈櫥褰?);
       return;
     }
     Get.key.currentState!.push(
@@ -756,7 +784,7 @@ class LiveRoomController extends GetxController {
 
   void reportSC(SuperChatItem item) {
     if (!isLogin) {
-      SmartDialog.showToast('账号未登录');
+      SmartDialog.showToast('璐﹀彿鏈櫥褰?);
       return;
     }
     autoWrapReportDialog(

@@ -18,6 +18,8 @@ import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -156,7 +158,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
           if (isFullScreen || PlatformUtils.isDesktop)
             ComBtn(
               height: 30,
-              tooltip: '发弹幕',
+              tooltip: '发弹�?,
               icon: const Icon(
                 size: 18,
                 Icons.comment_outlined,
@@ -167,7 +169,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
           if (Platform.isAndroid || (PlatformUtils.isDesktop && !isFullScreen))
             ComBtn(
               height: 30,
-              tooltip: '画中画',
+              tooltip: '画中�?,
               onTap: () {
                 if (PlatformUtils.isDesktop) {
                   plPlayerController.toggleDesktopPip();
@@ -188,8 +190,11 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
               final onlyPlayAudio = plPlayerController.onlyPlayAudio.value;
               return ComBtn(
                 height: 30,
-                tooltip: '仅播放音频',
-                onTap: widget.onPlayAudio,
+                tooltip: '仅播放音�?,
+                onTap: () {
+                  plPlayerController.onlyPlayAudio.value = !onlyPlayAudio;
+                  widget.onPlayAudio();
+                },
                 icon: onlyPlayAudio
                     ? const Icon(
                         size: 18,
@@ -280,7 +285,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                         children: [
                           const Icon(Icons.volume_up, size: 17),
                           Text(
-                            '播放器音量: ${player.getProperty('volume').subLength(3)}%',
+                            '播放器音�? ${player.getProperty('volume').subLength(3)}%',
                             style: const TextStyle(fontSize: 14),
                           ),
                         ],
@@ -428,6 +433,14 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                                                 formatIndex: format.$1,
                                                 codecIndex: codec.$1,
                                                 liveUrlIndex: url.$1,
+                                              );
+                                              GStorage.setting.put(
+                                                SettingBoxKey.liveStream,
+                                                [
+                                                  stream.$2.protocolName,
+                                                  format.$2.formatName,
+                                                  codec.$2.codecName,
+                                                ],
                                               );
                                             },
                                     );

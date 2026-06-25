@@ -49,6 +49,7 @@ class _MainAppState extends PopScopeState<MainApp>
   late final List<Worker> _backPopWorkers;
   late EdgeInsets _padding;
   late ThemeData theme;
+  Brightness? _brightness;
 
   @override
   bool get initCanPop => _allowAndroidPredictiveExit;
@@ -121,7 +122,10 @@ class _MainAppState extends PopScopeState<MainApp>
     NetworkImgLayer.reduce =
         NetworkImgLayer.reduceLuxColor != null && brightness.isDark;
     if (PlatformUtils.isDesktop) {
-      windowManager.setBrightness(brightness);
+      if (_brightness != brightness) {
+        _brightness = brightness;
+        windowManager.setBrightness(brightness);
+      }
     }
     if (!_mainController.useSideBar) {
       final size = MediaQuery.sizeOf(context);

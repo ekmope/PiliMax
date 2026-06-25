@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show ValueChanged;
+import 'package:PiliMax/common/widgets/scroll_physics.dart' show ReloadMixin;
 import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/reply.dart';
@@ -8,7 +9,7 @@ import 'package:PiliMax/utils/id_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
-class DynamicDetailController extends CommonDynController {
+class DynamicDetailController extends CommonDynController with ReloadMixin {
   static const String _kWebLinkPlaceholder = '网页链接';
 
   @override
@@ -38,7 +39,7 @@ class DynamicDetailController extends CommonDynController {
     } else {
       DynamicsHttp.dynamicDetail(id: dynItem.idStr).then((res) {
         if (res case Success(:final response)) {
-          _replaceDynItem(response);
+          replaceDynItem(response);
           _init(response.basic!.commentIdStr!, response.basic!.commentType!);
         } else {
           res.toast();
@@ -53,7 +54,7 @@ class DynamicDetailController extends CommonDynController {
     queryData();
   }
 
-  void _replaceDynItem(DynamicItemModel item) {
+  void replaceDynItem(DynamicItemModel item) {
     dynItem = item;
     detailVersion.value++;
     _onUpdate?.call(item);
@@ -61,7 +62,7 @@ class DynamicDetailController extends CommonDynController {
 
   bool _shouldFetchFullDetail() {
     final moduleDynamic = dynItem.modules.moduleDynamic;
-    // TODO: B站API修复后移除 — 列表API中首行为换行的文本会返回"undefined"
+    // TODO: B站API修复后移除 - 列表API中首行为换行的文本会返回"undefined"
     if (moduleDynamic?.desc?.text == 'undefined') {
       return true;
     }
@@ -93,7 +94,7 @@ class DynamicDetailController extends CommonDynController {
         return;
       }
       if (res case Success(:final response)) {
-        _replaceDynItem(response);
+        replaceDynItem(response);
         final nextCommentType = response.basic?.commentType;
         final nextCommentIdStr = response.basic?.commentIdStr;
         if (nextCommentType != null &&
@@ -138,5 +139,11 @@ class DynamicDetailController extends CommonDynController {
         }
       });
     }
+  }
+
+  @override
+  Future<void> onReload() {
+    reload = true;
+    return super.onReload();
   }
 }

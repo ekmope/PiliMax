@@ -1,11 +1,16 @@
 // 内容
 import 'package:PiliMax/common/widgets/custom_icon.dart';
+import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/text/text.dart' as custom_text;
 import 'package:PiliMax/common/widgets/image_grid/image_grid_view.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/widgets/rich_node_panel.dart';
 import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 Widget content(
@@ -108,8 +113,56 @@ Widget content(
 }
 
 Widget _contextMenuBuilder(EditableTextState state, String text) {
+  final items = state.contextMenuButtonItems;
+  if (!state.textEditingValue.selection.isCollapsed) {
+    final insertIndex = items.length >= 3 ? 3 : items.length;
+    items.insert(
+      insertIndex,
+      ContextMenuButtonItem(
+        onPressed: () {
+          Navigator.of(state.context).pop();
+          final select = state.textEditingValue;
+          final escapedText = RegExp.escape(
+            select.selection.textInside(select.text),
+          );
+
+          showConfirmDialog(
+            context: state.context,
+            title: const Text('是否将以下内容加入动态过滤：'),
+            content: Text(
+              escapedText,
+              style: const TextStyle(
+                color: Colors.green,
+                fontWeight: .bold,
+              ),
+            ),
+            onConfirm: () {
+              final currentStored = Pref.banWordForDyn;
+              final existingKeywords = currentStored.isEmpty
+                  ? <String>[]
+                  : currentStored.split('\n');
+              if (existingKeywords.contains(escapedText)) {
+                SmartDialog.showToast('该关键词已在过滤列表中');
+                return;
+              }
+              final newStored = currentStored.isEmpty
+                  ? escapedText
+                  : '$currentStored\n$escapedText';
+              GStorage.setting.put(SettingBoxKey.banWordForDyn, newStored);
+              final newPattern = Pref.parseBanWordToRegex(newStored);
+              DynamicsDataModel.banWordForDyn =
+                  RegExp(newPattern, caseSensitive: true);
+              DynamicsDataModel.enableFilter = true;
+              SmartDialog.showToast('已保存');
+            },
+          );
+        },
+        label: '加入过滤',
+      ),
+    );
+  }
   return AdaptiveTextSelectionToolbar.buttonItems(
-    buttonItems: state.contextMenuButtonItems
+    buttonItems: items
       ..add(
         ContextMenuButtonItem(label: '文本', onPressed: () => _onCopyText(text)),
       ),
@@ -126,6 +179,7 @@ void _onCopyText(String text) {
         child: SelectableText(
           text,
           style: const TextStyle(fontSize: 15, height: 1.7),
+          contextMenuBuilder: (_, state) => _contextMenuBuilder(state, text),
         ),
       ),
     ),

@@ -1252,7 +1252,11 @@ class ReplyItemGrpc extends StatelessWidget {
   ) {
     final items = editableTextState.contextMenuButtonItems;
     if (!editableTextState.textEditingValue.selection.isCollapsed) {
-      items.add(
+      // 插入到第四个位置（索引3），即在"复制"、"全选"、"分享"等系统默认项之后
+      // 这样在 Android 上可以让"加入过滤"更优先显示，减少被折叠的概率
+      final insertIndex = items.length >= 3 ? 3 : items.length;
+      items.insert(
+        insertIndex,
         ContextMenuButtonItem(
           onPressed: () {
             Navigator.of(context).pop();
@@ -1263,25 +1267,24 @@ class ReplyItemGrpc extends StatelessWidget {
 
             showConfirmDialog(
               context: context,
-              title: const Text('是否确认评论过滤的变更：'),
-              content: Text.rich(
-                TextSpan(
-                  text: ReplyGrpc.replyRegExp.pattern.isEmpty
-                      ? ''
-                      : '${ReplyGrpc.replyRegExp.pattern}\n',
-                  children: [
-                    TextSpan(
-                      text: escapedText,
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontWeight: .bold,
-                      ),
-                    ),
-                  ],
+              title: const Text('是否将以下内容加入评论过滤：'),
+              content: Text(
+                escapedText,
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontWeight: .bold,
                 ),
               ),
               onConfirm: () {
                 final currentStored = Pref.banWordForReply;
+                // 检查是否已存在（按行分割检查）
+                final existingKeywords = currentStored.isEmpty
+                    ? <String>[]
+                    : currentStored.split('\n');
+                if (existingKeywords.contains(escapedText)) {
+                  SmartDialog.showToast('该关键词已在过滤列表中');
+                  return;
+                }
                 final newStored = currentStored.isEmpty
                     ? escapedText
                     : '$currentStored\n$escapedText';

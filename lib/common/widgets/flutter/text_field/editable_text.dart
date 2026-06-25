@@ -442,7 +442,7 @@ class EditableText extends StatefulWidget {
     required this.controller,
     required this.focusNode,
     this.readOnly = false,
-    this.obscuringCharacter = '�?,
+    this.obscuringCharacter = '•',
     this.obscureText = false,
     bool? autocorrect,
     SmartDashesType? smartDashesType,
@@ -607,7 +607,7 @@ class EditableText extends StatefulWidget {
   ///
   /// Must be only a single character.
   ///
-  /// Defaults to the character U+2022 BULLET (�?.
+  /// Defaults to the character U+2022 BULLET (•).
   /// {@endtemplate}
   final String obscuringCharacter;
 
@@ -1055,7 +1055,7 @@ class EditableText extends StatefulWidget {
   ///
   /// For example, when finding the length of some user input, use
   /// `string.characters.length`. Do NOT use `string.length` or even
-  /// `string.runes.length`. For the complex character "👨‍👩‍�?, this
+  /// `string.runes.length`. For the complex character "👨‍👩‍👦", this
   /// appears to the user as a single character, and `string.characters.length`
   /// intuitively returns 1. On the other hand, `string.length` returns 8, and
   /// `string.runes.length` returns 5!
@@ -5470,7 +5470,7 @@ class EditableTextState extends State<EditableText>
     }
     // The line boundary range does not include some control characters
     // (most notably, Line Feed), in which case there's
-    // `x �?getTextBoundaryAt(x)`. In case `caretOffset` points to one such
+    // `x ∉ getTextBoundaryAt(x)`. In case `caretOffset` points to one such
     // control character, we define that these control characters themselves are
     // still part of the previous line, but also exclude them from the
     // line boundary range since they're non-printing. IOW, no additional
@@ -6557,7 +6557,7 @@ class _ScribblePlaceholder extends WidgetSpan {
 /// A code point represents a single character. This may be smaller than what is
 /// represented by a user-perceived character, or grapheme. For example, a
 /// single grapheme (in this case a Unicode extended grapheme cluster) like
-/// "👨‍👩‍�? consists of five code points: the man emoji, a zero
+/// "👨‍👩‍👦" consists of five code points: the man emoji, a zero
 /// width joiner, the woman emoji, another zero width joiner, and the boy emoji.
 /// The [String] has a length of eight because each emoji consists of two code
 /// units.

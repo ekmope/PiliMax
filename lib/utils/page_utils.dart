@@ -250,7 +250,7 @@ abstract final class PageUtils {
       }
     }
 
-    /// 鐐瑰嚮璇勮action 鐩存帴鏌ョ湅璇勮
+    /// 点击评论action 直接查看评论
     if (isPush) {
       push();
       return;
@@ -316,7 +316,7 @@ abstract final class PageUtils {
 
       case 'DYNAMIC_TYPE_PGC':
         // if (kDebugMode) debugPrint('鐣墽');
-        SmartDialog.showToast('鏆傛湭鏀寔鐨勭被鍨嬶紝璇疯仈绯诲紑鍙戣€?);
+        SmartDialog.showToast('暂未支持的类型，请联系开发者');
         break;
 
       case 'DYNAMIC_TYPE_LIVE':
@@ -653,7 +653,7 @@ abstract final class PageUtils {
     bool off = false,
   }) async {
     try {
-      SmartDialog.showLoading(msg: '璧勬簮鑾峰彇涓?);
+      SmartDialog.showLoading(msg: '资源获取中');
       final res = await SearchHttp.pgcInfo(seasonId: seasonId, epId: epId);
       SmartDialog.dismiss();
       if (res case Success(:final response)) {
@@ -735,7 +735,7 @@ abstract final class PageUtils {
           }
         }
 
-        SmartDialog.showToast('璧勬簮鍔犺浇澶辫触');
+      SmartDialog.showToast('资源加载失败');
       } else {
         res.toast();
       }
@@ -753,7 +753,7 @@ abstract final class PageUtils {
     bool off = false,
   }) async {
     try {
-      SmartDialog.showLoading(msg: '璧勬簮鑾峰彇涓?);
+      SmartDialog.showLoading(msg: '资源获取中');
       final res = await SearchHttp.pugvInfo(seasonId: seasonId, epId: epId);
       SmartDialog.dismiss();
       if (res case Success(:final response)) {
@@ -781,7 +781,7 @@ abstract final class PageUtils {
             off: off,
           );
         } else {
-          SmartDialog.showToast('璧勬簮鍔犺浇澶辫触');
+      SmartDialog.showToast('资源加载失败');
         }
       } else {
         res.toast();

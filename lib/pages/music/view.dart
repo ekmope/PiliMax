@@ -475,7 +475,7 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
                                 _buildArtist(artist, textTheme.bodySmall),
                             if (!item.musicPublish.isNullOrEmpty)
                               Text(
-                                '发行日期�?{item.musicPublish}',
+                                '发行日期：${item.musicPublish}',
                                 style: textTheme.bodySmall!.copyWith(
                                   color: theme.colorScheme.outline,
                                 ),
@@ -557,21 +557,21 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
                 [
                   if (!(item.originArtist ?? item.originArtistList)
                       .isNullOrEmpty)
-                    '原唱�?{item.originArtist ?? item.originArtistList}',
-                  if (!item.album.isNullOrEmpty) '专辑�?{item.album}',
-                  if (!item.musicSource.isNullOrEmpty) '出处�?{item.musicSource}',
+                    '原唱：${item.originArtist ?? item.originArtistList}',
+                  if (!item.album.isNullOrEmpty) '专辑：${item.album}',
+                  if (!item.musicSource.isNullOrEmpty) '出处：${item.musicSource}',
                 ].join('\n'),
               ),
               const Divider(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('热歌榜排�?),
+                  const Text('热歌榜排名'),
                   _buildRank(item.hotSongHeat?.lastHeat, '热度'),
                   _buildRank(item.listenPv, '总播放量'),
                   _buildRank(
                     item.musicRelation,
-                    '使用稿件�?,
+                    '使用稿件量',
                     () => Get.to(
                       const MusicRecommendPage(),
                       arguments: (id: controller.musicId, item: item),
@@ -602,7 +602,7 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
       child: Column(
         spacing: 8,
         children: [
-          Text('�?{heat.length}日热度趋�?, style: theme.textTheme.titleMedium),
+          Text('近${heat.length}日热度趋势', style: theme.textTheme.titleMedium),
           SizedBox(
             width: maxWidth,
             height: maxWidth * 0.5,

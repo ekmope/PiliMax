@@ -158,7 +158,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
           if (isFullScreen || PlatformUtils.isDesktop)
             ComBtn(
               height: 30,
-              tooltip: '发弹�?,
+              tooltip: '发弹幕',
               icon: const Icon(
                 size: 18,
                 Icons.comment_outlined,
@@ -169,7 +169,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
           if (Platform.isAndroid || (PlatformUtils.isDesktop && !isFullScreen))
             ComBtn(
               height: 30,
-              tooltip: '画中�?,
+              tooltip: '画中画',
               onTap: () {
                 if (PlatformUtils.isDesktop) {
                   plPlayerController.toggleDesktopPip();
@@ -190,7 +190,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
               final onlyPlayAudio = plPlayerController.onlyPlayAudio.value;
               return ComBtn(
                 height: 30,
-                tooltip: '仅播放音�?,
+                tooltip: '仅播放音频',
                 onTap: () {
                   plPlayerController.onlyPlayAudio.value = !onlyPlayAudio;
                   widget.onPlayAudio();
@@ -285,7 +285,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                         children: [
                           const Icon(Icons.volume_up, size: 17),
                           Text(
-                            '播放器音�? ${player.getProperty('volume').subLength(3)}%',
+                            '播放器音量: ${player.getProperty('volume').subLength(3)}%',
                             style: const TextStyle(fontSize: 14),
                           ),
                         ],

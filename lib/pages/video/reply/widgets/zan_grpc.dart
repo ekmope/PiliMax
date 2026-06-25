@@ -30,7 +30,7 @@ class ZanButtonGrpc extends StatelessWidget {
     feedBack();
     final int oid = replyItem.oid.toInt();
     final int rpid = replyItem.id.toInt();
-    // 1 已点�?2 不喜�?0 未操�?
+    // 1 已点赞 2 不喜欢 0 未操作
     final int action = isDislike ? 0 : 2;
     final res = await ReplyHttp.hateReply(
       type: replyItem.type.toInt(),
@@ -40,7 +40,7 @@ class ZanButtonGrpc extends StatelessWidget {
     );
     // SmartDialog.dismiss();
     if (res.isSuccess) {
-      SmartDialog.showToast(isDislike ? '取消�? : '点踩成功');
+      SmartDialog.showToast(isDislike ? '取消踩' : '点踩成功');
       if (action == 2) {
         if (isLike) replyItem.like -= $fixnum.Int64.ONE;
         replyItem.replyControl.action = $fixnum.Int64.TWO;
@@ -71,7 +71,7 @@ class ZanButtonGrpc extends StatelessWidget {
     feedBack();
     final int oid = replyItem.oid.toInt();
     final int rpid = replyItem.id.toInt();
-    // 1 已点�?2 不喜�?0 未操�?
+    // 1 已点赞 2 不喜欢 0 未操作
     final int action = isLike ? 0 : 1;
     final res = await ReplyHttp.likeReply(
       type: replyItem.type.toInt(),
@@ -80,7 +80,7 @@ class ZanButtonGrpc extends StatelessWidget {
       action: action,
     );
     if (res.isSuccess) {
-      SmartDialog.showToast(isLike ? '取消�? : '点赞成功');
+      SmartDialog.showToast(isLike ? '取消赞' : '点赞成功');
       if (action == 1) {
         replyItem
           ..like += $fixnum.Int64.ONE

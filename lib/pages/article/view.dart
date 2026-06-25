@@ -472,7 +472,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                 children: [
                   Icon(Icons.forward_to_inbox, size: 19),
                   SizedBox(width: 10),
-                  Text('分享至消�?),
+                  Text('分享至消息'),
                 ],
               ),
             ),

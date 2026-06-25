@@ -98,7 +98,7 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
               () {
                 final count = controller.count.value;
                 return Text(
-                  '${count == -1 ? 0 : NumUtils.numFormat(count)}条回�?,
+                  '${count == -1 ? 0 : NumUtils.numFormat(count)}条回复',
                 );
               },
             ),
@@ -137,7 +137,7 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
                       margin: EdgeInsets.only(bottom: padding.bottom),
                       height: 125,
                       child: Text(
-                        controller.isEnd ? '没有更多�? : '加载�?..',
+                        controller.isEnd ? '没有更多了' : '加载中...',
                         style: TextStyle(
                           fontSize: 12,
                           color: theme.colorScheme.outline,
@@ -168,7 +168,7 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
                 },
               )
             : HttpError(
-                errMsg: '还没有评�?,
+                errMsg: '还没有评论',
                 onReload: controller.onReload,
               ),
       Error(:final errMsg) => HttpError(
@@ -194,6 +194,7 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
             isVideoDetail: !showBackBtn,
             replyType: controller.replyType,
             firstFloor: replyItem,
+            heroTag: arguments?['heroTag'],
             upMid: controller.upMid,
           ),
         );
@@ -215,10 +216,11 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
       }
 
       if (isPortrait) {
-        Get.to(
-          replyReplyPage,
+        VideoReplyReplyPanel.pushReplyRoute(
+          context: context,
           routeName: 'dynamicDetail-Copy',
           arguments: arguments,
+          builder: (_) => replyReplyPage(),
         );
       } else {
         final scaffoldState = Scaffold.maybeOf(context);
@@ -229,10 +231,11 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
             (context) => replyReplyPage(showBackBtn: false),
           );
         } else {
-          Get.to(
-            replyReplyPage,
+          VideoReplyReplyPanel.pushReplyRoute(
+            context: context,
             routeName: 'dynamicDetail-Copy',
             arguments: arguments,
+            builder: (_) => replyReplyPage(),
           );
         }
       }

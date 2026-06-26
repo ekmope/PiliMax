@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' show max;
 
+import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -18,7 +19,6 @@ import 'package:PiliMax/pages/common/common_intro_controller.dart';
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
 import 'package:PiliMax/pages/video/reply/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
-import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/global_data.dart';
@@ -27,7 +27,6 @@ import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/share_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/foundation.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -44,9 +43,6 @@ class PgcIntroController extends CommonIntroController {
 
   late final bool isPgc;
   late final PgcInfoModel pgcItem;
-
-  // 是否正在进入应用内小窗
-  bool isEnteringPip = false;
 
   @override
   (Object, int) get getFavRidType => (epId!, 24);
@@ -77,17 +73,6 @@ class PgcIntroController extends CommonIntroController {
       }
       queryVideoTags();
     }
-  }
-
-  @override
-  void onClose() {
-    if (kDebugMode) {
-      logger.i(
-        '[PgcIntroController] onClose() called, isEnteringPip: $isEnteringPip',
-      );
-    }
-    if (isEnteringPip) return;
-    super.onClose();
   }
 
   // 获取点赞/投币/收藏状态
@@ -139,59 +124,42 @@ class PgcIntroController extends CommonIntroController {
         '${HttpString.baseUrl}/bangumi/play/ep$epId${videoDetailCtr.playedTimePos}';
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (_) => SimpleDialog(
         clipBehavior: Clip.hardEdge,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              dense: true,
-              title: const Text(
-                '复制链接',
-                style: TextStyle(fontSize: 14),
-              ),
-              onTap: () {
+        children: [
+          DialogOption(
+            child: const Text('复制链接', style: TextStyle(fontSize: 14)),
+            onPressed: () {
+              Get.back();
+              Utils.copyText(videoUrl);
+            },
+          ),
+          DialogOption(
+            child: const Text('其它app打开', style: TextStyle(fontSize: 14)),
+            onPressed: () {
+              Get.back();
+              PageUtils.launchURL(videoUrl);
+            },
+          ),
+          if (PlatformUtils.isMobile)
+            DialogOption(
+              child: const Text('分享视频', style: TextStyle(fontSize: 14)),
+              onPressed: () {
+                final item = pgcItem.episodes?.firstWhereOrNull(
+                  (item) => item.epId == epId,
+                );
                 Get.back();
-                Utils.copyText(videoUrl);
+                ShareUtils.shareText(
+                  '${pgcItem.title}${item != null ? ' ${item.showTitle}' : ''}'
+                  ' - $videoUrl',
+                );
               },
             ),
-            ListTile(
-              dense: true,
-              title: const Text(
-                '其它app打开',
-                style: TextStyle(fontSize: 14),
-              ),
-              onTap: () {
-                Get.back();
-                PageUtils.launchURL(videoUrl);
-              },
-            ),
-            if (PlatformUtils.isMobile)
-              ListTile(
-                dense: true,
-                title: const Text(
-                  '分享视频',
-                  style: TextStyle(fontSize: 14),
-                ),
-                onTap: () {
-                  final item = pgcItem.episodes?.firstWhereOrNull(
-                    (item) => item.epId == epId,
-                  );
-                  Get.back();
-                  ShareUtils.shareText(
-                    '${pgcItem.title}${item != null ? ' ${item.showTitle}' : ''}'
-                    ' - $videoUrl',
-                  );
-                },
-              ),
-            ListTile(
-              dense: true,
-              title: const Text(
-                '分享至动态',
-                style: TextStyle(fontSize: 14),
-              ),
-              onTap: () {
+          if (isLogin)
+            DialogOption(
+              child: const Text('分享至动态', style: TextStyle(fontSize: 14)),
+              onPressed: () {
                 Get.back();
                 final item = pgcItem.episodes?.firstWhereOrNull(
                   (item) => item.epId == epId,
@@ -202,15 +170,15 @@ class PgcIntroController extends CommonIntroController {
                   useSafeArea: true,
                   builder: (context) => RepostPanel(
                     rid: epId,
-                    /**
-                         *  1：番剧 // 4097
-                            2：电影 // 4098
-                            3：纪录片 // 4101
-                            4：国创 // 4100
-                            5：电视剧 // 4099
-                            6：漫画
-                            7：综艺 // 4099
-                         */
+                    /*
+                    1：番剧 // 4097
+                    2：电影 // 4098
+                    3：纪录片 // 4101
+                    4：国创 // 4100
+                    5：电视剧 // 4099
+                    6：漫画
+                    7：综艺 // 4099
+                  */
                     dynType: switch (pgcItem.type) {
                       1 => 4097,
                       2 => 4098,
@@ -227,16 +195,16 @@ class PgcIntroController extends CommonIntroController {
                 );
               },
             ),
-            ListTile(
-              dense: true,
-              title: const Text(
+          if (isLogin)
+            DialogOption(
+              child: const Text(
                 '分享至消息',
                 style: TextStyle(fontSize: 14),
               ),
-              onTap: () {
+              onPressed: () {
                 Get.back();
                 try {
-                  EpisodeItem item = pgcItem.episodes!.firstWhere(
+                  final item = pgcItem.episodes!.firstWhere(
                     (item) => item.epId == epId,
                   );
                   final title =
@@ -268,8 +236,7 @@ class PgcIntroController extends CommonIntroController {
                 }
               },
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

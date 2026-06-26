@@ -10,7 +10,6 @@ import 'package:PiliMax/pages/video/note/controller.dart';
 import 'package:PiliMax/pages/webview/view.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/bili_utils.dart';
-import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/material.dart';
@@ -263,13 +262,10 @@ class _NoteListPageState extends State<NoteListPage>
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Image.asset(
-                            BiliUtils.levelName(
-                              item.author!.level!,
-                              isSeniorMember: item.author!.isSeniorMember == 1,
-                            ),
+                          BiliUtils.levelPicture(
+                            item.author!.level!,
+                            isSeniorMember: item.author!.isSeniorMember == 1,
                             height: 11,
-                            cacheHeight: 11.cacheSize(context),
                           ),
                         ],
                       ),

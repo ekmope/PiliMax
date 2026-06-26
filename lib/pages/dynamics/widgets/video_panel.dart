@@ -1,11 +1,10 @@
 // 视频or合集
-import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/svg/play_icon.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
-import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:flutter/material.dart';
 
@@ -113,12 +112,7 @@ Widget videoSeasonWidget(
                           Text('${NumUtils.numFormat(stat.danmu)}弹幕'),
                         ],
                         const Spacer(),
-                        Image.asset(
-                          Assets.play,
-                          width: 50,
-                          height: 50,
-                          cacheHeight: 50.cacheSize(context),
-                        ),
+                        const PlayIcon(size: 50),
                       ],
                     ),
                   ),

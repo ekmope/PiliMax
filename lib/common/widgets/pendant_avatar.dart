@@ -4,10 +4,10 @@ import 'package:PiliMax/common/widgets/extra_hittest_stack.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/models/common/avatar_badge_type.dart';
 import 'package:PiliMax/models/common/image_type.dart';
-import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 
 class PendantAvatar extends StatelessWidget {
   const PendantAvatar(
@@ -142,12 +142,11 @@ class PendantAvatar extends StatelessWidget {
 
   Widget _buildBadge(BuildContext context, ColorScheme colorScheme) {
     final child = switch (badgeType) {
-      .vip => Image.asset(
+      .vip => SvgPicture.asset(
         Assets.vipIcon,
         width: badgeSize,
         height: badgeSize,
-        cacheWidth: badgeSize.cacheSize(context),
-        semanticLabel: badgeType.desc,
+        semanticsLabel: badgeType.desc,
       ),
       _ => Icon(
         Icons.offline_bolt,

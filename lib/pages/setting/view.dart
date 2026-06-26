@@ -4,13 +4,8 @@ import 'package:PiliMax/http/login.dart';
 import 'package:PiliMax/models/common/setting_type.dart';
 import 'package:PiliMax/pages/about/view.dart';
 import 'package:PiliMax/pages/login/controller.dart';
+import 'package:PiliMax/pages/setting/common_setting.dart';
 import 'package:PiliMax/pages/setting/dynamics_setting.dart';
-import 'package:PiliMax/pages/setting/extra_setting.dart';
-import 'package:PiliMax/pages/setting/play_setting.dart';
-import 'package:PiliMax/pages/setting/privacy_setting.dart';
-import 'package:PiliMax/pages/setting/recommend_setting.dart';
-import 'package:PiliMax/pages/setting/style_setting.dart';
-import 'package:PiliMax/pages/setting/video_setting.dart';
 import 'package:PiliMax/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliMax/pages/webdav/view.dart';
 import 'package:PiliMax/utils/accounts.dart';
@@ -44,6 +39,7 @@ class _SettingPageState extends State<SettingPage> {
   late SettingType _type = SettingType.privacySetting;
   final RxBool _noAccount = Accounts.account.isEmpty.obs;
   late bool _isPortrait;
+  late ThemeData theme;
 
   static const List<_SettingsModel> _items = [
     _SettingsModel(
@@ -92,9 +88,15 @@ class _SettingPageState extends State<SettingPage> {
   ];
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    theme = Theme.of(context);
     _isPortrait = MediaQuery.sizeOf(context).isPortrait;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
@@ -117,31 +119,22 @@ class _SettingPageState extends State<SettingPage> {
                   Expanded(
                     flex: 6,
                     child: switch (_type) {
-                      SettingType.privacySetting => const PrivacySetting(
+                      .privacySetting ||
+                      .recommendSetting ||
+                      .videoSetting ||
+                      .playSetting ||
+                      .styleSetting ||
+                      .extraSetting => CommonSetting(
+                        settingType: _type,
                         showAppBar: false,
                       ),
-                      SettingType.recommendSetting => const RecommendSetting(
+                      .dynamicsSetting => const DynamicsSetting(
                         showAppBar: false,
                       ),
-                      SettingType.dynamicsSetting => const DynamicsSetting(
+                      .webdavSetting => const WebDavSettingPage(
                         showAppBar: false,
                       ),
-                      SettingType.videoSetting => const VideoSetting(
-                        showAppBar: false,
-                      ),
-                      SettingType.playSetting => const PlaySetting(
-                        showAppBar: false,
-                      ),
-                      SettingType.styleSetting => const StyleSetting(
-                        showAppBar: false,
-                      ),
-                      SettingType.extraSetting => const ExtraSetting(
-                        showAppBar: false,
-                      ),
-                      SettingType.webdavSetting => const WebDavSettingPage(
-                        showAppBar: false,
-                      ),
-                      SettingType.about => const AboutPage(showAppBar: false),
+                      .about => const AboutPage(showAppBar: false),
                     },
                   ),
                 ],
@@ -158,7 +151,19 @@ class _SettingPageState extends State<SettingPage> {
 
   void _toPage(SettingType type) {
     if (_isPortrait) {
-      Get.toNamed('/${type.name}');
+      Get.to(
+        () => switch (type) {
+          .privacySetting ||
+          .recommendSetting ||
+          .videoSetting ||
+          .playSetting ||
+          .styleSetting ||
+          .extraSetting => CommonSetting(settingType: type),
+          .dynamicsSetting => const DynamicsSetting(),
+          .webdavSetting => const WebDavSettingPage(),
+          .about => const AboutPage(),
+        },
+      );
     } else {
       _type = type;
       setState(() {});

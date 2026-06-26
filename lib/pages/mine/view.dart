@@ -27,6 +27,7 @@ import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart' hide ListTile;
+import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -310,11 +311,10 @@ class _MediaPageState extends CommonPageState<MinePage>
                             Positioned(
                               right: -1,
                               bottom: -2,
-                              child: Image.asset(
+                              child: SvgPicture.asset(
                                 Assets.vipIcon,
                                 height: 19,
-                                cacheHeight: 19.cacheSize(context),
-                                semanticLabel: "大会员",
+                                semanticsLabel: "大会员",
                               ),
                             ),
                         ],
@@ -351,13 +351,10 @@ class _MediaPageState extends CommonPageState<MinePage>
                               overflow: .ellipsis,
                             ),
                           ),
-                          Image.asset(
-                            BiliUtils.levelName(
-                              levelInfo?.currentLevel ?? 0,
-                              isSeniorMember: userInfo.isSeniorMember == 1,
-                            ),
+                          BiliUtils.levelPicture(
+                            levelInfo?.currentLevel ?? 0,
+                            isSeniorMember: userInfo.isSeniorMember == 1,
                             height: 10,
-                            cacheHeight: 10.cacheSize(context),
                           ),
                         ],
                       ),

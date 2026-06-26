@@ -207,17 +207,17 @@ packages:
     description:
       path: cached_network_image
       ref: develop
-      resolved-ref: "5b79ff9f53a9a55b57d4d6fc52eb529fdfdb30d7"
-      url: "https://github.com/bggRGjQaUbCoE/flutter_cached_network_image_ce.git"
+      resolved-ref: "6ad91e9bf71254803e222b7d254751576f2f6d7b"
+      url: "https://github.com/My-Responsitories/flutter_cached_network_image_ce.git"
     source: git
     version: "4.6.4"
   cached_network_image_platform_interface_ce:
     dependency: transitive
     description:
       path: cached_network_image_platform_interface
-      ref: "5b79ff9f53a9a55b57d4d6fc52eb529fdfdb30d7"
-      resolved-ref: "5b79ff9f53a9a55b57d4d6fc52eb529fdfdb30d7"
-      url: "https://github.com/bggRGjQaUbCoE/flutter_cached_network_image_ce.git"
+      ref: "6ad91e9bf71254803e222b7d254751576f2f6d7b"
+      resolved-ref: "6ad91e9bf71254803e222b7d254751576f2f6d7b"
+      url: "https://github.com/My-Responsitories/flutter_cached_network_image_ce.git"
     source: git
     version: "5.2.0"
   canvas_danmaku:
@@ -494,7 +494,7 @@ packages:
     description:
       path: "."
       ref: mod
-      resolved-ref: "66486fdeb963149ba27d2dc1719c9a9005de5d18"
+      resolved-ref: "4f39947d2ceda6fa56503e0efc794fcf0d4ef5a6"
       url: "https://github.com/bggRGjQaUbCoE/extended_nested_scroll_view.git"
     source: git
     version: "6.2.1"
@@ -1379,10 +1379,10 @@ packages:
     dependency: transitive
     description:
       name: path_provider_linux
-      sha256: f7a1fe3a634fe7734c8d3f2766ad746ae2a2884abe22e241a8b301bf5cac3279
+      sha256: "58c2005f147315b11e9b4a7bc889cd5203e250cba8e3f012dae259b4972b5c16"
       url: "https://pub.dev"
     source: hosted
-    version: "2.2.1"
+    version: "2.2.2"
   path_provider_platform_interface:
     dependency: transitive
     description:
@@ -2066,4 +2066,4 @@ packages:
     version: "3.1.3"
 sdks:
   dart: ">=3.12.0 <4.0.0"
-  flutter: "3.44.3"
+  flutter: "3.44.4"

@@ -1,3 +1,4 @@
+
 import 'package:PiliMax/pages/about/view.dart';
 import 'package:PiliMax/pages/setting/ai_setting/view.dart';
 import 'package:PiliMax/pages/article/view.dart';
@@ -78,6 +79,7 @@ import 'package:PiliMax/pages/webdav/view.dart';
 import 'package:PiliMax/pages/webview/view.dart';
 import 'package:PiliMax/pages/whisper/view.dart';
 import 'package:PiliMax/pages/whisper_detail/view.dart';
+
 import 'package:get/get.dart';
 
 class Routes {
@@ -118,6 +120,7 @@ class Routes {
     // 用户中心
     GetPage(name: '/member', page: () => const MemberPage()),
     GetPage(name: '/memberSearch', page: () => const MemberSearchPage()),
+
     // 推荐流设置
     GetPage(name: '/recommendSetting', page: () => const RecommendSetting()),
     // 动态流设置
@@ -132,14 +135,13 @@ class Routes {
     GetPage(name: '/privacySetting', page: () => const PrivacySetting()),
     // 其它设置
     GetPage(name: '/extraSetting', page: () => const ExtraSetting()),
+
     //
     GetPage(name: '/blackListPage', page: () => const BlackListPage()),
     GetPage(name: '/colorSetting', page: () => const ColorSelectPage()),
     GetPage(name: '/fontSizeSetting', page: () => const FontSizeSelectPage()),
     // 屏幕帧率
     GetPage(name: '/displayModeSetting', page: () => const SetDisplayMode()),
-    // 关于
-    GetPage(name: '/about', page: () => const AboutPage()),
     //
     GetPage(name: '/articlePage', page: () => const ArticlePage()),
 
@@ -179,7 +181,6 @@ class Routes {
     GetPage(name: '/createFav', page: () => const CreateFavPage()),
     GetPage(name: '/editProfile', page: () => const EditProfilePage()),
     GetPage(name: '/settingsSearch', page: () => const SettingsSearchPage()),
-    GetPage(name: '/webdavSetting', page: () => const WebDavSettingPage()),
     GetPage(name: '/searchTrending', page: () => const SearchTrendingPage()),
     GetPage(name: '/dynTopic', page: () => const DynTopicPage()),
     GetPage(name: '/articleList', page: () => const ArticleListPage()),

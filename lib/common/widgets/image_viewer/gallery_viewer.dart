@@ -1,23 +1,24 @@
 /*
- * This file is part of PiliMax
+ * This file is part of PiliPlus
  *
- * PiliMax is free software: you can redistribute it and/or modify
+ * PiliPlus is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * PiliMax is distributed in the hope that it will be useful,
+ * PiliPlus is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with PiliMax.  If not, see <https://www.gnu.org/licenses/>.
+ * along with PiliPlus.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import 'dart:io' show File, Platform;
 
 import 'package:PiliMax/common/widgets/colored_box_transition.dart';
+import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/common/widgets/flutter/page/page_view.dart';
 import 'package:PiliMax/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image_viewer/image.dart';
@@ -534,84 +535,67 @@ class _GalleryViewerState extends State<GalleryViewer>
     HapticFeedback.mediumImpact();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => SimpleDialog(
         clipBehavior: Clip.hardEdge,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (PlatformUtils.isMobile)
-              ListTile(
-                onTap: () {
-                  Get.back();
-                  ImageUtils.onShareImg(item.url);
-                },
-                dense: true,
-                title: const Text('分享', style: TextStyle(fontSize: 14)),
-              ),
-            ListTile(
-              onTap: () {
+        children: [
+          if (PlatformUtils.isMobile)
+            DialogOption(
+              onPressed: () {
                 Get.back();
-                Utils.copyText(item.url);
+                ImageUtils.onShareImg(item.url);
               },
-              dense: true,
-              title: const Text('复制链接', style: TextStyle(fontSize: 14)),
+              child: const Text('分享', style: TextStyle(fontSize: 14)),
             ),
-            ListTile(
-              onTap: () {
+          DialogOption(
+            onPressed: () {
+              Get.back();
+              Utils.copyText(item.url);
+            },
+            child: const Text('复制链接', style: TextStyle(fontSize: 14)),
+          ),
+          DialogOption(
+            onPressed: () {
+              Get.back();
+              ImageUtils.downloadImg([item.url]);
+            },
+            child: const Text('保存图片', style: TextStyle(fontSize: 14)),
+          ),
+          if (PlatformUtils.isDesktop)
+            DialogOption(
+              onPressed: () {
                 Get.back();
-                ImageUtils.copyImg(item.url);
+                PageUtils.launchURL(item.url);
               },
-              dense: true,
-              title: const Text('复制图片', style: TextStyle(fontSize: 14)),
-            ),
-            ListTile(
-              onTap: () {
+              child: const Text('网页打开', style: TextStyle(fontSize: 14)),
+            )
+          else if (widget.sources.length > 1)
+            DialogOption(
+              onPressed: () {
                 Get.back();
-                ImageUtils.downloadImg([item.url]);
+                ImageUtils.downloadImg(
+                  widget.sources.map((item) => item.url).toList(),
+                );
               },
-              dense: true,
-              title: const Text('保存图片', style: TextStyle(fontSize: 14)),
+              child: const Text('保存全部图片', style: TextStyle(fontSize: 14)),
             ),
-            if (PlatformUtils.isDesktop)
-              ListTile(
-                onTap: () {
-                  Get.back();
-                  PageUtils.launchURL(item.url);
-                },
-                dense: true,
-                title: const Text('网页打开', style: TextStyle(fontSize: 14)),
-              )
-            else if (widget.sources.length > 1)
-              ListTile(
-                onTap: () {
-                  Get.back();
-                  ImageUtils.downloadImg(
-                    widget.sources.map((item) => item.url).toList(),
-                  );
-                },
-                dense: true,
-                title: const Text('保存全部图片', style: TextStyle(fontSize: 14)),
+          if (item.sourceType == SourceType.livePhoto)
+            DialogOption(
+              onPressed: () {
+                Get.back();
+                ImageUtils.downloadLivePhoto(
+                  url: item.url,
+                  liveUrl: item.liveUrl!,
+                  width: item.width!,
+                  height: item.height!,
+                );
+              },
+              child: Text(
+                '保存${Platform.isIOS ? ' Live Photo' : '视频'}',
+                style: const TextStyle(fontSize: 14),
               ),
-            if (item.sourceType == SourceType.livePhoto)
-              ListTile(
-                onTap: () {
-                  Get.back();
-                  ImageUtils.downloadLivePhoto(
-                    url: item.url,
-                    liveUrl: item.liveUrl!,
-                    width: item.width!,
-                    height: item.height!,
-                  );
-                },
-                dense: true,
-                title: Text(
-                  '保存${Platform.isIOS ? ' Live Photo' : '视频'}',
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -627,11 +611,6 @@ class _GalleryViewerState extends State<GalleryViewer>
           height: 42,
           onTap: () => Utils.copyText(item.url),
           child: const Text('复制链接', style: TextStyle(fontSize: 14)),
-        ),
-        PopupMenuItem(
-          height: 42,
-          onTap: () => ImageUtils.copyImg(item.url),
-          child: const Text('复制图片', style: TextStyle(fontSize: 14)),
         ),
         PopupMenuItem(
           height: 42,

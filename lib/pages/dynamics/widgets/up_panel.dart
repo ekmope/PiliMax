@@ -32,10 +32,102 @@ class UpPanel extends StatefulWidget {
 }
 
 class _UpPanelState extends State<UpPanel> {
+  static const double _topItemExtent = 70;
+  static const double _topPanelHeight = 76;
+  static const double _sideItemExtent = 76;
+  static const double _sideActionExtent = 60;
+
   late final controller = widget.dynamicsController;
   late final isTop = controller.upPanelPosition == UpPanelPosition.top;
+  late final Worker _currentMidWorker;
+  int? _lastScrollSignature;
+  bool _scrollScheduled = false;
 
   void toFollowPage() => Get.to(const LiveFollowPage());
+
+  @override
+  void initState() {
+    super.initState();
+    _currentMidWorker = ever<int>(
+      controller.currentMid,
+      (_) => _scheduleEnsureCurrentVisible(),
+    );
+    _scheduleEnsureCurrentVisible();
+  }
+
+  @override
+  void dispose() {
+    _currentMidWorker.dispose();
+    super.dispose();
+  }
+
+  double get _itemExtent => isTop ? _topItemExtent : _sideItemExtent;
+
+  double get _actionExtent => isTop ? _topItemExtent : _sideActionExtent;
+
+  int _visibleLiveCount(List<LiveUserItem>? liveList) {
+    if (!controller.showLiveUp || liveList == null) {
+      return 0;
+    }
+    return liveList.length;
+  }
+
+  void _scheduleEnsureCurrentVisible() {
+    if (_scrollScheduled) {
+      return;
+    }
+    _scrollScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollScheduled = false;
+      if (mounted) {
+        _ensureCurrentVisible();
+      }
+    });
+  }
+
+  void _ensureCurrentVisible() {
+    final scrollController = controller.scrollController;
+    if (!scrollController.hasClients) {
+      return;
+    }
+
+    final position = scrollController.position;
+    final currentIndex = controller.indexOfMid(controller.currentMid.value);
+    final liveList = controller.upState.value.dataOrNull?.liveUsers?.items;
+    final fixedExtent =
+        _actionExtent + _actionExtent + _visibleLiveCount(liveList) * _itemExtent;
+    final currentCenter = fixedExtent + currentIndex * _itemExtent + _itemExtent / 2;
+    final target = (currentCenter - position.viewportDimension / 2)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+
+    if ((position.pixels - target).abs() < 2) {
+      return;
+    }
+    scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _scheduleIfPanelRangeChanged(
+    List<UpItem> upList,
+    List<LiveUserItem>? liveList,
+  ) {
+    final signature = Object.hash(
+      controller.currentMid.value,
+      upList.length,
+      liveList?.length ?? 0,
+      controller.showLiveUp,
+      Pref.dynamicsShowSelfUp,
+    );
+    if (_lastScrollSignature == signature) {
+      return;
+    }
+    _lastScrollSignature = signature;
+    _scheduleEnsureCurrentVisible();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +139,7 @@ class _UpPanelState extends State<UpPanel> {
     final upData = controller.upState.value.data;
     final List<UpItem> upList = upData.upList;
     final List<LiveUserItem>? liveList = upData.liveUsers?.items;
+    _scheduleIfPanelRangeChanged(upList, liveList);
     return CustomScrollView(
       scrollDirection: isTop ? Axis.horizontal : Axis.vertical,
       physics: const AlwaysScrollableScrollPhysics(),
@@ -55,50 +148,58 @@ class _UpPanelState extends State<UpPanel> {
         SliverToBoxAdapter(child: widget.createDynamicButton),
         SliverToBoxAdapter(
           child: InkWell(
-            onTap: () => setState(() {
-              controller.showLiveUp = !controller.showLiveUp;
-            }),
+            onTap: () {
+              setState(() {
+                controller.showLiveUp = !controller.showLiveUp;
+              });
+              _scheduleEnsureCurrentVisible();
+            },
             onLongPress: toFollowPage,
             onSecondaryTap: PlatformUtils.isMobile ? null : toFollowPage,
-            child: Container(
-              alignment: Alignment.center,
-              height: isTop ? 76 : 60,
-              padding: isTop ? const EdgeInsets.only(left: 12, right: 6) : null,
-              child: Text.rich(
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: theme.colorScheme.primary,
-                ),
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Live(${upData.liveUsers?.count ?? 0})',
-                    ),
-                    if (!isTop) ...[
-                      const TextSpan(text: '\n'),
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.middle,
-                        child: Icon(
-                          controller.showLiveUp
-                              ? Icons.expand_less
-                              : Icons.expand_more,
-                          size: 12,
-                          color: theme.colorScheme.primary,
-                        ),
+            child: SizedBox(
+              width: isTop ? _topItemExtent : null,
+              height: isTop ? _topPanelHeight : _sideActionExtent,
+              child: Container(
+                alignment: Alignment.center,
+                padding: isTop
+                    ? const EdgeInsets.only(left: 12, right: 6)
+                    : null,
+                child: Text.rich(
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.colorScheme.primary,
+                  ),
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'Live(${upData.liveUsers?.count ?? 0})',
                       ),
-                    ] else
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.middle,
-                        child: Icon(
-                          controller.showLiveUp
-                              ? Icons.keyboard_arrow_right
-                              : Icons.keyboard_arrow_left,
-                          color: theme.colorScheme.primary,
-                          size: 14,
+                      if (!isTop) ...[
+                        const TextSpan(text: '\n'),
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Icon(
+                            controller.showLiveUp
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            size: 12,
+                            color: theme.colorScheme.primary,
+                          ),
                         ),
-                      ),
-                  ],
+                      ] else
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Icon(
+                            controller.showLiveUp
+                                ? Icons.keyboard_arrow_right
+                                : Icons.keyboard_arrow_left,
+                            color: theme.colorScheme.primary,
+                            size: 14,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -221,8 +322,8 @@ class _UpPanelState extends State<UpPanel> {
     }
 
     return SizedBox(
-      height: 76,
-      width: isTop ? 70 : null,
+      height: _sideItemExtent,
+      width: isTop ? _topItemExtent : null,
       child: InkWell(
         onTap: () {
           feedBack();

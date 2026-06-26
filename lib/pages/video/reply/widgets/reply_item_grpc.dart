@@ -843,7 +843,7 @@ class ReplyItemGrpc extends StatelessWidget {
             final ctr = Get.find<AudioController>(tag: heroTag);
             isValid =
                 DurationUtils.parseDuration(matchStr) * 1000 <=
-                ctr.duration.value.inMilliseconds;
+                ctr.duration.value * 1000;
             if (kDebugMode) debugPrint('Found AudioController, isValid: $isValid');
           } catch (_) {
             try {

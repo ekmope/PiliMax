@@ -14,6 +14,7 @@ import 'package:PiliMax/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliMax/common/widgets/route_aware_mixin.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_dynamic_header.dart';
+import 'package:PiliMax/common/widgets/svg/play_icon.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
 import 'package:PiliMax/models/common/list_order.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
@@ -2848,11 +2849,11 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         _logSponsorBlock(
           'Returning from PiP, positionSubscription will be preserved',
         );
-        final currentPosition = plPlayerController?.position;
+        final currentPosition = plPlayerController?.position.value;
         final args = Map<String, dynamic>.from(videoDetailController.args);
-        final progress =
-            currentPosition?.inMilliseconds ??
-            videoDetailController.playedTime?.inMilliseconds;
+        final progress = currentPosition == null
+            ? videoDetailController.playedTime?.inMilliseconds
+            : currentPosition * 1000;
         if (progress != null) {
           args['progress'] = progress;
         }

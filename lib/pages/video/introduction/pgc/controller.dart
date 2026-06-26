@@ -37,6 +37,9 @@ class PgcIntroController extends CommonIntroController {
   int? seasonId;
   int? epId;
 
+  // Whether the current video page is entering the in-app PiP overlay.
+  bool isEnteringPip = false;
+
   late final String pgcType = pgcItem.type == 1 || pgcItem.type == 4
       ? '追番'
       : '追剧';

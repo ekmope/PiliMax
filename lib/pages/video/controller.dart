@@ -7,8 +7,11 @@ import 'dart:ui';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/common/widgets/progress_bar/segment_progress_bar.dart';
+import 'package:PiliMax/grpc/bilibili/community/service/dm/v1.pbenum.dart'
+    show SubtitleType;
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
+import 'package:PiliMax/grpc/dm.dart';
 
 import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/http/init.dart';
@@ -1334,11 +1337,7 @@ class VideoDetailController extends GetxController
         );
       }
       if (_resolveLocalSkipSegments(meta) case final resolved?) {
-        await handleSBData(
-          resolved.items,
-          useBlockConfig: resolved.useBlockConfig,
-          isBlockSource: resolved.isBlockSource,
-        );
+        await handleSBData(resolved.items);
       }
     } catch (e) {
       if (kDebugMode) {
@@ -1503,7 +1502,7 @@ class VideoDetailController extends GetxController
           _canUseLastPlayTime(response.lastPlayCid)) {
         if (Accounts.get(AccountType.video).mid !=
             Accounts.get(AccountType.heartbeat).mid) {
-          if (plPlayerController.position.inSeconds <= 3) {
+          if (plPlayerController.position.value <= 3) {
             plPlayerController.seekTo(
               Duration(milliseconds: response.lastPlayTime!),
             );
@@ -1574,7 +1573,7 @@ class VideoDetailController extends GetxController
                         RegExp('^https?:'),
                         '',
                       ),
-                      isAi: i.type == .AI,
+                      isAi: i.type == SubtitleType.AI,
                     ),
                   )
                   .toList()
@@ -1783,7 +1782,7 @@ class VideoDetailController extends GetxController
   ) async {
     try {
       final durationMs = data.timeLength ??
-          plPlayerController.duration.value.inMilliseconds;
+          plPlayerController.durationInMilliseconds;
       return await DanmakuDensityTrend.build(
         cid: cid.value,
         durationMs: durationMs,

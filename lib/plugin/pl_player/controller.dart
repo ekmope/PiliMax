@@ -1477,7 +1477,7 @@ class PlPlayerController with BlockConfigMixin {
     }
     handler
       ..onStatusChange(playerStatus.value, isBuffering.value, isLive)
-      ..onPositionChange(position);
+      ..onPositionChange(Duration(seconds: position.value));
   }
 
   set controls(bool visible) {

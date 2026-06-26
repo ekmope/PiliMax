@@ -553,7 +553,7 @@ class _AiChatPageState extends State<AiChatPage>
     try {
       final videoCtl = Get.find<VideoDetailController>(tag: widget.heroTag);
       final duration = videoCtl.plPlayerController.duration.value;
-      if (duration.inSeconds > 0 && seconds > duration.inSeconds) {
+      if (duration > 0 && seconds > duration) {
         SmartDialog.showToast('时间戳超出视频时长');
         return;
       }

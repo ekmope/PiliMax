@@ -2,8 +2,6 @@ import 'dart:io';
 import 'dart:math' show max;
 
 import 'package:PiliMax/common/widgets/custom_icon.dart';
-import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
 import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'

@@ -60,6 +60,8 @@ class _DynamicsSettingState extends State<DynamicsSetting> {
             dense: true,
             subtitle: Text(
               '* 屏蔽用户后，该用户发布的动态将不会显示。\n'
+              '* 动态流屏蔽用户优先于白名单生效。\n'
+              '* 白名单用户与推荐流/评论区共享，白名单优先于带货屏蔽和常规过滤。\n'
               '* 关键词过滤支持正则表达式，多个关键词使用|分隔。\n'
               '* 设置立即生效，刷新动态页面即可看到过滤结果。',
               style: theme.textTheme.labelSmall!.copyWith(

@@ -131,6 +131,8 @@ abstract final class SettingBoxKey {
       removeOnlyFansVideoDyn = 'removeOnlyFansVideoDyn',
       antiGoodsReply = 'antiGoodsReply',
       replyMinLevel = 'replyMinLevel',
+      keepUpOwnerReply = 'keepUpOwnerReply',
+      keepUpTopReply = 'keepUpTopReply',
       keepUpLikeReply = 'keepUpLikeReply',
       keepUpReplyReply = 'keepUpReplyReply',
       expandDynLivePanel = 'expandDynLivePanel',

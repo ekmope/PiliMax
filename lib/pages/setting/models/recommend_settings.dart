@@ -125,7 +125,7 @@ List<SettingsModel> get recommendSettings => [
             event.key == SettingBoxKey.rcmdMode ||
             event.key == SettingBoxKey.removeBlockedRcmd,
       ),
-      builder: (_, __) => Switch(
+      builder: (_, _) => Switch(
         value: Pref.removeBlockedRcmd,
         onChanged: Pref.rcmdMode != RcmdMode.web
             ? (value) {
@@ -184,6 +184,29 @@ List<SettingsModel> get recommendSettings => [
     setKey: SettingBoxKey.applyFilterToSearch,
     defaultVal: false,
     onChanged: (value) => RecommendFilter.applyFilterToSearch = value,
+  ),
+  WidgetModel(
+    searchTitle: '推荐过滤说明',
+    searchSubtitle: '手动搜索、链接跳转不受过滤器影响',
+    child: Builder(
+      builder: (context) {
+        final theme = Theme.of(context);
+        return ListTile(
+          dense: true,
+          subtitle: Text(
+            '¹ 由于接口未提供关注信息，无法豁免相关视频中的已关注Up。\n\n'
+            '* 手动搜索、链接跳转等均不受过滤器影响。\n'
+            '* 推荐流屏蔽用户优先于白名单生效。\n'
+            '* 白名单用户与动态流/评论区共享，白名单优先于常规过滤。\n'
+            '* 设定较严苛的条件可导致推荐项数锐减或多次请求，请酌情选择。\n'
+            '* 后续可能会增加更多过滤条件，敬请期待。',
+            style: theme.textTheme.labelSmall!.copyWith(
+              color: theme.colorScheme.outline.withValues(alpha: 0.7),
+            ),
+          ),
+        );
+      },
+    ),
   ),
 ];
 

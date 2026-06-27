@@ -17,6 +17,8 @@ abstract final class ReplyGrpc {
   static bool enableFilter = replyRegExp.pattern.isNotEmpty;
   static Map<int, String> replyBlockedMids = Pref.replyBlockedMids;
   static int replyMinLevel = Pref.replyMinLevel;
+  static bool keepUpOwnerReply = Pref.keepUpOwnerReply;
+  static bool keepUpTopReply = Pref.keepUpTopReply;
   static bool keepUpLikeReply = Pref.keepUpLikeReply;
   static bool keepUpReplyReply = Pref.keepUpReplyReply;
 
@@ -41,16 +43,23 @@ abstract final class ReplyGrpc {
         reply.content.message.contains(Constants.goodsUrlPrefix);
   }
 
-  static bool needRemoveGrpc(ReplyInfo reply) {
+  static bool needRemoveGrpc(
+    ReplyInfo reply, {
+    Int64? upMid,
+  }) {
     final mid = reply.mid.toInt();
+    if (replyBlockedMids.isNotEmpty && replyBlockedMids.containsKey(mid)) {
+      return true;
+    }
     if (UserWhitelist.contains(mid)) return false;
+    if (antiGoodsReply && needRemoveGoodGrpc(reply)) return true;
     final replyControl = reply.replyControl;
+    if (keepUpOwnerReply && upMid != null && reply.mid == upMid) return false;
+    if (keepUpTopReply && replyControl.isUpTop) return false;
     if (keepUpLikeReply && replyControl.upLike) return false;
     if (keepUpReplyReply && replyControl.upReply) return false;
     return (replyMinLevel > 0 && reply.member.level.toInt() < replyMinLevel) ||
-        (replyBlockedMids.isNotEmpty && replyBlockedMids.containsKey(mid)) ||
-        (enableFilter && replyRegExp.hasMatch(reply.content.message)) ||
-        (antiGoodsReply && needRemoveGoodGrpc(reply));
+        (enableFilter && replyRegExp.hasMatch(reply.content.message));
   }
 
   static Future<LoadingState<MainListReply>> mainList({
@@ -76,16 +85,26 @@ abstract final class ReplyGrpc {
       MainListReply.fromBuffer,
     );
     if (res case Success(:final response)) {
+      final upMid = response.subjectControl.upMid;
       // keyword filter
-      if (response.hasUpTop() && needRemoveGrpc(response.upTop)) {
+      if (response.hasUpTop() &&
+          needRemoveGrpc(
+            response.upTop,
+            upMid: upMid,
+          )) {
         response.clearUpTop();
       }
 
       if (response.replies.isNotEmpty) {
         response.replies.removeWhere((item) {
-          final hasMatch = needRemoveGrpc(item);
+          final hasMatch = needRemoveGrpc(
+            item,
+            upMid: upMid,
+          );
           if (!hasMatch && item.replies.isNotEmpty) {
-            item.replies.removeWhere(needRemoveGrpc);
+            item.replies.removeWhere((item) {
+              return needRemoveGrpc(item, upMid: upMid);
+            });
           }
           return hasMatch;
         });
@@ -115,7 +134,13 @@ abstract final class ReplyGrpc {
       ),
       DetailListReply.fromBuffer,
     );
-    return res..dataOrNull?.root.replies.removeWhere(needRemoveGrpc);
+    if (res case Success(:final response)) {
+      final upMid = response.subjectControl.upMid;
+      response.root.replies.removeWhere((item) {
+        return needRemoveGrpc(item, upMid: upMid);
+      });
+    }
+    return res;
   }
 
   static Future<LoadingState<DialogListReply>> dialogList({
@@ -136,7 +161,13 @@ abstract final class ReplyGrpc {
       ),
       DialogListReply.fromBuffer,
     );
-    return res..dataOrNull?.replies.removeWhere(needRemoveGrpc);
+    if (res case Success(:final response)) {
+      final upMid = response.subjectControl.upMid;
+      response.replies.removeWhere((item) {
+        return needRemoveGrpc(item, upMid: upMid);
+      });
+    }
+    return res;
   }
 
   static Future<LoadingState<SearchItemReply>> searchItem({

@@ -67,6 +67,10 @@ class DynamicsDataModel {
       final whitelistMids = GlobalData().whitelistMids;
       for (final e in list) {
         DynamicItemModel item = DynamicItemModel.fromJson(e);
+        if (filterBlockedUsers &&
+            dynamicsBlockedMids.contains(item.modules.moduleAuthor?.mid)) {
+          continue;
+        }
         if (whitelistMids.containsKey(item.modules.moduleAuthor?.mid)) {
           items!.add(item);
           continue;
@@ -100,10 +104,6 @@ class DynamicsDataModel {
         }
         if (filterBan &&
             tempBannedList!.contains(item.modules.moduleAuthor?.mid)) {
-          continue;
-        }
-        if (filterBlockedUsers &&
-            dynamicsBlockedMids.contains(item.modules.moduleAuthor?.mid)) {
           continue;
         }
         items!.add(item);

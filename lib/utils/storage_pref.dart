@@ -854,6 +854,12 @@ abstract final class Pref {
   static set replyMinLevel(int v) =>
       _setting.put(SettingBoxKey.replyMinLevel, v);
 
+  static bool get keepUpOwnerReply =>
+      _setting.get(SettingBoxKey.keepUpOwnerReply, defaultValue: true);
+
+  static bool get keepUpTopReply =>
+      _setting.get(SettingBoxKey.keepUpTopReply, defaultValue: true);
+
   static bool get keepUpLikeReply =>
       _setting.get(SettingBoxKey.keepUpLikeReply, defaultValue: false);
 

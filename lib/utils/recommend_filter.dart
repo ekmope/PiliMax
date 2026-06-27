@@ -24,7 +24,11 @@ abstract final class RecommendFilter {
   }
 
   static bool filter(BaseVideoItemModel videoItem) {
-    if (isWhitelisted(videoItem.owner.mid)) {
+    final mid = videoItem.owner.mid;
+    if (filterUser(mid)) {
+      return true;
+    }
+    if (isWhitelisted(mid)) {
       return false;
     }
     //由于相关视频中没有已关注标签，只能视为非关注视频
@@ -49,14 +53,17 @@ abstract final class RecommendFilter {
   }
 
   static bool filterUser(int? mid) {
-    return !isWhitelisted(mid) &&
-        recommendBlockedMids.isNotEmpty &&
+    return recommendBlockedMids.isNotEmpty &&
         mid != null &&
         recommendBlockedMids.containsKey(mid);
   }
 
   static bool filterAll(BaseVideoItemModel videoItem) {
-    if (isWhitelisted(videoItem.owner.mid)) {
+    final mid = videoItem.owner.mid;
+    if (filterUser(mid)) {
+      return true;
+    }
+    if (isWhitelisted(mid)) {
       return false;
     }
     return (videoItem.duration > 0 &&
@@ -68,7 +75,8 @@ abstract final class RecommendFilter {
 
   static bool searchShouldRemove(int? mid, String title) {
     if (!applyFilterToSearch) return false;
+    if (filterUser(mid)) return true;
     if (isWhitelisted(mid)) return false;
-    return filterTitle(title) || filterUser(mid);
+    return filterTitle(title);
   }
 }

@@ -463,6 +463,8 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   Future<bool> onChangeEpisode(
     BaseEpisodeItem episode, {
     bool isStein = false,
+    bool fromAudioPage = false,
+    Duration? audioPosition,
   }) async {
     try {
       final String bvid = episode.bvid ?? this.bvid;
@@ -499,15 +501,28 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         }
       }
 
+      videoDetailCtr.plPlayerController.pause();
+      if (!fromAudioPage) {
+        videoDetailCtr
+          ..makeHeartBeat()
+          ..updateMediaListHistory(aid);
+      }
       videoDetailCtr
-        ..plPlayerController.pause()
-        ..makeHeartBeat()
-        ..updateMediaListHistory(aid)
         ..onReset(isStein: isStein)
         ..bvid = bvid
         ..aid = aid
-        ..cid.value = cid
-        ..queryVideoUrl();
+        ..cid.value = cid;
+      if (fromAudioPage &&
+          audioPosition != null &&
+          audioPosition > Duration.zero) {
+        videoDetailCtr
+          ..playedTime = audioPosition
+          ..defaultST = audioPosition;
+      }
+      final queryVideoUrl = videoDetailCtr.queryVideoUrl();
+      if (fromAudioPage) {
+        await queryVideoUrl;
+      }
 
       if (this.bvid != bvid) {
         reload = true;

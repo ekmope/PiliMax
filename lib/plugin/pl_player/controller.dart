@@ -1005,6 +1005,7 @@ class PlPlayerController with BlockConfigMixin {
       }
     }
     _initVideoFit();
+    await applyOnlyPlayAudioTrack();
     // if (_looping) {
     //   await setLooping(_looping);
     // }
@@ -1874,11 +1875,15 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
-  void setOnlyPlayAudio() {
-    onlyPlayAudio.value = !onlyPlayAudio.value;
-    videoPlayerController?.setVideoTrack(
+  Future<void>? applyOnlyPlayAudioTrack() {
+    return videoPlayerController?.setVideoTrack(
       onlyPlayAudio.value ? VideoTrack.no() : VideoTrack.auto(),
     );
+  }
+
+  void setOnlyPlayAudio() {
+    onlyPlayAudio.value = !onlyPlayAudio.value;
+    applyOnlyPlayAudioTrack();
   }
 
   late final Map<String, ui.Image?> previewCache = {};

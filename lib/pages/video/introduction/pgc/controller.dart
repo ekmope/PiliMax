@@ -245,7 +245,11 @@ class PgcIntroController extends CommonIntroController {
   }
 
   // 修改分P或番剧分集
-  Future<bool> onChangeEpisode(BaseEpisodeItem episode) async {
+  Future<bool> onChangeEpisode(
+    BaseEpisodeItem episode, {
+    bool fromAudioPage = false,
+    Duration? audioPosition,
+  }) async {
     try {
       final int epId = episode.epId ?? episode.id!;
       final String bvid = episode.bvid ?? this.bvid;
@@ -261,15 +265,27 @@ class PgcIntroController extends CommonIntroController {
       this.epId = epId;
       this.bvid = bvid;
 
+      videoDetailCtr.plPlayerController.pause();
+      if (!fromAudioPage) {
+        videoDetailCtr.makeHeartBeat();
+      }
       videoDetailCtr
-        ..plPlayerController.pause()
-        ..makeHeartBeat()
         ..onReset()
         ..epId = epId
         ..bvid = bvid
         ..aid = aid
-        ..cid.value = cid
-        ..queryVideoUrl();
+        ..cid.value = cid;
+      if (fromAudioPage &&
+          audioPosition != null &&
+          audioPosition > Duration.zero) {
+        videoDetailCtr
+          ..playedTime = audioPosition
+          ..defaultST = audioPosition;
+      }
+      final queryVideoUrl = videoDetailCtr.queryVideoUrl();
+      if (fromAudioPage) {
+        await queryVideoUrl;
+      }
       if (cover != null && cover.isNotEmpty) {
         videoDetailCtr.cover.value = cover;
       }

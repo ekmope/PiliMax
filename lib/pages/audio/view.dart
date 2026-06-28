@@ -4,6 +4,7 @@ import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
@@ -87,6 +88,8 @@ class _AudioPageState extends State<AudioPage> {
     AudioController(),
     tag: Get.arguments['heroTag'] ?? Utils.generateRandomString(8),
   );
+  bool _allowPop = false;
+  bool _exitingAudioPage = false;
 
   @override
   void initState() {
@@ -112,10 +115,17 @@ class _AudioPageState extends State<AudioPage> {
     final colorScheme = ColorScheme.of(context);
     final isPortrait = MediaQuery.sizeOf(context).isPortrait;
     final padding = MediaQuery.viewPaddingOf(context);
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        actions: [
+    return popScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _exitAudioPage();
+        }
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        appBar: AppBar(
+          actions: [
           if (_controller.isUgc && _controller.enableSponsorBlock)
             Obx(() {
               if (_controller.segmentProgressList.isNotEmpty) {
@@ -166,60 +176,72 @@ class _AudioPageState extends State<AudioPage> {
               icon: const Icon(Icons.more_vert, size: 22),
             ),
           const SizedBox(width: 5),
-        ],
-      ),
-      body: Padding(
-        padding: EdgeInsets.only(
-          left: 20 + padding.left,
-          right: 20 + padding.right,
-          bottom: 30 + padding.bottom,
+          ],
         ),
-        child: isPortrait
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _buildInfo(colorScheme, isPortrait)),
-                  const SizedBox(height: 25),
-                  _buildProgressBar(colorScheme),
-                  _buildDuration(colorScheme),
-                  _buildControls(),
-                ],
-              )
-            : Row(
-                spacing: 12,
-                children: [
-                  Expanded(
-                    child: _buildInfo(colorScheme, isPortrait),
-                  ),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Obx(() {
-                          final audioItem = _controller.audioItem.value;
-                          if (audioItem != null) {
-                            return _buildActions(audioItem);
-                          }
-                          return const SizedBox.shrink();
-                        }),
-                        const SizedBox(height: 25),
-                        _buildProgressBar(colorScheme),
-                        _buildDuration(colorScheme),
-                        _buildControls(),
-                      ],
+        body: Padding(
+          padding: EdgeInsets.only(
+            left: 20 + padding.left,
+            right: 20 + padding.right,
+            bottom: 30 + padding.bottom,
+          ),
+          child: isPortrait
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildInfo(colorScheme, isPortrait)),
+                    const SizedBox(height: 25),
+                    _buildProgressBar(colorScheme),
+                    _buildDuration(colorScheme),
+                    _buildControls(),
+                  ],
+                )
+              : Row(
+                  spacing: 12,
+                  children: [
+                    Expanded(
+                      child: _buildInfo(colorScheme, isPortrait),
                     ),
-                  ),
-                ],
-              ),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Obx(() {
+                            final audioItem = _controller.audioItem.value;
+                            if (audioItem != null) {
+                              return _buildActions(audioItem);
+                            }
+                            return const SizedBox.shrink();
+                          }),
+                          const SizedBox(height: 25),
+                          _buildProgressBar(colorScheme),
+                          _buildDuration(colorScheme),
+                          _buildControls(),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }
 
   Future<void> _exitAudioPage() async {
-    await _controller.syncBackToVideoPlayer();
-    await _controller.onPause();
+    if (_exitingAudioPage) {
+      return;
+    }
+    _exitingAudioPage = true;
+    try {
+      await _controller.syncBackToVideoPlayer();
+    } catch (_) {}
+    try {
+      await _controller.onPause();
+    } catch (_) {}
     if (mounted) {
+      setState(() {
+        _allowPop = true;
+      });
       Get.back();
     }
   }

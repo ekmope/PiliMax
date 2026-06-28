@@ -16,6 +16,10 @@ import 'package:PiliMax/grpc/bilibili/app/listener/v1.pb.dart'
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart'
+    as pgc;
+import 'package:PiliMax/models_new/video/video_detail/episode.dart'
+    as ugc;
 import 'package:PiliMax/pages/common/common_intro_controller.dart'
     show FavMixin;
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
@@ -24,6 +28,8 @@ import 'package:PiliMax/pages/setting/models/play_settings.dart'
     show kMaxVolume;
 import 'package:PiliMax/pages/sponsor_block/block_mixin.dart';
 import 'package:PiliMax/pages/video/controller.dart';
+import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
+import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/triple_mixin.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
@@ -196,17 +202,145 @@ class AudioController extends GetxController
     return player?.seek(duration);
   }
 
+  Duration _rawAudioPosition([Player? currentPlayer]) {
+    final statePosition = currentPlayer?.state.position;
+    if (statePosition != null && statePosition > Duration.zero) {
+      return statePosition;
+    }
+    return Duration(seconds: position.value);
+  }
+
+  Duration _rawAudioDuration([Player? currentPlayer]) {
+    final stateDuration = currentPlayer?.state.duration;
+    if (stateDuration != null && stateDuration > Duration.zero) {
+      return stateDuration;
+    }
+    return Duration(seconds: duration.value);
+  }
+
   Future<void> syncBackToVideoPlayer() async {
     final videoDetailController = _videoDetailController;
     final audioPlayer = player;
     if (videoDetailController == null || audioPlayer == null) {
       return;
     }
-    final position = audioPlayer.state.position;
-    videoDetailController.playedTime = position;
-    final plPlayerController = videoDetailController.plPlayerController;
-    plPlayerController.position.value = position.inSeconds;
-    await plPlayerController.seekTo(position, isSeek: false);
+    final audioPosition = _rawAudioPosition(audioPlayer);
+    if (audioPosition <= Duration.zero) {
+      return;
+    }
+    await _syncVideoSourceIfNeeded(videoDetailController, audioPosition);
+    final currentCid = subId.firstOrNull?.toInt();
+    final currentBvid = IdUtils.av2bv(oid.toInt());
+    if (currentCid != null &&
+        videoDetailController.bvid == currentBvid &&
+        videoDetailController.cid.value == currentCid) {
+      videoDetailController
+        ..playedTime = audioPosition
+        ..defaultST = audioPosition;
+      final plPlayerController = videoDetailController.plPlayerController;
+      plPlayerController.position.value = audioPosition.inSeconds;
+      if (plPlayerController.videoPlayerController != null) {
+        await plPlayerController.seekTo(audioPosition, isSeek: false);
+      }
+    }
+  }
+
+  Future<void> _syncVideoSourceIfNeeded(
+    VideoDetailController videoDetailController,
+    Duration audioPosition,
+  ) async {
+    final currentCid = subId.firstOrNull?.toInt();
+    if (currentCid == null) {
+      return;
+    }
+
+    final currentAid = oid.toInt();
+    final currentBvid = IdUtils.av2bv(currentAid);
+    if (videoDetailController.bvid == currentBvid &&
+        videoDetailController.cid.value == currentCid) {
+      return;
+    }
+
+    if (videoDetailController.isUgc) {
+      try {
+        final ugcIntroController = Get.find<UgcIntroController>(
+          tag: videoDetailController.heroTag,
+        );
+        final target = _findUgcEpisode(
+          ugcIntroController,
+          aid: currentAid,
+          bvid: currentBvid,
+          cid: currentCid,
+        );
+        if (target != null) {
+          await ugcIntroController.onChangeEpisode(
+            target,
+            fromAudioPage: true,
+            audioPosition: audioPosition,
+          );
+        }
+      } catch (_) {}
+    } else {
+      try {
+        final pgcIntroController = Get.find<PgcIntroController>(
+          tag: videoDetailController.heroTag,
+        );
+        final target = _findPgcEpisode(
+          pgcIntroController,
+          aid: currentAid,
+          bvid: currentBvid,
+          cid: currentCid,
+        );
+        if (target != null) {
+          await pgcIntroController.onChangeEpisode(
+            target,
+            fromAudioPage: true,
+            audioPosition: audioPosition,
+          );
+        }
+      } catch (_) {}
+    }
+  }
+
+  ugc.BaseEpisodeItem? _findUgcEpisode(
+    UgcIntroController controller, {
+    required int aid,
+    required String bvid,
+    required int cid,
+  }) {
+    final videoDetail = controller.videoDetail.value;
+    for (final part in videoDetail.pages ?? const []) {
+      if (part.cid == cid) return part;
+    }
+    for (final section in videoDetail.ugcSeason?.sections ?? const []) {
+      for (final episode in section.episodes ?? const []) {
+        if (episode.cid == cid ||
+            episode.aid == aid ||
+            episode.bvid == bvid) {
+          return episode;
+        }
+        for (final part in episode.pages ?? const []) {
+          if (part.cid == cid) return part;
+        }
+      }
+    }
+    return null;
+  }
+
+  pgc.EpisodeItem? _findPgcEpisode(
+    PgcIntroController controller, {
+    required int aid,
+    required String bvid,
+    required int cid,
+  }) {
+    for (final episode in controller.pgcItem.episodes ?? const []) {
+      if (episode.cid == cid ||
+          episode.aid == aid ||
+          episode.bvid == bvid) {
+        return episode;
+      }
+    }
+    return null;
   }
 
   void _updateCurrItem(DetailItem item) {
@@ -329,13 +463,25 @@ class AudioController extends GetxController
     String? referer,
   }) async {
     await _initPlayerIfNeeded();
-    player
-      ?..setMediaHeader(
-        userAgent: ua,
-        // mpv cannot clear referer option
-        headers: {'Referer': ?referer},
-      )
-      ..open(Media(url, start: _start));
+    final currentPlayer = player;
+    if (currentPlayer == null) return;
+    final start = _start;
+    currentPlayer.setMediaHeader(
+      userAgent: ua,
+      // mpv cannot clear referer option
+      headers: {'Referer': ?referer},
+    );
+    await currentPlayer.open(Media(url, start: start));
+    final stateDuration = _rawAudioDuration(currentPlayer);
+    if (stateDuration > Duration.zero) {
+      duration.value = stateDuration.inSeconds;
+    }
+    final statePosition = _rawAudioPosition(currentPlayer);
+    if (start != null && start > Duration.zero) {
+      position.value = start.inSeconds;
+    } else if (statePosition > Duration.zero) {
+      position.value = statePosition.inSeconds;
+    }
     _start = null;
   }
 
@@ -385,7 +531,9 @@ class AudioController extends GetxController
         videoPlayerServiceHandler?.onStatusChange(playerStatus, false, false);
       }),
       stream.completed.listen((completed) {
-        _videoDetailController?.playedTime = player!.state.duration;
+        if (completed) {
+          _videoDetailController?.playedTime = _rawAudioDuration(player);
+        }
         videoPlayerServiceHandler?.onStatusChange(
           PlayerStatus.completed,
           false,
@@ -669,7 +817,10 @@ class AudioController extends GetxController
             this.subId = [nextPart.subId];
             _queryPlayUrl().then((res) {
               if (res) {
-                _videoDetailController = null;
+                final currentItem = audioItem.value;
+                if (currentItem != null) {
+                  _updateCurrItem(currentItem);
+                }
               }
             });
             return true;
@@ -702,7 +853,6 @@ class AudioController extends GetxController
     itemType = item.itemType;
     _queryPlayUrl().then((res) {
       if (res) {
-        _videoDetailController = null;
         _updateCurrItem(audioItem);
       }
     });

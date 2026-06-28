@@ -245,8 +245,10 @@ class LiveRoomController extends GetxController {
     final success = await queryLiveUrl();
     if (!success) {
       plPlayerController.onlyPlayAudio.value = prevOnlyPlayAudio;
+      await plPlayerController.applyOnlyPlayAudioTrack();
       return;
     }
+    await plPlayerController.applyOnlyPlayAudioTrack();
     _syncAudioServiceState();
   }
 

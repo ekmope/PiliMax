@@ -192,10 +192,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
               return ComBtn(
                 height: 30,
                 tooltip: '仅播放音频',
-                onTap: () {
-                  plPlayerController.onlyPlayAudio.value = !onlyPlayAudio;
-                  widget.onPlayAudio();
-                },
+                onTap: widget.onPlayAudio,
                 icon: onlyPlayAudio
                     ? const Icon(
                         size: 18,

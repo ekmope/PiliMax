@@ -196,6 +196,19 @@ class AudioController extends GetxController
     return player?.seek(duration);
   }
 
+  Future<void> syncBackToVideoPlayer() async {
+    final videoDetailController = _videoDetailController;
+    final audioPlayer = player;
+    if (videoDetailController == null || audioPlayer == null) {
+      return;
+    }
+    final position = audioPlayer.state.position;
+    videoDetailController.playedTime = position;
+    final plPlayerController = videoDetailController.plPlayerController;
+    plPlayerController.position.value = position.inSeconds;
+    await plPlayerController.seekTo(position, isSeek: false);
+  }
+
   void _updateCurrItem(DetailItem item) {
     audioItem.value = item;
     hasLike.value = item.stat.hasLike_7;

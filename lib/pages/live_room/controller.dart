@@ -91,7 +91,7 @@ class LiveRoomController extends GetxController {
         liveTime * 1000,
         DateTime.now().millisecondsSinceEpoch,
       );
-      text += duration.isEmpty ? '刚刚开播' : '开播';
+      text += duration.isEmpty ? '刚刚开播' : '已开播 $duration';
     }
     if (text.isEmpty) {
       return const SizedBox.shrink();

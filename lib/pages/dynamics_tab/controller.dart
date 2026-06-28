@@ -16,9 +16,11 @@ class DynamicsTabController
     with AccountMixin {
   DynamicsTabController({required this.dynamicsType});
   final DynamicsTabType dynamicsType;
+
   String offset = '';
   int? mid;
-  late final MainController mainController = Get.find<MainController>();
+
+  late final mainController = Get.find<MainController>();
   final dynamicsController = Get.find<DynamicsController>();
 
   @override
@@ -29,7 +31,7 @@ class DynamicsTabController
 
   @override
   Future<void> onRefresh() {
-    if (dynamicsType == DynamicsTabType.all) {
+    if (dynamicsType == .all) {
       mainController.setDynCount();
     }
     offset = '';
@@ -70,7 +72,7 @@ class DynamicsTabController
   }
 
   void onBlock(int index) {
-    if (dynamicsType != DynamicsTabType.up) {
+    if (dynamicsType != .up) {
       loadingState
         ..value.data!.removeAt(index)
         ..refresh();

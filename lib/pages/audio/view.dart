@@ -217,6 +217,7 @@ class _AudioPageState extends State<AudioPage> {
   }
 
   Future<void> _exitAudioPage() async {
+    await _controller.syncBackToVideoPlayer();
     await _controller.onPause();
     if (mounted) {
       Get.back();

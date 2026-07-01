@@ -577,6 +577,11 @@ abstract final class Pref {
   static bool get blockToast =>
       _setting.get(SettingBoxKey.blockToast, defaultValue: true);
 
+  static bool get blockSkipWhenSeekIntoSegment => _setting.get(
+    SettingBoxKey.blockSkipWhenSeekIntoSegment,
+    defaultValue: false,
+  );
+
   static String get blockServer => _setting.get(
     SettingBoxKey.blockServer,
     defaultValue: HttpString.sponsorBlockBaseUrl,

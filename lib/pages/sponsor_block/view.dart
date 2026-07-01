@@ -37,6 +37,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
   final List<Color> _blockColor = Pref.blockColor;
   String _userId = Pref.blockUserID;
   bool _blockToast = Pref.blockToast;
+  bool _blockSkipWhenSeekIntoSegment = Pref.blockSkipWhenSeekIntoSegment;
   String _blockServer = Pref.blockServer;
   bool _blockTrack = Pref.blockTrack;
   final _serverStatus = Rxn<bool>();
@@ -273,6 +274,43 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
     },
   );
 
+  Widget _blockSkipWhenSeekIntoSegmentItem(
+    TextStyle titleStyle,
+    TextStyle subTitleStyle,
+  ) => Builder(
+    builder: (context) {
+      void update() {
+        _blockSkipWhenSeekIntoSegment = !_blockSkipWhenSeekIntoSegment;
+        setting.put(
+          SettingBoxKey.blockSkipWhenSeekIntoSegment,
+          _blockSkipWhenSeekIntoSegment,
+        );
+        (context as Element).markNeedsBuild();
+      }
+
+      return ListTile(
+        dense: true,
+        onTap: update,
+        title: Text(
+          '快进至片段中间时跳过',
+          style: titleStyle,
+        ),
+        subtitle: Text(
+          '通过方向键或进度跳转进入片段中间时，仍按该片段的跳过类型处理',
+          style: subTitleStyle,
+        ),
+        trailing: Transform.scale(
+          alignment: Alignment.centerRight,
+          scale: 0.8,
+          child: Switch(
+            value: _blockSkipWhenSeekIntoSegment,
+            onChanged: (val) => update(),
+          ),
+        ),
+      );
+    },
+  );
+
   Widget _blockUserInfo(
     ThemeData theme,
     TextStyle titleStyle,
@@ -493,6 +531,13 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
           ),
           sliverDivider,
           SliverToBoxAdapter(child: _blockToastItem(titleStyle)),
+          sliverDivider,
+          SliverToBoxAdapter(
+            child: _blockSkipWhenSeekIntoSegmentItem(
+              titleStyle,
+              subTitleStyle,
+            ),
+          ),
           sliverDivider,
           SliverToBoxAdapter(child: _blockTrackItem(titleStyle, subTitleStyle)),
           sliverDivider,

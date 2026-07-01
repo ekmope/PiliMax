@@ -212,14 +212,17 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     if ((widget.headerControl.key as GlobalKey<TimeBatteryMixin>).currentState
         case final state?) {
       if (state.mounted) {
-        state.getBatteryLevelIfNeeded();
         state.provider
           ?..startIfNeeded()
           ..muted = !visible;
         if (visible) {
-          state.startClock();
+          state
+            ..updateBatteryInfoIfNeeded()
+            ..startClock();
         } else {
-          state.stopClock();
+          state
+            ..stopBatteryInfoListener()
+            ..stopClock();
         }
       }
     }

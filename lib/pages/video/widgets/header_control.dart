@@ -1,4 +1,4 @@
-import 'dart:async' show Timer;
+import 'dart:async' show StreamSubscription, Timer;
 import 'dart:convert' show jsonDecode, utf8;
 import 'dart:io' show Platform, File;
 import 'dart:typed_data' show Uint8List;
@@ -72,6 +72,23 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:media_kit/media_kit.dart' show NativePlayer;
 
+class _BatteryInfo {
+  const _BatteryInfo({
+    required this.level,
+    required this.state,
+  });
+
+  final int level;
+  final BatteryState state;
+
+  IconData? get icon => switch (state) {
+    BatteryState.charging => Icons.battery_charging_full,
+    BatteryState.connectedNotCharging => Icons.power,
+    BatteryState.full => Icons.battery_full,
+    _ => null,
+  };
+}
+
 mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
   PlPlayerController get plPlayerController;
   late final titleKey = GlobalKey();
@@ -94,6 +111,7 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
 
   @override
   void dispose() {
+    stopBatteryInfoListener();
     stopClock();
     super.dispose();
   }
@@ -122,22 +140,80 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
     _showCurrTime = !isPortrait && (isFullScreen || !horizontalScreen);
     if (!_showCurrTime) {
       stopClock();
+      stopBatteryInfoListener();
     }
   }
 
   late final _battery = Battery();
-  late final RxnInt _batteryLevel = RxnInt();
+  late final Rxn<_BatteryInfo> _batteryInfo = Rxn<_BatteryInfo>();
+  StreamSubscription<BatteryState>? _batterySubscription;
   late final _showBatteryLevel = Pref.showBatteryLevel;
-  void getBatteryLevelIfNeeded() {
-    if (!_showCurrTime || !_showBatteryLevel) return;
-    EasyThrottle.throttle(
-      'getBatteryLevel$hashCode',
-      const Duration(seconds: 30),
-      () async {
-        try {
-          _batteryLevel.value = await _battery.batteryLevel;
-        } catch (_) {}
+
+  Future<void> _updateBatteryInfo([BatteryState? state]) async {
+    try {
+      final batteryState = state ?? await _battery.batteryState;
+      final batteryLevel = await _battery.batteryLevel;
+      if (mounted && _showCurrTime && _showBatteryLevel) {
+        _batteryInfo.value = _BatteryInfo(
+          level: batteryLevel,
+          state: batteryState,
+        );
+      }
+    } catch (_) {}
+  }
+
+  bool _startBatteryInfoListenerIfNeeded() {
+    if (!_showCurrTime || !_showBatteryLevel) {
+      stopBatteryInfoListener();
+      return false;
+    }
+    if (_batterySubscription != null) return false;
+    _batterySubscription = _battery.onBatteryStateChanged.listen(
+      (state) {
+        if (mounted) {
+          _updateBatteryInfo(state);
+        }
       },
+      onError: (_) {},
+    );
+    _updateBatteryInfo();
+    return true;
+  }
+
+  void stopBatteryInfoListener() {
+    _batterySubscription?.cancel();
+    _batterySubscription = null;
+  }
+
+  void updateBatteryInfoIfNeeded() {
+    if (!_showCurrTime || !_showBatteryLevel) {
+      stopBatteryInfoListener();
+      return;
+    }
+    if (_startBatteryInfoListenerIfNeeded()) return;
+    if (_batteryInfo.value == null) {
+      _updateBatteryInfo();
+      return;
+    }
+    EasyThrottle.throttle(
+      'updateBatteryInfo$hashCode',
+      const Duration(seconds: 30),
+      _updateBatteryInfo,
+    );
+  }
+
+  Widget _batteryStatusIcon(_BatteryInfo batteryInfo) {
+    final icon = batteryInfo.icon;
+    if (icon == null) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(right: 3),
+      child: Icon(
+        icon,
+        color: Colors.white,
+        size: 13,
+      ),
     );
   }
 
@@ -147,16 +223,22 @@ mixin TimeBatteryMixin<T extends StatefulWidget> on State<T> {
         if (_showBatteryLevel) ...[
           Obx(
             () {
-              final batteryLevel = _batteryLevel.value;
-              if (batteryLevel == null) {
+              final batteryInfo = _batteryInfo.value;
+              if (batteryInfo == null) {
                 return const SizedBox.shrink();
               }
-              return Text(
-                '$batteryLevel%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                ),
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _batteryStatusIcon(batteryInfo),
+                  Text(
+                    '${batteryInfo.level}%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               );
             },
           ),

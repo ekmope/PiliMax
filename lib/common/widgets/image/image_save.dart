@@ -10,7 +10,6 @@ import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 void imageSaveDialog({
@@ -38,15 +37,20 @@ void imageSaveDialog({
     favorite: favorite,
     ownerName: ownerName,
   );
-  SmartDialog.show(
-    animationType: SmartAnimationType.centerScale_otherSlide,
+  showDialog(
+    context: Get.context!,
     builder: (context) {
       const iconSize = 20.0;
       final theme = Theme.of(context);
       final coverUrl = cover;
-      return FutureBuilder<_PreviewMeta>(
-        future: previewMetaFuture,
-        builder: (context, snapshot) {
+      void dismissDialog() => Navigator.of(context).pop();
+
+      return Center(
+        child: Material(
+          color: Colors.transparent,
+          child: FutureBuilder<_PreviewMeta>(
+            future: previewMetaFuture,
+            builder: (context, snapshot) {
           final meta = snapshot.data ??
               _PreviewMeta.fromFallback(
                 pubdate: pubdate,
@@ -71,7 +75,7 @@ void imageSaveDialog({
                   clipBehavior: Clip.none,
                   children: [
                     GestureDetector(
-                      onTap: SmartDialog.dismiss,
+                      onTap: dismissDialog,
                       child: NetworkImgLayer(
                         src: cover,
                         quality: 100,
@@ -98,8 +102,8 @@ void imageSaveDialog({
                             final saveStatus = await ImageUtils.downloadImg([
                               coverUrl,
                             ]);
-                            if (saveStatus) {
-                              SmartDialog.dismiss();
+                            if (saveStatus && context.mounted) {
+                              dismissDialog();
                             }
                           },
                           icon: const Icon(
@@ -120,7 +124,7 @@ void imageSaveDialog({
                           padding: .zero,
                           backgroundColor: Colors.black.withValues(alpha: 0.3),
                         ),
-                        onPressed: SmartDialog.dismiss,
+                        onPressed: dismissDialog,
                         icon: const Icon(
                           Icons.close,
                           size: 18,
@@ -151,7 +155,7 @@ void imageSaveDialog({
                               iconSize: iconSize,
                               tooltip: '稍后再看',
                               onPressed: () => {
-                                SmartDialog.dismiss(),
+                                dismissDialog(),
                                 UserHttp.toViewLater(aid: aid, bvid: bvid),
                               },
                               icon: const Icon(Icons.watch_later_outlined),
@@ -182,7 +186,9 @@ void imageSaveDialog({
               ],
             ),
           );
-        },
+            },
+          ),
+        ),
       );
     },
   );

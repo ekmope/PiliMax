@@ -644,8 +644,8 @@ class PlPlayerController with BlockConfigMixin {
       );
     }
 
-    _enableShowDanmaku.value = Pref.enableShowDanmaku;
-    _enableShowLiveDanmaku.value = Pref.enableShowLiveDanmaku;
+    enableShowDanmaku.value = Pref.enableShowDanmaku;
+    enableShowLiveDanmaku.value = Pref.enableShowLiveDanmaku;
     videoPlayerServiceHandler?.enableBackgroundPlay = Pref.enableBackgroundPlay;
     continuePlayInBackground.value = Pref.continuePlayInBackground;
     playRepeat = Pref.playRepeat;

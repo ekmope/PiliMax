@@ -207,6 +207,32 @@ class SwitchModel extends SettingsModel {
   );
 }
 
+class WidgetModel extends SettingsModel {
+  final String searchTitle;
+  final String? searchSubtitle;
+  final Widget child;
+
+  const WidgetModel({
+    required this.searchTitle,
+    this.searchSubtitle,
+    required this.child,
+    super.contentPadding,
+    super.titleStyle,
+  });
+
+  @override
+  String? get title => searchTitle;
+
+  @override
+  String get effectiveTitle => searchTitle;
+
+  @override
+  String? get effectiveSubtitle => searchSubtitle;
+
+  @override
+  Widget get widget => child;
+}
+
 /// Creates a list-based keyword filter model using ListEditorDialog
 /// Items are stored as newline-separated strings (instead of pipe-separated)
 /// to support regex patterns containing '|' character

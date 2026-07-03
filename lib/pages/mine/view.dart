@@ -155,7 +155,7 @@ class _MediaPageState extends CommonPageState<MinePage>
                       mainAxisSize: .min,
                       mainAxisAlignment: .center,
                       children: [
-                        Icon(size: e.size, e.icon, color: primary),
+                        Icon(e.icon, color: primary),
                         Text(
                           e.title,
                           style: const TextStyle(fontSize: 13),

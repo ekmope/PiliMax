@@ -66,6 +66,7 @@ import 'package:PiliMax/utils/connectivity_utils.dart';
 import 'package:PiliMax/utils/danmaku_density_trend.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
+import 'package:PiliMax/utils/extension/nested_scroll_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -78,7 +79,8 @@ import 'package:PiliMax/utils/utils.dart';
 import 'package:PiliMax/utils/video_utils.dart';
 
 import 'package:collection/collection.dart';
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
+import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
+    show ExtendedNestedScrollViewState;
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -190,8 +192,7 @@ class VideoDetailController extends GetxController
   late final RxDouble scrollRatio = 0.0.obs;
 
   ScrollController? _scrollCtr;
-  ScrollController get scrollCtr =>
-      _scrollCtr ??= ScrollController()..addListener(scrollListener);
+  ScrollController get scrollCtr => _scrollCtr ??= ScrollController();
 
   late bool isExpanding = false;
   late bool isCollapsing = false;
@@ -209,9 +210,7 @@ class VideoDetailController extends GetxController
       )..addListener(_animListener));
 
   void refreshPage() {
-    if (scrollKey.currentState?.mounted ?? false) {
-      (scrollKey.currentState!.context as Element).markNeedsBuild();
-    }
+    scrollKey.currentState?.refresh();
   }
 
   void _animListener() {
@@ -239,14 +238,7 @@ class VideoDetailController extends GetxController
   }
 
   void animToTop() {
-    final outerController = scrollKey.currentState!.outerController;
-    if (outerController.hasClients) {
-      outerController.animateTo(
-        outerController.offset,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
+    scrollKey.currentState?.animToTop();
   }
 
   bool _needAnimOnDimensionChanged(bool isVertical) {
@@ -343,26 +335,6 @@ class VideoDetailController extends GetxController
         }
       }
     } catch (_) {}
-  }
-
-  void scrollListener() {
-    if (scrollCtr.hasClients) {
-      if (scrollCtr.offset == 0) {
-        scrollRatio.value = 0;
-      } else {
-        double offset = scrollCtr.offset - (videoHeight - minVideoHeight);
-        if (offset > 0) {
-          scrollRatio.value = clampDouble(
-            offset.toPrecision(2) /
-                (minVideoHeight - kToolbarHeight).toPrecision(2),
-            0.0,
-            1.0,
-          );
-        } else {
-          scrollRatio.value = 0;
-        }
-      }
-    }
   }
 
   final isLoginVideo = Accounts.get(AccountType.video).isLogin;
@@ -1654,9 +1626,7 @@ class VideoDetailController extends GetxController
     introScrollCtr?.dispose();
     introScrollCtr = null;
     tabCtr.dispose();
-    _scrollCtr
-      ?..removeListener(scrollListener)
-      ..dispose();
+    _scrollCtr?.dispose();
     animController
       ?..removeListener(_animListener)
       ..dispose();
@@ -1676,10 +1646,6 @@ class VideoDetailController extends GetxController
     defaultST = null;
     videoUrl = null;
     audioUrl = null;
-
-    if (scrollRatio.value != 0) {
-      scrollRatio.refresh();
-    }
 
     // danmaku
     savedDanmaku = null;

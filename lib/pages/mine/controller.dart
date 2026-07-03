@@ -1,16 +1,17 @@
+import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models/common/account_type.dart';
-import 'package:PiliMax/models_new/history/list.dart';
-import 'package:PiliMax/models_new/later/list.dart';
-import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/models/common/theme/theme_type.dart';
 import 'package:PiliMax/models/user/info.dart';
 import 'package:PiliMax/models/user/stat.dart';
 import 'package:PiliMax/models_new/fav/fav_folder/data.dart';
+import 'package:PiliMax/models_new/history/list.dart';
+import 'package:PiliMax/models_new/later/list.dart';
 import 'package:PiliMax/pages/common/common_data_controller.dart';
 import 'package:PiliMax/services/account_service.dart';
+import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliMax/utils/storage.dart';
@@ -48,45 +49,40 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
   static RxBool anonymity =
       (Accounts.account.isNotEmpty && !Accounts.heartbeat.isLogin).obs;
 
-  late final list =
-      <({IconData icon, double size, String title, VoidCallback onTap})>[
-        (
-          size: 23,
-          icon: MdiIcons.folderDownloadOutline,
-          title: '离线缓存',
-          onTap: () => Get.toNamed('/download'),
-        ),
-        (
-          size: 23,
-          icon: Icons.history,
-          title: '观看记录',
-          onTap: () {
-            if (isLogin) {
-              Get.toNamed('/history');
-            }
-          },
-        ),
-        (
-          size: 20,
-          icon: Icons.subscriptions_outlined,
-          title: '我的订阅',
-          onTap: () {
-            if (isLogin) {
-              Get.toNamed('/subscription');
-            }
-          },
-        ),
-        (
-          size: 21,
-          icon: Icons.watch_later_outlined,
-          title: '稍后再看',
-          onTap: () {
-            if (isLogin) {
-              Get.toNamed('/later');
-            }
-          },
-        ),
-      ];
+  late final list = <({IconData icon, String title, VoidCallback onTap})>[
+    (
+      icon: CustomIcons.folderDownloadOutline,
+      title: '离线缓存',
+      onTap: () => Get.toNamed('/download'),
+    ),
+    (
+      icon: CustomIcons.history,
+      title: '观看记录',
+      onTap: () {
+        if (isLogin) {
+          Get.toNamed('/history');
+        }
+      },
+    ),
+    (
+      icon: CustomIcons.subscriptions_outlined,
+      title: '我的订阅',
+      onTap: () {
+        if (isLogin) {
+          Get.toNamed('/subscription');
+        }
+      },
+    ),
+    (
+      icon: CustomIcons.watch_later_outlined,
+      title: '稍后再看',
+      onTap: () {
+        if (isLogin) {
+          Get.toNamed('/later');
+        }
+      },
+    ),
+  ];
 
   @override
   void onInit() {

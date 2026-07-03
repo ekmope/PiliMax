@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
 
-
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
@@ -14,6 +13,7 @@ import 'package:PiliMax/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliMax/common/widgets/route_aware_mixin.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_dynamic_header.dart';
+import 'package:PiliMax/common/widgets/sliver/video_header.dart';
 import 'package:PiliMax/common/widgets/svg/play_icon.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
 import 'package:PiliMax/models/common/list_order.dart';
@@ -1002,24 +1002,21 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                     () {
                       final scrollRatio =
                           videoDetailController.scrollRatio.value;
-                      final flag =
-                          isPortrait &&
-                          videoDetailController.scrollCtr.offset != 0;
                       return AppBar(
-                        backgroundColor: flag && scrollRatio > 0
+                        toolbarHeight: 0,
+                        backgroundColor: isPortrait && scrollRatio > 0
                             ? Color.lerp(
                                 Colors.black,
                                 themeData.colorScheme.surface,
                                 scrollRatio,
                               )
                             : Colors.black,
-                        toolbarHeight: 0,
                         systemOverlayStyle: Platform.isAndroid
                             ? SystemUiOverlayStyle(
                                 statusBarIconBrightness:
-                                    flag && scrollRatio >= 0.5
+                                    isPortrait && scrollRatio >= 0.5
                                     ? themeData.brightness.reverse
-                                    : Brightness.light,
+                                    : .light,
                                 systemNavigationBarIconBrightness:
                                     themeData.brightness.reverse,
                               )
@@ -1066,11 +1063,13 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                   ? videoDetailController.animHeight
                   : videoDetailController.videoHeight;
               return [
-                SliverPinnedDynamicHeader(
+                VideoHeader(
                   minExtent: kToolbarHeight,
                   maxExtent: height,
+                  minVideoHeight: videoDetailController.minVideoHeight,
+                  onScrollRatioChanged: videoDetailController.scrollRatio.call,
                   child: Stack(
-                    clipBehavior: Clip.none,
+                    clipBehavior: .none,
                     children: [
                       // 溢出垫层，解决预测性返回缩放动画时的亚像素白缝
                       Positioned(
@@ -1252,6 +1251,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                                 );
                         },
                       ),
+                      _buildHeaderOverlay(),
                     ],
                   ),
                 ),
@@ -1282,6 +1282,163 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                 ],
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOverlayToolBar(double scrollRatio) {
+    final Icon icon;
+    final double spacing;
+    final String playStat;
+    if (videoDetailController.playedTime == null) {
+      spacing = 2;
+      icon = Icon(
+        Icons.play_arrow_rounded,
+        color: themeData.colorScheme.primary,
+      );
+      playStat = '立即';
+    } else if (plPlayerController!.isCompleted) {
+      spacing = 4;
+      icon = Icon(
+        size: 18,
+        Icons.replay_rounded,
+        color: themeData.colorScheme.primary,
+      );
+      playStat = '重新';
+    } else {
+      spacing = 2;
+      icon = Icon(
+        Icons.play_arrow_rounded,
+        color: themeData.colorScheme.primary,
+      );
+      playStat = '继续';
+    }
+    final playBtn = Row(
+      spacing: spacing,
+      mainAxisSize: .min,
+      children: [
+        icon,
+        Text(
+          '$playStat播放',
+          style: TextStyle(color: themeData.colorScheme.primary),
+        ),
+      ],
+    );
+    return Opacity(
+      opacity: videoDetailController.scrollRatio.value,
+      child: Container(
+        color: themeData.colorScheme.surface,
+        alignment: .topCenter,
+        child: SizedBox(
+          height: kToolbarHeight,
+          child: Stack(
+            clipBehavior: .none,
+            children: [
+              Align(
+                alignment: .centerLeft,
+                child: Row(
+                  mainAxisSize: .min,
+                  children: [
+                    SizedBox(
+                      width: 42,
+                      height: 34,
+                      child: IconButton(
+                        tooltip: '返回',
+                        icon: Icon(
+                          FontAwesomeIcons.arrowLeft,
+                          size: 15,
+                          color: themeData.colorScheme.onSurface,
+                        ),
+                        onPressed: Get.back,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 42,
+                      height: 34,
+                      child: IconButton(
+                        tooltip: '返回主页',
+                        icon: Icon(
+                          FontAwesomeIcons.house,
+                          size: 15,
+                          color: themeData.colorScheme.onSurface,
+                        ),
+                        onPressed:
+                            videoDetailController.plPlayerController.onCloseAll,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Center(child: playBtn),
+              Align(
+                alignment: .centerRight,
+                child: videoDetailController.playedTime == null
+                    ? _moreBtn(themeData.colorScheme.onSurface)
+                    : SizedBox(
+                        width: 42,
+                        height: 34,
+                        child: IconButton(
+                          tooltip: "更多设置",
+                          style: const ButtonStyle(
+                            padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                          ),
+                          onPressed: () =>
+                              (videoDetailController.headerCtrKey.currentState
+                                      as HeaderControlState?)
+                                  ?.showSettingSheet(),
+                          icon: Icon(
+                            Icons.more_vert_outlined,
+                            size: 19,
+                            color: themeData.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderOverlay() {
+    return Obx(
+      () {
+        final scrollRatio = videoDetailController.scrollRatio.value;
+        if (scrollRatio == 0) {
+          return const SizedBox.shrink();
+        }
+        return Positioned.fill(
+          bottom: -2,
+          child: GestureDetector(
+            onTap: () {
+              if (!videoDetailController.isFileSource) {
+                if (videoDetailController.isQuerying) {
+                  if (kDebugMode) {
+                    debugPrint('handlePlay: querying');
+                  }
+                  return;
+                }
+                if (videoDetailController.videoUrl == null ||
+                    videoDetailController.audioUrl == null) {
+                  if (kDebugMode) {
+                    debugPrint('handlePlay: videoUrl/audioUrl not initialized');
+                  }
+                  videoDetailController.queryVideoUrl();
+                  return;
+                }
+              }
+              if (plPlayerController == null ||
+                  videoDetailController.playedTime == null) {
+                handlePlay();
+              } else {
+                plPlayerController!.onDoubleTapCenter();
+              }
+            },
+            behavior: .opaque,
+            child: _buildOverlayToolBar(scrollRatio),
           ),
         );
       },

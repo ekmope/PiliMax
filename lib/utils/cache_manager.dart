@@ -1,6 +1,8 @@
 import 'dart:io' show Directory, File;
 
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:path/path.dart' as path;
@@ -79,6 +81,35 @@ abstract final class CacheManager {
           await file.delete(recursive: true);
         }
       }
+    } catch (_) {}
+  }
+
+  static Future<void> clearExpiredCache() async {
+    try {
+      if (!Pref.autoClearCache) {
+        return;
+      }
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final lastClearTime = GStorage.localCache.get(
+        LocalCacheKey.lastAutoClearCacheTime,
+        defaultValue: 0,
+      );
+      if (lastClearTime is! int || lastClearTime <= 0) {
+        await GStorage.localCache.put(
+          LocalCacheKey.lastAutoClearCacheTime,
+          now,
+        );
+        return;
+      }
+
+      final period = Duration(days: Pref.autoClearCachePeriod).inMilliseconds;
+      if (now - lastClearTime < period) {
+        return;
+      }
+
+      await clearLibraryCache();
+      await GStorage.localCache.put(LocalCacheKey.lastAutoClearCacheTime, now);
     } catch (_) {}
   }
 }

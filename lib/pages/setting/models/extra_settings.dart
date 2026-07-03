@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' show max;
 
@@ -615,6 +616,29 @@ List<SettingsModel> get extraSettings => [
       setKey: SettingBoxKey.enableSystemProxy,
       onTap: _showProxyDialog,
     ),
+  ),
+  SwitchModel(
+    title: '自动清理缓存',
+    subtitle: '启动后按周期静默清理图片及网络请求缓存',
+    leading: const Icon(Icons.auto_delete_outlined),
+    setKey: SettingBoxKey.autoClearCache,
+    defaultVal: false,
+    onChanged: (value) {
+      if (value) {
+        unawaited(
+          GStorage.localCache.put(
+            LocalCacheKey.lastAutoClearCacheTime,
+            DateTime.now().millisecondsSinceEpoch,
+          ),
+        );
+      }
+    },
+  ),
+  NormalModel(
+    title: '自动清理周期',
+    leading: const Icon(Icons.event_repeat_outlined),
+    getSubtitle: () => '当前：每 ${Pref.autoClearCachePeriod} 天',
+    onTap: _showAutoClearCachePeriodDialog,
   ),
   NormalModel(
     title: '最大缓存大小',
@@ -1252,6 +1276,30 @@ void _showProxyDialog(BuildContext context) {
       ],
     ),
   );
+}
+
+Future<void> _showAutoClearCachePeriodDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<int>(
+    context: context,
+    builder: (context) => SelectDialog<int>(
+      title: '自动清理周期',
+      value: Pref.autoClearCachePeriod,
+      values: const [
+        (1, '每 1 天'),
+        (3, '每 3 天'),
+        (7, '每 7 天'),
+        (15, '每 15 天'),
+        (30, '每 30 天'),
+      ],
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.autoClearCachePeriod, res);
+    setState();
+  }
 }
 
 void _showCacheDialog(BuildContext context, VoidCallback setState) {

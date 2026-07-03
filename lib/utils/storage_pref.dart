@@ -984,6 +984,17 @@ abstract final class Pref {
   static num get maxCacheSize =>
       _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 30;
 
+  static bool get autoClearCache =>
+      _setting.get(SettingBoxKey.autoClearCache, defaultValue: false);
+
+  static int get autoClearCachePeriod {
+    final period = _setting.get(
+      SettingBoxKey.autoClearCachePeriod,
+      defaultValue: 3,
+    );
+    return const [1, 3, 7, 15, 30].contains(period) ? period : 3;
+  }
+
   static bool get optTabletNav =>
       _setting.get(SettingBoxKey.optTabletNav, defaultValue: true);
 

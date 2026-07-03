@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:PiliMax/build_config.dart';
@@ -137,6 +138,7 @@ void main() async {
   Request();
   Request.setCookie();
   RequestUtils.syncHistoryStatus();
+  unawaited(CacheManager.clearExpiredCache());
 
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
 

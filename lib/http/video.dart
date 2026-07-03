@@ -379,19 +379,16 @@ abstract final class VideoHttp {
     int selectLike = 0,
   }) async {
     final hasAccessKey = !Accounts.main.accessKey.isNullOrEmpty;
-    late final Options opts;
-    if (hasAccessKey) {
-      opts = Options(contentType: Headers.formUrlEncodedContentType);
-    } else {
-      opts = Options(
-        contentType: Headers.formUrlEncodedContentType,
-        headers: {
-          'origin': 'https://www.bilibili.com',
-          'referer': 'https://www.bilibili.com/video/$bvid',
-          'user-agent': BrowserUa.pc,
-        },
-      );
-    }
+    final options = Options(
+      contentType: Headers.formUrlEncodedContentType,
+      headers: hasAccessKey
+          ? null
+          : {
+              'origin': 'https://www.bilibili.com',
+              'referer': 'https://www.bilibili.com/video/$bvid',
+              'user-agent': BrowserUa.pc,
+            },
+    );
     final res = await Request().post(
       hasAccessKey ? Api.coinVideo : Api.coinVideoWeb,
       data: {
@@ -401,7 +398,7 @@ abstract final class VideoHttp {
         'select_like': selectLike.toString(),
         if (!hasAccessKey) 'csrf': Accounts.main.csrf,
       },
-      options: opts,
+      options: options,
     );
     if (res.data['code'] == 0) {
       return const Success(null);
@@ -473,19 +470,16 @@ abstract final class VideoHttp {
     required bool type,
   }) async {
     final hasAccessKey = !Accounts.main.accessKey.isNullOrEmpty;
-    late final Options opts;
-    if (hasAccessKey) {
-      opts = Options(contentType: Headers.formUrlEncodedContentType);
-    } else {
-      opts = Options(
-        contentType: Headers.formUrlEncodedContentType,
-        headers: {
-          'origin': 'https://www.bilibili.com',
-          'referer': 'https://www.bilibili.com/video/$bvid',
-          'user-agent': BrowserUa.pc,
-        },
-      );
-    }
+    final options = Options(
+      contentType: Headers.formUrlEncodedContentType,
+      headers: hasAccessKey
+          ? null
+          : {
+              'origin': 'https://www.bilibili.com',
+              'referer': 'https://www.bilibili.com/video/$bvid',
+              'user-agent': BrowserUa.pc,
+            },
+    );
     final res = await Request().post(
       hasAccessKey ? Api.likeVideo : Api.likeVideoWeb,
       data: hasAccessKey
@@ -495,7 +489,7 @@ abstract final class VideoHttp {
               'like': type ? '1' : '2',
               'csrf': Accounts.main.csrf,
             },
-      options: opts,
+      options: options,
     );
     if (res.data['code'] == 0) {
       return Success(res.data['data']?['toast'] as String? ?? '点赞成功');

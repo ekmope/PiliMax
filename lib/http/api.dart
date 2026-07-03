@@ -620,6 +620,8 @@ abstract final class Api {
   static const String oauth2AccessToken =
       '${HttpString.passBaseUrl}/x/passport-login/oauth2/access_token';
 
+  static const String memberWebAccount = '/x/member/web/account';
+
   /// 密码加密密钥
   /// disable_rcmd
   /// local_id

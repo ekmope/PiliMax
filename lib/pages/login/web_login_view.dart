@@ -9,8 +9,8 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class ThirdPartyLoginView extends StatefulWidget {
-  const ThirdPartyLoginView({
+class WebLoginView extends StatefulWidget {
+  const WebLoginView({
     super.key,
     required this.controller,
     required this.padding,
@@ -20,10 +20,10 @@ class ThirdPartyLoginView extends StatefulWidget {
   final EdgeInsets padding;
 
   @override
-  State<ThirdPartyLoginView> createState() => _ThirdPartyLoginViewState();
+  State<WebLoginView> createState() => _WebLoginViewState();
 }
 
-class _ThirdPartyLoginViewState extends State<ThirdPartyLoginView>
+class _WebLoginViewState extends State<WebLoginView>
     with WidgetsBindingObserver {
   static const _desktopUserAgent = BrowserUa.pcChrome;
 
@@ -130,7 +130,7 @@ class _ThirdPartyLoginViewState extends State<ThirdPartyLoginView>
   }
 
   Future<void> _detectLoginStatus({bool showResultToast = false}) async {
-    final isLoggedIn = await widget.controller.importWebLoginCookies(
+    final isLoggedIn = await widget.controller.importWebLoginAccount(
       showResultToast: showResultToast,
     );
     if (!mounted || !isLoggedIn) {
@@ -142,7 +142,7 @@ class _ThirdPartyLoginViewState extends State<ThirdPartyLoginView>
   @override
   Widget build(BuildContext context) {
     if (!Platform.isAndroid) {
-      return const Center(child: Text('第三方网页登录仅支持 Android APK'));
+      return const Center(child: Text('网页登录仅支持 Android APK'));
     }
 
     return Column(

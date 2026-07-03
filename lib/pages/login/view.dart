@@ -8,7 +8,7 @@ import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/login/controller.dart';
-import 'package:PiliMax/pages/login/third_party_login_view.dart';
+import 'package:PiliMax/pages/login/web_login_view.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/widget_ext.dart';
 import 'package:PiliMax/utils/image_utils.dart';
@@ -213,7 +213,7 @@ class _LoginPageState extends State<LoginPage> {
         if (Platform.isAndroid) ...[
           const SizedBox(height: 8),
           TextButton.icon(
-            onPressed: _openThirdPartyLogin,
+            onPressed: _openWebLogin,
             icon: const Icon(Icons.language_outlined),
             label: const Text('网页登录获取 Cookie'),
           ),
@@ -222,7 +222,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Future<void> _openThirdPartyLogin() async {
+  Future<void> _openWebLogin() async {
     final loggedIn = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -241,7 +241,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
             Expanded(
-              child: ThirdPartyLoginView(
+              child: WebLoginView(
                 controller: _loginPageCtr,
                 padding: MediaQuery.viewPaddingOf(context).copyWith(top: 0),
               ),

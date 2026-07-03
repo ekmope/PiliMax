@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:PiliMax/common/dial_prefix.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/radio_widget.dart';
+import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/login.dart';
@@ -55,8 +56,6 @@ class LoginPageController extends GetxController
     'SESSDATA',
     'DedeUserID',
     'bili_jct',
-    'DedeUserID__ckMd5',
-    'sid',
   };
 
   @override
@@ -169,16 +168,15 @@ class LoginPageController extends GetxController
       return;
     }
     final cookieMap = _cookieMapFromText(cookieTextController.text);
-    final missing = _requiredWebLoginCookies.difference(cookieMap.keys.toSet());
-    if (missing.isNotEmpty) {
-      SmartDialog.showToast('缺少必要cookie: ${missing.join(", ")}');
-      return;
-    }
-    final saved = await _saveCookieAccount(
+    final verified = await _verifyCookieAccount(
       cookieMap,
       invalidToast: '哔哩哔哩登录已失效，请重新登录',
-      errorToast: '获取哔哩哔哩用户信息失败，可前往账号管理重试',
+      requestErrorToast: '获取哔哩哔哩用户信息失败，可前往账号管理重试',
     );
+    if (!verified) {
+      return;
+    }
+    final saved = await _persistCookieAccount(cookieMap);
     if (saved) {
       await _completeLogin();
       Get.back();
@@ -206,10 +204,11 @@ class LoginPageController extends GetxController
         .join('; ');
   }
 
-  Future<bool> _saveCookieAccount(
+  Future<bool> _verifyCookieAccount(
     Map<String, String> cookieMap, {
     required String invalidToast,
-    required String errorToast,
+    required String requestErrorToast,
+    bool appendRequestError = false,
   }) async {
     if (cookieMap.isEmpty) {
       SmartDialog.showToast(invalidToast);
@@ -217,26 +216,40 @@ class LoginPageController extends GetxController
     }
     try {
       final result = await Request().get(
-        "/x/member/web/account",
+        Api.memberWebAccount,
         options: Options(
           headers: {"cookie": _cookieHeader(cookieMap)},
           extra: {'account': AnonymousAccount()},
         ),
       );
       if (result.data['code'] == 0) {
-        await _saveAccount(
-          LoginAccount(BiliCookieJar.fromJson(cookieMap), null, null),
-        );
         return true;
       }
       SmartDialog.showToast(invalidToast);
     } catch (e) {
-      SmartDialog.showToast('$errorToast: $e');
+      SmartDialog.showToast(
+        appendRequestError ? '$requestErrorToast: $e' : requestErrorToast,
+      );
     }
     return false;
   }
 
-  Future<bool> importWebLoginCookies({bool showResultToast = false}) async {
+  Future<bool> _persistCookieAccount(
+    Map<String, String> cookieMap, {
+    String saveErrorToast = '登录失败',
+  }) async {
+    try {
+      await _saveAccount(
+        LoginAccount(BiliCookieJar.fromJson(cookieMap), null, null),
+      );
+      return true;
+    } catch (e) {
+      SmartDialog.showToast('$saveErrorToast: $e');
+      return false;
+    }
+  }
+
+  Future<bool> importWebLoginAccount({bool showResultToast = false}) async {
     if (!Platform.isAndroid || _isImportingWebLogin) {
       return false;
     }
@@ -258,7 +271,7 @@ class LoginPageController extends GetxController
           }
         }
       }
-      return await setCookieAccountFromWebCookies(
+      return await _importWebLoginAccountFromCookies(
         cookiesByName.values.toList(),
         showResultToast: showResultToast,
       );
@@ -272,9 +285,9 @@ class LoginPageController extends GetxController
     }
   }
 
-  Future<bool> setCookieAccountFromWebCookies(
+  Future<bool> _importWebLoginAccountFromCookies(
     List<web.Cookie> cookies, {
-    bool showResultToast = true,
+    required bool showResultToast,
   }) async {
     final cookieMap = {
       for (final cookie in cookies)
@@ -289,11 +302,16 @@ class LoginPageController extends GetxController
       return false;
     }
 
-    final saved = await _saveCookieAccount(
+    final verified = await _verifyCookieAccount(
       cookieMap,
       invalidToast: '网页登录态未生效，请完成扫码授权后重试',
-      errorToast: '登录失败',
+      requestErrorToast: '登录失败',
+      appendRequestError: true,
     );
+    if (!verified) {
+      return false;
+    }
+    final saved = await _persistCookieAccount(cookieMap);
     if (saved) {
       await _completeLogin();
       return true;

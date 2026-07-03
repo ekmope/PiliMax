@@ -222,8 +222,8 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Future<void> _openThirdPartyLogin() {
-    return showModalBottomSheet<void>(
+  Future<void> _openThirdPartyLogin() async {
+    final loggedIn = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -237,7 +237,7 @@ class _LoginPageState extends State<LoginPage> {
               trailing: IconButton(
                 tooltip: '关闭',
                 icon: const Icon(Icons.close),
-                onPressed: Get.back,
+                onPressed: () => Navigator.of(context).pop(false),
               ),
             ),
             Expanded(
@@ -250,6 +250,9 @@ class _LoginPageState extends State<LoginPage> {
         ),
       ),
     );
+    if (loggedIn == true && mounted) {
+      Get.back();
+    }
   }
 
   Widget loginByPassword(ThemeData theme) {

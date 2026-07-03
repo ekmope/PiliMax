@@ -68,7 +68,7 @@ class _ThirdPartyLoginViewState extends State<ThirdPartyLoginView>
     ],
     mobile: false,
     platform: 'Windows',
-    getHighEntropyValues: async (hints) => {
+    getHighEntropyValues: async (hints) => ({
       architecture: 'x86',
       bitness: '64',
       brands: [
@@ -86,7 +86,7 @@ class _ThirdPartyLoginViewState extends State<ThirdPartyLoginView>
       platform: 'Windows',
       platformVersion: '10.0.0',
       uaFullVersion: '120.0.0.0',
-    },
+    }),
     toJSON() {
       return {
         brands: this.brands,
@@ -129,10 +129,14 @@ class _ThirdPartyLoginViewState extends State<ThirdPartyLoginView>
     }
   }
 
-  Future<void> _detectLoginStatus({bool showResultToast = false}) {
-    return widget.controller.importWebLoginCookies(
+  Future<void> _detectLoginStatus({bool showResultToast = false}) async {
+    final isLoggedIn = await widget.controller.importWebLoginCookies(
       showResultToast: showResultToast,
     );
+    if (!mounted || !isLoggedIn) {
+      return;
+    }
+    Navigator.of(context).pop(true);
   }
 
   @override
@@ -179,10 +183,6 @@ class _ThirdPartyLoginViewState extends State<ThirdPartyLoginView>
                 onUpdateVisitedHistory: (_, _, _) {
                   _detectLoginStatus();
                 },
-                onReceivedHttpAuthRequest: (_, _) async {
-                  await _detectLoginStatus();
-                  return null;
-                },
                 onCreateWindow: (controller, createWindowAction) async {
                   final url = createWindowAction.request.url;
                   if (url != null) {
@@ -196,7 +196,7 @@ class _ThirdPartyLoginViewState extends State<ThirdPartyLoginView>
                     return NavigationActionPolicy.ALLOW;
                   }
                   if (_externalSchemes.contains(uri.scheme.toLowerCase())) {
-                    await _openExternalUri(context, uri);
+                    await _openExternalUri(uri);
                     return NavigationActionPolicy.CANCEL;
                   }
                   return NavigationActionPolicy.ALLOW;
@@ -210,15 +210,28 @@ class _ThirdPartyLoginViewState extends State<ThirdPartyLoginView>
             ],
           ),
         ),
-        SizedBox(height: widget.padding.bottom),
+        Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, widget.padding.bottom),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _detectLoginStatus(showResultToast: true),
+              icon: const Icon(Icons.verified_user_outlined),
+              label: const Text('检测登录'),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Future<void> _openExternalUri(BuildContext context, WebUri uri) async {
+  Future<void> _openExternalUri(WebUri uri) async {
+    if (!mounted) {
+      return;
+    }
     final target = uri.uriValue;
     final open = await showDialog<bool>(
-      context: context,
+      context: this.context,
       builder: (context) => AlertDialog(
         title: const Text('打开外部应用'),
         content: Text(uri.toString()),
@@ -237,7 +250,7 @@ class _ThirdPartyLoginViewState extends State<ThirdPartyLoginView>
         ],
       ),
     );
-    if (open != true) {
+    if (!mounted || open != true) {
       return;
     }
     if (!await launchUrl(

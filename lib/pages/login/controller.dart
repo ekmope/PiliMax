@@ -236,9 +236,9 @@ class LoginPageController extends GetxController
     return false;
   }
 
-  Future<void> importWebLoginCookies({bool showResultToast = false}) async {
+  Future<bool> importWebLoginCookies({bool showResultToast = false}) async {
     if (!Platform.isAndroid || _isImportingWebLogin) {
-      return;
+      return false;
     }
     _isImportingWebLogin = true;
     try {
@@ -258,7 +258,7 @@ class LoginPageController extends GetxController
           }
         }
       }
-      await setCookieAccountFromWebCookies(
+      return await setCookieAccountFromWebCookies(
         cookiesByName.values.toList(),
         showResultToast: showResultToast,
       );
@@ -266,12 +266,13 @@ class LoginPageController extends GetxController
       if (showResultToast) {
         SmartDialog.showToast('检测网页登录状态失败: $e');
       }
+      return false;
     } finally {
       _isImportingWebLogin = false;
     }
   }
 
-  Future<void> setCookieAccountFromWebCookies(
+  Future<bool> setCookieAccountFromWebCookies(
     List<web.Cookie> cookies, {
     bool showResultToast = true,
   }) async {
@@ -285,7 +286,7 @@ class LoginPageController extends GetxController
       if (showResultToast) {
         SmartDialog.showToast('网页登录态未生效，请完成扫码授权后重试');
       }
-      return;
+      return false;
     }
 
     final saved = await _saveCookieAccount(
@@ -295,8 +296,9 @@ class LoginPageController extends GetxController
     );
     if (saved) {
       await _completeLogin();
-      Get.back();
+      return true;
     }
+    return false;
   }
 
   static String _webCookieValue(web.Cookie cookie) =>

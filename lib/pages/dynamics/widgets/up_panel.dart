@@ -119,7 +119,6 @@ class _UpPanelState extends State<UpPanel> {
       controller.currentMid.value,
       upList.length,
       liveList?.length ?? 0,
-      controller.showLiveUp,
       Pref.dynamicsShowSelfUp,
     );
     if (_lastScrollSignature == signature) {

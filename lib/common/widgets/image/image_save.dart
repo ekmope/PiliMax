@@ -37,9 +37,21 @@ void imageSaveDialog({
     favorite: favorite,
     ownerName: ownerName,
   );
-  showDialog(
+  showGeneralDialog(
     context: Get.context!,
-    builder: (context) {
+    barrierDismissible: true,
+    barrierLabel: 'Dismiss',
+    barrierColor: Colors.black54,
+    transitionDuration: const Duration(milliseconds: 180),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curvedAnimation = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+      return FadeTransition(opacity: curvedAnimation, child: child);
+    },
+    pageBuilder: (context, animation, secondaryAnimation) {
       const iconSize = 20.0;
       final theme = Theme.of(context);
       final coverUrl = cover;

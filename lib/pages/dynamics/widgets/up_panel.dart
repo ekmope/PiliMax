@@ -152,7 +152,6 @@ class _UpPanelState extends State<UpPanel> {
               setState(() {
                 controller.showLiveUp = !controller.showLiveUp;
               });
-              _scheduleEnsureCurrentVisible();
             },
             onLongPress: toFollowPage,
             onSecondaryTap: PlatformUtils.isMobile ? null : toFollowPage,

@@ -10,6 +10,7 @@ import 'package:PiliMax/common/widgets/dialog/export_import.dart';
 import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/pages/mine/controller.dart';
+import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
@@ -18,10 +19,13 @@ import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/filtering_text.dart';
 import 'package:PiliMax/utils/login_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/update.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart' hide ListTile;
@@ -63,6 +67,88 @@ class _AboutPageState extends State<AboutPage> {
         cacheSize.value = CacheManager.formatSize(res);
       }
     });
+  }
+
+  Future<void> _setAutoClearCache(bool value) async {
+    await GStorage.setting.put(SettingBoxKey.autoClearCache, value);
+    if (value) {
+      unawaited(
+        GStorage.localCache.put(
+          LocalCacheKey.lastAutoClearCacheTime,
+          DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+    }
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _showAutoClearCachePeriodDialog() async {
+    final res = await showDialog<int>(
+      context: context,
+      builder: (context) => SelectDialog<int>(
+        title: '自动清理周期',
+        value: Pref.autoClearCachePeriod,
+        values: const [
+          (1, '每 1 天'),
+          (3, '每 3 天'),
+          (7, '每 7 天'),
+          (15, '每 15 天'),
+          (30, '每 30 天'),
+        ],
+      ),
+    );
+    if (res != null) {
+      await GStorage.setting.put(SettingBoxKey.autoClearCachePeriod, res);
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  void _showMaxCacheSizeDialog() {
+    String valueStr = '';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('最大缓存大小'),
+        content: TextField(
+          autofocus: true,
+          onChanged: (value) => valueStr = value,
+          keyboardType: TextInputType.number,
+          inputFormatters: FilteringText.decimal,
+          decoration: const InputDecoration(suffixText: 'MB'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: Get.back,
+            child: Text(
+              '取消',
+              style: TextStyle(color: ColorScheme.of(context).outline),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                final val = num.parse(valueStr);
+                Get.back();
+                await GStorage.setting.put(
+                  SettingBoxKey.maxCacheSize,
+                  val * 1024 * 1024,
+                );
+                if (mounted) {
+                  setState(() {});
+                }
+              } catch (e) {
+                SmartDialog.showToast(e.toString());
+              }
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showDialog() => showDialog(
@@ -231,6 +317,34 @@ Commit Hash: ${BuildConfig.commitHash}''',
                 '图片及网络缓存 ${cacheSize.value}',
                 style: subTitleStyle,
               ),
+            ),
+          ),
+          ListTile(
+            onTap: () => _setAutoClearCache(!Pref.autoClearCache),
+            leading: const Icon(Icons.auto_delete_outlined),
+            title: const Text('自动清理缓存'),
+            subtitle: Text('启动后按周期静默清理图片及网络请求缓存', style: subTitleStyle),
+            trailing: Switch(
+              value: Pref.autoClearCache,
+              onChanged: _setAutoClearCache,
+            ),
+          ),
+          ListTile(
+            onTap: _showAutoClearCachePeriodDialog,
+            leading: const Icon(Icons.event_repeat_outlined),
+            title: const Text('自动清理周期'),
+            subtitle: Text(
+              '当前：每 ${Pref.autoClearCachePeriod} 天',
+              style: subTitleStyle,
+            ),
+          ),
+          ListTile(
+            onTap: _showMaxCacheSizeDialog,
+            leading: const Icon(Icons.storage_outlined),
+            title: const Text('最大缓存大小'),
+            subtitle: Text(
+              '当前最大缓存大小: 「${CacheManager.formatSize(Pref.maxCacheSize)}」',
+              style: subTitleStyle,
             ),
           ),
           ListTile(

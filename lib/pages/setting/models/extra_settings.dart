@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:math' show max;
 
@@ -33,7 +32,6 @@ import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/accounts.dart';
-import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/filtering_text.dart';
@@ -616,36 +614,6 @@ List<SettingsModel> get extraSettings => [
       setKey: SettingBoxKey.enableSystemProxy,
       onTap: _showProxyDialog,
     ),
-  ),
-  SwitchModel(
-    title: '自动清理缓存',
-    subtitle: '启动后按周期静默清理图片及网络请求缓存',
-    leading: const Icon(Icons.auto_delete_outlined),
-    setKey: SettingBoxKey.autoClearCache,
-    defaultVal: false,
-    onChanged: (value) {
-      if (value) {
-        unawaited(
-          GStorage.localCache.put(
-            LocalCacheKey.lastAutoClearCacheTime,
-            DateTime.now().millisecondsSinceEpoch,
-          ),
-        );
-      }
-    },
-  ),
-  NormalModel(
-    title: '自动清理周期',
-    leading: const Icon(Icons.event_repeat_outlined),
-    getSubtitle: () => '当前：每 ${Pref.autoClearCachePeriod} 天',
-    onTap: _showAutoClearCachePeriodDialog,
-  ),
-  NormalModel(
-    title: '最大缓存大小',
-    getSubtitle: () =>
-        '当前最大缓存大小: 「${CacheManager.formatSize(Pref.maxCacheSize)}」',
-    leading: const Icon(Icons.delete_outlined),
-    onTap: _showCacheDialog,
   ),
   SwitchModel(
     title: '检查更新',
@@ -1272,72 +1240,6 @@ void _showProxyDialog(BuildContext context) {
             );
           },
           child: const Text('确认'),
-        ),
-      ],
-    ),
-  );
-}
-
-Future<void> _showAutoClearCachePeriodDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<int>(
-    context: context,
-    builder: (context) => SelectDialog<int>(
-      title: '自动清理周期',
-      value: Pref.autoClearCachePeriod,
-      values: const [
-        (1, '每 1 天'),
-        (3, '每 3 天'),
-        (7, '每 7 天'),
-        (15, '每 15 天'),
-        (30, '每 30 天'),
-      ],
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.autoClearCachePeriod, res);
-    setState();
-  }
-}
-
-void _showCacheDialog(BuildContext context, VoidCallback setState) {
-  String valueStr = '';
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('最大缓存大小'),
-      content: TextField(
-        autofocus: true,
-        onChanged: (value) => valueStr = value,
-        keyboardType: TextInputType.number,
-        inputFormatters: FilteringText.decimal,
-        decoration: const InputDecoration(suffixText: 'MB'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () async {
-            try {
-              final val = num.parse(valueStr);
-              Get.back();
-              await GStorage.setting.put(
-                SettingBoxKey.maxCacheSize,
-                val * 1024 * 1024,
-              );
-              setState();
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('确定'),
         ),
       ],
     ),

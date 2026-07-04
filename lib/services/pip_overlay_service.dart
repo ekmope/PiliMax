@@ -103,25 +103,20 @@ class PipOverlayService {
     }
   }
 
-  static void releaseSavedVideoOwner({
-    required VideoDetailController? controller,
+  // 释放小窗持有的旧视频页 owner：清媒体会话、提交心跳并 dispose 播放器。
+  // 只能由 stopPip 在清空静态引用前捕获参数后调用（releaseSavedOwner 标志），
+  // 避免调用方在 stopPip 之后读取已清空的引用导致释放静默失效
+  static void _releaseSavedVideoOwner({
+    required VideoDetailController controller,
     required PlPlayerController? player,
-    bool clearMediaSession = true,
-    bool disposePlayer = true,
   }) {
-    if (controller == null) {
-      return;
-    }
-
     controller
       ..isEnteringPip = false
       ..cancelBlockListener();
 
-    if (clearMediaSession) {
-      videoPlayerServiceHandler?.onVideoDetailDispose(controller.heroTag);
-    }
+    videoPlayerServiceHandler?.onVideoDetailDispose(controller.heroTag);
 
-    if (disposePlayer && player != null) {
+    if (player != null) {
       controller.makeHeartBeat();
       player.dispose();
     }
@@ -249,9 +244,6 @@ class PipOverlayService {
 
   static T? getSavedController<T>() => _savedController as T?;
 
-  static PlPlayerController? get savedPlayerController =>
-      _savedPlayerController;
-
   static T? getAdditionalController<T>(String key) =>
       _savedControllers[key] as T?;
 
@@ -260,6 +252,7 @@ class PipOverlayService {
     bool immediate = false,
     bool resetState = true,
     String? targetContextKey,
+    bool releaseSavedOwner = false,
   }) {
     if (!isInPipMode && _overlayEntry == null) {
       return;
@@ -285,6 +278,8 @@ class PipOverlayService {
 
     final closeCallback = callOnClose ? _onCloseCallback : null;
     final playerController = _savedPlayerController;
+    // 静态引用即将被清空，释放 owner 所需的引用必须在此捕获
+    final ownerToRelease = releaseSavedOwner ? _savedController : null;
     _onCloseCallback = null;
     _onTapToReturnCallback = null;
 
@@ -345,6 +340,13 @@ class PipOverlayService {
         if (kDebugMode) {
           debugPrint('Error removing pip overlay: $e');
         }
+      }
+      // overlay 已移除，此时 dispose 播放器不会留下持有失效纹理的窗口
+      if (ownerToRelease is VideoDetailController) {
+        _releaseSavedVideoOwner(
+          controller: ownerToRelease,
+          player: playerController,
+        );
       }
       closeCallback?.call();
     }

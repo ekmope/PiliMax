@@ -96,8 +96,11 @@ class _AudioPageState extends State<AudioPage> {
     super.initState();
     // 进入听视频界面时，确保关闭所有应用内小窗
     if (PipOverlayService.isInPipMode) {
-      PipOverlayService.stopPip(callOnClose: false, immediate: true);
-      PipOverlayService.releaseSavedVideoOwner();
+      PipOverlayService.stopPip(
+        callOnClose: false,
+        immediate: true,
+        releaseSavedOwner: true,
+      );
     }
     if (LivePipOverlayService.isInPipMode) {
       LivePipOverlayService.stopLivePip(callOnClose: false);

@@ -246,11 +246,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     } else {
       // 非 PiP 返回，正常流程（包括原页面还留在栈中或由于某些原因被销毁重构）
       if (PipOverlayService.isInPipMode) {
-        // 关闭小窗并停止播放器（从列表点击视频应该停止旧的播放）
-        // stopPip 会清空服务内保存的引用，释放 owner 所需的引用必须先捕获
+        // 关闭小窗，释放旧页面 owner（清媒体会话、dispose 播放器，
+        // 从列表点击视频应该停止旧的播放）
         final savedController =
             PipOverlayService.getSavedController<VideoDetailController>();
-        final savedPlayerController = PipOverlayService.savedPlayerController;
         final fromVideoPage =
             VideoStackManager.getCount() > 1 ||
             PipOverlayService.isVideoLikeRoute(Get.previousRoute);
@@ -265,11 +264,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           callOnClose: false,
           immediate: true,
           targetContextKey: targetContextKey,
-        );
-        // 旧应用内小窗已被当前页面接管结束，显式释放旧页面 owner 和媒体会话
-        PipOverlayService.releaseSavedVideoOwner(
-          controller: savedController,
-          player: savedPlayerController,
+          releaseSavedOwner: true,
         );
       }
       videoDetailController = Get.put(VideoDetailController(), tag: heroTag);

@@ -103,22 +103,30 @@ class PipOverlayService {
     }
   }
 
-  // 释放小窗持有的旧视频页 owner：清媒体会话、提交心跳并 dispose 播放器。
-  // 只能由 stopPip 在清空静态引用前捕获参数后调用（releaseSavedOwner 标志），
-  // 避免调用方在 stopPip 之后读取已清空的引用导致释放静默失效
+  // 释放小窗持有的旧视频页 owner。只能由 stopPip 在清空静态引用前捕获参数后
+  // 调用（releaseSavedOwner 标志），避免调用方在 stopPip 之后读取已清空的引用
+  // 导致释放静默失效。
+  // disposePlayer 语义：owner 页面已离开路由栈（如从列表点开新视频）才允许
+  // dispose；owner 仍在栈内（链式进入新视频/直播，稍后会返回恢复）只能暂停——
+  // dispose 会消耗 owner 页面持有的 _playerCount 计数，导致后续页面 dispose 时
+  // 计数归零、误销毁下层页面正在复用的播放器实例
   static void _releaseSavedVideoOwner({
     required VideoDetailController controller,
     required PlPlayerController? player,
+    required bool disposePlayer,
   }) {
     controller
       ..isEnteringPip = false
       ..cancelBlockListener();
 
-    videoPlayerServiceHandler?.onVideoDetailDispose(controller.heroTag);
-
     if (player != null) {
       controller.makeHeartBeat();
-      player.dispose();
+      if (disposePlayer) {
+        videoPlayerServiceHandler?.onVideoDetailDispose(controller.heroTag);
+        player.dispose();
+      } else {
+        player.pause();
+      }
     }
   }
 
@@ -253,6 +261,7 @@ class PipOverlayService {
     bool resetState = true,
     String? targetContextKey,
     bool releaseSavedOwner = false,
+    bool disposeSavedOwnerPlayer = true,
   }) {
     if (!isInPipMode && _overlayEntry == null) {
       return;
@@ -346,6 +355,7 @@ class PipOverlayService {
         _releaseSavedVideoOwner(
           controller: ownerToRelease,
           player: playerController,
+          disposePlayer: disposeSavedOwnerPlayer,
         );
       }
       closeCallback?.call();

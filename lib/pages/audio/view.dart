@@ -100,6 +100,8 @@ class _AudioPageState extends State<AudioPage> {
         callOnClose: false,
         immediate: true,
         releaseSavedOwner: true,
+        // 小窗 owner 的视频页仍在栈内时只暂停不 dispose，避免破坏其计数
+        disposeSavedOwnerPlayer: VideoStackManager.getCount() == 0,
       );
     }
     if (LivePipOverlayService.isInPipMode) {

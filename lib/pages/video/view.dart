@@ -265,6 +265,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           immediate: true,
           targetContextKey: targetContextKey,
           releaseSavedOwner: true,
+          // 旧视频页仍在栈内（链式进入新视频）时只暂停不 dispose，
+          // 保留播放器实例与计数供返回时恢复
+          disposeSavedOwnerPlayer: !fromVideoPage,
         );
       }
       videoDetailController = Get.put(VideoDetailController(), tag: heroTag);

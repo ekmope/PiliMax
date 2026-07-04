@@ -115,7 +115,12 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
     // 如果有视频小窗也关闭
     if (PipOverlayService.isInPipMode) {
-      PipOverlayService.stopPip(callOnClose: false, releaseSavedOwner: true);
+      PipOverlayService.stopPip(
+        callOnClose: false,
+        releaseSavedOwner: true,
+        // 小窗 owner 的视频页仍在栈内时只暂停不 dispose，避免破坏其计数
+        disposeSavedOwnerPlayer: VideoStackManager.getCount() == 0,
+      );
     }
 
     _liveRoomController = Get.put(

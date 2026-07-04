@@ -794,6 +794,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         _logSponsorBlock(
           'Returning to video page with matching active PiP, closing PiP overlay',
         );
+        // 小窗里的实际状态是用户最新的播放意图（可能在小窗中手动暂停过），
+        // 先于 stopPip 记录，交由 didPopNext 末尾统一对账
+        videoDetailController.playerStatus =
+            plPlayerController?.playerStatus.value;
         PipOverlayService.stopPip(
           callOnClose: false,
           immediate: true,
@@ -804,8 +808,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         _resetEnteringPipFlags();
         // 小窗模式下控制栏可能被隐藏了，恢复它
         plPlayerController?.controls = true;
-        // 停止播放器，准备重新初始化（从列表点击视频应该重新开始）
-        plPlayerController?.pause();
       } else {
         // 小窗里播放的是其他视频，返回到新的视频页面时必须关闭小窗，否则会同时播放两个视频
         _logSponsorBlock(
@@ -851,11 +853,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
       super.didPopNext();
       return;
-    }
-
-    if (videoDetailController.plPlayerController.playerStatus.isPlaying &&
-        videoDetailController.playerStatus != PlayerStatus.playing) {
-      videoDetailController.plPlayerController.pause();
     }
 
     PlPlayerController.setPlayCallBack(playCallBack);
@@ -907,8 +904,20 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       // 由于小窗可能刚刚被关闭（OverlayEntry 移除），我们需要延迟一个帧再显示主页播放器
       // 以确保 GlobalKey (videoPlayerKey) 已经从小窗中彻底释放，避免冲突
       _logSponsorBlock('Restoring current player (delayed refresh)');
-      // 如果播放器正在播放，临时启用 autoPlay 以确保 UI 正确显示
-      if (plPlayerController?.playerStatus.isPlaying ?? false) {
+      // 统一对账：以离开页面/小窗时记录的期望状态为准，对齐实际播放状态。
+      // 期望播放但实际暂停（如 didPushNext 未进小窗时暂停、关小窗时暂停）→ 恢复播放；
+      // 期望暂停但实际播放 → 暂停（原上游保底暂停的语义）
+      final expected = videoDetailController.playerStatus;
+      if (expected != null &&
+          expected.isPlaying != plPlayerController!.playerStatus.isPlaying) {
+        if (expected.isPlaying) {
+          plPlayerController!.play();
+        } else {
+          plPlayerController!.pause();
+        }
+      }
+      // 如果播放器（应）处于播放状态，临时启用 autoPlay 以确保 UI 正确显示
+      if (expected?.isPlaying ?? plPlayerController!.playerStatus.isPlaying) {
         videoDetailController.autoPlay = true;
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {

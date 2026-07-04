@@ -1620,7 +1620,12 @@ class VideoDetailController extends GetxController
       // 正在进入小窗，保留资源
       return;
     }
-    plPlayerController.pause();
+    // 页面 pop 后 GetX 才延迟触发 onClose，此时播放器单例可能已被下层视频页
+    // 重新接管（didPopNext -> playerInit 恢复播放）；仅当单例仍持有本页内容时
+    // 才暂停，否则会与下层页面的恢复播放竞速
+    if (plPlayerController.isCurrentVideoSource(bvid: bvid, cid: cid.value)) {
+      plPlayerController.pause();
+    }
     cancelBlockListener();
     _dmTrendTaskId++;
     cid.close();

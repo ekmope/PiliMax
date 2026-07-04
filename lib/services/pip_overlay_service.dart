@@ -104,28 +104,27 @@ class PipOverlayService {
   }
 
   static void releaseSavedVideoOwner({
+    required VideoDetailController? controller,
+    required PlPlayerController? player,
     bool clearMediaSession = true,
     bool disposePlayer = true,
   }) {
-    final savedController = _savedController;
-    final savedPlayerController = _savedPlayerController;
-
-    if (savedController is! VideoDetailController) {
+    if (controller == null) {
       return;
     }
 
-    savedController.isEnteringPip = false;
-    savedController.cancelBlockListener();
+    controller
+      ..isEnteringPip = false
+      ..cancelBlockListener();
 
     if (clearMediaSession) {
-      videoPlayerServiceHandler?.onVideoDetailDispose(savedController.heroTag);
+      videoPlayerServiceHandler?.onVideoDetailDispose(controller.heroTag);
     }
 
-    if (disposePlayer && savedPlayerController != null) {
-      savedController.makeHeartBeat();
-      savedPlayerController.dispose();
+    if (disposePlayer && player != null) {
+      controller.makeHeartBeat();
+      player.dispose();
     }
-
   }
 
   static String _keyPart(Object? value) => value?.toString() ?? '';
@@ -249,6 +248,9 @@ class PipOverlayService {
   }
 
   static T? getSavedController<T>() => _savedController as T?;
+
+  static PlPlayerController? get savedPlayerController =>
+      _savedPlayerController;
 
   static T? getAdditionalController<T>(String key) =>
       _savedControllers[key] as T?;

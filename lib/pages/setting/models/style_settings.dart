@@ -243,7 +243,7 @@ List<SettingsModel> get styleSettings => [
   NormalModel(
     title: '动态未读标记',
     leading: const Icon(Icons.motion_photos_on_outlined),
-    getSubtitle: () => '当前标记样式：${Pref.dynamicBadgeType.desc}',
+    getSubtitle: () => '当前标记样式：${Pref.dynamicBadgeMode.desc}',
     onTap: _showDynBadgeDialog,
   ),
   NormalModel(
@@ -975,7 +975,7 @@ Future<void> _showDynBadgeDialog(
     context: context,
     builder: (context) => SelectDialog<DynamicBadgeMode>(
       title: '动态未读标记',
-      value: Pref.dynamicBadgeType,
+      value: Pref.dynamicBadgeMode,
       values: DynamicBadgeMode.values.map((e) => (e, e.desc)).toList(),
     ),
   );

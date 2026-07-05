@@ -9,7 +9,7 @@
 <div align="center">
     
 </div>
-    <p>基于 PiliPlus 做的一些自用修改</p>
+    <p>PiliMax 个人自用修改版</p>
     
 <img src="assets/screenshots/510shots_so.png" width="32%" alt="home" />
 <img src="assets/screenshots/174shots_so.png" width="32%" alt="home" />
@@ -23,8 +23,7 @@
 <br/>
 
 ## 项目说明
-- 本项目 PiliMax 合并了 [PiliNara](https://github.com/Starfallan/PiliNara) 的一些改动。
-- 本仓库保留了上游 PiliPlus/PiliNara 的主要功能，并在此基础上进行了部分自用的优化和调整。
+- 本项目 PiliMax 是基于上游项目维护的个人自用版本，保留主要功能并进行了一些自用优化和调整。
 - 本项目会按需同步上游更新，并在此基础上进行修改和优化。
 - 本项目仅供个人学习和测试使用，目前只打包了安卓版本,如有需要请自行Fork后编译.
 
@@ -297,7 +296,6 @@ Fork特性：
 在此致敬原作者：[guozhigq/pilipala](https://github.com/guozhigq/pilipala)
 在此致敬上游作者：[orz12/PiliPalaX](https://github.com/orz12/PiliPalaX)
 在此致敬上游作者：[bggRGjQaUbCoE/PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)
-在此致敬 fork 作者：[Starfallan/PiliNara](https://github.com/Starfallan/PiliNara)
 本仓库做了一些自用修改，感谢原作者的开源精神。
 
 感谢使用

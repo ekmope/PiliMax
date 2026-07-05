@@ -5,12 +5,14 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/pages/common/reply_controller.dart';
 import 'package:PiliMax/pages/video/controller.dart';
+import 'package:PiliMax/pages/video/reply/vote/reply_vote_mixin.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:get/get.dart';
 
-class VideoReplyController extends ReplyController<MainListReply> {
+class VideoReplyController extends ReplyController<MainListReply>
+    with ReplyVoteMixin {
   VideoReplyController({
     required this.aid,
     required this.videoType,

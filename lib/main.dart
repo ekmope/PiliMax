@@ -89,6 +89,18 @@ Future<void> _initTmpPath() async {
 }
 
 Future<void> _initAppPath() async {
+  if (Platform.isWindows) {
+    final appData = Platform.environment['APPDATA'];
+    if (appData != null && appData.isNotEmpty) {
+      final dir = Directory(path.join(appData, Constants.appName));
+      if (!dir.existsSync()) {
+        await dir.create(recursive: true);
+      }
+      appSupportDirPath = dir.path;
+      return;
+    }
+  }
+
   appSupportDirPath = (await getApplicationSupportDirectory()).path;
 }
 

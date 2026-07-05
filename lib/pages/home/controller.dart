@@ -34,6 +34,17 @@ class HomeController extends GetxController
 
   AccountService accountService = Get.find<AccountService>();
 
+  bool get isRcmdTab => tabs[tabController.index] == HomeTabType.rcmd;
+
+  bool backToRcmdTab() {
+    final rcmdIndex = tabs.indexOf(HomeTabType.rcmd);
+    if (rcmdIndex == -1 || tabController.index == rcmdIndex) {
+      return false;
+    }
+    tabController.animateTo(rcmdIndex);
+    return true;
+  }
+
   @override
   void onInit() {
     super.onInit();

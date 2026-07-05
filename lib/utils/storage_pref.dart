@@ -38,7 +38,6 @@ import 'package:PiliMax/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliMax/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliMax/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
-import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/global_data.dart';
@@ -46,8 +45,6 @@ import 'package:PiliMax/utils/login_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
-import 'package:PiliMax/utils/utils.dart';
-import 'package:crypto/crypto.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart' show FlexSchemeVariant;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -365,13 +362,13 @@ abstract final class Pref {
   static DynamicBadgeMode get dynamicBadgeType =>
       DynamicBadgeMode.values[_setting.get(
         SettingBoxKey.dynamicBadgeMode,
-        defaultValue: DynamicBadgeMode.number.index,
+        defaultValue: DynamicBadgeMode.point.index,
       )];
 
   static DynamicBadgeMode get msgBadgeMode =>
       DynamicBadgeMode.values[_setting.get(
         SettingBoxKey.msgBadgeMode,
-        defaultValue: DynamicBadgeMode.number.index,
+        defaultValue: DynamicBadgeMode.point.index,
       )];
 
   static Set<MsgUnReadType> get msgUnReadTypeV2 =>
@@ -400,15 +397,13 @@ abstract final class Pref {
   static UpPanelPosition get upPanelPosition =>
       UpPanelPosition.values[_setting.get(
         SettingBoxKey.upPanelPosition,
-        defaultValue: UpPanelPosition.leftFixed.index,
+        defaultValue: UpPanelPosition.top.index,
       )];
 
   static FullScreenMode get fullScreenMode {
     int? index = _setting.get(SettingBoxKey.fullScreenMode);
     if (index == null) {
-      final FullScreenMode mode = horizontalScreen && DeviceUtils.isTablet
-          ? .none
-          : .auto;
+      const FullScreenMode mode = FullScreenMode.auto;
       _setting.put(SettingBoxKey.fullScreenMode, mode.index);
       return mode;
     }
@@ -533,7 +528,7 @@ abstract final class Pref {
   }
 
   static bool get removeBlockedRcmd =>
-      _setting.get(SettingBoxKey.removeBlockedRcmd, defaultValue: false);
+      _setting.get(SettingBoxKey.removeBlockedRcmd, defaultValue: true);
 
   static String get systemProxyHost =>
       _setting.get(SettingBoxKey.systemProxyHost, defaultValue: '');
@@ -566,9 +561,7 @@ abstract final class Pref {
   static String get blockUserID {
     String? blockUserID = _setting.get(SettingBoxKey.blockUserID);
     if (blockUserID == null || blockUserID.isEmpty) {
-      blockUserID = Digest(
-        List.generate(16, (_) => Utils.random.nextInt(256)),
-      ).toString();
+      blockUserID = 'a758f792ad624253b547458cacd03996';
       _setting.put(SettingBoxKey.blockUserID, blockUserID);
     }
     return blockUserID;
@@ -604,17 +597,17 @@ abstract final class Pref {
 
   static double get danmakuFontScaleFS => _setting.get(
     SettingBoxKey.danmakuFontScaleFS,
-    defaultValue: PlatformUtils.isMobile ? 1.2 : 1.7,
+    defaultValue: 1.0,
   );
 
   static bool get danmakuMassiveMode =>
       _setting.get(SettingBoxKey.danmakuMassiveMode, defaultValue: false);
 
   static bool get danmakuFixedV =>
-      _setting.get(SettingBoxKey.danmakuFixedV, defaultValue: false);
+      _setting.get(SettingBoxKey.danmakuFixedV, defaultValue: true);
 
   static bool get danmakuStatic2Scroll =>
-      _setting.get(SettingBoxKey.danmakuStatic2Scroll, defaultValue: false);
+      _setting.get(SettingBoxKey.danmakuStatic2Scroll, defaultValue: true);
 
   static double get subtitleFontScale =>
       _setting.get(SettingBoxKey.subtitleFontScale, defaultValue: 1.0);
@@ -698,7 +691,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.cdnSpeedTest, defaultValue: true);
 
   static bool get autoUpdate =>
-      _setting.get(SettingBoxKey.autoUpdate, defaultValue: true);
+      _setting.get(SettingBoxKey.autoUpdate, defaultValue: false);
 
   static bool get preReleaseUpdate =>
       _setting.get(SettingBoxKey.preReleaseUpdate, defaultValue: false);
@@ -821,14 +814,14 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showDmChart, defaultValue: false);
 
   static bool get enableCommAntifraud =>
-      _setting.get(SettingBoxKey.enableCommAntifraud, defaultValue: false);
+      _setting.get(SettingBoxKey.enableCommAntifraud, defaultValue: true);
 
   static bool get biliSendCommAntifraud =>
       Platform.isAndroid &&
-      _setting.get(SettingBoxKey.biliSendCommAntifraud, defaultValue: false);
+      _setting.get(SettingBoxKey.biliSendCommAntifraud, defaultValue: true);
 
   static bool get enableCreateDynAntifraud =>
-      _setting.get(SettingBoxKey.enableCreateDynAntifraud, defaultValue: false);
+      _setting.get(SettingBoxKey.enableCreateDynAntifraud, defaultValue: true);
 
   static bool get coinWithLike =>
       _setting.get(SettingBoxKey.coinWithLike, defaultValue: false);
@@ -837,16 +830,16 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.isPureBlackTheme, defaultValue: false);
 
   static bool get antiGoodsDyn =>
-      _setting.get(SettingBoxKey.antiGoodsDyn, defaultValue: false);
+      _setting.get(SettingBoxKey.antiGoodsDyn, defaultValue: true);
 
   static bool get removeBlockedDyn =>
-      _setting.get(SettingBoxKey.removeBlockedDyn, defaultValue: false);
+      _setting.get(SettingBoxKey.removeBlockedDyn, defaultValue: true);
 
   static bool get removeOnlyFansVideoDyn =>
-      _setting.get(SettingBoxKey.removeOnlyFansVideoDyn, defaultValue: false);
+      _setting.get(SettingBoxKey.removeOnlyFansVideoDyn, defaultValue: true);
 
   static bool get antiGoodsReply =>
-      _setting.get(SettingBoxKey.antiGoodsReply, defaultValue: false);
+      _setting.get(SettingBoxKey.antiGoodsReply, defaultValue: true);
 
   static int get replyMinLevel =>
       _setting.get(SettingBoxKey.replyMinLevel, defaultValue: 0);
@@ -871,7 +864,7 @@ abstract final class Pref {
 
   static bool get slideDismissReplyPage => _setting.get(
     SettingBoxKey.slideDismissReplyPage,
-    defaultValue: Platform.isIOS,
+    defaultValue: false,
   );
 
   static bool get showFSActionItem =>
@@ -911,7 +904,7 @@ abstract final class Pref {
   );
 
   static int get appFontWeight =>
-      _setting.get(SettingBoxKey.appFontWeight, defaultValue: -1);
+      _setting.get(SettingBoxKey.appFontWeight, defaultValue: 4);
 
   static String? get customFontPath =>
       _setting.get(SettingBoxKey.customFontPath);
@@ -932,7 +925,7 @@ abstract final class Pref {
   static DanmakuFontSyncMode get danmakuFontSyncMode =>
       DanmakuFontSyncMode.values[_setting.get(
         SettingBoxKey.danmakuFontSyncMode,
-        defaultValue: DanmakuFontSyncMode.global.index,
+        defaultValue: DanmakuFontSyncMode.system.index,
       )];
 
   static bool get enableCustomDanmakuFont =>
@@ -961,7 +954,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableDragSubtitle, defaultValue: false);
 
   static int get fastForBackwardDuration =>
-      _setting.get(SettingBoxKey.fastForBackwardDuration, defaultValue: 10);
+      _setting.get(SettingBoxKey.fastForBackwardDuration, defaultValue: 5);
 
   static bool get recordSearchHistory =>
       _setting.get(SettingBoxKey.recordSearchHistory, defaultValue: true);
@@ -982,10 +975,10 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showPgcTimeline, defaultValue: true);
 
   static num get maxCacheSize =>
-      _setting.get(SettingBoxKey.maxCacheSize) ?? 1 << 30;
+      _setting.get(SettingBoxKey.maxCacheSize) ?? 52428800;
 
   static bool get autoClearCache =>
-      _setting.get(SettingBoxKey.autoClearCache, defaultValue: false);
+      _setting.get(SettingBoxKey.autoClearCache, defaultValue: true);
 
   static int get autoClearCachePeriod {
     final period = _setting.get(
@@ -1001,9 +994,8 @@ abstract final class Pref {
   static bool get horizontalScreen {
     bool? horizontalScreen = _setting.get(SettingBoxKey.horizontalScreen);
     if (horizontalScreen == null) {
-      final isTablet = DeviceUtils.isTablet;
-      _setting.put(SettingBoxKey.horizontalScreen, isTablet);
-      return isTablet;
+      _setting.put(SettingBoxKey.horizontalScreen, false);
+      return false;
     }
     return horizontalScreen;
   }
@@ -1084,10 +1076,10 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.minDurationForRcmd, defaultValue: 0);
 
   static int get minPlayForRcmd =>
-      _setting.get(SettingBoxKey.minPlayForRcmd, defaultValue: 0);
+      _setting.get(SettingBoxKey.minPlayForRcmd, defaultValue: 50);
 
   static int get minLikeRatioForRecommend =>
-      _setting.get(SettingBoxKey.minLikeRatioForRecommend, defaultValue: 0);
+      _setting.get(SettingBoxKey.minLikeRatioForRecommend, defaultValue: 1);
 
   static bool get exemptFilterForFollowed =>
       _setting.get(SettingBoxKey.exemptFilterForFollowed, defaultValue: true);
@@ -1125,7 +1117,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableAutoExit, defaultValue: true);
 
   static bool get autoPlayEnable =>
-      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: false);
+      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: true);
 
   static bool get pipNoDanmaku =>
       _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: false);
@@ -1217,7 +1209,7 @@ abstract final class Pref {
   static DynamicBadgeMode get dynamicBadgeMode =>
       DynamicBadgeMode.values[_setting.get(
         SettingBoxKey.dynamicBadgeMode,
-        defaultValue: DynamicBadgeMode.number.index,
+        defaultValue: DynamicBadgeMode.point.index,
       )];
 
   static bool get enableMYBar =>
@@ -1230,7 +1222,7 @@ abstract final class Pref {
       )];
 
   static bool get enableQuickDouble =>
-      _setting.get(SettingBoxKey.enableQuickDouble, defaultValue: true);
+      _setting.get(SettingBoxKey.enableQuickDouble, defaultValue: false);
 
   static bool get fullScreenGestureReverse =>
       _setting.get(SettingBoxKey.fullScreenGestureReverse, defaultValue: false);
@@ -1239,13 +1231,13 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.autoPiP, defaultValue: false);
 
   static bool get enableInAppPip =>
-      _setting.get(SettingBoxKey.enableInAppPip, defaultValue: true);
+      _setting.get(SettingBoxKey.enableInAppPip, defaultValue: false);
 
   static bool get enableInAppPipToSystemPip =>
-      _setting.get(SettingBoxKey.enableInAppPipToSystemPip, defaultValue: true);
+      _setting.get(SettingBoxKey.enableInAppPipToSystemPip, defaultValue: false);
 
   static bool get enableSponsorBlock =>
-      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: false);
+      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: true);
 
   static bool get enableHA =>
       _setting.get(SettingBoxKey.enableHA, defaultValue: true);
@@ -1255,33 +1247,33 @@ abstract final class Pref {
   );
 
   static int get danmakuWeight =>
-      _setting.get(SettingBoxKey.danmakuWeight, defaultValue: 0);
+      _setting.get(SettingBoxKey.danmakuWeight, defaultValue: 9);
 
   static double get danmakuShowArea =>
-      _setting.get(SettingBoxKey.danmakuShowArea, defaultValue: 0.5);
+      _setting.get(SettingBoxKey.danmakuShowArea, defaultValue: 0.3);
 
   static double get danmakuOpacity =>
-      _setting.get(SettingBoxKey.danmakuOpacity, defaultValue: 1.0);
+      _setting.get(SettingBoxKey.danmakuOpacity, defaultValue: 0.5);
 
   static double get danmakuFontScale => _setting.get(
     SettingBoxKey.danmakuFontScale,
-    defaultValue: PlatformUtils.isMobile ? 1.0 : 1.4,
+    defaultValue: 0.6,
   );
 
   static double get danmakuDuration =>
-      _setting.get(SettingBoxKey.danmakuDuration, defaultValue: 7.0);
+      _setting.get(SettingBoxKey.danmakuDuration, defaultValue: 8.0);
 
   static double get danmakuStaticDuration =>
       _setting.get(SettingBoxKey.danmakuStaticDuration, defaultValue: 4.0);
 
   static double get danmakuStrokeWidth => _setting.get(
     SettingBoxKey.danmakuStrokeWidth,
-    defaultValue: PlatformUtils.isMobile ? 1.5 : 2.5,
+    defaultValue: 1.0,
   );
 
   static int get danmakuFontWeight => _setting.get(
     SettingBoxKey.danmakuFontWeight,
-    defaultValue: PlatformUtils.isMobile ? 5 : 6,
+    defaultValue: 4,
   );
 
   static bool get enableLongShowControl =>
@@ -1315,17 +1307,17 @@ abstract final class Pref {
 
   static String get audioOutput => _setting.get(
     SettingBoxKey.audioOutput,
-    defaultValue: AudioOutput.defaultValue,
+    defaultValue: AudioOutput.audiotrack.name,
   );
 
   static bool get enableAi =>
-      _setting.get(SettingBoxKey.enableAi, defaultValue: false);
+      _setting.get(SettingBoxKey.enableAi, defaultValue: true);
 
   static bool get enablePredictiveBack =>
       _setting.get(SettingBoxKey.enablePredictiveBack, defaultValue: true);
 
   static bool get enableOnlineTotal =>
-      _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: false);
+      _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: true);
 
   static bool get autoEnterFullScreen =>
       _setting.get(SettingBoxKey.enableAutoEnter, defaultValue: false);
@@ -1337,7 +1329,7 @@ abstract final class Pref {
       _video.get(VideoBoxKey.playSpeedDefault, defaultValue: 1.0);
 
   static double get longPressSpeedDefault =>
-      _video.get(VideoBoxKey.longPressSpeedDefault, defaultValue: 3.0);
+      _video.get(VideoBoxKey.longPressSpeedDefault, defaultValue: 2.0);
 
   static bool get defaultShowComment =>
       _setting.get(SettingBoxKey.defaultShowComment, defaultValue: false);
@@ -1515,7 +1507,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.saveReply, defaultValue: true);
 
   static bool get floatingNavBar =>
-      _setting.get(SettingBoxKey.floatingNavBar, defaultValue: false);
+      _setting.get(SettingBoxKey.floatingNavBar, defaultValue: true);
 
   static bool get removeSafeArea =>
       _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);

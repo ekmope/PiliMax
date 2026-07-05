@@ -330,6 +330,15 @@ class MainController extends GetxController
     }
   }
 
+  void currentToTopOrRefresh() {
+    final currentNav = navigationBars[selectedIndex.value];
+    if (currentNav == NavigationBarType.home) {
+      homeController.toTopOrRefresh();
+    } else if (currentNav == NavigationBarType.dynamics) {
+      dynamicController.toTopOrRefresh();
+    }
+  }
+
   void setSearchBar() {
     if (hasHome) {
       homeController.showTopBar?.value = true;

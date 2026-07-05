@@ -45,7 +45,10 @@ class _SetDisplayModeState extends State<SetDisplayMode> {
       if (kDebugMode) debugPrint(e.toString());
     }
 
-    final value = setting.get(SettingBoxKey.displayMode);
+    final value = setting.get(
+      SettingBoxKey.displayMode,
+      defaultValue: '#1 1264x2780 @ 120Hz',
+    );
     if (value != null) {
       preferred = modes.firstWhereOrNull((e) => e.toString() == value);
     }

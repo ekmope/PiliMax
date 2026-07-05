@@ -57,8 +57,19 @@ class _MainAppState extends PopScopeState<MainApp>
   bool get _allowAndroidPredictiveExit =>
       Platform.isAndroid &&
       !_isOnDynamicsSubTab &&
+      !_isOnHomeSubTab &&
       (_mainController.directExitOnBack.value ||
           _mainController.selectedIndex.value == 0);
+
+  bool get _isOnHomeSubTab {
+    if (!_mainController.hasHome) {
+      return false;
+    }
+    return _mainController
+                .navigationBars[_mainController.selectedIndex.value] ==
+            NavigationBarType.home &&
+        !_mainController.homeController.isRcmdTab;
+  }
 
   bool get _isOnDynamicsSubTab {
     if (!_mainController.hasDyn) {
@@ -95,6 +106,11 @@ class _MainAppState extends PopScopeState<MainApp>
           _mainController.dynamicController.currentMid,
           (_) => _syncAndroidPredictiveBack(),
         ),
+      );
+    }
+    if (_mainController.hasHome) {
+      _mainController.homeController.tabController.addListener(
+        _syncAndroidPredictiveBack,
       );
     }
     _syncAndroidPredictiveBack();
@@ -172,6 +188,11 @@ class _MainAppState extends PopScopeState<MainApp>
     removeObserverMobile(this);
     for (final worker in _backPopWorkers) {
       worker.dispose();
+    }
+    if (_mainController.hasHome) {
+      _mainController.homeController.tabController.removeListener(
+        _syncAndroidPredictiveBack,
+      );
     }
     PiliScheme.listener?.cancel();
     GStorage.close();
@@ -326,6 +347,10 @@ class _MainAppState extends PopScopeState<MainApp>
     }
     if (_isOnDynamicsSubTab &&
         _mainController.dynamicController.backToAllTab()) {
+      _syncAndroidPredictiveBack();
+      return;
+    }
+    if (_isOnHomeSubTab && _mainController.homeController.backToRcmdTab()) {
       _syncAndroidPredictiveBack();
       return;
     }
@@ -554,6 +579,24 @@ class _MainAppState extends PopScopeState<MainApp>
           systemNavigationBarIconBrightness: theme.brightness.reverse,
         ),
         child: child,
+      );
+    }
+
+    if (PlatformUtils.isMobile && _padding.top > 0) {
+      child = Stack(
+        children: [
+          child,
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: _padding.top,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _mainController.currentToTopOrRefresh,
+            ),
+          ),
+        ],
       );
     }
 

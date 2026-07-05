@@ -15,6 +15,7 @@ import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
 
 // 视频卡片 - 水平布局
 class VideoCardHLater extends StatelessWidget {
@@ -252,11 +253,37 @@ class VideoCardHLater extends StatelessWidget {
           Positioned(
             right: 0,
             bottom: -8,
-            child: iconButton(
-              tooltip: '移除',
-              onPressed: () => ctr.toViewDel(context, index, videoItem.aid),
-              icon: const Icon(Icons.clear),
-              iconColor: theme.colorScheme.outline,
+            child: Row(
+              spacing: 2,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (index > 0)
+                  Obx(() {
+                    final isLoading = ctr.isPromotingToTop(videoItem);
+                    return iconButton(
+                      tooltip: '置顶',
+                      onPressed: isLoading
+                          ? null
+                          : () => ctr.promoteToTop(index, videoItem),
+                      icon: isLoading
+                          ? SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: theme.colorScheme.outline,
+                              ),
+                            )
+                          : const Icon(Icons.vertical_align_top, size: 16),
+                      iconColor: theme.colorScheme.outline,
+                    );
+                  }),
+                iconButton(
+                  tooltip: '移除',
+                  onPressed: () => ctr.toViewDel(context, index, videoItem.aid),
+                  icon: const Icon(Icons.clear),
+                  iconColor: theme.colorScheme.outline,
+                ),
+              ],
             ),
           ),
         ],

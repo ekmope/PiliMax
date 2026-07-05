@@ -156,6 +156,7 @@ void main() async {
       FlutterDisplayMode.supported.then((mode) {
         final String? storageDisplay = GStorage.setting.get(
           SettingBoxKey.displayMode,
+          defaultValue: '#1 1264x2780 @ 120Hz',
         );
         DisplayMode? displayMode;
         if (storageDisplay != null) {

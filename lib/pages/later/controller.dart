@@ -23,6 +23,68 @@ mixin BaseLaterController
         CommonMultiSelectMixin<LaterItemModel>,
         DeleteItemMixin<LaterData, LaterItemModel> {
   ValueChanged<int>? updateCount;
+  final RxSet<Object> _promotingToTopKeys = <Object>{}.obs;
+
+  String? _validBvid(LaterItemModel item) {
+    final bvid = item.bvid?.trim();
+    return bvid == null || bvid.isEmpty ? null : bvid;
+  }
+
+  Object? _promoteKey(LaterItemModel item) => item.aid ?? _validBvid(item);
+
+  bool isPromotingToTop(LaterItemModel item) {
+    final key = _promoteKey(item);
+    return key != null && _promotingToTopKeys.contains(key);
+  }
+
+  Future<void> promoteToTop(int index, LaterItemModel item) async {
+    if (index <= 0) {
+      return;
+    }
+
+    final key = _promoteKey(item);
+    if (key == null) {
+      SmartDialog.showToast('缺少视频标识，无法置顶');
+      return;
+    }
+    if (_promotingToTopKeys.contains(key)) {
+      return;
+    }
+
+    _promotingToTopKeys.add(key);
+    try {
+      final res = await UserHttp.toViewLater(
+        aid: item.aid,
+        bvid: _validBvid(item),
+      );
+      if (!res.isSuccess) {
+        return;
+      }
+
+      final list = loadingState.value.dataOrNull;
+      if (list == null || list.length < 2) {
+        return;
+      }
+
+      var currentIndex = -1;
+      if (index >= 0 && index < list.length && identical(list[index], item)) {
+        currentIndex = index;
+      } else {
+        currentIndex = list.indexWhere(
+          (element) => identical(element, item) || _promoteKey(element) == key,
+        );
+      }
+      if (currentIndex > 0) {
+        final promoted = list.removeAt(currentIndex);
+        list.insert(0, promoted);
+        loadingState.refresh();
+      }
+    } catch (err) {
+      SmartDialog.showToast(err.toString());
+    } finally {
+      _promotingToTopKeys.remove(key);
+    }
+  }
 
   @override
   void onRemove() {

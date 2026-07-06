@@ -605,10 +605,13 @@ class VideoDetailController extends GetxController
     if (mediaList.isNotEmpty) {
       Widget panel() => MediaListPanel(
         mediaList: mediaList,
-        onChangeEpisode: (episode) {
+        onChangeEpisode: (episode, {bool manual = false}) async {
           try {
-            Get.find<UgcIntroController>(tag: heroTag).onChangeEpisode(episode);
+            return Get.find<UgcIntroController>(
+              tag: heroTag,
+            ).onChangeEpisode(episode, manual: manual);
           } catch (_) {}
+          return false;
         },
         panelTitle: watchLaterTitle,
         bvid: bvid,

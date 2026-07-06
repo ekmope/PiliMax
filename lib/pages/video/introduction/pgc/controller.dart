@@ -249,6 +249,7 @@ class PgcIntroController extends CommonIntroController {
     BaseEpisodeItem episode, {
     bool fromAudioPage = false,
     Duration? audioPosition,
+    bool manual = false,
   }) async {
     try {
       final int epId = episode.epId ?? episode.id!;
@@ -260,6 +261,10 @@ class PgcIntroController extends CommonIntroController {
         return false;
       }
       final String? cover = episode.cover;
+
+      if (manual) {
+        videoDetailCtr.plPlayerController.markManualEpisodeChange();
+      }
 
       // 重新获取视频资源
       this.epId = epId;
@@ -353,7 +358,7 @@ class PgcIntroController extends CommonIntroController {
   }
 
   @override
-  bool prevPlay() {
+  bool prevPlay({bool manual = false}) {
     final episodes = pgcItem.episodes!;
     int currentIndex = episodes.indexWhere(
       (e) => e.cid == videoDetailCtr.cid.value,
@@ -367,13 +372,13 @@ class PgcIntroController extends CommonIntroController {
         return false;
       }
     }
-    onChangeEpisode(episodes[prevIndex]);
+    onChangeEpisode(episodes[prevIndex], manual: manual);
     return true;
   }
 
   /// 列表循环或者顺序播放时，自动播放下一个；自动连播时，播放相关视频
   @override
-  bool nextPlay() {
+  bool nextPlay({bool manual = false}) {
     try {
       final episodes = pgcItem.episodes!;
 
@@ -393,7 +398,7 @@ class PgcIntroController extends CommonIntroController {
           return false;
         }
       }
-      onChangeEpisode(episodes[nextIndex]);
+      onChangeEpisode(episodes[nextIndex], manual: manual);
       return true;
     } catch (_) {
       return false;

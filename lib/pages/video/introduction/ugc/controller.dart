@@ -465,6 +465,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     bool isStein = false,
     bool fromAudioPage = false,
     Duration? audioPosition,
+    bool manual = false,
   }) async {
     try {
       final String bvid = episode.bvid ?? this.bvid;
@@ -480,6 +481,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       }
       if (cid == null) {
         return false;
+      }
+
+      if (manual) {
+        videoDetailCtr.plPlayerController.markManualEpisodeChange();
       }
 
       final String? cover = episode.cover;
@@ -605,7 +610,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
   /// 播放上一个
   @override
-  bool prevPlay([bool skipPart = false]) {
+  bool prevPlay({bool skipPart = false, bool manual = false}) {
     final List<BaseEpisodeItem> episodes = <BaseEpisodeItem>[];
     bool isPart = false;
 
@@ -642,7 +647,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     if (prevIndex < 0) {
       if (isPart &&
           (videoDetailCtr.isPlayAll || videoDetail.ugcSeason != null)) {
-        return prevPlay(true);
+        return prevPlay(skipPart: true, manual: manual);
       }
       if (_isShuffleMode(isPart)) {
         return false;
@@ -664,7 +669,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     }
 
     if (cid != this.cid.value) {
-      onChangeEpisode(episodes[prevIndex]);
+      onChangeEpisode(episodes[prevIndex], manual: manual);
       return true;
     } else {
       return false;
@@ -673,7 +678,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
   /// 列表循环或者顺序播放时，自动播放下一个
   @override
-  bool nextPlay([bool skipPart = false]) {
+  bool nextPlay({bool skipPart = false, bool manual = false}) {
     try {
       final List<BaseEpisodeItem> episodes = <BaseEpisodeItem>[];
       bool isPart = false;
@@ -732,7 +737,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       if (nextIndex >= episodes.length) {
         if (isPart &&
             (videoDetailCtr.isPlayAll || videoDetail.ugcSeason != null)) {
-          return nextPlay(true);
+          return nextPlay(skipPart: true, manual: manual);
         }
 
         if (_isShuffleMode(isPart)) {
@@ -758,7 +763,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       }
 
       if (cid != this.cid.value) {
-        onChangeEpisode(episodes[nextIndex]);
+        onChangeEpisode(episodes[nextIndex], manual: manual);
         return true;
       } else {
         return false;

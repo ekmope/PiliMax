@@ -1276,6 +1276,11 @@ abstract final class Pref {
   static bool get enableLongShowControl =>
       _setting.get(SettingBoxKey.enableLongShowControl, defaultValue: false);
 
+  static bool get showControlsOnManualEpisodeChange => _setting.get(
+    SettingBoxKey.showControlsOnManualEpisodeChange,
+    defaultValue: false,
+  );
+
   static double get bufferSize =>
       _setting.get(SettingBoxKey.bufferSize, defaultValue: 4.0);
 

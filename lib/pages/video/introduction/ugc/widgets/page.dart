@@ -181,6 +181,7 @@ class _PagesPanelState extends State<PagesPanel> {
                         item
                           ..bvid ??= widget.bvid
                           ..cover ??= widget.cover,
+                        manual: true,
                       );
                       if (widget.list != null &&
                           widget

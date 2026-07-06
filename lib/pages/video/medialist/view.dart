@@ -34,7 +34,8 @@ class MediaListPanel extends CommonSlidePage {
   });
 
   final RxList<MediaListItemModel> mediaList;
-  final ValueChanged<BaseEpisodeItem> onChangeEpisode;
+  final Future<bool> Function(BaseEpisodeItem episode, {bool manual})
+  onChangeEpisode;
   final String? panelTitle;
   final String bvid;
   final VoidCallback loadMoreMedia;
@@ -182,7 +183,7 @@ class _MediaListPanelState extends State<MediaListPanel>
                 return;
               }
               Get.back();
-              widget.onChangeEpisode(item);
+              widget.onChangeEpisode(item, manual: true);
             },
             onLongPress: onLongPress,
             onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,

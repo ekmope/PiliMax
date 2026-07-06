@@ -1253,11 +1253,26 @@ class PlPlayerController with BlockConfigMixin {
     _playbackSpeed.value = playSpeedDefault;
   }
 
+  bool _showControlsOnNextPlay = false;
+
+  void markManualEpisodeChange() {
+    if (Pref.showControlsOnManualEpisodeChange) {
+      _showControlsOnNextPlay = true;
+    }
+  }
+
+  bool _consumeShowControlsOnNextPlay() {
+    final showControls = _showControlsOnNextPlay;
+    _showControlsOnNextPlay = false;
+    return showControls;
+  }
+
   /// 播放视频
   Future<void> play({bool repeat = false, bool hideControls = true}) async {
     if (_playerCount == 0) return;
     // 播放时自动隐藏控制条
-    controls = !hideControls;
+    final showControlsOnNextPlay = _consumeShowControlsOnNextPlay();
+    controls = !hideControls || showControlsOnNextPlay;
     // repeat为true，将从头播放
     if (repeat) {
       // await seekTo(Duration.zero);

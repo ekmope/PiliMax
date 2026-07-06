@@ -232,6 +232,13 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableLongShowControl,
     defaultVal: false,
   ),
+  const SwitchModel(
+    title: '手动切集后显示播放控件',
+    subtitle: '点击上一集、下一集或分集列表切换后保持控件显示',
+    leading: Icon(Icons.touch_app_outlined),
+    setKey: SettingBoxKey.showControlsOnManualEpisodeChange,
+    defaultVal: false,
+  ),
   if (PlatformUtils.isMobile)
     const SwitchModel(
       title: '后台播放',

@@ -107,7 +107,7 @@ class LocalIntroController extends CommonIntroController {
   final list = RxList<BiliDownloadEntryInfo>();
 
   @override
-  bool nextPlay() {
+  bool nextPlay({bool manual = false}) {
     final next = index.value + 1;
     if (next < list.length) {
       playIndex(next);
@@ -129,7 +129,7 @@ class LocalIntroController extends CommonIntroController {
   }
 
   @override
-  bool prevPlay() {
+  bool prevPlay({bool manual = false}) {
     final prev = index.value - 1;
     if (prev >= 0) {
       playIndex(prev);

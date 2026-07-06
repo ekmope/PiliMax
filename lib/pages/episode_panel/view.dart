@@ -79,7 +79,8 @@ class EpisodePanel extends CommonSlidePage {
   final int initialTabIndex;
   final bool? isSupportReverse;
   final ListOrder? listOrder;
-  final Future<bool> Function(ugc.BaseEpisodeItem) onChangeEpisode;
+  final Future<bool> Function(ugc.BaseEpisodeItem episode, {bool manual})
+  onChangeEpisode;
   final VoidCallback? onReverse;
   final VoidCallback? onClose;
 
@@ -451,7 +452,7 @@ class _EpisodePanelState extends State<EpisodePanel>
               SmartDialog.showToast('切换到：$title');
               widget.onClose?.call();
 
-              widget.onChangeEpisode(episode).then((res) {
+              widget.onChangeEpisode(episode, manual: true).then((res) {
                 if (res) {
                   if (!showTitle) {
                     _currentItemIndex = index;

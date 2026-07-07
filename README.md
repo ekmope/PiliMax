@@ -9,7 +9,7 @@
 <div align="center">
     
 </div>
-    <p> PiliPlus 第三方Fork自用版本，AI改的Android和Windows </p>
+    <p> PiliPlus 第三方Fork自用版本 </p>
     
 <img src="assets/screenshots/510shots_so.png" width="32%" alt="home" />
 <img src="assets/screenshots/174shots_so.png" width="32%" alt="home" />
@@ -308,7 +308,7 @@ PiliNara Fork 特性：
 在此致敬上游作者：[bggRGjQaUbCoE/PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)
 在此致敬上游作者：[Starfallan/PiliNara](https://github.com/Starfallan/PiliNara)
 在此致敬上游作者：[staoran/PiliPlus](https://github.com/staoran/PiliPlus)
-本仓库做了一些自用修改，感谢原作者及其余commit作者的开源精神。
+本仓库做了一些自用修改，感谢原作者及其它作者的开源精神。
 
 感谢使用
 

@@ -172,8 +172,6 @@ class PlPlayerController with BlockConfigMixin {
 
   Box setting = GStorage.setting;
 
-  // final Durations durations;
-
   String get bvid => _bvid!;
 
   bool isCurrentVideoSource({
@@ -1006,19 +1004,9 @@ class PlPlayerController with BlockConfigMixin {
     }
     _initVideoFit();
     await applyOnlyPlayAudioTrack();
-    // if (_looping) {
-    //   await setLooping(_looping);
-    // }
-
-    // 跳转播放
-    // if (seekTo != Duration.zero) {
-    //   await this.seekTo(seekTo);
-    // }
-
     // 自动播放
     if (_autoPlay) {
       playIfExists();
-      // await play(duration: duration);
     }
   }
 
@@ -1140,12 +1128,6 @@ class PlPlayerController with BlockConfigMixin {
             const Duration(milliseconds: 10000),
             () {
               Future.delayed(const Duration(milliseconds: 3000), () {
-                // if (kDebugMode) {
-                //   debugPrint("isBuffering.value: ${isBuffering.value}");
-                // }
-                // if (kDebugMode) {
-                //   debugPrint("_buffered.value: ${_buffered.value}");
-                // }
                 if (isBuffering.value && buffered.value == 0) {
                   SmartDialog.showToast(
                     '视频链接打开失败，重试中',
@@ -1275,7 +1257,6 @@ class PlPlayerController with BlockConfigMixin {
     controls = !hideControls || showControlsOnNextPlay;
     // repeat为true，将从头播放
     if (repeat) {
-      // await seekTo(Duration.zero);
       await seekTo(Duration.zero, isSeek: false);
     }
 
@@ -1530,7 +1511,6 @@ class PlPlayerController with BlockConfigMixin {
         );
       }
     } else {
-      // if (kDebugMode) debugPrint('$playbackSpeed');
       longPressStatus.value = val;
       await setPlaybackSpeed(lastPlaybackSpeed);
     }

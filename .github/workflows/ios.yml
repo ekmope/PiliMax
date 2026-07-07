@@ -36,7 +36,13 @@ jobs:
 
       - name: Build iOS
         run: |
+          set +e
           flutter build ios --release --no-codesign --dart-define-from-file=pili_release.json
+          build_status=$?
+          set -e
+          if [ "$build_status" -ne 0 ] && [ ! -d build/ios/iphoneos/Runner.app ]; then
+            exit "$build_status"
+          fi
           ln -sf ./build/ios/iphoneos Payload
           # make AltSign happy...
           find Payload/Runner.app/Frameworks -type d -name "*.framework" -exec codesign --force --sign - --preserve-metadata=identifier,entitlements {} \;

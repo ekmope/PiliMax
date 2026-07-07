@@ -219,12 +219,15 @@ abstract final class RouteRestoreService {
         );
       case '/favDetail':
         final mediaId = parameters['mediaId'];
-        if (_asInt(mediaId) == null) return null;
+        final mediaIdValue = _asInt(mediaId);
+        if (mediaIdValue == null) return null;
+        final mediaIdParam = '$mediaIdValue';
         return RestorableRoute(
           route: route,
           parameters: {
-            'mediaId': mediaId,
-            'heroTag': parameters['heroTag'] ?? Utils.makeHeroTag(mediaId),
+            'mediaId': mediaIdParam,
+            'heroTag':
+                parameters['heroTag'] ?? Utils.makeHeroTag(mediaIdParam),
           },
         );
       case '/history':

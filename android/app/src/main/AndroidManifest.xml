@@ -6,31 +6,13 @@
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="http" />
         </intent>
-        <!-- If your app opens https URLs -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="https" />
         </intent>
-
-    </queries>
-    <queries>
         <intent>
             <action android:name="android.support.customtabs.action.CustomTabsService" />
-        </intent>
-    </queries>
-
-    <queries>
-        <!-- If your app checks for http support -->
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <category android:name="android.intent.category.BROWSABLE" />
-            <data android:scheme="http" />
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <category android:name="android.intent.category.BROWSABLE" />
-            <data android:scheme="https" />
         </intent>
     </queries>
 
@@ -87,16 +69,6 @@
                 <data android:host="bilibili.cn" />
                 <data android:host="bilibili.tv" />
                 <data android:host="b23.tv" />
-                <!--<data android:host="live.bilibili.com"/>-->
-                <!--<data android:host="www.bilibili.com"/>-->
-                <!--<data android:host="www.bilibili.tv"/>-->
-                <!--<data android:host="www.bilibili.cn"/>-->
-                <!--<data android:host="m.bilibili.cn"/>-->
-                <!--<data android:host="m.bilibili.com"/>-->
-                <!--<data android:host="bilibili.cn"/>-->
-                <!--<data android:host="bilibili.com"/>-->
-                <!--<data android:host="bangumi.bilibili.com"/>-->
-                <!--<data android:host="space.bilibili.com"/>-->
             </intent-filter>
             <intent-filter android:label="PiliMax">
                 <action android:name="android.intent.action.VIEW" />

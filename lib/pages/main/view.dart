@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io';
 
 import 'package:PiliMax/common/assets.dart';
@@ -13,6 +14,7 @@ import 'package:PiliMax/pages/home/view.dart';
 import 'package:PiliMax/pages/main/controller.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
+import 'package:PiliMax/services/route_restore_service.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
@@ -115,6 +117,11 @@ class _MainAppState extends PopScopeState<MainApp>
     }
     _syncAndroidPredictiveBack();
     addObserverMobile(this);
+    if (Platform.isAndroid) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(RouteRestoreService.restoreIfNeeded());
+      });
+    }
     if (PlatformUtils.isDesktop) {
       windowManager
         ..addListener(this)
@@ -171,6 +178,10 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      unawaited(RouteRestoreService.saveLatestRoute());
+      return;
+    }
     if (state == AppLifecycleState.resumed) {
       _mainController
         ..checkUnreadDynamic()
@@ -333,6 +344,14 @@ class _MainAppState extends PopScopeState<MainApp>
   @pragma('vm:prefer-inline')
   static void _onBack() {
     if (Platform.isAndroid) {
+      unawaited(_clearRouteRestoreAndBack());
+    }
+  }
+
+  static Future<void> _clearRouteRestoreAndBack() async {
+    try {
+      await RouteRestoreService.clear();
+    } finally {
       PiliAndroidHelper.back();
     }
   }

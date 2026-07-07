@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io';
 import 'dart:math' show max;
 
@@ -30,6 +31,7 @@ import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
+import 'package:PiliMax/services/route_restore_service.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -73,6 +75,19 @@ List<SettingsModel> get extraSettings => [
       onTap: _showDownPathDialog,
     ),
   ],
+  if (Platform.isAndroid)
+    SwitchModel(
+      title: '后台恢复页面',
+      subtitle: '应用被系统回收后，再次打开时回到上次可恢复页面',
+      leading: const Icon(Icons.restore_page_outlined),
+      setKey: SettingBoxKey.enableAndroidRouteRestore,
+      defaultVal: true,
+      onChanged: (value) {
+        if (!value) {
+          unawaited(RouteRestoreService.clear());
+        }
+      },
+    ),
   SplitModel(
     normalModel: const NormalModel.split(
       title: '空降助手',

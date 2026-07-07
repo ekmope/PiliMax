@@ -1230,6 +1230,9 @@ abstract final class Pref {
   static bool get enableInAppPipToSystemPip =>
       _setting.get(SettingBoxKey.enableInAppPipToSystemPip, defaultValue: false);
 
+  static bool get enableAndroidRouteRestore =>
+      _setting.get(SettingBoxKey.enableAndroidRouteRestore, defaultValue: true);
+
   static bool get enableSponsorBlock =>
       _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: true);
 

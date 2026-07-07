@@ -16,6 +16,7 @@ import 'package:PiliMax/services/account_service.dart';
 import 'package:PiliMax/services/download/download_collection_service.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/services/logger.dart';
+import 'package:PiliMax/services/route_restore_service.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/app_font.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
@@ -295,6 +296,7 @@ class MyApp extends StatelessWidget {
       supportedLocales: const [Locale("zh", "CN"), Locale("en", "US")],
       initialRoute: '/',
       getPages: Routes.getPages,
+      routingCallback: RouteRestoreService.onRouteChanged,
       defaultTransition: Pref.pageTransition,
       builder: FlutterSmartDialog.init(
         toastBuilder: CustomToast.new,

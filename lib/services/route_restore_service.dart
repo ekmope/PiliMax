@@ -40,9 +40,7 @@ abstract final class RouteRestoreService {
     final route = _normalizeRoute(routing.current);
     if (route.isEmpty || !route.startsWith('/')) return;
     if (route == '/') {
-      if (_hasPerformedRestore) {
-        unawaited(clear());
-      }
+      unawaited(clear());
       return;
     }
     if (!_restorableRoutes.contains(route)) return;

@@ -8,6 +8,7 @@ import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models_new/live/live_feed_index/watched_show.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/global_data.dart';
+import 'package:PiliMax/utils/parse_bool.dart';
 import 'package:PiliMax/utils/parse_int.dart';
 import 'package:PiliMax/utils/parse_string.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -128,6 +129,7 @@ class DynamicItemModel {
   DynamicItemModel? orig;
   String? type;
   bool? visible;
+  late bool linkFolded = false;
 
   // opus
   Fallback? fallback;
@@ -1380,7 +1382,7 @@ class DynamicStat {
     if (safeToInt(json['count']) case final count? when count > 0) {
       this.count = count;
     }
-    status = json['status'];
+    status = safeToBool(json['status'], () => 'STATE_LIKE');
   }
 }
 

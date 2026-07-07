@@ -9,7 +9,7 @@
 <div align="center">
     
 </div>
-    <p>PiliMax 个人自用修改版</p>
+    <p> PiliPlus 第三方Fork自用版本，AI改的Android和Windows </p>
     
 <img src="assets/screenshots/510shots_so.png" width="32%" alt="home" />
 <img src="assets/screenshots/174shots_so.png" width="32%" alt="home" />
@@ -23,21 +23,31 @@
 <br/>
 
 ## 项目说明
-- 本项目 PiliMax 是基于上游项目维护的个人自用版本，保留主要功能并进行了一些自用优化和调整。
+- 本项目 PiliMax 是基于上游项目 PiliPlus 及 PiliNara 的个人自用版本，保留主要功能并进行了一些自用优化和调整。
 - 本项目会按需同步上游更新，并在此基础上进行修改和优化。
-- 本项目仅供个人学习和测试使用，目前只打包了安卓版本,如有需要请自行Fork后编译.
+- 目前只打包了安卓版本，其他版本构建时也会顺便一起构建，但是大概率有bug。
+- 本项目仅供个人学习和测试使用，如有需要请自行Fork后修改编译。
 
 在此致敬原作者和上游作者的无私奉献。如有侵权请联系删除。
 
 ## 近期改动
 
-- 播放器界面精简 原来播放器顶部的听视频、投屏图标全部删掉；投屏按钮保留在更多面板，放在定时关闭下方、播放地址上方。
-- 安卓返回手势优化 首页标签页侧滑返回时直接调用系统动画退回桌面；其他标签页返回会先切回首页，适配安卓预测性返回手势规范。
-- 移除桌面快捷功能 删掉安卓桌面长按图标弹出的快捷菜单，不再提供搜索、离线视频快速入口。
+## 本项目修改
 
-## 改动说明(未来计划？) 并非有计划
+- 自动缓存清理：新增自动清理缓存功能，支持周期可选。
+- 页面恢复机制优化：新增 Android 后台被杀后的单页面恢复能力。
+- 动态页体验优化：优化 UP 主切换与滑动切换流畅度；新增动态文本关键词过滤。
+- 内容过滤强化：完善过滤豁免规则与屏蔽优先级，调整首页推荐流默认行为与相关设置。
+- 应用内悬浮小窗：新增应用内悬浮小窗播放服务；修复小窗模式下播放器状态不一致问题。
+- 交互细节打磨：图片长按 / 右键菜单新增复制图片功能；评论、动态发送的风控提示优化。
+- 多场景返回适配：优化 Android 预测性返回手势，覆盖评论区、回复详情、预览弹窗等场景。
+- 直播能力增强：优化直播间仅音频与画面切换体验；修复动态页直播卡片展开后异常跳转 UP 主主页的问题。
+- 新增听视频模式：支持后台与锁屏纯音频播放，优化页面切换时的播放衔接体验，修复听视频模式下播放进度不同步问题。
+- 播放体验优化：手动切集时自动显示播放控件；优化长按视频预览弹窗交互与封面元数据展示；播放器顶部新增电池电量与充电状态显示。
 
-Fork特性：
+## 改动说明(未来计划)
+
+PiliNara Fork 特性：
 
 **基础适配与界面**
 - [x] 修复Flutter在澎湃小窗下无法正常显示的问题，参考Flutter官方issue [#161086](https://github.com/flutter/flutter/issues/161086)，该问题似乎在HyperOS3上被修复
@@ -296,7 +306,9 @@ Fork特性：
 在此致敬原作者：[guozhigq/pilipala](https://github.com/guozhigq/pilipala)
 在此致敬上游作者：[orz12/PiliPalaX](https://github.com/orz12/PiliPalaX)
 在此致敬上游作者：[bggRGjQaUbCoE/PiliPlus](https://github.com/bggRGjQaUbCoE/PiliPlus)
-本仓库做了一些自用修改，感谢原作者的开源精神。
+在此致敬上游作者：[Starfallan/PiliNara](https://github.com/Starfallan/PiliNara)
+在此致敬上游作者：[staoran/PiliPlus](https://github.com/staoran/PiliPlus)
+本仓库做了一些自用修改，感谢原作者及其余commit作者的开源精神。
 
 感谢使用
 
@@ -305,10 +317,10 @@ Fork特性：
 
 ## 致谢
 
-- [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
-- [flutter_meedu_videoplayer](https://github.com/zezo357/flutter_meedu_videoplayer)
-- [media-kit](https://github.com/media-kit/media-kit)
-- [dio](https://pub.dev/packages/dio)
+- [bilibili-API-collect] (https://github.com/SocialSisterYi/bilibili-API-collect)
+- [flutter_meedu_videoplayer] (https://github.com/zezo357/flutter_meedu_videoplayer)
+- [media-kit] (https://github.com/media-kit/media-kit)
+- [dio] (https://pub.dev/packages/dio)
 - 等等
 
 <br/>

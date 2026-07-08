@@ -80,6 +80,7 @@ class StaticPopupMenuButton<T> extends StatelessWidget {
     this.child,
     this.icon,
     this.iconSize,
+    this.style,
     this.enabled = true,
     this.borderRadius,
     this.shape,
@@ -105,6 +106,7 @@ class StaticPopupMenuButton<T> extends StatelessWidget {
   final Widget? child;
   final Widget? icon;
   final double? iconSize;
+  final ButtonStyle? style;
   final bool enabled;
   final BorderRadius? borderRadius;
   final ShapeBorder? shape;
@@ -150,10 +152,7 @@ class StaticPopupMenuButton<T> extends StatelessWidget {
         if (child case final child?) {
           Widget result = child;
           if (padding != _kDefaultPopupMenuPadding) {
-            result = Padding(
-              padding: padding,
-              child: result,
-            );
+            result = Padding(padding: padding, child: result);
           }
           if (enabled) {
             result = InkWell(
@@ -171,6 +170,7 @@ class StaticPopupMenuButton<T> extends StatelessWidget {
           tooltip: tooltip ?? MaterialLocalizations.of(context).showMenuTooltip,
           padding: padding,
           iconSize: iconSize ?? 24,
+          style: style,
           onPressed: onPressed,
           icon: icon ?? const Icon(Icons.more_vert),
         );

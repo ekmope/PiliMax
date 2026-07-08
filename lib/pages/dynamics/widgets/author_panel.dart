@@ -137,8 +137,7 @@ class AuthorPanel extends StatelessWidget {
                           ),
                         ),
                         if (GlobalData().remarkMids[moduleAuthor.mid]
-                            case final String remark
-                            when remark.isNotEmpty)
+                            case final String remark when remark.isNotEmpty)
                           TextSpan(
                             text: '（$remark）',
                             style: TextStyle(
@@ -161,16 +160,19 @@ class AuthorPanel extends StatelessWidget {
     );
     Widget? moreBtn = isSave
         ? null
-        : SizedBox(
-            width: 32,
-            height: 32,
-            child: IconButton(
-              tooltip: '更多',
-              style: const ButtonStyle(
-                padding: WidgetStatePropertyAll(EdgeInsets.zero),
+        : Transform.translate(
+            offset: const Offset(12, -8),
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: IconButton(
+                tooltip: '更多',
+                style: const ButtonStyle(
+                  padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                ),
+                onPressed: () => morePanel(context),
+                icon: const Icon(Icons.more_vert_outlined, size: 18),
               ),
-              onPressed: () => morePanel(context),
-              icon: const Icon(Icons.more_vert_outlined, size: 18),
             ),
           );
     final moduleTagText = !isDetail ? item.modules.moduleTag?.text : null;
@@ -236,10 +238,7 @@ class AuthorPanel extends StatelessWidget {
                 ),
               ),
             ),
-          Padding(
-            padding: const .only(right: 80),
-            child: header,
-          ),
+          Padding(padding: const .only(right: 80), child: header),
         ],
       );
       if (moreBtn != null) {
@@ -320,10 +319,7 @@ class AuthorPanel extends StatelessWidget {
                   },
                   minLeadingWidth: 0,
                   leading: const Icon(Icons.watch_later_outlined, size: 19),
-                  title: Text(
-                    '稍后再看',
-                    style: theme.textTheme.titleSmall,
-                  ),
+                  title: Text('稍后再看', style: theme.textTheme.titleSmall),
                 ),
               ListTile(
                 onTap: () {
@@ -335,10 +331,7 @@ class AuthorPanel extends StatelessWidget {
                 title: Text('保存动态', style: theme.textTheme.titleSmall!),
               ),
               ListTile(
-                title: Text(
-                  '分享动态',
-                  style: theme.textTheme.titleSmall,
-                ),
+                title: Text('分享动态', style: theme.textTheme.titleSmall),
                 leading: const Icon(Icons.share_outlined, size: 19),
                 onTap: () {
                   Get.back();
@@ -352,10 +345,7 @@ class AuthorPanel extends StatelessWidget {
                       item.basic!.commentType == 11) &&
                   item.modules.moduleDynamic?.major?.blocked == null)
                 ListTile(
-                  title: Text(
-                    '分享至消息',
-                    style: theme.textTheme.titleSmall,
-                  ),
+                  title: Text('分享至消息', style: theme.textTheme.titleSmall),
                   leading: const Icon(Icons.forward_to_inbox, size: 19),
                   onTap: () {
                     Get.back();
@@ -432,10 +422,7 @@ class AuthorPanel extends StatelessWidget {
                 minLeadingWidth: 0,
               ),
               ListTile(
-                title: Text(
-                  '关键词屏蔽设置',
-                  style: theme.textTheme.titleSmall,
-                ),
+                title: Text('关键词屏蔽设置', style: theme.textTheme.titleSmall),
                 leading: const Icon(Icons.filter_alt_outlined, size: 19),
                 onTap: () {
                   Get.back();
@@ -556,10 +543,7 @@ class AuthorPanel extends StatelessWidget {
                       Icons.mark_unread_chat_alt_outlined,
                       size: 19,
                     ),
-                    title: Text(
-                      '互动设置',
-                      style: theme.textTheme.titleSmall!,
-                    ),
+                    title: Text('互动设置', style: theme.textTheme.titleSmall!),
                   ),
                 if (onSetPubSetting != null)
                   ListTile(
@@ -679,25 +663,25 @@ class AuthorPanel extends StatelessWidget {
                   ),
                   onTap: () {
                     Get.back();
-                    autoWrapReportDialog(
-                      context,
-                      ReportOptions.dynamicReport,
-                      (reasonType, reasonDesc, banUid) {
-                        if (banUid) {
-                          VideoHttp.relationMod(
-                            mid: moduleAuthor.mid!,
-                            act: 5,
-                            reSrc: 11,
-                          );
-                        }
-                        return UserHttp.dynamicReport(
+                    autoWrapReportDialog(context, ReportOptions.dynamicReport, (
+                      reasonType,
+                      reasonDesc,
+                      banUid,
+                    ) {
+                      if (banUid) {
+                        VideoHttp.relationMod(
                           mid: moduleAuthor.mid!,
-                          dynId: item.idStr,
-                          reasonType: reasonType,
-                          reasonDesc: reasonType == 0 ? reasonDesc : null,
+                          act: 5,
+                          reSrc: 11,
                         );
-                      },
-                    );
+                      }
+                      return UserHttp.dynamicReport(
+                        mid: moduleAuthor.mid!,
+                        dynId: item.idStr,
+                        reasonType: reasonType,
+                        reasonDesc: reasonType == 0 ? reasonDesc : null,
+                      );
+                    });
                   },
                   minLeadingWidth: 0,
                 ),

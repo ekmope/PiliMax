@@ -193,10 +193,10 @@ class HistoryItem extends StatelessWidget {
               ),
             ),
             Positioned(
-              right: 12,
-              bottom: 0,
-              width: 29,
-              height: 29,
+              right: 0,
+              bottom: -1.5,
+              width: 40,
+              height: 40,
               child: StaticPopupMenuButton(
                 padding: EdgeInsets.zero,
                 tooltip: '功能菜单',
@@ -204,6 +204,11 @@ class HistoryItem extends StatelessWidget {
                   Icons.more_vert_outlined,
                   color: theme.colorScheme.outline,
                   size: 18,
+                ),
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(40),
+                  minimumSize: const Size.square(40),
+                  padding: EdgeInsets.zero,
                 ),
                 itemBuilder: (_) => [
                   if (item.authorMid != null &&
@@ -213,10 +218,7 @@ class HistoryItem extends StatelessWidget {
                       height: 38,
                       child: Row(
                         children: [
-                          const Icon(
-                            MdiIcons.accountCircleOutline,
-                            size: 16,
-                          ),
+                          const Icon(MdiIcons.accountCircleOutline, size: 16),
                           const SizedBox(width: 6),
                           Text(
                             '访问：${item.authorName}',
@@ -282,10 +284,7 @@ class HistoryItem extends StatelessWidget {
               item.showTitle?.isNotEmpty == true)
             Text(
               item.showTitle!,
-              style: TextStyle(
-                fontSize: 13,
-                color: theme.colorScheme.outline,
-              ),
+              style: TextStyle(fontSize: 13, color: theme.colorScheme.outline),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),

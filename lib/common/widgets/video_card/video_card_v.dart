@@ -29,11 +29,7 @@ class VideoCardV extends StatelessWidget {
     r'刚刚|昨天|今天|前|\d{1,4}[-/.年]\d{1,2}|周[一二三四五六日天]',
   );
 
-  const VideoCardV({
-    super.key,
-    required this.videoItem,
-    this.onRemove,
-  });
+  const VideoCardV({super.key, required this.videoItem, this.onRemove});
 
   String? get _previewPubdateText {
     if (videoItem.pubdate != null) {
@@ -173,10 +169,10 @@ class VideoCardV extends StatelessWidget {
         ),
         if (videoItem.goto == 'av')
           Positioned(
-            right: -5,
-            bottom: -2,
-            width: 29,
-            height: 29,
+            right: -2,
+            bottom: -3,
+            width: VideoPopupMenu.defaultTapTargetSize,
+            height: VideoPopupMenu.defaultTapTargetSize,
             child: VideoPopupMenu(
               iconSize: 17,
               videoItem: videoItem,
@@ -200,9 +196,7 @@ class VideoCardV extends StatelessWidget {
                 "${videoItem.title}\n",
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  height: 1.38,
-                ),
+                style: const TextStyle(height: 1.38),
               ),
             ),
             videoStat(context, theme),
@@ -268,16 +262,10 @@ class VideoCardV extends StatelessWidget {
   Widget videoStat(BuildContext context, ThemeData theme) {
     return Row(
       children: [
-        StatWidget(
-          type: StatType.play,
-          value: videoItem.stat.view,
-        ),
+        StatWidget(type: StatType.play, value: videoItem.stat.view),
         if (videoItem.goto != 'picture') ...[
           const SizedBox(width: 4),
-          StatWidget(
-            type: StatType.danmaku,
-            value: videoItem.stat.danmu,
-          ),
+          StatWidget(type: StatType.danmaku, value: videoItem.stat.danmu),
         ],
         if (videoItem is RcmdVideoItemModel) ...[
           const Spacer(),

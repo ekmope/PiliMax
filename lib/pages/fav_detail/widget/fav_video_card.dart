@@ -25,12 +25,8 @@ class FavVideoCardH extends StatelessWidget {
   final int? index;
   final BaseFavController? ctr;
 
-  const FavVideoCardH({
-    super.key,
-    required this.item,
-    this.index,
-    this.ctr,
-  }) : assert(ctr == null || index != null);
+  const FavVideoCardH({super.key, required this.item, this.index, this.ctr})
+    : assert(ctr == null || index != null);
 
   bool get isSort => ctr == null;
 
@@ -136,10 +132,7 @@ class FavVideoCardH extends StatelessWidget {
                           ),
                         if (!isSort)
                           Positioned.fill(
-                            child: selectMask(
-                              colorScheme,
-                              item.checked,
-                            ),
+                            child: selectMask(colorScheme, item.checked),
                           ),
                       ],
                     );
@@ -167,9 +160,7 @@ class FavVideoCardH extends StatelessWidget {
               Text(
                 item.title!,
                 textAlign: TextAlign.start,
-                style: const TextStyle(
-                  letterSpacing: 0.3,
-                ),
+                style: const TextStyle(letterSpacing: 0.3),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -178,10 +169,7 @@ class FavVideoCardH extends StatelessWidget {
                   item.intro!,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: colorScheme.outline,
-                  ),
+                  style: TextStyle(fontSize: 13, color: colorScheme.outline),
                 ),
               const Spacer(),
               Text(
@@ -198,10 +186,7 @@ class FavVideoCardH extends StatelessWidget {
                 Row(
                   spacing: 8,
                   children: [
-                    StatWidget(
-                      type: StatType.play,
-                      value: item.cntInfo?.play,
-                    ),
+                    StatWidget(type: StatType.play, value: item.cntInfo?.play),
                     StatWidget(
                       type: StatType.danmaku,
                       value: item.cntInfo?.danmaku,
@@ -212,11 +197,12 @@ class FavVideoCardH extends StatelessWidget {
           ),
           if (isOwner)
             Positioned(
-              right: 0,
-              bottom: -8,
+              right: -Style.safeSpace,
+              bottom: -4,
               child: iconButton(
                 icon: const Icon(Icons.clear),
                 tooltip: '取消收藏',
+                size: 40,
                 iconColor: colorScheme.outline,
                 onPressed: () => showDialog(
                   context: context,

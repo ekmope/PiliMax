@@ -108,23 +108,11 @@ class VideoCardHLater extends StatelessWidget {
                             type: PBadgeType.error,
                           )
                         else if (videoItem.rights?.isCooperation == 1)
-                          const PBadge(
-                            text: '合作',
-                            top: 6.0,
-                            right: 6.0,
-                          )
+                          const PBadge(text: '合作', top: 6.0, right: 6.0)
                         else if (videoItem.pgcLabel != null)
-                          PBadge(
-                            text: videoItem.pgcLabel,
-                            top: 6.0,
-                            right: 6.0,
-                          )
+                          PBadge(text: videoItem.pgcLabel, top: 6.0, right: 6.0)
                         else if (videoItem.isPugv ?? false)
-                          const PBadge(
-                            text: '课堂',
-                            top: 6.0,
-                            right: 6.0,
-                          ),
+                          const PBadge(text: '课堂', top: 6.0, right: 6.0),
                         if (progress != null && progress != 0) ...[
                           PBadge(
                             text: progress == -1
@@ -178,10 +166,7 @@ class VideoCardHLater extends StatelessWidget {
 
   Widget content(BuildContext context, ThemeData theme) {
     final isPgc = videoItem.isPgc == true && videoItem.bangumi != null;
-    Widget stat = StatWidget(
-      type: StatType.play,
-      value: videoItem.stat?.view,
-    );
+    Widget stat = StatWidget(type: StatType.play, value: videoItem.stat?.view);
     return Expanded(
       child: Stack(
         clipBehavior: Clip.none,
@@ -251,8 +236,8 @@ class VideoCardHLater extends StatelessWidget {
                   ],
           ),
           Positioned(
-            right: 0,
-            bottom: -8,
+            right: -Style.safeSpace,
+            bottom: -4,
             child: Row(
               spacing: 2,
               mainAxisSize: MainAxisSize.min,
@@ -262,6 +247,7 @@ class VideoCardHLater extends StatelessWidget {
                     final isLoading = ctr.isPromotingToTop(videoItem);
                     return iconButton(
                       tooltip: '置顶',
+                      size: 40,
                       onPressed: isLoading
                           ? null
                           : () => ctr.promoteToTop(index, videoItem),
@@ -279,6 +265,7 @@ class VideoCardHLater extends StatelessWidget {
                   }),
                 iconButton(
                   tooltip: '移除',
+                  size: 40,
                   onPressed: () => ctr.toViewDel(context, index, videoItem.aid),
                   icon: const Icon(Icons.clear),
                   iconColor: theme.colorScheme.outline,

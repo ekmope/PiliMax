@@ -118,15 +118,17 @@ class _PlDanmakuState extends State<PlDanmaku> {
     if (currentPosition == latestAddedPosition) {
       return;
     }
-    latestAddedPosition = currentPosition;
 
     List<DanmakuElem>? currentDanmakuList = _plDanmakuController
         .getCurrentDanmaku(currentPosition);
-    if (currentDanmakuList != null) {
+    if (currentDanmakuList == null) {
+      return;
+    }
+
+    latestAddedPosition = currentPosition;
+    if (currentDanmakuList.isNotEmpty) {
       final blockColorful = DanmakuOptions.blockColorful;
-      final danmakuWeight = DanmakuOptions.danmakuWeight;
       for (DanmakuElem e in currentDanmakuList) {
-        if (e.weight < danmakuWeight) return;
         if (e.mode == 7) {
           if (kDebugMode &&
               !_loggedEarlySpecialDanmaku &&
@@ -156,11 +158,12 @@ class _PlDanmakuState extends State<PlDanmaku> {
           final displayCount = e.count > Pref.mergeDanmakuMarkThreshold
               ? e.count
               : null;
-          final preferredCountPosition = switch (Pref.mergeDanmakuMarkPosition) {
-            0 => DanmakuCountPosition.hidden,
-            2 => DanmakuCountPosition.tail,
-            _ => DanmakuCountPosition.head,
-          };
+          final preferredCountPosition =
+              switch (Pref.mergeDanmakuMarkPosition) {
+                0 => DanmakuCountPosition.hidden,
+                2 => DanmakuCountPosition.tail,
+                _ => DanmakuCountPosition.head,
+              };
           final countPosition = displayCount == null
               ? DanmakuCountPosition.hidden
               : preferredCountPosition;
@@ -174,7 +177,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
             itemFontSize = e.fontsize.toDouble() * scale;
           }
           // If itemFontSize is null, canvas_danmaku uses global fontSize from DanmakuOption
-          
+
           _controller!.addDanmaku(
             DanmakuContentItem(
               e.content,
@@ -237,6 +240,15 @@ class _PlDanmakuState extends State<PlDanmaku> {
               );
             }
             playerController.danmakuController = _controller = e;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && _controller != null) {
+                videoPositionListen(
+                  Duration(
+                    milliseconds: playerController.positionInMilliseconds,
+                  ),
+                );
+              }
+            });
           },
           option: option,
           size: widget.size,
@@ -244,5 +256,4 @@ class _PlDanmakuState extends State<PlDanmaku> {
       ),
     );
   }
-
 }

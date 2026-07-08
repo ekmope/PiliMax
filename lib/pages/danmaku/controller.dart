@@ -6,17 +6,16 @@ import 'package:PiliMax/grpc/dm.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/data_source.dart';
+import 'package:PiliMax/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:path/path.dart' as path;
 
 class PlDanmakuController {
-  PlDanmakuController(
-    this._cid,
-    this._plPlayerController,
-    this._isFileSource,
-  ) : _mergeDanmaku = _plPlayerController.mergeDanmaku;
+  PlDanmakuController(this._cid, this._plPlayerController, this._isFileSource)
+    : _mergeDanmaku = _plPlayerController.mergeDanmaku;
 
   final int _cid;
   final PlPlayerController _plPlayerController;
@@ -28,10 +27,14 @@ class PlDanmakuController {
   final Map<int, List<DanmakuElem>> _dmSegMap = HashMap();
   // 已请求的段落标记
   late final Set<int> _requestedSeg = HashSet();
+  bool _disposed = false;
+  bool _shownEmptyHint = false;
+  bool _shownErrorHint = false;
 
   static const int segmentLength = 60 * 6 * 1000;
 
   void dispose() {
+    _disposed = true;
     _dmSegMap.clear();
     _requestedSeg.clear();
   }
@@ -40,8 +43,24 @@ class PlDanmakuController {
     return progress ~/ segmentLength;
   }
 
+  void _showEmptyHint(String message) {
+    if (_disposed || _shownEmptyHint) {
+      return;
+    }
+    _shownEmptyHint = true;
+    SmartDialog.showToast(message);
+  }
+
+  void _showErrorHint(String message) {
+    if (_disposed || _shownErrorHint) {
+      return;
+    }
+    _shownErrorHint = true;
+    SmartDialog.showToast(message);
+  }
+
   Future<void> queryDanmaku(int segmentIndex) async {
-    if (_isFileSource) {
+    if (_disposed || _isFileSource) {
       return;
     }
     if (_requestedSeg.contains(segmentIndex)) {
@@ -52,14 +71,22 @@ class PlDanmakuController {
       cid: _cid,
       segmentIndex: segmentIndex + 1,
     );
+    if (_disposed) {
+      return;
+    }
 
     if (res case Success(:final response)) {
       if (response.state == 1) {
         _plPlayerController.dmState.add(_cid);
       }
+      if (response.elems.isEmpty) {
+        _showEmptyHint(response.state == 1 ? 'UP主已关闭弹幕' : '当前时间点暂无弹幕');
+        return;
+      }
       handleDanmaku(response.elems);
     } else {
       _requestedSeg.remove(segmentIndex);
+      _showErrorHint('弹幕加载失败');
     }
   }
 
@@ -68,6 +95,7 @@ class PlDanmakuController {
     final uniques = HashMap<String, DanmakuElem>();
 
     final filters = _plPlayerController.filters;
+    final danmakuWeight = DanmakuOptions.danmakuWeight;
     final shouldFilter = filters.count != 0;
     for (final element in elems) {
       if (_isLogin) {
@@ -85,7 +113,8 @@ class PlDanmakuController {
           }
         }
 
-        if (shouldFilter && filters.remove(element)) {
+        if (element.weight < danmakuWeight ||
+            (shouldFilter && filters.remove(element))) {
           continue;
         }
       }
@@ -125,13 +154,22 @@ class PlDanmakuController {
           PathUtils.danmakuName,
         ),
       );
-      if (!file.existsSync()) return;
+      if (_disposed) return;
+      if (!file.existsSync()) {
+        _showEmptyHint('当前视频暂无弹幕');
+        return;
+      }
       final bytes = await file.readAsBytes();
-      if (bytes.isEmpty) return;
+      if (_disposed) return;
+      if (bytes.isEmpty) {
+        _showEmptyHint('当前视频暂无弹幕');
+        return;
+      }
       final elem = DmSegMobileReply.fromBuffer(bytes).elems;
       handleDanmaku(elem);
     } catch (e, s) {
       Utils.reportError(e, s);
+      _showErrorHint('弹幕加载失败');
     }
   }
 }

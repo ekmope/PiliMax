@@ -445,7 +445,6 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
 
   @override
   Future<void> onCustomPublish({List? pictures}) async {
-    SmartDialog.showLoading(msg: '发送中...');
     bool isColorful = _color.value == Colors.transparent;
     final res = await DanmakuHttp.shootDanmaku(
       oid: widget.cid,
@@ -457,7 +456,6 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
       color: isColorful ? null : _color.value.toARGB32() & 0xFFFFFF,
       colorful: isColorful,
     );
-    SmartDialog.dismiss();
     if (res case Success(:final response)) {
       hasPub = true;
       Get.back();

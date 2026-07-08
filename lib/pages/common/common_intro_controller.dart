@@ -68,6 +68,12 @@ abstract class CommonIntroController extends GetxController
   Timer? timer;
 
   late final RxInt cid;
+  int _introRequestGeneration = 0;
+
+  int nextIntroRequestGeneration() => ++_introRequestGeneration;
+
+  bool isCurrentIntroRequest(int generation) =>
+      !isClosed && generation == _introRequestGeneration;
 
   late final videoDetailCtr = Get.find<VideoDetailController>(tag: heroTag);
 
@@ -99,8 +105,11 @@ abstract class CommonIntroController extends GetxController
   }
 
   // 查看同时在看人数
-  Future<void> queryOnlineTotal() async {
+  Future<void> queryOnlineTotal({bool Function()? isCurrent}) async {
     if (!isShowOnlineTotal) {
+      return;
+    }
+    if (isCurrent?.call() == false) {
       return;
     }
     final result = await VideoHttp.onlineTotal(
@@ -108,6 +117,9 @@ abstract class CommonIntroController extends GetxController
       bvid: bvid,
       cid: cid.value,
     );
+    if (isCurrent?.call() == false) {
+      return;
+    }
     if (result case Success(:final response)) {
       total.value = response;
     }
@@ -144,8 +156,14 @@ abstract class CommonIntroController extends GetxController
     }
   }
 
-  Future<void> queryVideoTags() async {
+  Future<void> queryVideoTags({bool Function()? isCurrent}) async {
+    if (isCurrent?.call() == false) {
+      return;
+    }
     final result = await UserHttp.videoTags(bvid: bvid, cid: cid.value);
+    if (isCurrent?.call() == false) {
+      return;
+    }
     videoTags.value = result.dataOrNull;
   }
 

@@ -267,6 +267,7 @@ class PgcIntroController extends CommonIntroController {
       }
 
       // 重新获取视频资源
+      final currentIntroGeneration = nextIntroRequestGeneration();
       this.epId = epId;
       this.bvid = bvid;
 
@@ -312,8 +313,10 @@ class PgcIntroController extends CommonIntroController {
 
       hasLater.value = videoDetailCtr.sourceType == SourceType.watchLater;
       this.cid.value = cid;
-      queryOnlineTotal();
-      queryVideoIntro(episode as EpisodeItem);
+      queryOnlineTotal(
+        isCurrent: () => isCurrentIntroRequest(currentIntroGeneration),
+      );
+      queryVideoIntroForSwitch(currentIntroGeneration, episode as EpisodeItem);
       return true;
     } catch (e) {
       if (kDebugMode) debugPrint('pgc onChangeEpisode: $e');
@@ -479,10 +482,34 @@ class PgcIntroController extends CommonIntroController {
 
   @override
   void queryVideoIntro([EpisodeItem? episode]) {
+    _queryVideoIntro(episode: episode);
+  }
+
+  void queryVideoIntroForSwitch(int generation, [EpisodeItem? episode]) {
+    _queryVideoIntro(
+      episode: episode,
+      isCurrent: () => isCurrentIntroRequest(generation),
+    );
+  }
+
+  void _queryVideoIntro({
+    EpisodeItem? episode,
+    bool Function()? isCurrent,
+  }) {
+    bool isCurrentIntro() => isCurrent?.call() ?? true;
+    if (!isCurrentIntro()) {
+      return;
+    }
     episode ??= pgcItem.episodes!.firstWhere((e) => e.cid == cid.value);
+    if (!isCurrentIntro()) {
+      return;
+    }
     videoDetail
       ..value.title = episode.showTitle
       ..refresh();
+    if (!isCurrentIntro()) {
+      return;
+    }
     videoPlayerServiceHandler?.onVideoDetailChange(
       episode,
       cid.value,

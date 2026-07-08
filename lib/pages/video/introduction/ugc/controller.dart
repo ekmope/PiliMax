@@ -93,16 +93,35 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
   // 获取视频简介&分p
   @override
-  Future<void> queryVideoIntro() async {
-    queryVideoTags();
-    final res = await VideoHttp.videoIntro(bvid: bvid);
+  Future<void> queryVideoIntro() => _queryVideoIntro();
+
+  Future<void> queryVideoIntroForSwitch(int generation) {
+    return _queryVideoIntro(
+      isCurrent: () => isCurrentIntroRequest(generation),
+    );
+  }
+
+  Future<void> _queryVideoIntro({bool Function()? isCurrent}) async {
+    bool isCurrentIntro() => isCurrent?.call() ?? true;
+    if (!isCurrentIntro()) {
+      return;
+    }
+    final requestBvid = bvid;
+    queryVideoTags(isCurrent: isCurrentIntro);
+    final res = await VideoHttp.videoIntro(bvid: requestBvid);
+    if (!isCurrentIntro() || bvid != requestBvid) {
+      return;
+    }
     if (res case Success(:final response)) {
       if (response.redirectUrl != null &&
           videoDetailCtr.epId == null &&
           videoDetailCtr.seasonId == null) {
-        if (!isClosed) {
+        if (!isClosed && isCurrentIntro()) {
           PageUtils.viewPgcFromUri(response.redirectUrl!, off: true);
         }
+        return;
+      }
+      if (!isCurrentIntro()) {
         return;
       }
       videoPlayerServiceHandler?.onVideoDetailChange(
@@ -140,10 +159,16 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       }
       queryUserStat(response.staff);
     } else {
+      if (!isCurrentIntro()) {
+        return;
+      }
       res.toast();
       status.value = false;
     }
 
+    if (!isCurrentIntro()) {
+      return;
+    }
     if (isLogin) {
       queryAllStatus();
       queryFollowStatus();
@@ -482,6 +507,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       if (cid == null) {
         return false;
       }
+      final currentIntroGeneration = nextIntroRequestGeneration();
 
       if (manual) {
         videoDetailCtr.plPlayerController.markManualEpisodeChange();
@@ -559,7 +585,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
         hasLater.value = videoDetailCtr.sourceType == SourceType.watchLater;
         this.bvid = bvid;
-        queryVideoIntro();
+        queryVideoIntroForSwitch(currentIntroGeneration);
       } else {
         if (episode is Part) {
           final videoDetail = this.videoDetail.value;
@@ -574,7 +600,9 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       }
 
       this.cid.value = cid;
-      queryOnlineTotal();
+      queryOnlineTotal(
+        isCurrent: () => isCurrentIntroRequest(currentIntroGeneration),
+      );
       return true;
     } catch (e) {
       if (kDebugMode) debugPrint('ugc onChangeEpisode: $e');

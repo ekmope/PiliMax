@@ -477,8 +477,18 @@ class AudioController extends GetxController
     }
     for (final section in videoDetail.ugcSeason?.sections ?? const []) {
       for (final episode in section.episodes ?? const []) {
-        if (episode.cid == cid || episode.aid == aid || episode.bvid == bvid) {
+        if (episode.cid == cid) {
           return episode;
+        }
+        if (episode.aid == aid || episode.bvid == bvid) {
+          return ugc.BaseEpisodeItem(
+            aid: episode.aid ?? aid,
+            bvid: episode.bvid ?? bvid,
+            cid: cid,
+            title: episode.title,
+            cover: episode.cover,
+            badge: episode.badge,
+          );
         }
         for (final part in episode.pages ?? const []) {
           if (part.cid == cid) return part;

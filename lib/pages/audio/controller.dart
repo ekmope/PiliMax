@@ -935,17 +935,14 @@ class AudioController extends GetxController
         videoPlayerServiceHandler?.onStatusChange(playerStatus, false, false);
       }),
       stream.completed.listen((completed) {
-        if (completed) {
-          _videoDetailController?.playedTime = _rawAudioDuration(player);
-        }
+        if (!completed) return;
+        _videoDetailController?.playedTime = _rawAudioDuration(player);
         videoPlayerServiceHandler?.onStatusChange(
           PlayerStatus.completed,
           false,
           false,
         );
-        if (completed) {
-          _handlePlaybackCompleted();
-        }
+        _handlePlaybackCompleted();
       }),
     ];
   }

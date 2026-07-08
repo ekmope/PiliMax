@@ -9,6 +9,7 @@ import 'package:flutter/material.dart' hide PopScope;
 abstract class PopScopeState<T extends StatefulWidget> extends State<T>
     implements PopEntry<Object> {
   ModalRoute<dynamic>? _route;
+  bool _isRegistered = false;
 
   @override
   void onPopInvoked(bool didPop) {}
@@ -29,16 +30,25 @@ abstract class PopScopeState<T extends StatefulWidget> extends State<T>
     super.didChangeDependencies();
     final ModalRoute<dynamic>? nextRoute = ModalRoute.of(context);
     if (nextRoute != _route) {
-      _route?.unregisterPopEntry(this);
+      if (_isRegistered) {
+        _route?.unregisterPopEntry(this);
+        _isRegistered = false;
+      }
       _route = nextRoute;
-      _route?.registerPopEntry(this);
+      if (nextRoute != null) {
+        nextRoute.registerPopEntry(this);
+        _isRegistered = true;
+      }
     }
   }
 
   @override
   void dispose() {
-    _route?.unregisterPopEntry(this);
+    if (_isRegistered) {
+      _route?.unregisterPopEntry(this);
+    }
     _route = null;
+    _isRegistered = false;
     canPopNotifier.dispose();
     super.dispose();
   }

@@ -327,34 +327,7 @@ class DetailItem extends StatelessWidget {
                         right: 0,
                         bottom: 0,
                         child: isCurr
-                            ? RepaintBoundary(
-                                child: Obx(() {
-                                  final curDownload = downloadService
-                                      .activeEntry(entry.cid);
-                                  if (curDownload != null) {
-                                    final status = curDownload.status;
-                                    final color = status != DownloadStatus.pause
-                                        ? theme.colorScheme.primary
-                                        : theme.colorScheme.outline;
-                                    return progressWidget(
-                                      statusMsg: status.message,
-                                      progressStr:
-                                          status ==
-                                                  DownloadStatus.downloading ||
-                                              status == DownloadStatus.pause
-                                          ? '${CacheManager.formatSize(curDownload.downloadedBytes)}/${CacheManager.formatSize(curDownload.totalBytes)}'
-                                          : '',
-                                      progress: curDownload.totalBytes == 0
-                                          ? 0
-                                          : curDownload.downloadedBytes /
-                                                curDownload.totalBytes,
-                                      color: color,
-                                      highlightColor: theme.highlightColor,
-                                    );
-                                  }
-                                  return entryProgress(theme);
-                                }),
-                              )
+                            ? activeProgress(theme)
                             : entryProgress(theme),
                       ),
                   ],
@@ -364,6 +337,25 @@ class DetailItem extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget activeProgress(ThemeData theme) {
+    final status = entry.status;
+    final color = status != DownloadStatus.pause
+        ? theme.colorScheme.primary
+        : theme.colorScheme.outline;
+    return progressWidget(
+      statusMsg: status.message,
+      progressStr:
+          status == DownloadStatus.downloading || status == DownloadStatus.pause
+          ? '${CacheManager.formatSize(entry.downloadedBytes)}/${CacheManager.formatSize(entry.totalBytes)}'
+          : '',
+      progress: entry.totalBytes == 0
+          ? 0
+          : entry.downloadedBytes / entry.totalBytes,
+      color: color,
+      highlightColor: theme.highlightColor,
     );
   }
 

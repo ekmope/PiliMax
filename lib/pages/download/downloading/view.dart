@@ -121,6 +121,7 @@ class _DownloadingPageState extends State<DownloadingPage>
       onConfirm: () async {
         SmartDialog.showLoading();
         final allChecked = this.allChecked.toSet();
+        final hasActive = allChecked.any(_downloadService.isActive);
         for (final entry in allChecked) {
           await _downloadService.deleteDownload(
             entry: entry,
@@ -129,7 +130,9 @@ class _DownloadingPageState extends State<DownloadingPage>
           );
         }
         _downloadService.waitDownloadQueue.removeWhere(allChecked.contains);
-        _downloadService.nextDownload();
+        if (hasActive) {
+          _downloadService.nextDownload();
+        }
         if (enableMultiSelect.value) {
           rxCount.value = 0;
           enableMultiSelect.value = false;

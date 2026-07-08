@@ -145,6 +145,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   bool isShowing = true;
   final CompletedGateScheduler _completedGateScheduler =
       CompletedGateScheduler();
+  bool _completedProgressSynced = false;
 
   bool get isFullScreen =>
       videoDetailController.plPlayerController.isFullScreen.value;
@@ -520,7 +521,22 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   }
 
   void _onPlayerSeek(Duration _) {
+    _completedProgressSynced = false;
     _completedGateScheduler.cancel();
+  }
+
+  void _syncCompletedProgress() {
+    if (_completedProgressSynced) {
+      return;
+    }
+    final controller = plPlayerController;
+    if (controller == null) {
+      return;
+    }
+    _completedProgressSynced = true;
+    videoDetailController.syncCompletedProgressForCurrentVideo(
+      fallbackDuration: controller.videoPlayerController?.state.duration,
+    );
   }
 
   void _scheduleCompletedConsume() {
@@ -595,9 +611,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       return;
     }
 
-    videoDetailController.syncCompletedProgressForCurrentVideo(
-      fallbackDuration: controller.videoPlayerController?.state.duration,
-    );
+    _syncCompletedProgress();
 
     bool exitFlag = true;
 
@@ -642,6 +656,34 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     }
   }
 
+  bool _persistCompletedProgressIfNeeded({required String reason}) {
+    final controller = plPlayerController;
+    final player = controller?.videoPlayerController;
+    final remaining = player == null
+        ? null
+        : CompletedGate.remaining(
+            total: player.state.duration,
+            position: player.state.position,
+          );
+    if (controller == null ||
+        player == null ||
+        !controller.playerStatus.isCompleted ||
+        remaining == null ||
+        !CompletedGate.isReady(remaining)) {
+      return false;
+    }
+
+    final completedDuration = player.state.duration > Duration.zero
+        ? player.state.duration
+        : Duration(milliseconds: videoDetailController.data.timeLength ?? 0);
+    videoDetailController.playedTime = completedDuration;
+    _syncCompletedProgress();
+    if (kDebugMode) {
+      debugPrint('[VideoPage] persist completed progress before close: $reason');
+    }
+    return true;
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final isResume = state == .resumed;
@@ -670,6 +712,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   // 播放器状态监听
   Future<void> playerListener(PlayerStatus status) async {
     final isPlaying = status.isPlaying;
+    if (isPlaying) {
+      _completedProgressSynced = false;
+    }
     try {
       if (videoDetailController.scrollCtr.hasClients) {
         if (isPlaying) {
@@ -763,6 +808,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       _pipRetryPending = false;
     }
 
+    final persistedCompleted = _persistCompletedProgressIfNeeded(
+      reason: 'dispose',
+    );
     _completedGateScheduler.cancel();
     _unbindPlayerListeners();
 
@@ -792,7 +840,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       } else {
         videoPlayerServiceHandler?.onVideoDetailDispose(heroTag);
         if (plPlayerController != null) {
-          videoDetailController.makeHeartBeat();
+          if (!persistedCompleted) {
+            videoDetailController.makeHeartBeat();
+          }
           plPlayerController!.dispose();
         } else {
           PlPlayerController.updatePlayCount();

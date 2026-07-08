@@ -41,6 +41,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
 
   int? isFollowed; // 被关注
   RxInt relation = 0.obs;
+  final RxBool isFollowLoading = false.obs;
   bool get isFollow => relation.value != 0 && relation.value != 128;
 
   SpaceSetting? spaceSetting;
@@ -261,18 +262,29 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
   }
 
   Future<void> _onBlock() async {
+    if (isFollowLoading.value) {
+      return;
+    }
+    isFollowLoading.value = true;
     final isBlocked = relation.value == 128;
-    final res = await VideoHttp.relationMod(
-      mid: mid,
-      act: isBlocked ? 6 : 5,
-      reSrc: 11,
-    );
-    if (res.isSuccess) {
-      relation.value = isBlocked ? 0 : 128;
+    try {
+      final res = await VideoHttp.relationMod(
+        mid: mid,
+        act: isBlocked ? 6 : 5,
+        reSrc: 11,
+      );
+      if (res.isSuccess) {
+        relation.value = isBlocked ? 0 : 128;
+      }
+    } finally {
+      isFollowLoading.value = false;
     }
   }
 
   void onFollow(BuildContext context) {
+    if (isFollowLoading.value) {
+      return;
+    }
     if (mid == account.mid) {
       Get.toNamed('/editProfile');
     } else if (relation.value == 128) {
@@ -287,6 +299,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
         mid: mid,
         isFollow: isFollow,
         afterMod: (attribute) => relation.value = attribute,
+        requestLoading: (value) => isFollowLoading.value = value,
       );
     }
   }

@@ -7,6 +7,7 @@ import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart'
     show RichTextType;
 import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';
+import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
@@ -210,7 +211,9 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
             const Spacer(),
             Obx(
               () => FilledButton.tonal(
-                onPressed: enablePublish.value ? onPublishThrottle : null,
+                onPressed: enablePublish.value && !isPublishing.value
+                    ? onPublishThrottle
+                    : null,
                 style: FilledButton.styleFrom(
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   padding: const EdgeInsets.symmetric(
@@ -219,7 +222,10 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                   ),
                   visualDensity: VisualDensity.compact,
                 ),
-                child: const Text('发送'),
+                child: LoadingButtonChild(
+                  isLoading: isPublishing.value,
+                  child: const Text('发送'),
+                ),
               ),
             ),
           ],

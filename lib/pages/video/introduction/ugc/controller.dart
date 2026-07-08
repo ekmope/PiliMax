@@ -12,6 +12,7 @@ import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
+import 'package:PiliMax/models_new/media_list/media_list.dart';
 import 'package:PiliMax/models_new/member_card_info/data.dart';
 import 'package:PiliMax/models_new/relation/data.dart';
 import 'package:PiliMax/models_new/video/video_ai_conclusion/model_result.dart';
@@ -484,6 +485,60 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     }
   }
 
+  Future<int> _resolveMediaListHistoryCid(
+    MediaListItemModel episode,
+    String bvid,
+    int fallbackCid,
+    bool Function() isCurrent,
+  ) async {
+    final pages = episode.pages;
+    if (pages == null || pages.length <= 1) {
+      return fallbackCid;
+    }
+
+    bool containsCid(int cid) => pages.any((page) => page.id == cid);
+    if (!containsCid(fallbackCid)) {
+      return fallbackCid;
+    }
+
+    try {
+      final res = await VideoHttp.playInfo(bvid: bvid, cid: fallbackCid);
+      if (!isCurrent()) {
+        return fallbackCid;
+      }
+      if (res case Success(:final response)) {
+        final lastPlayCid = response.lastPlayCid;
+        if (lastPlayCid != null &&
+            lastPlayCid > 0 &&
+            containsCid(lastPlayCid)) {
+          return lastPlayCid;
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('resolve media list history cid failed: $e');
+      }
+    }
+    return fallbackCid;
+  }
+
+  bool _shouldRestoreHistoryPartForListTarget(BaseEpisodeItem episode) {
+    if (episode is! MediaListItemModel) {
+      return false;
+    }
+    final pages = episode.pages;
+    if (pages == null || pages.length <= 1) {
+      return false;
+    }
+
+    final targetBvid = episode.bvid;
+    if (targetBvid != null && targetBvid.isNotEmpty) {
+      return targetBvid != bvid;
+    }
+    final targetAid = episode.aid;
+    return targetAid != null && targetAid != videoDetailCtr.aid;
+  }
+
   // 修改分P或番剧分集
   Future<bool> onChangeEpisode(
     BaseEpisodeItem episode, {
@@ -491,6 +546,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     bool fromAudioPage = false,
     Duration? audioPosition,
     bool manual = false,
+    bool preferHistoryPart = true,
   }) async {
     try {
       final String bvid = episode.bvid ?? this.bvid;
@@ -511,6 +567,20 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
       if (manual) {
         videoDetailCtr.plPlayerController.markManualEpisodeChange();
+      }
+
+      if (!fromAudioPage &&
+          preferHistoryPart &&
+          episode is MediaListItemModel) {
+        cid = await _resolveMediaListHistoryCid(
+          episode,
+          bvid,
+          cid,
+          () => isCurrentIntroRequest(currentIntroGeneration),
+        );
+        if (!isCurrentIntroRequest(currentIntroGeneration)) {
+          return false;
+        }
       }
 
       final String? cover = episode.cover;
@@ -700,7 +770,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     }
 
     if (cid != this.cid.value) {
-      onChangeEpisode(episodes[prevIndex], manual: manual);
+      final episode = episodes[prevIndex];
+      onChangeEpisode(
+        episode,
+        manual: manual,
+        preferHistoryPart: _shouldRestoreHistoryPartForListTarget(episode),
+      );
       return true;
     } else {
       return false;
@@ -794,7 +869,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       }
 
       if (cid != this.cid.value) {
-        onChangeEpisode(episodes[nextIndex], manual: manual);
+        final episode = episodes[nextIndex];
+        onChangeEpisode(
+          episode,
+          manual: manual,
+          preferHistoryPart: _shouldRestoreHistoryPartForListTarget(episode),
+        );
         return true;
       } else {
         return false;

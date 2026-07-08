@@ -6,6 +6,7 @@ import 'package:PiliMax/grpc/audio.dart';
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pb.dart'
     show
         DetailItem,
+        PlayItem,
         PlayURLResp,
         PlaylistSource,
         PlayInfo,
@@ -88,6 +89,7 @@ class AudioController extends GetxController
   List<StreamSubscription>? _subscriptions;
   Timer? _autoTailSkipCompletedTimer;
   int _autoTailSkipGeneration = 0;
+  int _playIndexGeneration = 0;
   int _heartDuration = 0;
   bool _completedHeartBeatSynced = false;
 
@@ -510,6 +512,57 @@ class AudioController extends GetxController
       }
     }
     return null;
+  }
+
+  bool _detailItemContainsSubId(DetailItem item, int cid) =>
+      item.parts.any((part) => part.subId.toInt() == cid);
+
+  Future<List<Int64>> _defaultSubIdsForPlaylistItem(
+    DetailItem audioItem,
+    PlayItem item,
+    List<Int64>? requestedSubId, {
+    required bool preferHistoryPart,
+    required bool Function() isCurrent,
+  }) async {
+    if (requestedSubId != null) {
+      return requestedSubId;
+    }
+
+    final parts = audioItem.parts;
+    final fallbackSubId = item.subId.firstOrNull ?? parts.firstOrNull?.subId;
+    if (fallbackSubId == null) {
+      return const <Int64>[];
+    }
+
+    if (preferHistoryPart && isUgc && parts.length > 1) {
+      try {
+        final fallbackCid = fallbackSubId.toInt();
+        final res = await VideoHttp.playInfo(
+          bvid: IdUtils.av2bv(item.oid.toInt()),
+          cid: fallbackCid,
+        );
+        if (!isCurrent()) {
+          return [fallbackSubId];
+        }
+        if (res case Success(:final response)) {
+          final lastPlayCid = response.lastPlayCid;
+          if (lastPlayCid != null &&
+              lastPlayCid > 0 &&
+              _detailItemContainsSubId(audioItem, lastPlayCid)) {
+            return [Int64(lastPlayCid)];
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) debugPrint('resolve audio history cid failed: $e');
+      }
+
+      final lastPartCid = audioItem.lastPart.toInt();
+      if (lastPartCid > 0 && _detailItemContainsSubId(audioItem, lastPartCid)) {
+        return [Int64(lastPartCid)];
+      }
+    }
+
+    return item.subId.isNotEmpty ? item.subId : [fallbackSubId];
   }
 
   void _updateCurrItem(DetailItem item) {
@@ -955,7 +1008,7 @@ class AudioController extends GetxController
       _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
       final prev = index! - 1;
       if (prev >= 0) {
-        playIndex(prev);
+        playIndex(prev, preferHistoryPart: false);
         return true;
       }
     }
@@ -969,6 +1022,7 @@ class AudioController extends GetxController
           final subId = this.subId.firstOrNull;
           final nextIndex = parts.indexWhere((e) => e.subId == subId) + 1;
           if (nextIndex != 0 && nextIndex < parts.length) {
+            _playIndexGeneration++;
             _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
             final prevOid = oid;
             final prevSubId = this.subId;
@@ -1003,30 +1057,46 @@ class AudioController extends GetxController
         if (next == playlist!.length - 1 && _next != null) {
           _queryPlayList(isLoadNext: true);
         }
-        playIndex(next);
+        playIndex(next, preferHistoryPart: false);
         return true;
       }
     }
     return false;
   }
 
-  void playIndex(int index, {List<Int64>? subId}) {
+  void playIndex(
+    int index, {
+    List<Int64>? subId,
+    bool preferHistoryPart = true,
+  }) {
     if (index == this.index && subId == null) return;
     _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
     final prevIndex = this.index;
     final prevOid = oid;
     final prevSubId = this.subId;
     final prevItemType = itemType;
-    this.index = index;
     final audioItem = playlist![index];
     final item = audioItem.item;
-    oid = item.oid;
-    this.subId =
-        subId ??
-        (item.subId.isNotEmpty ? item.subId : [audioItem.parts.first.subId]);
-    itemType = item.itemType;
-    _resetHeartBeatProgress();
-    _queryPlayUrl().then((res) {
+    final generation = ++_playIndexGeneration;
+    _defaultSubIdsForPlaylistItem(
+      audioItem,
+      item,
+      subId,
+      preferHistoryPart: preferHistoryPart,
+      isCurrent: () =>
+          generation == _playIndexGeneration &&
+          this.index == prevIndex &&
+          oid == prevOid,
+    ).then((resolvedSubId) {
+      if (generation != _playIndexGeneration) return;
+      this.index = index;
+      oid = item.oid;
+      this.subId = resolvedSubId;
+      itemType = item.itemType;
+      _resetHeartBeatProgress();
+      return _queryPlayUrl();
+    }).then((res) {
+      if (generation != _playIndexGeneration || res == null) return;
       if (res) {
         _updateCurrItem(audioItem);
       } else {

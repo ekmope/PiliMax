@@ -1,13 +1,17 @@
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:path/path.dart' as path;
 
+typedef CodecOpenErrorHandler = bool Function(String event);
+
 sealed class DataSource {
   final String videoSource;
   final String? audioSource;
+  final CodecOpenErrorHandler? onCodecOpenError;
 
   DataSource({
     required this.videoSource,
     required this.audioSource,
+    this.onCodecOpenError,
   });
 }
 
@@ -15,6 +19,7 @@ class NetworkSource extends DataSource {
   NetworkSource({
     required super.videoSource,
     required super.audioSource,
+    super.onCodecOpenError,
   });
 }
 

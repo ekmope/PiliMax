@@ -1139,6 +1139,18 @@ class PlPlayerController with BlockConfigMixin {
             },
           );
         } else if (event.startsWith('Could not open codec')) {
+          if (Platform.isAndroid) {
+            try {
+              if (dataSource.onCodecOpenError?.call(event) == true) {
+                return;
+              }
+            } catch (err, stackTrace) {
+              if (kDebugMode) {
+                debugPrint(stackTrace.toString());
+                debugPrint('codec open error handler failed: $err');
+              }
+            }
+          }
           SmartDialog.showToast('无法加载解码器, $event，可能会切换至软解');
         } else if (!onlyPlayAudio.value) {
           if (event.startsWith("error running") ||

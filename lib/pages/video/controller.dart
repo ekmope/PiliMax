@@ -136,6 +136,8 @@ class VideoDetailController extends GetxController
   final Rxn<VideoQuality> currentVideoQa = Rxn<VideoQuality>();
   AudioQuality? currentAudioQa;
   late VideoDecodeFormatType currentDecodeFormats;
+  final Set<VideoDecodeFormatType> _codecOpenFailedFormats =
+      <VideoDecodeFormatType>{};
 
   // 是否开始自动播放 存在多p的情况下，第二p需要为true
   final RxBool _autoPlay = Pref.autoPlayEnable.obs;
@@ -847,10 +849,115 @@ class VideoDetailController extends GetxController
     return bestVideo ?? videoList.first;
   }
 
+  void _resetCodecOpenFailures() {
+    _codecOpenFailedFormats.clear();
+  }
+
+  VideoDecodeFormatType? _formatFromCodecString(String? codecs) {
+    if (codecs == null) return null;
+    try {
+      return VideoDecodeFormatType.fromString(codecs);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<VideoDecodeFormatType> _codecFallbackOrder(List<VideoItem> videos) {
+    final result = <VideoDecodeFormatType>[];
+    void add(VideoDecodeFormatType format) {
+      if (!result.contains(format)) {
+        result.add(format);
+      }
+    }
+
+    for (final format in preferCodecs) {
+      add(format);
+    }
+    for (final video in videos) {
+      if (_formatFromCodecString(video.codecs) case final format?) {
+        add(format);
+      }
+    }
+    return result;
+  }
+
+  VideoItem? _findCodecOpenFallbackVideo() {
+    final qa = currentVideoQa.value?.code;
+    if (qa == null) return null;
+    final videos = data.dash?.video
+        ?.where((i) => i.id == qa || i.quality.code == qa)
+        .toList();
+    if (videos == null || videos.isEmpty) return null;
+
+    for (final format in _codecFallbackOrder(videos)) {
+      if (_codecOpenFailedFormats.contains(format)) {
+        continue;
+      }
+      final video = videos.firstWhereOrNull((i) {
+        final codecs = i.codecs;
+        return codecs != null && format.codes.any(codecs.startsWith);
+      });
+      if (video != null) {
+        return video;
+      }
+    }
+    return null;
+  }
+
+  bool _handleCodecOpenError(String event) {
+    if (!Platform.isAndroid ||
+        isClosed ||
+        isFileSource ||
+        plPlayerController.onlyPlayAudio.value) {
+      return false;
+    }
+
+    _codecOpenFailedFormats.add(currentDecodeFormats);
+    final fallbackVideo = _findCodecOpenFallbackVideo();
+    if (fallbackVideo == null) {
+      return false;
+    }
+
+    final fallbackFormat = _formatFromCodecString(fallbackVideo.codecs);
+    if (fallbackFormat == null) {
+      return false;
+    }
+
+    final failedFormat = currentDecodeFormats;
+    currentDecodeFormats = fallbackFormat;
+    firstVideo = fallbackVideo;
+    videoUrl = VideoUtils.getCdnUrl(fallbackVideo.playUrls);
+    _setVideoHeight();
+
+    final currentPosition = Duration(
+      milliseconds: plPlayerController.positionInMilliseconds,
+    );
+    final seekToTime = currentPosition > Duration.zero
+        ? currentPosition
+        : playedTime;
+    if (seekToTime != null && seekToTime > Duration.zero) {
+      playedTime = seekToTime;
+    }
+
+    SmartDialog.showToast(
+      '${failedFormat.name} 解码失败，尝试 ${fallbackFormat.name}',
+      displayTime: const Duration(milliseconds: 800),
+    );
+    unawaited(
+      playerInit(autoplay: true).catchError((e) {
+        if (kDebugMode) {
+          debugPrint('codec fallback playerInit failed: $e');
+        }
+      }),
+    );
+    return true;
+  }
+
   /// 更新画质、音质
   void updatePlayer() {
     final currentVideoQa = this.currentVideoQa.value;
     if (currentVideoQa == null) return;
+    _resetCodecOpenFailures();
     _autoPlay.value = true;
     playedTime = plPlayerController.videoPlayerController?.state.position;
     plPlayerController
@@ -911,6 +1018,7 @@ class VideoDetailController extends GetxController
           : NetworkSource(
               videoSource: videoUrl!,
               audioSource: audioUrl,
+              onCodecOpenError: _handleCodecOpenError,
             ),
       seekTo: seek,
       duration: data.timeLength == null
@@ -1133,6 +1241,7 @@ class VideoDetailController extends GetxController
 
       /// 优先顺序 设置中指定解码格式 -> 当前可选的首个解码格式
       final supportFormats = data.supportFormats!;
+      _resetCodecOpenFailures();
 
       // 根据画质选编码格式
       currentDecodeFormats = VideoUtils.selectCodec(
@@ -1658,6 +1767,7 @@ class VideoDetailController extends GetxController
     defaultST = null;
     videoUrl = null;
     audioUrl = null;
+    _resetCodecOpenFailures();
 
     // danmaku
     savedDanmaku = null;

@@ -339,6 +339,31 @@ class VideoDetailController extends GetxController
     } catch (_) {}
   }
 
+  void _updateVerticalStateFromPlayer() {
+    try {
+      final state = plPlayerController.videoController?.player.state;
+      final actualWidth = state?.width;
+      final actualHeight = state?.height;
+      if (actualWidth == null ||
+          actualHeight == null ||
+          actualWidth <= 0 ||
+          actualHeight <= 0) {
+        return;
+      }
+      final actualIsVertical = actualWidth < actualHeight;
+      if (actualIsVertical == isVertical.value) {
+        return;
+      }
+      isVertical.value = actualIsVertical;
+      plPlayerController.updateVerticalState(actualIsVertical);
+      _setVideoHeight();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('_updateVerticalStateFromPlayer error: $e');
+      }
+    }
+  }
+
   final isLoginVideo = Accounts.get(AccountType.video).isLogin;
 
   late final watchProgress = GStorage.watchProgress;
@@ -1043,6 +1068,9 @@ class VideoDetailController extends GetxController
           if (currentQuery?.call() == false) return;
           videoState.value = true;
           setSubtitle(vttSubtitlesIndex.value);
+          if (isFileSource) {
+            _updateVerticalStateFromPlayer();
+          }
         },
         width: firstVideo.width,
         height: firstVideo.height,

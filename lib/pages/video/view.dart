@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
+import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
@@ -1968,7 +1969,16 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             ),
           if (!videoDetailController.isFileSource)
             PopupMenuItem(
-              onTap: () => videoDetailController.onDownload(this.context),
+              onTap: () async {
+                final confirmed = await showConfirmDialog(
+                  context: context,
+                  title: const Text('确认缓存视频？'),
+                  content: const Text('将打开离线缓存选择面板。'),
+                );
+                if (confirmed && this.context.mounted) {
+                  videoDetailController.onDownload(this.context);
+                }
+              },
               child: const Text('缓存视频'),
             ),
           if (videoDetailController.cover.value.isNotEmpty)

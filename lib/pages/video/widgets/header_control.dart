@@ -6,6 +6,7 @@ import 'dart:typed_data' show Uint8List;
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
+import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/dialog/report.dart';
 import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/common/widgets/marquee.dart';
@@ -499,9 +500,16 @@ class HeaderControlState extends State<HeaderControl>
                 if (!isFileSource)
                   ListTile(
                     dense: true,
-                    onTap: () {
+                    onTap: () async {
                       Get.back();
-                      videoDetailCtr.onDownload(this.context);
+                      final confirmed = await showConfirmDialog(
+                        context: context,
+                        title: const Text('确认缓存视频？'),
+                        content: const Text('将打开离线缓存选择面板。'),
+                      );
+                      if (confirmed && this.context.mounted) {
+                        videoDetailCtr.onDownload(this.context);
+                      }
                     },
                     leading: const Icon(
                       MdiIcons.folderDownloadOutline,

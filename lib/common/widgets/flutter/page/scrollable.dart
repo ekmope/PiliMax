@@ -1058,6 +1058,7 @@ class ScrollableState<T extends HorizontalDragGestureRecognizer>
           allowImplicitScrolling: _physics!.allowImplicitScrolling,
           axis: widget.axis,
           semanticChildCount: widget.semanticChildCount,
+          textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
           child: result,
         ),
       );
@@ -1678,6 +1679,7 @@ class _ScrollSemantics extends SingleChildRenderObjectWidget {
     required this.allowImplicitScrolling,
     required this.axis,
     required this.semanticChildCount,
+    required this.textDirection,
     super.child,
   }) : assert(semanticChildCount == null || semanticChildCount >= 0);
 
@@ -1685,6 +1687,7 @@ class _ScrollSemantics extends SingleChildRenderObjectWidget {
   final bool allowImplicitScrolling;
   final int? semanticChildCount;
   final Axis axis;
+  final TextDirection textDirection;
 
   @override
   _RenderScrollSemantics createRenderObject(BuildContext context) {
@@ -1693,6 +1696,7 @@ class _ScrollSemantics extends SingleChildRenderObjectWidget {
       allowImplicitScrolling: allowImplicitScrolling,
       semanticChildCount: semanticChildCount,
       axis: axis,
+      textDirection: textDirection,
     );
   }
 
@@ -1705,7 +1709,8 @@ class _ScrollSemantics extends SingleChildRenderObjectWidget {
       ..allowImplicitScrolling = allowImplicitScrolling
       ..axis = axis
       ..position = position
-      ..semanticChildCount = semanticChildCount;
+      ..semanticChildCount = semanticChildCount
+      ..textDirection = textDirection;
   }
 }
 
@@ -1715,10 +1720,12 @@ class _RenderScrollSemantics extends RenderProxyBox {
     required bool allowImplicitScrolling,
     required this.axis,
     required int? semanticChildCount,
+    required TextDirection textDirection,
     RenderBox? child,
   }) : _position = position,
        _allowImplicitScrolling = allowImplicitScrolling,
        _semanticChildCount = semanticChildCount,
+       _textDirection = textDirection,
        super(child) {
     position.addListener(markNeedsSemanticsUpdate);
   }
@@ -1749,6 +1756,16 @@ class _RenderScrollSemantics extends RenderProxyBox {
 
   Axis axis;
 
+  TextDirection get textDirection => _textDirection;
+  TextDirection _textDirection;
+  set textDirection(TextDirection value) {
+    if (value == _textDirection) {
+      return;
+    }
+    _textDirection = value;
+    markNeedsSemanticsUpdate();
+  }
+
   int? get semanticChildCount => _semanticChildCount;
   int? _semanticChildCount;
   set semanticChildCount(int? value) {
@@ -1770,7 +1787,9 @@ class _RenderScrollSemantics extends RenderProxyBox {
   @override
   void describeSemanticsConfiguration(SemanticsConfiguration config) {
     super.describeSemanticsConfiguration(config);
-    config.isSemanticBoundary = true;
+    config
+      ..isSemanticBoundary = true
+      ..textDirection = textDirection;
     if (position.haveDimensions) {
       config
         ..hasImplicitScrolling = allowImplicitScrolling

@@ -35,6 +35,7 @@ import 'package:PiliMax/pages/video/introduction/ugc/widgets/triple_mixin.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
+import 'package:PiliMax/services/debug_log_service.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/services/shutdown_timer_service.dart';
 import 'package:PiliMax/utils/accounts.dart';
@@ -380,6 +381,18 @@ class AudioController extends GetxController
 
     final generation = _autoTailSkipGeneration;
     _autoTailSkipCompletedTimer?.cancel();
+    unawaited(
+      DebugLogService.log(
+        'audio.tail_skip',
+        'schedule completed fallback',
+        extra: {
+          'oid': oid.toString(),
+          'subId': subId.firstOrNull?.toString(),
+          'targetMs': target.inMilliseconds,
+          'durationMs': total.inMilliseconds,
+        },
+      ),
+    );
     _autoTailSkipCompletedTimer = Timer(
       remaining + const Duration(seconds: 1),
       () {
@@ -415,6 +428,19 @@ class AudioController extends GetxController
     } else {
       _consumedCompletedIdentity = null;
     }
+    unawaited(
+      DebugLogService.log(
+        'audio.completed',
+        'handle playback completed',
+        extra: {
+          'oid': oid.toString(),
+          'subId': subId.firstOrNull?.toString(),
+          'index': index,
+          'markConsumed': markConsumed,
+          'playMode': playMode.value.name,
+        },
+      ),
+    );
     _unawaitedHeartBeat(_reportCompletedHeartBeat());
     if (shutdownTimerService.isWaiting) {
       shutdownTimerService.handleWaiting();
@@ -828,6 +854,17 @@ class AudioController extends GetxController
   }
 
   Future<bool> _queryPlayUrl() async {
+    unawaited(
+      DebugLogService.log(
+        'audio.playurl',
+        'query play url start',
+        extra: {
+          'oid': oid.toString(),
+          'subId': subId.map((e) => e.toString()).toList(),
+          'itemType': itemType,
+        },
+      ),
+    );
     _querySponsorBlock();
     final res = await AudioGrpc.audioPlayUrl(
       itemType: itemType,
@@ -835,9 +872,30 @@ class AudioController extends GetxController
       subId: subId,
     );
     if (res case Success(:final response)) {
+      unawaited(
+        DebugLogService.log(
+          'audio.playurl',
+          'query play url success',
+          extra: {
+            'oid': oid.toString(),
+            'subId': subId.firstOrNull?.toString(),
+          },
+        ),
+      );
       _onPlay(response);
       return true;
     } else {
+      unawaited(
+        DebugLogService.log(
+          'audio.playurl',
+          'query play url failed',
+          extra: {
+            'oid': oid.toString(),
+            'subId': subId.firstOrNull?.toString(),
+            'error': res.toString(),
+          },
+        ),
+      );
       res.toast();
       return false;
     }
@@ -881,6 +939,17 @@ class AudioController extends GetxController
     if (currentPlayer == null) return;
     final start = _start;
     _resetHeartBeatProgress();
+    unawaited(
+      DebugLogService.log(
+        'audio.open',
+        'open media',
+        extra: {
+          'oid': oid.toString(),
+          'subId': subId.firstOrNull?.toString(),
+          'startMs': start?.inMilliseconds,
+        },
+      ),
+    );
     currentPlayer.setMediaHeader(
       userAgent: ua,
       // mpv cannot clear referer option
@@ -1203,6 +1272,18 @@ class AudioController extends GetxController
   }
 
   bool playNext({bool nextPart = false}) {
+    unawaited(
+      DebugLogService.log(
+        'audio.switch',
+        'play next',
+        extra: {
+          'oid': oid.toString(),
+          'subId': subId.firstOrNull?.toString(),
+          'index': index,
+          'nextPart': nextPart,
+        },
+      ),
+    );
     if (nextPart) {
       if (audioItem.value case DetailItem(:final parts)) {
         if (parts.length > 1) {
@@ -1266,6 +1347,19 @@ class AudioController extends GetxController
     bool preferHistoryPart = true,
   }) {
     if (index == this.index && subId == null) return;
+    unawaited(
+      DebugLogService.log(
+        'audio.switch',
+        'play index',
+        extra: {
+          'fromIndex': this.index,
+          'toIndex': index,
+          'oid': oid.toString(),
+          'requestedSubId': subId?.map((e) => e.toString()).toList(),
+          'preferHistoryPart': preferHistoryPart,
+        },
+      ),
+    );
     _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
     final prevIndex = this.index;
     final prevOid = oid;

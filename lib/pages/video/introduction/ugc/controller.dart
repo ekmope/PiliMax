@@ -550,7 +550,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
           ..playedTime = audioPosition
           ..defaultST = audioPosition;
       }
-      final queryVideoUrl = videoDetailCtr.queryVideoUrl();
+      final queryVideoUrl = videoDetailCtr.queryVideoUrl(
+        fromSwitch: true,
+        isCurrentSwitch: () => isCurrentIntroRequest(currentIntroGeneration),
+      );
       if (fromAudioPage) {
         await queryVideoUrl;
       }

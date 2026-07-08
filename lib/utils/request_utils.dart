@@ -137,31 +137,38 @@ abstract final class RequestUtils {
     required bool isFollow,
     required ValueChanged<int>? afterMod,
     RelationData? followStatus,
+    ValueChanged<bool>? requestLoading,
   }) async {
     if (mid == null) {
       return;
     }
     feedBack();
     if (!isFollow) {
-      final res = await VideoHttp.relationMod(
-        mid: mid,
-        act: 1,
-        reSrc: 11,
-      );
-      if (res.isSuccess) {
-        SmartDialog.showToast('关注成功');
-        afterMod?.call(2);
-      } else {
-        res.toast();
+      requestLoading?.call(true);
+      try {
+        final res = await VideoHttp.relationMod(mid: mid, act: 1, reSrc: 11);
+        if (res.isSuccess) {
+          SmartDialog.showToast('关注成功');
+          afterMod?.call(2);
+        } else {
+          res.toast();
+        }
+      } finally {
+        requestLoading?.call(false);
       }
     } else {
       if (followStatus?.tag == null) {
-        final res = await UserHttp.userRelation(mid);
-        if (res case Success(:final response)) {
-          followStatus = response;
-        } else {
-          res.toast();
-          return;
+        requestLoading?.call(true);
+        try {
+          final res = await UserHttp.userRelation(mid);
+          if (res case Success(:final response)) {
+            followStatus = response;
+          } else {
+            res.toast();
+            return;
+          }
+        } finally {
+          requestLoading?.call(false);
         }
       }
 
@@ -177,15 +184,20 @@ abstract final class RequestUtils {
               DialogOption(
                 onPressed: () async {
                   Get.back();
-                  final res = await MemberHttp.specialAction(
-                    fid: mid,
-                    isAdd: !isSpecialFollowed,
-                  );
-                  if (res.isSuccess) {
-                    SmartDialog.showToast('$text成功');
-                    afterMod?.call(isSpecialFollowed ? 2 : -10);
-                  } else {
-                    res.toast();
+                  requestLoading?.call(true);
+                  try {
+                    final res = await MemberHttp.specialAction(
+                      fid: mid,
+                      isAdd: !isSpecialFollowed,
+                    );
+                    if (res.isSuccess) {
+                      SmartDialog.showToast('$text成功');
+                      afterMod?.call(isSpecialFollowed ? 2 : -10);
+                    } else {
+                      res.toast();
+                    }
+                  } finally {
+                    requestLoading?.call(false);
                   }
                 },
                 child: Text(text, style: const TextStyle(fontSize: 14)),
@@ -233,16 +245,21 @@ abstract final class RequestUtils {
               DialogOption(
                 onPressed: () async {
                   Get.back();
-                  final res = await VideoHttp.relationMod(
-                    mid: mid,
-                    act: 2,
-                    reSrc: 11,
-                  );
-                  if (res.isSuccess) {
-                    SmartDialog.showToast('取消关注成功');
-                    afterMod?.call(0);
-                  } else {
-                    res.toast();
+                  requestLoading?.call(true);
+                  try {
+                    final res = await VideoHttp.relationMod(
+                      mid: mid,
+                      act: 2,
+                      reSrc: 11,
+                    );
+                    if (res.isSuccess) {
+                      SmartDialog.showToast('取消关注成功');
+                      afterMod?.call(0);
+                    } else {
+                      res.toast();
+                    }
+                  } finally {
+                    requestLoading?.call(false);
                   }
                 },
                 child: const Text('取消关注', style: TextStyle(fontSize: 14)),

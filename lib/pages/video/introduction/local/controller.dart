@@ -1,5 +1,6 @@
 import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/models_new/download/download_collection.dart';
+import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/models_new/video/video_detail/stat_detail.dart';
 import 'package:PiliMax/pages/common/common_intro_controller.dart';
 import 'package:PiliMax/services/download/download_collection_service.dart';
@@ -10,6 +11,7 @@ import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/scheduler.dart' show SchedulerBinding;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 class LocalIntroController extends CommonIntroController {
@@ -20,22 +22,27 @@ class LocalIntroController extends CommonIntroController {
   int get copyright => throw UnimplementedError();
 
   @override
-  void actionLikeVideo() {}
+  void actionCoinVideo() => _showUnsupportedToast();
 
   @override
-  void actionShareVideo(context) {}
+  void actionLikeVideo() => _showUnsupportedToast();
 
   @override
-  void actionTriple() {}
+  void actionShareVideo(context) => _showUnsupportedToast();
 
   @override
-  Future<void> actionFavVideo({bool isQuick = false}) async {}
+  void actionTriple() => _showUnsupportedToast();
 
   @override
-  (Object, int) get getFavRidType => throw UnimplementedError();
+  Future<void> actionFavVideo({bool isQuick = false}) async {
+    _showUnsupportedToast();
+  }
 
   @override
-  StatDetail? getStat() => null;
+  (Object, int) get getFavRidType => (bvid, 2);
+
+  @override
+  StatDetail? getStat() => videoDetail.value.stat;
 
   @override
   bool get isShowOnlineTotal => false;
@@ -56,7 +63,10 @@ class LocalIntroController extends CommonIntroController {
   @override
   void onInit() {
     super.onInit();
-    videoDetail.value.title = videoDetailCtr.args['title'];
+    final argTitle = videoDetailCtr.args['title'];
+    if (argTitle is String && argTitle.trim().isNotEmpty) {
+      videoDetail.value.title = argTitle;
+    }
     final downloadService = Get.find<DownloadService>();
     final collectionService = Get.find<DownloadCollectionService>();
     final playContext = DownloadVideoPlayContext.fromArguments(
@@ -80,6 +90,9 @@ class LocalIntroController extends CommonIntroController {
     final currCid = videoDetailCtr.cid.value;
     final index = list.indexWhere((e) => e.cid == currCid);
     this.index.value = index == -1 ? 0 : index;
+    if (list.isNotEmpty) {
+      _syncLocalVideoDetail(list[this.index.value]);
+    }
     if (list.isNotEmpty && PlatformUtils.isMobile) {
       onVideoDetailChange(list[this.index.value]);
     }
@@ -105,6 +118,22 @@ class LocalIntroController extends CommonIntroController {
   final index = (-1).obs;
   double get _offset => index * 112 + 7 - 35;
   final list = RxList<BiliDownloadEntryInfo>();
+
+  void _showUnsupportedToast() {
+    SmartDialog.showToast('离线播放不支持该操作');
+  }
+
+  void _syncLocalVideoDetail(BiliDownloadEntryInfo entry) {
+    bvid = entry.bvid;
+    cid.value = entry.cid;
+    videoDetail.value = VideoDetailData(
+      bvid: entry.bvid,
+      aid: entry.avid,
+      cid: entry.cid,
+      title: entry.showTitle,
+      pic: entry.cover,
+    );
+  }
 
   @override
   bool nextPlay({bool manual = false}) {
@@ -152,9 +181,7 @@ class LocalIntroController extends CommonIntroController {
       ..args['dirPath'] = entry.entryDirPath
       ..initFileSource(entry, isInit: false)
       ..playerInit();
-    videoDetail
-      ..value.title = entry.showTitle
-      ..refresh();
+    _syncLocalVideoDetail(entry);
     this.index.value = index;
     if (PlatformUtils.isMobile) {
       onVideoDetailChange(entry);

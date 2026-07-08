@@ -592,6 +592,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       return;
     }
 
+    videoDetailController.syncCompletedProgressForCurrentVideo(
+      fallbackDuration: controller.videoPlayerController?.state.duration,
+    );
+
     bool exitFlag = true;
 
     /// 椤哄簭鎾斁 鍒楄〃寰幆

@@ -24,6 +24,30 @@ class CompletedGate {
 
   static bool isReady(Duration remaining) => remaining <= readyRemaining;
 
+  static Duration? longer(Duration? a, Duration? b) {
+    if (a == null) {
+      return b;
+    }
+    if (b == null) {
+      return a;
+    }
+    return a >= b ? a : b;
+  }
+
+  static Duration tailPlaybackWait(
+    Duration remaining, {
+    required double playbackRate,
+  }) {
+    final rate = playbackRate > 0 ? playbackRate : 1.0;
+    final playbackMs = remaining.inMilliseconds / rate;
+    return Duration(milliseconds: playbackMs.ceil());
+  }
+
+  static Duration tailWait(
+    Duration remaining, {
+    required double playbackRate,
+  }) => tailPlaybackWait(remaining, playbackRate: playbackRate) + buffer;
+
   static Duration delay(Duration remaining) => remaining + buffer;
 }
 

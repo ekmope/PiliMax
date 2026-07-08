@@ -547,9 +547,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     final completedSeasonId = videoDetailController.seasonId;
     final completedPgcType = videoDetailController.pgcType;
     final completedVideoType = videoDetailController.videoType;
+    final playbackRate = player.state.rate > 0
+        ? player.state.rate
+        : controller.playbackSpeed;
     final delay = CompletedGate.isReady(remaining)
         ? Duration.zero
-        : CompletedGate.delay(remaining);
+        : CompletedGate.tailWait(remaining, playbackRate: playbackRate);
 
     _completedGateScheduler.schedule(delay, () {
       if (!mounted || !isShowing) {

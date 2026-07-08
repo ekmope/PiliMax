@@ -7,6 +7,7 @@ import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/retry_interceptor.dart';
 import 'package:PiliMax/http/user.dart';
+import 'package:PiliMax/services/debug_log_service.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/accounts/account_manager/account_mgr.dart';
@@ -270,6 +271,16 @@ class Request {
     } on DioException catch (e, s) {
       try {
         Utils.reportError(e, s);
+        unawaited(
+          DebugLogService.log(
+            'http.get',
+            e.message ?? e.type.name,
+            extra: {
+              'url': e.requestOptions.uri.toString(),
+              'statusCode': e.response?.statusCode,
+            },
+          ),
+        );
       } catch (_) {}
       return Response(
         data: {
@@ -304,6 +315,16 @@ class Request {
       try {
         AccountManager.toast(e);
         Utils.reportError(e, s);
+        unawaited(
+          DebugLogService.log(
+            'http.post',
+            e.message ?? e.type.name,
+            extra: {
+              'url': e.requestOptions.uri.toString(),
+              'statusCode': e.response?.statusCode,
+            },
+          ),
+        );
       } catch (_) {}
       return Response(
         data: {
@@ -337,6 +358,16 @@ class Request {
     } on DioException catch (e, s) {
       try {
         Utils.reportError(e, s);
+        unawaited(
+          DebugLogService.log(
+            'http.download',
+            e.message ?? e.type.name,
+            extra: {
+              'url': e.requestOptions.uri.toString(),
+              'statusCode': e.response?.statusCode,
+            },
+          ),
+        );
       } catch (_) {}
       // if (kDebugMode) debugPrint('downloadFile error: $e');
       return Response(

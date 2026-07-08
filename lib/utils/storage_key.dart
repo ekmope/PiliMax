@@ -163,6 +163,7 @@ abstract final class SettingBoxKey {
       banWordForDyn = 'banWordForDyn',
       enableLog = 'enableLog',
       enableNetworkLog = 'enableNetworkLog',
+      enableDebugLog = 'enableDebugLog',
       memberTab = 'memberTab',
       dynamicDetailRatio = 'dynamicDetailRatio',
       directExitOnBack = 'directExitOnBack',

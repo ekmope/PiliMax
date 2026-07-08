@@ -14,6 +14,7 @@ import 'package:PiliMax/pages/video/introduction/ugc/widgets/triple_mixin.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/id_utils.dart';
+import 'package:PiliMax/utils/loading_action_mixin.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
@@ -24,8 +25,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
+enum IntroAction {
+  like,
+  dislike,
+  triple,
+  coin,
+  favorite,
+  watchLater,
+  relation,
+  pgcFollow,
+  pugvFavorite,
+}
+
 abstract class CommonIntroController extends GetxController
-    with GetSingleTickerProviderStateMixin, TripleMixin, FavMixin {
+    with
+        GetSingleTickerProviderStateMixin,
+        LoadingActionMixin<IntroAction>,
+        TripleMixin,
+        FavMixin {
   late final String heroTag;
   late String bvid;
 
@@ -35,10 +52,21 @@ abstract class CommonIntroController extends GetxController
   final Rx<List<VideoTagItem>?> videoTags = Rx<List<VideoTagItem>?>(null);
 
   bool isProcessing = false;
-  Future<void> handleAction(FutureOr Function() action) async {
-    if (!isProcessing) {
-      isProcessing = true;
+  Future<void> handleAction(
+    FutureOr<void> Function() action, {
+    IntroAction? loadingAction,
+  }) async {
+    if (loadingAction != null) {
+      await runWithActionLoading(loadingAction, action);
+      return;
+    }
+    if (isProcessing) {
+      return;
+    }
+    isProcessing = true;
+    try {
       await action();
+    } finally {
       isProcessing = false;
     }
   }
@@ -133,27 +161,29 @@ abstract class CommonIntroController extends GetxController
 
   @override
   Future<void> onPayCoin(int coin, bool coinWithLike) async {
-    final stat = getStat();
-    if (stat == null) {
-      return;
-    }
-    final res = await VideoHttp.coinVideo(
-      bvid: bvid,
-      multiply: coin,
-      selectLike: coinWithLike ? 1 : 0,
-    );
-    if (res.isSuccess) {
-      SmartDialog.showToast('投币成功');
-      coinNum.value += coin;
-      GlobalData().afterCoin(coin);
-      stat.coin += coin;
-      if (coinWithLike && !hasLike.value) {
-        stat.like++;
-        hasLike.value = true;
+    await runWithActionLoading(IntroAction.coin, () async {
+      final stat = getStat();
+      if (stat == null) {
+        return;
       }
-    } else {
-      res.toast();
-    }
+      final res = await VideoHttp.coinVideo(
+        bvid: bvid,
+        multiply: coin,
+        selectLike: coinWithLike ? 1 : 0,
+      );
+      if (res.isSuccess) {
+        SmartDialog.showToast('投币成功');
+        coinNum.value += coin;
+        GlobalData().afterCoin(coin);
+        stat.coin += coin;
+        if (coinWithLike && !hasLike.value) {
+          stat.like++;
+          hasLike.value = true;
+        }
+      } else {
+        res.toast();
+      }
+    });
   }
 
   Future<void> queryVideoTags({bool Function()? isCurrent}) async {
@@ -168,10 +198,12 @@ abstract class CommonIntroController extends GetxController
   }
 
   Future<void> viewLater() async {
-    final res = await (hasLater.value
-        ? UserHttp.toViewDel(aids: IdUtils.bv2av(bvid).toString())
-        : UserHttp.toViewLater(bvid: bvid));
-    if (res.isSuccess) hasLater.value = !hasLater.value;
+    await runWithActionLoading(IntroAction.watchLater, () async {
+      final res = await (hasLater.value
+          ? UserHttp.toViewDel(aids: IdUtils.bv2av(bvid).toString())
+          : UserHttp.toViewLater(bvid: bvid));
+      if (res.isSuccess) hasLater.value = !hasLater.value;
+    });
   }
 }
 
@@ -180,6 +212,13 @@ mixin FavMixin on TripleMixin {
   int? quickFavId;
   late final enableQuickFav = Pref.enableQuickFav;
   final Rx<FavFolderData> favFolderData = FavFolderData().obs;
+
+  bool isActionLoading(IntroAction action);
+
+  Future<T?> runWithActionLoading<T>(
+    IntroAction action,
+    FutureOr<T> Function() callback,
+  );
 
   (Object, int) get getFavRidType;
 
@@ -241,11 +280,12 @@ mixin FavMixin on TripleMixin {
   void updateFavCount(int count);
 
   Future<void> actionFavVideo({bool isQuick = false}) async {
-    final (rid, type) = getFavRidType;
-    // 收藏至默认文件夹
-    if (isQuick) {
-      SmartDialog.showLoading(msg: '请求中');
-      queryVideoInFolder().then((res) async {
+    await runWithActionLoading(IntroAction.favorite, () async {
+      final (rid, type) = getFavRidType;
+      // 收藏至默认文件夹
+      if (isQuick) {
+        SmartDialog.showLoading(msg: '请求中');
+        final res = await queryVideoInFolder();
         if (res.isSuccess) {
           final hasFav = this.hasFav.value;
           final result = hasFav
@@ -260,51 +300,53 @@ mixin FavMixin on TripleMixin {
             this.hasFav.value = !hasFav;
             SmartDialog.showToast(hasFav ? '已从默认收藏夹中移除' : '已加入默认收藏夹');
           } else {
-            res.toast();
+            result.toast();
           }
         } else {
           SmartDialog.dismiss();
+          res.toast();
         }
-      });
-      return;
-    }
+        return;
+      }
 
-    List<int?> addMediaIdsNew = [];
-    List<int?> delMediaIdsNew = [];
-    try {
-      for (final i in favFolderData.value.list!) {
-        bool isFaved = favIds?.contains(i.id) == true;
-        if (i.favState == 1) {
-          if (!isFaved) {
-            addMediaIdsNew.add(i.id);
-          }
-        } else {
-          if (isFaved) {
-            delMediaIdsNew.add(i.id);
+      List<int?> addMediaIdsNew = [];
+      List<int?> delMediaIdsNew = [];
+      try {
+        for (final i in favFolderData.value.list!) {
+          bool isFaved = favIds?.contains(i.id) == true;
+          if (i.favState == 1) {
+            if (!isFaved) {
+              addMediaIdsNew.add(i.id);
+            }
+          } else {
+            if (isFaved) {
+              delMediaIdsNew.add(i.id);
+            }
           }
         }
+      } catch (e) {
+        if (kDebugMode) debugPrint(e.toString());
       }
-    } catch (e) {
-      if (kDebugMode) debugPrint(e.toString());
-    }
-    SmartDialog.showLoading(msg: '请求中');
-    final result = await FavHttp.favVideo(
-      resources: '$rid:$type',
-      addIds: addMediaIdsNew.join(','),
-      delIds: delMediaIdsNew.join(','),
-    );
-    SmartDialog.dismiss();
-    if (result.isSuccess) {
-      Get.back();
-      final newVal =
-          addMediaIdsNew.isNotEmpty || favIds?.length != delMediaIdsNew.length;
-      if (hasFav.value != newVal) {
-        updateFavCount(newVal ? 1 : -1);
-        hasFav.value = newVal;
+      SmartDialog.showLoading(msg: '请求中');
+      final result = await FavHttp.favVideo(
+        resources: '$rid:$type',
+        addIds: addMediaIdsNew.join(','),
+        delIds: delMediaIdsNew.join(','),
+      );
+      SmartDialog.dismiss();
+      if (result.isSuccess) {
+        Get.back();
+        final newVal =
+            addMediaIdsNew.isNotEmpty ||
+            favIds?.length != delMediaIdsNew.length;
+        if (hasFav.value != newVal) {
+          updateFavCount(newVal ? 1 : -1);
+          hasFav.value = newVal;
+        }
+        SmartDialog.showToast('${newVal ? '' : '取消'}收藏成功');
+      } else {
+        result.toast();
       }
-      SmartDialog.showToast('${newVal ? '' : '取消'}收藏成功');
-    } else {
-      result.toast();
-    }
+    });
   }
 }

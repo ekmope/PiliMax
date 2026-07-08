@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/widgets/custom_arc.dart';
+import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ class ActionItem extends StatelessWidget {
     this.animation,
     this.onStartTriple,
     this.onCancelTriple,
+    this.isLoading = false,
   }) : assert(!selectStatus || selectIcon != null),
        _isThumbsUp = onStartTriple != null;
 
@@ -31,6 +33,7 @@ class ActionItem extends StatelessWidget {
   final Animation<double>? animation;
   final VoidCallback? onStartTriple;
   final void Function([bool])? onCancelTriple;
+  final bool isLoading;
   final bool _isThumbsUp;
 
   @override
@@ -40,12 +43,19 @@ class ActionItem extends StatelessWidget {
     late final primary = !expand && colorScheme.isLight
         ? colorScheme.inversePrimary
         : colorScheme.primary;
-    Widget child = Icon(
-      selectStatus ? selectIcon!.icon! : icon.icon,
-      size: 18,
-      color: selectStatus ? primary : icon.color ?? colorScheme.outline,
-      semanticLabel: semanticsLabel,
-    );
+    final isInteractive = !isLoading;
+    Widget child = isLoading
+        ? buttonLoadingIndicator(
+            size: 16,
+            strokeWidth: 1.8,
+            color: selectStatus ? primary : icon.color ?? colorScheme.outline,
+          )
+        : Icon(
+            selectStatus ? selectIcon!.icon! : icon.icon,
+            size: 18,
+            color: selectStatus ? primary : icon.color ?? colorScheme.outline,
+            semanticLabel: semanticsLabel,
+          );
 
     if (animation != null) {
       child = Stack(
@@ -68,14 +78,18 @@ class ActionItem extends StatelessWidget {
       type: .transparency,
       child: InkWell(
         borderRadius: const .all(.circular(6)),
-        onTap: _isThumbsUp ? null : onTap,
-        onLongPress: _isThumbsUp ? null : onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile || _isThumbsUp
+        onTap: _isThumbsUp || !isInteractive ? null : onTap,
+        onLongPress: _isThumbsUp || !isInteractive ? null : onLongPress,
+        onSecondaryTap: PlatformUtils.isMobile || _isThumbsUp || !isInteractive
             ? null
             : onLongPress,
-        onTapDown: _isThumbsUp ? (_) => onStartTriple!() : null,
-        onTapUp: _isThumbsUp ? (_) => onCancelTriple!(true) : null,
-        onTapCancel: _isThumbsUp ? onCancelTriple : null,
+        onTapDown: _isThumbsUp && isInteractive
+            ? (_) => onStartTriple!()
+            : null,
+        onTapUp: _isThumbsUp && isInteractive
+            ? (_) => onCancelTriple!(true)
+            : null,
+        onTapCancel: _isThumbsUp && isInteractive ? onCancelTriple : null,
         child: expand
             ? Column(
                 mainAxisAlignment: MainAxisAlignment.center,

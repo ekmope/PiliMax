@@ -3,6 +3,7 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
+import 'package:PiliMax/common/widgets/video_card/watch_later_button.dart';
 import 'package:PiliMax/common/widgets/video_popup_menu.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/stat_type.dart';
@@ -22,7 +23,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:intl/intl.dart';
 
 // 视频卡片 - 垂直布局
-class VideoCardV extends StatelessWidget {
+class VideoCardV extends StatefulWidget {
   final BaseRcmdVideoItemModel videoItem;
   final VoidCallback? onRemove;
   static final _pubdateTextPattern = RegExp(
@@ -30,6 +31,16 @@ class VideoCardV extends StatelessWidget {
   );
 
   const VideoCardV({super.key, required this.videoItem, this.onRemove});
+
+  @override
+  State<VideoCardV> createState() => _VideoCardVState();
+}
+
+class _VideoCardVState extends State<VideoCardV> {
+  bool _isHovering = false;
+
+  BaseRcmdVideoItemModel get videoItem => widget.videoItem;
+  VoidCallback? get onRemove => widget.onRemove;
 
   String? get _previewPubdateText {
     if (videoItem.pubdate != null) {
@@ -114,56 +125,82 @@ class VideoCardV extends StatelessWidget {
       children: [
         Card(
           clipBehavior: Clip.hardEdge,
-          child: InkWell(
-            onTap: onPushDetail,
-            onLongPress: onLongPress,
-            onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AspectRatio(
-                  aspectRatio: Style.aspectRatio,
-                  child: LayoutBuilder(
-                    builder: (context, boxConstraints) {
-                      double maxWidth = boxConstraints.maxWidth;
-                      double maxHeight = boxConstraints.maxHeight;
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          NetworkImgLayer(
-                            src: videoItem.cover,
-                            width: maxWidth,
-                            height: maxHeight,
-                            type: .emote,
-                          ),
-                          if (videoItem.duration > 0)
-                            PBadge(
-                              bottom: 6,
-                              right: 7,
-                              size: .small,
-                              type: .gray,
-                              text: DurationUtils.formatDuration(
-                                videoItem.duration,
+          child: MouseRegion(
+            onEnter: PlatformUtils.isMobile
+                ? null
+                : (_) => setState(() => _isHovering = true),
+            onExit: PlatformUtils.isMobile
+                ? null
+                : (_) => setState(() => _isHovering = false),
+            child: InkWell(
+              onTap: onPushDetail,
+              onLongPress: onLongPress,
+              onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AspectRatio(
+                    aspectRatio: Style.aspectRatio,
+                    child: LayoutBuilder(
+                      builder: (context, boxConstraints) {
+                        double maxWidth = boxConstraints.maxWidth;
+                        double maxHeight = boxConstraints.maxHeight;
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            NetworkImgLayer(
+                              src: videoItem.cover,
+                              width: maxWidth,
+                              height: maxHeight,
+                              type: .emote,
+                            ),
+                            if (videoItem.duration > 0)
+                              PBadge(
+                                bottom: 6,
+                                right: 7,
+                                size: .small,
+                                type: .gray,
+                                text: DurationUtils.formatDuration(
+                                  videoItem.duration,
+                                ),
                               ),
-                            ),
-                          if (videoItem case RcmdVideoItemAppModel(
-                            :final canPlay,
-                          ) when canPlay != 1)
-                            const PBadge(
-                              text: '充电专属',
-                              top: 6,
-                              right: 6,
-                              size: .small,
-                              type: .error,
-                              fontSize: 10,
-                            ),
-                        ],
-                      );
-                    },
+                            if (videoItem case RcmdVideoItemAppModel(
+                              :final canPlay,
+                            ) when canPlay != 1)
+                              const PBadge(
+                                text: '充电专属',
+                                top: 6,
+                                right: 6,
+                                size: .small,
+                                type: .error,
+                                fontSize: 10,
+                              ),
+                            if (!PlatformUtils.isMobile &&
+                                videoItem.goto == 'av' &&
+                                videoItem.bvid != null)
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: Visibility(
+                                  visible: _isHovering,
+                                  maintainState: true,
+                                  child: QuickWatchLaterButton(
+                                    target: WatchLaterTarget.from(
+                                      bvid: videoItem.bvid,
+                                      aid: videoItem.aid,
+                                      fallback: videoItem,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-                content(context),
-              ],
+                  content(context),
+                ],
+              ),
             ),
           ),
         ),

@@ -19,6 +19,8 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:media_kit/media_kit.dart';
 
+enum BlockSkipSource { manual, automatic }
+
 mixin BlockConfigMixin {
   late final pgcSkipType = Pref.pgcSkipType;
   late final enablePgcSkip = pgcSkipType != SkipType.disable;
@@ -93,17 +95,24 @@ mixin BlockMixin on GetxController {
             //   debugPrint(
             //       '${position.inSeconds},,${item.segment.first},,${item.segment.second},,${item.skipType.name},,${item.hasSkipped}');
             // }
-            if ((msPos <= item.segment.$1 &&
-                    item.segment.$1 <= msPos + 1000) ||
+            if ((msPos <= item.segment.$1 && item.segment.$1 <= msPos + 1000) ||
                 (skipWhenSeekIntoSegment && item.segment.contains(msPos))) {
               switch (item.skipType) {
                 case SkipType.alwaysSkip:
-                  onSkip(item, isSeek: false);
+                  onSkip(
+                    item,
+                    isSeek: false,
+                    skipSource: BlockSkipSource.automatic,
+                  );
                   break;
                 case SkipType.skipOnce:
                   if (!item.hasSkipped) {
                     item.hasSkipped = true;
-                    onSkip(item, isSeek: false);
+                    onSkip(
+                      item,
+                      isSeek: false,
+                      skipSource: BlockSkipSource.automatic,
+                    );
                   }
                   break;
                 case SkipType.skipManually:
@@ -133,53 +142,55 @@ mixin BlockMixin on GetxController {
                     blockConfig.enableList.contains(item.category) &&
                     item.segment[1] >= item.segment[0],
               )
-              .map(
-                (item) {
-                  final segmentModel = SegmentModel.fromItemModel(
-                    item,
-                    isBlock ? blockConfig : null,
-                  );
-                  if (segmentModel.segment == const (0, 0)) {
-                    videoLabel?.value +=
-                        '${videoLabel!.value.isNotEmpty ? '/' : ''}${segmentModel.segmentType.title}';
-                  }
+              .map((item) {
+                final segmentModel = SegmentModel.fromItemModel(
+                  item,
+                  isBlock ? blockConfig : null,
+                );
+                if (segmentModel.segment == const (0, 0)) {
+                  videoLabel?.value +=
+                      '${videoLabel!.value.isNotEmpty ? '/' : ''}${segmentModel.segmentType.title}';
+                }
 
-                  if (_blockListener == null && autoPlay && player != null) {
-                    final currPos = currPosInMilliseconds;
+                if (_blockListener == null && autoPlay && player != null) {
+                  final currPos = currPosInMilliseconds;
 
-                    if (segmentModel.segment.contains(currPos)) {
-                      _lastBlockPos = currPos;
+                  if (segmentModel.segment.contains(currPos)) {
+                    _lastBlockPos = currPos;
 
-                      switch (segmentModel.skipType) {
-                        case SkipType.alwaysSkip:
-                        case SkipType.skipOnce:
-                          segmentModel.hasSkipped = true;
-                          if (player!.state.playing) {
-                            future = onSkip(
-                              segmentModel,
-                            );
-                          } else {
-                            player!.stream.playing.firstWhere((e) {
-                              if (e) {
-                                future = onSkip(segmentModel);
-                                return true;
-                              }
-                              return false;
-                            }, orElse: () => false);
-                          }
-                          break;
-                        case SkipType.skipManually:
-                          onAddItem(segmentModel);
-                          break;
-                        default:
-                          break;
-                      }
+                    switch (segmentModel.skipType) {
+                      case SkipType.alwaysSkip:
+                      case SkipType.skipOnce:
+                        segmentModel.hasSkipped = true;
+                        if (player!.state.playing) {
+                          future = onSkip(
+                            segmentModel,
+                            skipSource: BlockSkipSource.automatic,
+                          );
+                        } else {
+                          player!.stream.playing.firstWhere((e) {
+                            if (e) {
+                              future = onSkip(
+                                segmentModel,
+                                skipSource: BlockSkipSource.automatic,
+                              );
+                              return true;
+                            }
+                            return false;
+                          }, orElse: () => false);
+                        }
+                        break;
+                      case SkipType.skipManually:
+                        onAddItem(segmentModel);
+                        break;
+                      default:
+                        break;
                     }
                   }
+                }
 
-                  return segmentModel;
-                },
-              ),
+                return segmentModel;
+              }),
         );
 
         // _segmentProgressList
@@ -245,7 +256,11 @@ mixin BlockMixin on GetxController {
     }
   }
 
-  Future<void>? seekTo(Duration duration, {required bool isSeek});
+  Future<void>? seekTo(
+    Duration duration, {
+    required bool isSeek,
+    BlockSkipSource skipSource = BlockSkipSource.manual,
+  });
 
   void _skipToast(SegmentModel item) {
     if (autoPlay && Pref.blockToast) {
@@ -260,11 +275,13 @@ mixin BlockMixin on GetxController {
     SegmentModel item, {
     bool isSkip = true,
     bool isSeek = true,
+    BlockSkipSource skipSource = BlockSkipSource.manual,
   }) async {
     try {
       await seekTo(
         Duration(milliseconds: item.segment.$2),
         isSeek: isSeek,
+        skipSource: skipSource,
       );
       if (isSkip) {
         _skipToast(item);

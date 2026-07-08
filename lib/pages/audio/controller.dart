@@ -84,6 +84,8 @@ class AudioController extends GetxController
   late final AnimationController animController;
 
   List<StreamSubscription>? _subscriptions;
+  Timer? _autoTailSkipCompletedTimer;
+  int _autoTailSkipGeneration = 0;
 
   int? index;
   List<DetailItem>? playlist;
@@ -198,15 +200,92 @@ class AudioController extends GetxController
   }
 
   Future<void>? onPlay() {
+    _cancelAutoTailSkipCompleted();
     return player?.play();
   }
 
   Future<void>? onPause() {
+    _cancelAutoTailSkipCompleted();
     return player?.pause();
   }
 
-  Future<void>? onSeek(Duration duration) {
+  Future<void>? onSeek(
+    Duration duration, {
+    BlockSkipSource skipSource = BlockSkipSource.manual,
+  }) {
+    _cancelAutoTailSkipCompleted();
+    if (skipSource == BlockSkipSource.automatic) {
+      _scheduleAutoTailSkipCompleted(duration);
+    }
     return player?.seek(duration);
+  }
+
+  void _cancelAutoTailSkipCompleted() {
+    _autoTailSkipGeneration++;
+    _autoTailSkipCompletedTimer?.cancel();
+    _autoTailSkipCompletedTimer = null;
+  }
+
+  void _scheduleAutoTailSkipCompleted(Duration target) {
+    final currentPlayer = player;
+    if (currentPlayer == null) return;
+    final total = _rawAudioDuration(currentPlayer);
+    if (total <= Duration.zero) return;
+
+    final remaining = total - target;
+    if (remaining < Duration.zero ||
+        remaining > const Duration(milliseconds: 1500)) {
+      return;
+    }
+
+    final generation = _autoTailSkipGeneration;
+    _autoTailSkipCompletedTimer?.cancel();
+    _autoTailSkipCompletedTimer = Timer(
+      remaining + const Duration(seconds: 1),
+      () {
+        if (generation != _autoTailSkipGeneration ||
+            isClosed ||
+            !identical(player, currentPlayer)) {
+          return;
+        }
+        final currentDuration = _rawAudioDuration(currentPlayer);
+        if (currentDuration > Duration.zero) {
+          position.value = currentDuration.inSeconds;
+          _videoDetailController?.playedTime = currentDuration;
+          videoPlayerServiceHandler?.onPositionChange(currentDuration);
+        }
+        _handlePlaybackCompleted();
+      },
+    );
+  }
+
+  void _handlePlaybackCompleted() {
+    _cancelAutoTailSkipCompleted();
+    if (shutdownTimerService.isWaiting) {
+      shutdownTimerService.handleWaiting();
+    } else {
+      switch (playMode.value) {
+        case PlayRepeat.pause:
+          break;
+        case PlayRepeat.listOrder:
+          playNext(nextPart: true);
+          break;
+        case PlayRepeat.singleCycle:
+          onPlay();
+          break;
+        case PlayRepeat.listCycle:
+          if (!playNext(nextPart: true)) {
+            if (index != null && index != 0 && playlist != null) {
+              playIndex(0);
+            } else {
+              onPlay();
+            }
+          }
+          break;
+        case PlayRepeat.autoPlayRelated:
+          break;
+      }
+    }
   }
 
   Duration _rawAudioPosition([Player? currentPlayer]) {
@@ -564,31 +643,7 @@ class AudioController extends GetxController
           false,
         );
         if (completed) {
-          if (shutdownTimerService.isWaiting) {
-            shutdownTimerService.handleWaiting();
-          } else {
-            switch (playMode.value) {
-              case PlayRepeat.pause:
-                break;
-              case PlayRepeat.listOrder:
-                playNext(nextPart: true);
-                break;
-              case PlayRepeat.singleCycle:
-                onPlay();
-                break;
-              case PlayRepeat.listCycle:
-                if (!playNext(nextPart: true)) {
-                  if (index != null && index != 0 && playlist != null) {
-                    playIndex(0);
-                  } else {
-                    onPlay();
-                  }
-                }
-                break;
-              case PlayRepeat.autoPlayRelated:
-                break;
-            }
-          }
+          _handlePlaybackCompleted();
         }
       }),
     ];
@@ -925,8 +980,11 @@ class AudioController extends GetxController
   int? get timeLength => player?.state.duration.inMilliseconds ?? 0;
 
   @override
-  Future<void>? seekTo(Duration duration, {required bool isSeek}) =>
-      onSeek(duration);
+  Future<void>? seekTo(
+    Duration duration, {
+    required bool isSeek,
+    BlockSkipSource skipSource = BlockSkipSource.manual,
+  }) => onSeek(duration, skipSource: skipSource);
 
   @override
   bool get autoPlay => true;
@@ -948,6 +1006,7 @@ class AudioController extends GetxController
     _subscriptions?.forEach((e) => e.cancel());
     _subscriptions?.clear();
     _subscriptions = null;
+    _cancelAutoTailSkipCompleted();
     player?.dispose();
     player = null;
     animController.dispose();

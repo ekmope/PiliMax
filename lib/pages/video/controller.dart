@@ -706,8 +706,11 @@ class VideoDetailController extends GetxController
   int get currPosInMilliseconds =>
       defaultST?.inMilliseconds ?? plPlayerController.positionInMilliseconds;
   @override
-  Future<void> seekTo(Duration duration, {required bool isSeek}) =>
-      plPlayerController.seekTo(duration, isSeek: isSeek);
+  Future<void> seekTo(
+    Duration duration, {
+    required bool isSeek,
+    BlockSkipSource skipSource = BlockSkipSource.manual,
+  }) => plPlayerController.seekTo(duration, isSeek: isSeek);
 
   @override
   Widget buildItem(Object item, Animation<double> animation) {
@@ -1747,10 +1750,9 @@ class VideoDetailController extends GetxController
     if (targetItem == null) return;
     final newProgress = progressSeconds == -1
         ? -1
-        : progressSeconds.clamp(
-            0,
-            videoDuration > 0 ? videoDuration : progressSeconds,
-          ).toInt();
+        : progressSeconds
+              .clamp(0, videoDuration > 0 ? videoDuration : progressSeconds)
+              .toInt();
     if (targetItem.progress != newProgress) {
       targetItem.progress = newProgress;
       mediaList.refresh();

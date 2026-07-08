@@ -1165,7 +1165,7 @@ class VideoDetailController extends GetxController
                   lastPlayCid: data.lastPlayCid,
                 )
               : null;
-          if (progress != null) {
+          if (_isTrustedRouteProgress(progress)) {
             defaultST = Duration(milliseconds: progress);
           } else if (playUrlStartTime != null) {
             defaultST = playUrlStartTime;
@@ -1559,6 +1559,21 @@ class VideoDetailController extends GetxController
     return _canUseLastPlayTime(lastPlayCid)
         ? Duration(milliseconds: lastPlayTime)
         : Duration.zero;
+  }
+
+  bool _isTrustedRouteProgress(dynamic progress) {
+    if (progress is! int) return false;
+
+    final progressAid = args.remove('progressAid');
+    final progressBvid = args.remove('progressBvid');
+    final progressCid = args.remove('progressCid');
+    final hasIdentity =
+        progressAid != null || progressBvid != null || progressCid != null;
+    if (!hasIdentity) return false;
+
+    return (progressAid == null || progressAid == aid) &&
+        (progressBvid == null || progressBvid == bvid) &&
+        (progressCid == null || progressCid == cid.value);
   }
 
   bool _canUseLastPlayTime(int? lastPlayCid) {

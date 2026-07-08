@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
+import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -66,9 +67,7 @@ class PostPanel extends CommonSlidePage {
           spacing: 5,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '${isFirst ? '开始' : '结束'}: $value',
-            ),
+            Text('${isFirst ? '开始' : '结束'}: $value'),
             iconButton(
               context: context,
               size: 26,
@@ -122,9 +121,7 @@ class PostPanel extends CommonSlidePage {
                         onPressed: Get.back,
                         child: Text(
                           '取消',
-                          style: TextStyle(
-                            color: theme.colorScheme.outline,
-                          ),
+                          style: TextStyle(color: theme.colorScheme.outline),
                         ),
                       ),
                       TextButton(
@@ -207,10 +204,7 @@ class _PostPanelState extends State<PostPanel>
                 list.insert(
                   0,
                   PostSegmentModel(
-                    segment: Pair(
-                      first: 0,
-                      second: currentPos(),
-                    ),
+                    segment: Pair(first: 0, second: currentPos()),
                     category: SegmentType.sponsor,
                     actionType: ActionType.skip,
                   ),
@@ -262,7 +256,7 @@ class _PostPanelState extends State<PostPanel>
     );
     if (_isNested) {
       child = ExtendedVisibilityDetector(
-        uniqueKey: const ValueKey(PostPanel),
+        uniqueKey: const Key('post-panel'),
         child: child,
       );
     }
@@ -275,25 +269,17 @@ class _PostPanelState extends State<PostPanel>
           bottom: kFloatingActionButtonMargin + bottom,
           child: FloatingActionButton(
             tooltip: '提交',
-            onPressed: () => showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
+            onPressed: () async {
+              final submitted = await showAsyncConfirmDialog(
+                context: context,
                 title: const Text('确定无误再提交'),
-                actions: [
-                  TextButton(
-                    onPressed: Get.back,
-                    child: Text(
-                      '取消',
-                      style: TextStyle(color: theme.colorScheme.outline),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _onPost,
-                    child: const Text('确定提交'),
-                  ),
-                ],
-              ),
-            ),
+                confirmText: '确定提交',
+                onConfirm: _onPost,
+              );
+              if (submitted && list.isEmpty && context.mounted) {
+                Get.back();
+              }
+            },
             child: const Icon(Icons.check),
           ),
         ),
@@ -302,7 +288,6 @@ class _PostPanelState extends State<PostPanel>
   }
 
   Future<void> _onPost() async {
-    Get.back();
     final res = await SponsorBlock.postSkipSegments(
       bvid: videoDetailController.bvid,
       cid: videoDetailController.cid.value,
@@ -311,7 +296,6 @@ class _PostPanelState extends State<PostPanel>
     );
 
     if (res case Success(:final response)) {
-      Get.back();
       SmartDialog.showToast('提交成功');
       list.clear();
       videoDetailController.handleSBData(response);
@@ -329,10 +313,7 @@ class _PostPanelState extends State<PostPanel>
       children: [
         Container(
           width: double.infinity,
-          margin: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 5,
-          ),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: theme.colorScheme.onInverseSurface,
@@ -466,18 +447,22 @@ class _PostPanelState extends State<PostPanel>
               final player = plPlayerController.videoPlayerController;
               if (player != null) {
                 final start = (item.segment.first * 1000).round();
-                Future<void> seekTo() => player.seek(
+                Future<void> seekTo() => plPlayerController.seekTo(
                   Duration(milliseconds: (item.segment.second * 1000).round()),
+                  isSeek: false,
                 );
                 if (start <= 0) {
-                  seekTo();
+                  unawaited(seekTo());
                   if (!player.state.playing) {
                     await player.play();
                   }
                   return;
                 }
                 final seek = max(0, start - 2000);
-                await player.seek(Duration(milliseconds: seek));
+                await plPlayerController.seekTo(
+                  Duration(milliseconds: seek),
+                  isSeek: false,
+                );
                 if (!player.state.playing) {
                   await player.play();
                 }
@@ -493,13 +478,13 @@ class _PostPanelState extends State<PostPanel>
                   final duration = Duration(milliseconds: start);
                   posSub.onData((pos) {
                     if (pos >= duration) {
-                      seekTo();
+                      unawaited(seekTo());
                       timer.cancel();
                       posSub.cancel();
                     }
                   });
                 } else {
-                  seekTo();
+                  unawaited(seekTo());
                 }
               }
             },

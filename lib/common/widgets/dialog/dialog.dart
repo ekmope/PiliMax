@@ -1,4 +1,8 @@
-import 'package:flutter/material.dart';
+import 'dart:async' show FutureOr;
+
+import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
+import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
+import 'package:flutter/material.dart' hide PopScope;
 import 'package:get/get.dart';
 
 Future<bool> showConfirmDialog({
@@ -18,9 +22,7 @@ Future<bool> showConfirmDialog({
               onPressed: Get.back,
               child: Text(
                 '取消',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.outline,
-                ),
+                style: TextStyle(color: Theme.of(context).colorScheme.outline),
               ),
             ),
             TextButton(
@@ -32,6 +34,67 @@ Future<bool> showConfirmDialog({
             ),
           ],
         ),
+      ) ??
+      false;
+}
+
+Future<bool> showAsyncConfirmDialog({
+  required BuildContext context,
+  required Widget title,
+  required FutureOr<void> Function() onConfirm,
+  Widget? content,
+  String cancelText = '取消',
+  String confirmText = '确认',
+}) async {
+  return await showDialog<bool>(
+        barrierDismissible: false,
+        context: context,
+        builder: (context) {
+          bool isLoading = false;
+          return StatefulBuilder(
+            builder: (context, setState) => PopScope(
+              canPop: !isLoading,
+              onPopInvokedWithResult: (_, _) {},
+              child: AlertDialog(
+                title: title,
+                content: content,
+                actions: [
+                  TextButton(
+                    onPressed: isLoading ? null : () => Get.back(result: false),
+                    child: Text(
+                      cancelText,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            setState(() => isLoading = true);
+                            bool completed = false;
+                            try {
+                              await onConfirm();
+                              completed = true;
+                              if (context.mounted) {
+                                Get.back(result: true);
+                              }
+                            } finally {
+                              if (!completed && context.mounted) {
+                                setState(() => isLoading = false);
+                              }
+                            }
+                          },
+                    child: isLoading
+                        ? buttonLoadingIndicator()
+                        : Text(confirmText),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ) ??
       false;
 }
@@ -52,10 +115,7 @@ void showPgcFollowDialog({
       enabled: enabled,
       title: Padding(
         padding: const EdgeInsets.only(left: 10),
-        child: Text(
-          '标记为 $text',
-          style: const TextStyle(fontSize: 14),
-        ),
+        child: Text('标记为 $text', style: const TextStyle(fontSize: 14)),
       ),
       trailing: !enabled ? const Icon(size: 22, Icons.check) : null,
       onTap: onTap,
@@ -86,10 +146,7 @@ void showPgcFollowDialog({
           dense: true,
           title: Padding(
             padding: const EdgeInsets.only(left: 10),
-            child: Text(
-              '取消$type',
-              style: const TextStyle(fontSize: 14),
-            ),
+            child: Text('取消$type', style: const TextStyle(fontSize: 14)),
           ),
           onTap: () {
             Get.back();

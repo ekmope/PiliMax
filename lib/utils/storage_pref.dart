@@ -1063,6 +1063,9 @@ abstract final class Pref {
   static bool get enableLog =>
       _setting.get(SettingBoxKey.enableLog, defaultValue: true);
 
+  static bool get enableNetworkLog =>
+      _setting.get(SettingBoxKey.enableNetworkLog, defaultValue: false);
+
   static bool get disableAudioCDN =>
       _setting.get(SettingBoxKey.disableAudioCDN, defaultValue: false);
 

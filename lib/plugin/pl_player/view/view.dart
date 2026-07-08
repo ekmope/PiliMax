@@ -1029,6 +1029,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     if (Platform.isAndroid && AndroidHelper.isPipMode) {
       plPlayerController.controls = false;
     }
+    final nextController = widget.plPlayerController.videoController;
+    if (nextController != null && !identical(videoController, nextController)) {
+      videoController = nextController;
+    }
   }
 
   void _onPanStart(ScaleStartDetails details) {
@@ -2191,6 +2195,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 key: _videoKey,
                 child: Obx(
                   () {
+                    final currentVideoController =
+                        plPlayerController.videoController ?? videoController;
+                    if (!identical(videoController, currentVideoController)) {
+                      videoController = currentVideoController;
+                    }
                     final videoFit = plPlayerController.videoFit.value;
                     return Transform.flip(
                       flipX: plPlayerController.flipX.value,
@@ -2199,7 +2208,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                         fit: videoFit.boxFit,
                         alignment: widget.alignment,
                         child: SimpleVideo(
-                          controller: plPlayerController.videoController!,
+                          key: ValueKey(currentVideoController.hashCode),
+                          controller: currentVideoController,
                           fill: widget.fill,
                           aspectRatio: videoFit.aspectRatio,
                         ),

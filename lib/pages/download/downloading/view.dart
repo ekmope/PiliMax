@@ -49,6 +49,16 @@ class _DownloadingPageState extends State<DownloadingPage>
               title: const Text('正在缓存'),
               actions: [
                 IconButton(
+                  tooltip: '全部开始',
+                  onPressed: _downloadService.startAllDownloads,
+                  icon: const Icon(Icons.play_arrow),
+                ),
+                IconButton(
+                  tooltip: '全部暂停',
+                  onPressed: _downloadService.pauseAllDownloads,
+                  icon: const Icon(Icons.pause),
+                ),
+                IconButton(
                   tooltip: '多选',
                   onPressed: () {
                     if (enableMultiSelect) {

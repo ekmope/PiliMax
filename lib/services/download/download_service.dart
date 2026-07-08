@@ -230,26 +230,81 @@ class DownloadService extends GetxService {
     });
   }
 
+  bool get _isDownloadTaskLimitReached =>
+      _activeTasks.length >= _downloadTaskLimit;
+
+  bool _isFailedStatus(DownloadStatus status) => switch (status) {
+    DownloadStatus.failDownload ||
+    DownloadStatus.failDownloadAudio ||
+    DownloadStatus.failDanmaku ||
+    DownloadStatus.failPlayUrl => true,
+    _ => false,
+  };
+
+  bool _shouldQueueBeforeStart(BiliDownloadEntryInfo entry) =>
+      entry.status == DownloadStatus.pause || _isFailedStatus(entry.status);
+
+  void _ensureInWaitQueue(BiliDownloadEntryInfo entry) {
+    if (!waitDownloadQueue.contains(entry)) {
+      waitDownloadQueue.add(entry);
+    }
+  }
+
+  Future<void> _markEntryWaitingLocked(BiliDownloadEntryInfo entry) async {
+    _ensureInWaitQueue(entry);
+    if (entry.status != DownloadStatus.wait) {
+      entry.status = DownloadStatus.wait;
+      await _updateBiliDownloadEntryJson(entry);
+    }
+    _refreshDownloadState();
+  }
+
   Future<void> _pauseTaskLocked(
     _ActiveDownloadTask task, {
     required bool isDelete,
+    DownloadStatus status = DownloadStatus.pause,
   }) async {
+    if (!isDelete) {
+      task.interruptedStatus = status;
+    }
     _activeTasks.remove(task.entry.cid);
     await task.cancel(isDelete: isDelete);
     if (!isDelete) {
-      task.entry.status = DownloadStatus.pause;
+      task.entry.status = status;
       await _updateBiliDownloadEntryJson(task.entry);
     }
     _refreshDownloadState();
   }
 
-  _ActiveDownloadTask? _findAutomaticActiveTask() {
+  _ActiveDownloadTask? _findYieldableActiveTask() {
     for (final task in _activeTasks.values) {
       if (!task.isManual) {
         return task;
       }
     }
-    return null;
+    if (_activeTasks.isEmpty) {
+      return null;
+    }
+    return _activeTasks.values.first;
+  }
+
+  Future<bool> _restoreInterruptedTaskStatus(
+    _ActiveDownloadTask task,
+  ) async {
+    final activeTask = _activeTasks[task.entry.cid];
+    if (identical(activeTask, task)) {
+      return false;
+    }
+    if (activeTask != null) {
+      return true;
+    }
+    final status = task.interruptedStatus;
+    if (status != null && task.entry.status != status) {
+      task.entry.status = status;
+      await _updateBiliDownloadEntryJson(task.entry);
+      _refreshDownloadState();
+    }
+    return true;
   }
 
   Future<void> _readDownloadList() async {
@@ -537,22 +592,105 @@ class DownloadService extends GetxService {
         return;
       }
 
-      if (_activeTasks.length >= _downloadTaskLimit) {
-        final task = _findAutomaticActiveTask();
+      if (_isDownloadTaskLimitReached) {
+        final task = _findYieldableActiveTask();
         if (task == null) {
           SmartDialog.showToast('当前缓存任务已满');
           return;
         }
-        await _pauseTaskLocked(task, isDelete: false);
+        await _pauseTaskLocked(
+          task,
+          isDelete: false,
+          status: DownloadStatus.wait,
+        );
       }
 
-      if (!waitDownloadQueue.contains(entry)) {
-        waitDownloadQueue.add(entry);
-      }
+      _ensureInWaitQueue(entry);
       final started = await _startEntryLocked(entry, isManual: true);
       if (started) {
         await _scheduleDownloadsLocked();
       }
+    });
+  }
+
+  Future<void> toggleDownload(BiliDownloadEntryInfo entry) {
+    return _lock.synchronized(() async {
+      final task = _activeTasks[entry.cid];
+      if (task != null) {
+        await _pauseTaskLocked(task, isDelete: false);
+        await _scheduleDownloadsLocked();
+        return;
+      }
+
+      if (_shouldQueueBeforeStart(entry) && _isDownloadTaskLimitReached) {
+        await _markEntryWaitingLocked(entry);
+        return;
+      }
+
+      _schedulerPaused = false;
+      if (_isDownloadTaskLimitReached) {
+        final task = _findYieldableActiveTask();
+        if (task == null) {
+          return;
+        }
+        await _pauseTaskLocked(
+          task,
+          isDelete: false,
+          status: DownloadStatus.wait,
+        );
+      }
+
+      _ensureInWaitQueue(entry);
+      final started = await _startEntryLocked(entry, isManual: true);
+      if (started) {
+        await _scheduleDownloadsLocked();
+      }
+    });
+  }
+
+  Future<void> startAllDownloads() {
+    return _lock.synchronized(() async {
+      _schedulerPaused = false;
+      var hasWaitingEntry = false;
+      for (final entry in waitDownloadQueue) {
+        if (_activeTasks.containsKey(entry.cid) || entry.isCompleted) {
+          continue;
+        }
+        if (entry.status == DownloadStatus.wait) {
+          hasWaitingEntry = true;
+          continue;
+        }
+        if (_shouldQueueBeforeStart(entry)) {
+          entry.status = DownloadStatus.wait;
+          await _updateBiliDownloadEntryJson(entry);
+          hasWaitingEntry = true;
+        }
+      }
+      if (hasWaitingEntry) {
+        await _scheduleDownloadsLocked();
+      } else {
+        _refreshDownloadState();
+      }
+    });
+  }
+
+  Future<void> pauseAllDownloads() {
+    return _lock.synchronized(() async {
+      _schedulerPaused = true;
+      final tasks = _activeTasks.values.toList();
+      for (final task in tasks) {
+        await _pauseTaskLocked(task, isDelete: false);
+      }
+      for (final entry in waitDownloadQueue) {
+        if (entry.isCompleted ||
+            _activeTasks.containsKey(entry.cid) ||
+            entry.status != DownloadStatus.wait) {
+          continue;
+        }
+        entry.status = DownloadStatus.pause;
+        await _updateBiliDownloadEntryJson(entry);
+      }
+      _refreshDownloadState();
     });
   }
 
@@ -815,7 +953,7 @@ class DownloadService extends GetxService {
         entry: entry,
         shouldUpdateStatus: () => _isCurrentTask(task),
       );
-      if (!_isCurrentTask(task)) {
+      if (await _restoreInterruptedTaskStatus(task)) {
         return;
       }
       if (!hasDanmaku) {
@@ -831,6 +969,9 @@ class DownloadService extends GetxService {
         source: entry.source,
         pageData: entry.pageData,
       );
+      if (await _restoreInterruptedTaskStatus(task)) {
+        return;
+      }
       final mediaFileInfo = downloadResult.mediaFileInfo;
 
       final videoDir = Directory(path.join(entry.entryDirPath, entry.typeTag));
@@ -848,7 +989,7 @@ class DownloadService extends GetxService {
         ),
       ]);
 
-      if (!_isCurrentTask(task)) {
+      if (await _restoreInterruptedTaskStatus(task)) {
         return;
       }
 
@@ -895,6 +1036,9 @@ class DownloadService extends GetxService {
           break;
       }
     } catch (e) {
+      if (await _restoreInterruptedTaskStatus(task)) {
+        return;
+      }
       await _failTask(task, DownloadStatus.failPlayUrl);
       if (kDebugMode) {
         debugPrint('get download url error: $e');
@@ -1196,6 +1340,7 @@ class _ActiveDownloadTask {
   final bool isManual;
   DownloadManager? videoManager;
   DownloadManager? audioManager;
+  DownloadStatus? interruptedStatus;
 
   Future<void> cancel({required bool isDelete}) async {
     await videoManager?.cancel(isDelete: isDelete);

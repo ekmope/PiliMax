@@ -107,6 +107,7 @@ class AudioController extends GetxController
   int _autoTailSkipGeneration = 0;
   int _playIndexGeneration = 0;
   int? _audioSwitchZeroPositionGuardGeneration;
+  _AudioPlaybackIdentity? _consumedCompletedIdentity;
   int _heartDuration = 0;
   bool _completedHeartBeatSynced = false;
 
@@ -233,7 +234,7 @@ class AudioController extends GetxController
   }
 
   Future<void>? onPause() {
-    _cancelAutoTailSkipCompleted();
+    _cancelAutoTailSkipCompleted(clearConsumed: false);
     _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
     return player?.pause();
   }
@@ -252,10 +253,13 @@ class AudioController extends GetxController
     return player?.seek(duration);
   }
 
-  void _cancelAutoTailSkipCompleted() {
+  void _cancelAutoTailSkipCompleted({bool clearConsumed = true}) {
     _autoTailSkipGeneration++;
     _autoTailSkipCompletedTimer?.cancel();
     _autoTailSkipCompletedTimer = null;
+    if (clearConsumed) {
+      _consumedCompletedIdentity = null;
+    }
   }
 
   _AudioPlaybackIdentity? _currentPlaybackIdentity([Player? currentPlayer]) {
@@ -389,13 +393,28 @@ class AudioController extends GetxController
           _videoDetailController?.playedTime = currentDuration;
           videoPlayerServiceHandler?.onPositionChange(currentDuration);
         }
-        _handlePlaybackCompleted();
+        _handlePlaybackCompleted(markConsumed: true);
       },
     );
   }
 
-  void _handlePlaybackCompleted() {
-    _cancelAutoTailSkipCompleted();
+  void _handlePlaybackCompleted({bool markConsumed = false}) {
+    final currentPlayer = player;
+    final consumedIdentity = _consumedCompletedIdentity;
+    if (currentPlayer != null &&
+        consumedIdentity != null &&
+        identical(consumedIdentity.player, currentPlayer)) {
+      return;
+    }
+    final currentIdentity = markConsumed
+        ? _currentPlaybackIdentity(currentPlayer)
+        : null;
+    _cancelAutoTailSkipCompleted(clearConsumed: false);
+    if (currentIdentity != null) {
+      _consumedCompletedIdentity = currentIdentity;
+    } else {
+      _consumedCompletedIdentity = null;
+    }
     _unawaitedHeartBeat(_reportCompletedHeartBeat());
     if (shutdownTimerService.isWaiting) {
       shutdownTimerService.handleWaiting();
@@ -868,6 +887,7 @@ class AudioController extends GetxController
       headers: {'Referer': ?referer},
     );
     await currentPlayer.open(Media(url, start: start));
+    _consumedCompletedIdentity = null;
     final stateDuration = _rawAudioDuration(currentPlayer);
     if (stateDuration > Duration.zero) {
       duration.value = stateDuration.inSeconds;
@@ -942,7 +962,7 @@ class AudioController extends GetxController
           false,
           false,
         );
-        _handlePlaybackCompleted();
+        _handlePlaybackCompleted(markConsumed: true);
       }),
     ];
   }
@@ -1189,7 +1209,7 @@ class AudioController extends GetxController
           final subId = this.subId.firstOrNull;
           final nextIndex = parts.indexWhere((e) => e.subId == subId) + 1;
           if (nextIndex != 0 && nextIndex < parts.length) {
-            _cancelAutoTailSkipCompleted();
+            _cancelAutoTailSkipCompleted(clearConsumed: false);
             _playIndexGeneration++;
             _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
             final prevOid = oid;
@@ -1255,7 +1275,7 @@ class AudioController extends GetxController
     final audioItem = playlist![index];
     final item = audioItem.item;
     final generation = ++_playIndexGeneration;
-    _cancelAutoTailSkipCompleted();
+    _cancelAutoTailSkipCompleted(clearConsumed: false);
     _defaultSubIdsForPlaylistItem(
       audioItem,
       item,

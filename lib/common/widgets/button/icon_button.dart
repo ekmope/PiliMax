@@ -1,3 +1,4 @@
+import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
 import 'package:flutter/material.dart';
 
 Widget iconButton({
@@ -9,6 +10,9 @@ Widget iconButton({
   double? iconSize,
   Color? bgColor,
   Color? iconColor,
+  bool isLoading = false,
+  double loadingSize = 16,
+  Color? loadingColor,
 }) {
   Color? backgroundColor = bgColor;
   Color? foregroundColor = iconColor;
@@ -21,9 +25,14 @@ Widget iconButton({
     width: size,
     height: size,
     child: IconButton(
-      icon: icon,
+      icon: isLoading
+          ? buttonLoadingIndicator(
+              size: loadingSize,
+              color: loadingColor ?? foregroundColor,
+            )
+          : icon,
       tooltip: tooltip,
-      onPressed: onPressed,
+      onPressed: isLoading ? null : onPressed,
       style: IconButton.styleFrom(
         padding: EdgeInsets.zero,
         iconSize: iconSize ?? size / 2,

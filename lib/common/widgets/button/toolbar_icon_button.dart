@@ -1,3 +1,4 @@
+import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
 import 'package:flutter/material.dart';
 
 class ToolbarIconButton extends StatelessWidget {
@@ -5,6 +6,7 @@ class ToolbarIconButton extends StatelessWidget {
   final Icon icon;
   final bool selected;
   final String? tooltip;
+  final bool isLoading;
 
   const ToolbarIconButton({
     super.key,
@@ -12,6 +14,7 @@ class ToolbarIconButton extends StatelessWidget {
     required this.icon,
     required this.selected,
     this.tooltip,
+    this.isLoading = false,
   });
 
   @override
@@ -22,8 +25,14 @@ class ToolbarIconButton extends StatelessWidget {
       height: 36,
       child: IconButton(
         tooltip: tooltip,
-        onPressed: onPressed,
-        icon: icon,
+        onPressed: isLoading ? null : onPressed,
+        icon: isLoading
+            ? buttonLoadingIndicator(
+                color: selected
+                    ? colorScheme.onSecondaryContainer
+                    : colorScheme.outline,
+              )
+            : icon,
         highlightColor: colorScheme.secondaryContainer,
         color: selected
             ? colorScheme.onSecondaryContainer

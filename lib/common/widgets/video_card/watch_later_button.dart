@@ -1,3 +1,4 @@
+import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:flutter/material.dart';
 
@@ -47,45 +48,57 @@ class QuickWatchLaterButton extends StatefulWidget {
 
 class _QuickWatchLaterButtonState extends State<QuickWatchLaterButton> {
   bool _isInWatchLater = false;
+  bool _isLoading = false;
 
   @override
   void didUpdateWidget(covariant QuickWatchLaterButton oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.target.identity != widget.target.identity) {
       _isInWatchLater = false;
+      _isLoading = false;
     }
   }
 
   Future<void> _onTap() async {
+    if (_isLoading) {
+      return;
+    }
     final requestIdentity = widget.target.identity;
-    if (_isInWatchLater) {
-      final aid = widget.target.aid;
-      if (aid == null) {
+    setState(() => _isLoading = true);
+    try {
+      if (_isInWatchLater) {
+        final aid = widget.target.aid;
+        if (aid == null) {
+          return;
+        }
+        final res = await UserHttp.toViewDel(aids: aid.toString());
+        res.toast();
+        if (!mounted ||
+            widget.target.identity != requestIdentity ||
+            !res.isSuccess) {
+          return;
+        }
+        setState(() => _isInWatchLater = false);
         return;
       }
-      final res = await UserHttp.toViewDel(aids: aid.toString());
+
+      final bvid = widget.target.bvid;
+      if (bvid == null) {
+        return;
+      }
+      final res = await UserHttp.toViewLater(bvid: bvid);
       res.toast();
       if (!mounted ||
           widget.target.identity != requestIdentity ||
           !res.isSuccess) {
         return;
       }
-      setState(() => _isInWatchLater = false);
-      return;
+      setState(() => _isInWatchLater = true);
+    } finally {
+      if (mounted && widget.target.identity == requestIdentity) {
+        setState(() => _isLoading = false);
+      }
     }
-
-    final bvid = widget.target.bvid;
-    if (bvid == null) {
-      return;
-    }
-    final res = await UserHttp.toViewLater(bvid: bvid);
-    res.toast();
-    if (!mounted ||
-        widget.target.identity != requestIdentity ||
-        !res.isSuccess) {
-      return;
-    }
-    setState(() => _isInWatchLater = true);
   }
 
   @override
@@ -97,14 +110,20 @@ class _QuickWatchLaterButtonState extends State<QuickWatchLaterButton> {
       borderRadius: widget.borderRadius,
       child: InkWell(
         borderRadius: widget.borderRadius,
-        onTap: _onTap,
+        onTap: _isLoading ? null : _onTap,
         child: Padding(
           padding: widget.padding,
-          child: Icon(
-            _isInWatchLater ? Icons.check : Icons.watch_later_outlined,
-            size: widget.iconSize,
-            color: Colors.white,
-          ),
+          child: _isLoading
+              ? buttonLoadingIndicator(
+                  size: widget.iconSize,
+                  strokeWidth: 1.8,
+                  color: Colors.white,
+                )
+              : Icon(
+                  _isInWatchLater ? Icons.check : Icons.watch_later_outlined,
+                  size: widget.iconSize,
+                  color: Colors.white,
+                ),
         ),
       ),
     );

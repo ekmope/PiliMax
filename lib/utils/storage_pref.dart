@@ -445,6 +445,14 @@ abstract final class Pref {
     defaultValue: AudioQuality.k192.code,
   );
 
+  static const List<VideoDecodeFormatType> _androidDefaultPreferCodecs = [
+    VideoDecodeFormatType.HEVC,
+    VideoDecodeFormatType.AVC,
+  ];
+
+  static List<VideoDecodeFormatType> get _platformDefaultPreferCodecs =>
+      Platform.isAndroid ? _androidDefaultPreferCodecs : const [];
+
   static List<VideoDecodeFormatType> get preferCodecs {
     // TODO: remove next 2 version
     if (_setting.get('defaultDecode') case String codecStr) {
@@ -466,11 +474,15 @@ abstract final class Pref {
       return codecs;
     }
 
+    if (!_setting.containsKey(SettingBoxKey.preferCodecs)) {
+      return _platformDefaultPreferCodecs;
+    }
+
     final codecs = _setting.get(SettingBoxKey.preferCodecs);
-    if (codecs is List && codecs.isNotEmpty) {
+    if (codecs is List) {
       return codecs.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
     }
-    return const [];
+    return _platformDefaultPreferCodecs;
   }
 
   static String get hardwareDecoding => _setting.get(

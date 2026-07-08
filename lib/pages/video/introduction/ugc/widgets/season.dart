@@ -33,6 +33,7 @@ class _SeasonPanelState extends State<SeasonPanel> {
   late VideoDetailController _videoDetailController;
   StreamSubscription? _listener;
   List<EpisodeItem> episodes = <EpisodeItem>[];
+  int? _pendingSeasonIndex;
 
   UgcIntroController get ugcIntroController => widget.ugcIntroController;
   VideoDetailData get videoDetail =>
@@ -63,9 +64,7 @@ class _SeasonPanelState extends State<SeasonPanel> {
     }
 
     /// 取对应 season_id 的 episodes
-    currentIndex.value = episodes.indexWhere(
-      (EpisodeItem e) => e.cid == _videoDetailController.seasonCid,
-    );
+    _updateCurrentIndex();
     _listener = _videoDetailController.cid.listen((int cid) {
       if (_videoDetailController.seasonCid != cid) {
         bool isPart =
@@ -75,9 +74,9 @@ class _SeasonPanelState extends State<SeasonPanel> {
         }
       }
       _findEpisode();
-      currentIndex.value = episodes.indexWhere(
-        (EpisodeItem e) => e.cid == _videoDetailController.seasonCid,
-      );
+      if (episodes.isNotEmpty) {
+        _updateCurrentIndex();
+      }
     });
   }
 
@@ -94,11 +93,7 @@ class _SeasonPanelState extends State<SeasonPanel> {
     }
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(
-        top: 8,
-        left: 2,
-        right: 2,
-      ),
+      padding: const EdgeInsets.only(top: 8, left: 2, right: 2),
       child: Material(
         color: theme.colorScheme.onInverseSurface,
         borderRadius: const BorderRadius.all(Radius.circular(6)),
@@ -157,18 +152,49 @@ class _SeasonPanelState extends State<SeasonPanel> {
   }
 
   void _findEpisode() {
-    final List<SectionItem> sections = videoDetail.ugcSeason!.sections!;
+    final List<SectionItem>? sections = videoDetail.ugcSeason?.sections;
+    if (sections == null || sections.isEmpty) {
+      episodes = <EpisodeItem>[];
+      return;
+    }
     for (int i = 0; i < sections.length; i++) {
-      final List<EpisodeItem> episodesList = sections[i].episodes!;
+      final List<EpisodeItem>? episodesList = sections[i].episodes;
+      if (episodesList == null) {
+        continue;
+      }
       for (int j = 0; j < episodesList.length; j++) {
-        if (episodesList[j].cid == _videoDetailController.seasonCid) {
-          if (_videoDetailController.seasonIndex.value != i) {
-            _videoDetailController.seasonIndex.value = i;
-          }
-          episodes = episodesList;
-          break;
+        if (episodesList[j].cid != _videoDetailController.seasonCid) {
+          continue;
         }
+        episodes = episodesList;
+        _syncSeasonIndex(i);
+        return;
       }
     }
+    episodes = <EpisodeItem>[];
+  }
+
+  void _updateCurrentIndex() {
+    final int index = episodes.indexWhere(
+      (EpisodeItem e) => e.cid == _videoDetailController.seasonCid,
+    );
+    currentIndex.value = index < 0 ? 0 : index;
+  }
+
+  void _syncSeasonIndex(int index) {
+    if (_videoDetailController.seasonIndex.value == index) {
+      _pendingSeasonIndex = null;
+      return;
+    }
+    _pendingSeasonIndex = index;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _pendingSeasonIndex != index) {
+        return;
+      }
+      _pendingSeasonIndex = null;
+      if (_videoDetailController.seasonIndex.value != index) {
+        _videoDetailController.seasonIndex.value = index;
+      }
+    });
   }
 }

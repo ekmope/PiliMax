@@ -297,19 +297,15 @@ class DynamicsController extends GetxController
   void toTopOrRefresh() {
     final ctr = controller;
     if (ctr?.scrollController.hasClients == true) {
-      if (ctr!.scrollController.position.pixels == 0) {
-        if (scrollController.hasClients &&
-            scrollController.position.pixels != 0) {
-          scrollController.animToTop();
-        }
-        EasyThrottle.throttle(
-          'topOrRefresh',
-          const Duration(milliseconds: 500),
-          onRefresh,
-        );
-      } else {
-        animateToTop();
-      }
+      EasyThrottle.throttle(
+        'topOrRefresh',
+        const Duration(milliseconds: 500),
+        () {
+          animateToTop();
+          ctr!.showRefresh();
+          _refreshFollowUp();
+        },
+      );
     } else {
       super.toTopOrRefresh();
     }

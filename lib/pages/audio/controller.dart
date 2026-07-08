@@ -960,12 +960,21 @@ class AudioController extends GetxController
           final nextIndex = parts.indexWhere((e) => e.subId == subId) + 1;
           if (nextIndex != 0 && nextIndex < parts.length) {
             _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
+            final prevOid = oid;
+            final prevSubId = this.subId;
             final nextPart = parts[nextIndex];
             oid = nextPart.oid;
             this.subId = [nextPart.subId];
             _resetHeartBeatProgress();
             _queryPlayUrl().then((res) {
               if (res) {
+                final currentItem = audioItem.value;
+                if (currentItem != null) {
+                  _updateCurrItem(currentItem);
+                }
+              } else {
+                oid = prevOid;
+                this.subId = prevSubId;
                 final currentItem = audioItem.value;
                 if (currentItem != null) {
                   _updateCurrItem(currentItem);
@@ -994,6 +1003,10 @@ class AudioController extends GetxController
   void playIndex(int index, {List<Int64>? subId}) {
     if (index == this.index && subId == null) return;
     _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
+    final prevIndex = this.index;
+    final prevOid = oid;
+    final prevSubId = this.subId;
+    final prevItemType = itemType;
     this.index = index;
     final audioItem = playlist![index];
     final item = audioItem.item;
@@ -1006,6 +1019,17 @@ class AudioController extends GetxController
     _queryPlayUrl().then((res) {
       if (res) {
         _updateCurrItem(audioItem);
+      } else {
+        this.index = prevIndex;
+        oid = prevOid;
+        this.subId = prevSubId;
+        itemType = prevItemType;
+        final currentItem = this.index == null
+            ? this.audioItem.value
+            : playlist?.elementAtOrNull(this.index!) ?? this.audioItem.value;
+        if (currentItem != null) {
+          _updateCurrItem(currentItem);
+        }
       }
     });
   }

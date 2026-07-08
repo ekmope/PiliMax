@@ -16,6 +16,7 @@ import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/models_new/video/video_detail/page.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
+import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/android/bindings.g.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/path_utils.dart';
@@ -378,6 +379,56 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       ..removeWhere((item) => item.id == id || item.id.endsWith(herotag))
       ..add(mediaItem);
     setMediaItem(mediaItem);
+  }
+
+  Future<void> onAudioDetailChangeInBackground(
+    DetailItem data,
+    int cid,
+    String herotag, {
+    bool Function()? isCurrent,
+  }) async {
+    if (!enableBackgroundPlay) return;
+    if (!PlPlayerController.instanceExists()) return;
+    if (isCurrent?.call() == false) return;
+    currentHeroTag = herotag;
+
+    final artUri = await _cachedArtworkUri(data.arc.cover);
+    if (isCurrent?.call() == false) return;
+
+    final id = '$cid$herotag';
+    final item = MediaItem(
+      id: id,
+      title: data.arc.title,
+      artist: data.owner.name,
+      duration: Duration(seconds: data.arc.duration.toInt()),
+      artUri: artUri,
+    );
+    if (!PlPlayerController.instanceExists()) return;
+    _item
+      ..removeWhere((item) => item.id == id || item.id.endsWith(herotag))
+      ..add(item);
+    setMediaItem(item);
+    _refreshPlaybackState();
+  }
+
+  Future<Uri?> _cachedArtworkUri(String? cover) async {
+    final url = ImageUtils.safeThumbnailUrl(cover);
+    if (url.isEmpty) return null;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+    if (uri.scheme == 'file' || uri.scheme == 'content') return uri;
+    try {
+      final fileInfo = await CacheManager.manager.getFileFromCache(url);
+      return fileInfo?.file.absolute.uri;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _refreshPlaybackState() {
+    if (!enableBackgroundPlay || playbackState.isClosed) return;
+    if (!playbackState.hasValue) return;
+    playbackState.add(playbackState.value);
   }
 
   void onVideoDetailDispose(String herotag) {

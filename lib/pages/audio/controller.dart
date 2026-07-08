@@ -16,10 +16,8 @@ import 'package:PiliMax/grpc/bilibili/app/listener/v1.pb.dart'
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart'
-    as pgc;
-import 'package:PiliMax/models_new/video/video_detail/episode.dart'
-    as ugc;
+import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart' as pgc;
+import 'package:PiliMax/models_new/video/video_detail/episode.dart' as ugc;
 import 'package:PiliMax/pages/common/common_intro_controller.dart'
     show FavMixin;
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
@@ -99,6 +97,15 @@ class AudioController extends GetxController
 
   Duration? _start;
   VideoDetailController? _videoDetailController;
+  bool get _hasVideoDetailController => _videoDetailController != null;
+  bool get _shouldSyncVideoDetailMetadata => _hasVideoDetailController;
+  bool get _shouldSyncVideoDetailSideEffects =>
+      !_hasVideoDetailController || _isAppInForeground;
+  bool get _isAppInForeground =>
+      switch (WidgetsBinding.instance.lifecycleState) {
+        AppLifecycleState.resumed || AppLifecycleState.inactive => true,
+        _ => false,
+      };
 
   String? _prev;
   String? _next;
@@ -314,9 +321,7 @@ class AudioController extends GetxController
     }
     for (final section in videoDetail.ugcSeason?.sections ?? const []) {
       for (final episode in section.episodes ?? const []) {
-        if (episode.cid == cid ||
-            episode.aid == aid ||
-            episode.bvid == bvid) {
+        if (episode.cid == cid || episode.aid == aid || episode.bvid == bvid) {
           return episode;
         }
         for (final part in episode.pages ?? const []) {
@@ -334,9 +339,7 @@ class AudioController extends GetxController
     required int cid,
   }) {
     for (final episode in controller.pgcItem.episodes ?? const []) {
-      if (episode.cid == cid ||
-          episode.aid == aid ||
-          episode.bvid == bvid) {
+      if (episode.cid == cid || episode.aid == aid || episode.bvid == bvid) {
         return episode;
       }
     }
@@ -348,11 +351,32 @@ class AudioController extends GetxController
     hasLike.value = item.stat.hasLike_7;
     coinNum.value = item.stat.hasCoin_8 ? 2 : 0;
     hasFav.value = item.stat.hasFav;
-    videoPlayerServiceHandler?.onVideoDetailChange(
-      item,
-      (subId.firstOrNull ?? oid).toInt(),
-      hashCode.toString(),
-    );
+    if (isClosed) {
+      return;
+    }
+    final expectedOid = oid;
+    final expectedSubId = subId.firstOrNull;
+    final expectedCid = (expectedSubId ?? expectedOid).toInt();
+    if (_shouldSyncVideoDetailSideEffects) {
+      videoPlayerServiceHandler?.onVideoDetailChange(
+        item,
+        expectedCid,
+        hashCode.toString(),
+      );
+    } else if (_shouldSyncVideoDetailMetadata) {
+      unawaited(
+        videoPlayerServiceHandler?.onAudioDetailChangeInBackground(
+              item,
+              expectedCid,
+              hashCode.toString(),
+              isCurrent: () =>
+                  !isClosed &&
+                  oid == expectedOid &&
+                  subId.firstOrNull == expectedSubId,
+            ) ??
+            Future<void>.value(),
+      );
+    }
   }
 
   Future<void> _queryPlayList({
@@ -686,10 +710,7 @@ class AudioController extends GetxController
   }
 
   void showReply() {
-    MainReplyPage.toMainReplyPage(
-      oid: oid.toInt(),
-      replyType: isUgc ? 1 : 14,
-    );
+    MainReplyPage.toMainReplyPage(oid: oid.toInt(), replyType: isUgc ? 1 : 14);
   }
 
   void actionShareVideo(BuildContext context) {
@@ -721,10 +742,7 @@ class AudioController extends GetxController
               child: const Text('分享视频', style: TextStyle(fontSize: 14)),
               onPressed: () {
                 Get.back();
-                if (audioItem.value case DetailItem(
-                  :final arc,
-                  :final owner,
-                )) {
+                if (audioItem.value case DetailItem(:final arc, :final owner)) {
                   ShareUtils.shareText(
                     '${arc.title} '
                     'UP主: ${owner.name}'
@@ -738,10 +756,7 @@ class AudioController extends GetxController
               child: const Text('分享至动态', style: TextStyle(fontSize: 14)),
               onPressed: () {
                 Get.back();
-                if (audioItem.value case DetailItem(
-                  :final arc,
-                  :final owner,
-                )) {
+                if (audioItem.value case DetailItem(:final arc, :final owner)) {
                   showModalBottomSheet(
                     context: context,
                     isScrollControlled: true,
@@ -762,10 +777,7 @@ class AudioController extends GetxController
               child: const Text('分享至消息', style: TextStyle(fontSize: 14)),
               onPressed: () {
                 Get.back();
-                if (audioItem.value case DetailItem(
-                  :final arc,
-                  :final owner,
-                )) {
+                if (audioItem.value case DetailItem(:final arc, :final owner)) {
                   try {
                     PageUtils.pmShare(
                       context,

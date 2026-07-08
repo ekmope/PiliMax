@@ -106,6 +106,7 @@ class AudioController extends GetxController
   Timer? _autoTailSkipCompletedTimer;
   int _autoTailSkipGeneration = 0;
   int _playIndexGeneration = 0;
+  int? _audioSwitchZeroPositionGuardGeneration;
   int _heartDuration = 0;
   bool _completedHeartBeatSynced = false;
 
@@ -241,6 +242,7 @@ class AudioController extends GetxController
     Duration duration, {
     BlockSkipSource skipSource = BlockSkipSource.manual,
   }) {
+    _audioSwitchZeroPositionGuardGeneration = null;
     _cancelAutoTailSkipCompleted();
     _heartDuration = duration.inSeconds;
     _completedHeartBeatSynced = false;
@@ -685,6 +687,22 @@ class AudioController extends GetxController
     return _detailProgressSeconds(item, cid);
   }
 
+  void _armAudioSwitchZeroPositionGuard() {
+    final generation = _playIndexGeneration;
+    _audioSwitchZeroPositionGuardGeneration = generation;
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (_audioSwitchZeroPositionGuardGeneration == generation) {
+        _audioSwitchZeroPositionGuardGeneration = null;
+      }
+    });
+  }
+
+  bool _shouldIgnoreAudioSwitchZeroPosition(Duration position) {
+    return position == Duration.zero &&
+        this.position.value > 0 &&
+        _audioSwitchZeroPositionGuardGeneration == _playIndexGeneration;
+  }
+
   void _updateCurrItem(DetailItem item) {
     audioItem.value = item;
     hasLike.value = item.stat.hasLike_7;
@@ -843,8 +861,10 @@ class AudioController extends GetxController
     final statePosition = _rawAudioPosition(currentPlayer);
     if (start != null && start > Duration.zero) {
       position.value = start.inSeconds;
+      _armAudioSwitchZeroPositionGuard();
     } else if (statePosition > Duration.zero) {
       position.value = statePosition.inSeconds;
+      _armAudioSwitchZeroPositionGuard();
     }
     _start = null;
   }
@@ -873,6 +893,10 @@ class AudioController extends GetxController
     _subscriptions = [
       stream.position.listen((position) {
         if (isDragging) return;
+        if (_shouldIgnoreAudioSwitchZeroPosition(position)) return;
+        if (position > Duration.zero) {
+          _audioSwitchZeroPositionGuardGeneration = null;
+        }
         final seconds = position.inSeconds;
         if (seconds != this.position.value) {
           this.position.value = seconds;

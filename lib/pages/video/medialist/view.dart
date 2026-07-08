@@ -4,6 +4,7 @@ import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/stat_type.dart';
@@ -104,9 +105,7 @@ class _MediaListPanelState extends State<MediaListPanel>
               ),
             ),
           ),
-          Expanded(
-            child: enableSlide ? slideList(theme) : buildList(theme),
-          ),
+          Expanded(child: enableSlide ? slideList(theme) : buildList(theme)),
         ],
       ),
     );
@@ -217,9 +216,7 @@ class _MediaListPanelState extends State<MediaListPanel>
                               },
                             ),
                           PBadge(
-                            text: DurationUtils.formatDuration(
-                              item.duration,
-                            ),
+                            text: DurationUtils.formatDuration(item.duration),
                             right: 6.0,
                             bottom: 6.0,
                             type: PBadgeType.gray,
@@ -267,6 +264,20 @@ class _MediaListPanelState extends State<MediaListPanel>
                             ),
                             if (item.type == 2) ...[
                               const SizedBox(height: 3),
+                              if (item.progress != null &&
+                                  item.progress != 0 &&
+                                  item.duration != null &&
+                                  item.duration! > 0) ...[
+                                VideoProgressIndicator(
+                                  color: theme.colorScheme.primary,
+                                  backgroundColor:
+                                      theme.colorScheme.secondaryContainer,
+                                  progress: item.progress == -1
+                                      ? 1.0
+                                      : item.progress! / item.duration!,
+                                ),
+                                const SizedBox(height: 3),
+                              ],
                               Row(
                                 spacing: 8,
                                 children: [

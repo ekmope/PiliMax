@@ -69,10 +69,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       );
     }
     playbackState.add(
-      PlaybackState(
-        processingState: AudioProcessingState.idle,
-        playing: false,
-      ),
+      PlaybackState(processingState: AudioProcessingState.idle, playing: false),
     );
   }
 
@@ -98,7 +95,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     // 优先匹配 AudioController（听视频模式）
     try {
       final ctr = Get.find<AudioController>(tag: currentHeroTag!);
-      if (ctr.playNext()) return;
+      if (ctr.playNext(nextPart: true)) return;
     } catch (_) {}
     // 直接尝试 find，不检查 isRegistered
     try {
@@ -158,11 +155,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> seek(Duration position) {
-    playbackState.add(
-      playbackState.value.copyWith(
-        updatePosition: position,
-      ),
-    );
+    playbackState.add(playbackState.value.copyWith(updatePosition: position));
     return (onSeek?.call(position) ??
         PlPlayerController.seekToIfExists(position, isSeek: false));
     // await player.seekTo(position);
@@ -205,11 +198,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     return false;
   }
 
-  void setPlaybackState(
-    PlayerStatus status,
-    bool isBuffering,
-    bool isLive,
-  ) {
+  void setPlaybackState(PlayerStatus status, bool isBuffering, bool isLive) {
     if (!enableBackgroundPlay || _item.isEmpty) {
       return;
     }
@@ -233,13 +222,9 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
         androidIcon: 'drawable/ic_player_rewind_10s',
       ),
       if (playing)
-        MediaControl.pause.copyWith(
-          androidIcon: 'drawable/ic_player_pause',
-        )
+        MediaControl.pause.copyWith(androidIcon: 'drawable/ic_player_pause')
       else
-        MediaControl.play.copyWith(
-          androidIcon: 'drawable/ic_player_play',
-        ),
+        MediaControl.play.copyWith(androidIcon: 'drawable/ic_player_play'),
       MediaControl.fastForward.copyWith(
         androidIcon: 'drawable/ic_player_fast_forward_10s',
       ),
@@ -417,10 +402,6 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       return;
     }
 
-    playbackState.add(
-      playbackState.value.copyWith(
-        updatePosition: position,
-      ),
-    );
+    playbackState.add(playbackState.value.copyWith(updatePosition: position));
   }
 }

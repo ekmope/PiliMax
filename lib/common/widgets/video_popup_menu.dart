@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/widgets/custom_icon.dart';
+import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/account_type.dart';
@@ -40,14 +41,13 @@ class VideoPopupMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton(
+    return StaticPopupMenuButton(
       padding: EdgeInsets.zero,
       icon: Icon(
         Icons.more_vert_outlined,
         color: Theme.of(context).colorScheme.outline,
         size: iconSize,
       ),
-      position: PopupMenuPosition.under,
       itemBuilder: (context) =>
           [
                 if (videoItem.bvid?.isNotEmpty == true) ...[

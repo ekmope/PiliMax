@@ -1156,7 +1156,18 @@ class AudioController extends GetxController
   }
 
   Future<void>? playOrPause() {
-    return player?.playOrPause();
+    if (player case final player?) {
+      if (duration.value - position.value < 1) {
+        return _restartPlayback();
+      }
+      return player.state.playing ? onPause() : onPlay();
+    }
+    return null;
+  }
+
+  Future<void> _restartPlayback() async {
+    await onSeek(Duration.zero);
+    await onPlay();
   }
 
   bool playPrev() {

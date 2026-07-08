@@ -60,6 +60,7 @@ class AudioPage extends StatefulWidget {
     Duration? start,
     String? audioUrl,
     int? extraId,
+    List<Map<String, int>>? playlistProgress,
   }) {
     heroTag ??= Utils.makeHeroTag(oid);
     return Get.toNamed(
@@ -74,6 +75,7 @@ class AudioPage extends StatefulWidget {
         'start': ?start,
         'audioUrl': ?audioUrl,
         'extraId': ?extraId,
+        'playlistProgress': ?playlistProgress,
       },
     );
   }

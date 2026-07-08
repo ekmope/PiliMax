@@ -111,6 +111,7 @@ class AudioController extends GetxController
 
   int? index;
   List<DetailItem>? playlist;
+  final Map<String, int> _initialPlaylistProgress = {};
 
   late double speed = 1.0;
 
@@ -180,6 +181,7 @@ class AudioController extends GetxController
     if (extraId != null) {
       this.extraId = Int64(extraId);
     }
+    _initPlaylistProgressSnapshot(args['playlistProgress']);
     if (args['heroTag'] case String heroTag) {
       try {
         _videoDetailController = Get.find<VideoDetailController>(tag: heroTag);
@@ -603,6 +605,84 @@ class AudioController extends GetxController
     }
 
     return item.subId.isNotEmpty ? item.subId : [fallbackSubId];
+  }
+
+  String _progressKey(int aid, int cid) => '$aid:$cid';
+
+  int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return null;
+  }
+
+  void _initPlaylistProgressSnapshot(dynamic raw) {
+    if (raw is! Iterable) return;
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final aid = _readInt(item['aid']);
+      final cid = _readInt(item['cid']);
+      final progress = _readInt(item['progress']);
+      if (aid == null ||
+          aid <= 0 ||
+          cid == null ||
+          cid <= 0 ||
+          progress == null ||
+          progress <= 0) {
+        continue;
+      }
+      _initialPlaylistProgress[_progressKey(aid, cid)] = progress;
+    }
+  }
+
+  int _normalizeProgressSeconds(
+    int progress, {
+    required int durationSeconds,
+  }) {
+    if (progress <= 0) return 0;
+    if (durationSeconds > 0 &&
+        progress > durationSeconds + 30 &&
+        progress ~/ Duration.millisecondsPerSecond <= durationSeconds + 30) {
+      return progress ~/ Duration.millisecondsPerSecond;
+    }
+    if (durationSeconds <= 0 &&
+        progress > 12 * Duration.secondsPerHour) {
+      return progress ~/ Duration.millisecondsPerSecond;
+    }
+    return progress;
+  }
+
+  int _detailItemDurationSeconds(DetailItem item, int cid) {
+    final part = item.parts.firstWhereOrNull((e) => e.subId.toInt() == cid);
+    if (part != null && part.duration > 0) {
+      return part.duration.toInt();
+    }
+    return item.arc.duration.toInt();
+  }
+
+  int _detailProgressSeconds(DetailItem item, int cid) {
+    if (item.parts.length > 1 && item.lastPart.toInt() != cid) {
+      return 0;
+    }
+    final durationSeconds = _detailItemDurationSeconds(item, cid);
+    final progress = _normalizeProgressSeconds(
+      item.progress.toInt(),
+      durationSeconds: durationSeconds,
+    );
+    if (progress > 0) {
+      return progress;
+    }
+    return _normalizeProgressSeconds(
+      item.lastPlayTime.toInt(),
+      durationSeconds: durationSeconds,
+    );
+  }
+
+  int _playlistItemProgressSeconds(DetailItem item, int aid, int cid) {
+    final snapshotProgress = _initialPlaylistProgress[_progressKey(aid, cid)];
+    if (snapshotProgress != null && snapshotProgress > 0) {
+      return snapshotProgress;
+    }
+    return _detailProgressSeconds(item, cid);
   }
 
   void _updateCurrItem(DetailItem item) {
@@ -1067,9 +1147,16 @@ class AudioController extends GetxController
             _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
             final prevOid = oid;
             final prevSubId = this.subId;
+            final prevStart = _start;
             final nextPart = parts[nextIndex];
             oid = nextPart.oid;
             this.subId = [nextPart.subId];
+            final progress = _playlistItemProgressSeconds(
+              audioItem.value!,
+              oid.toInt(),
+              nextPart.subId.toInt(),
+            );
+            _start = progress > 0 ? Duration(seconds: progress) : null;
             _resetHeartBeatProgress();
             _queryPlayUrl().then((res) {
               if (res) {
@@ -1080,6 +1167,7 @@ class AudioController extends GetxController
               } else {
                 oid = prevOid;
                 this.subId = prevSubId;
+                _start = prevStart;
                 final currentItem = audioItem.value;
                 if (currentItem != null) {
                   _updateCurrItem(currentItem);
@@ -1116,6 +1204,7 @@ class AudioController extends GetxController
     final prevOid = oid;
     final prevSubId = this.subId;
     final prevItemType = itemType;
+    final prevStart = _start;
     final audioItem = playlist![index];
     final item = audioItem.item;
     final generation = ++_playIndexGeneration;
@@ -1135,6 +1224,11 @@ class AudioController extends GetxController
       oid = item.oid;
       this.subId = resolvedSubId;
       itemType = item.itemType;
+      final currentCid = resolvedSubId.firstOrNull?.toInt();
+      final progress = currentCid == null
+          ? 0
+          : _playlistItemProgressSeconds(audioItem, oid.toInt(), currentCid);
+      _start = progress > 0 ? Duration(seconds: progress) : null;
       _resetHeartBeatProgress();
       return _queryPlayUrl();
     }).then((res) {
@@ -1146,6 +1240,7 @@ class AudioController extends GetxController
         oid = prevOid;
         this.subId = prevSubId;
         itemType = prevItemType;
+        _start = prevStart;
         final currentItem = this.index == null
             ? this.audioItem.value
             : playlist?.elementAtOrNull(this.index!) ?? this.audioItem.value;

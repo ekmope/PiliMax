@@ -2111,6 +2111,51 @@ class VideoDetailController extends GetxController
     return false;
   }
 
+  List<Map<String, int>> _audioPlaylistProgressSnapshot() {
+    final snapshot = <Map<String, int>>[];
+    final seen = <String>{};
+
+    void addProgress({
+      required int? aid,
+      required int? cid,
+      required int? progress,
+    }) {
+      if (aid == null || aid <= 0 || cid == null || cid <= 0) return;
+      if (progress == null || progress <= 0) return;
+      final key = '$aid:$cid';
+      if (!seen.add(key)) return;
+      snapshot.add({
+        'aid': aid,
+        'cid': cid,
+        'progress': progress,
+      });
+    }
+
+    final currentProgress = playedTime?.inSeconds;
+    addProgress(
+      aid: aid,
+      cid: cid.value,
+      progress: currentProgress != null && currentProgress > 0
+          ? currentProgress
+          : null,
+    );
+
+    for (final item in mediaList) {
+      final aid = item.aid;
+      final progress = item.progress;
+      final pages = item.pages;
+      if (pages != null && pages.isNotEmpty) {
+        if (pages.length == 1) {
+          addProgress(aid: aid, cid: pages.first.id, progress: progress);
+        }
+      } else {
+        addProgress(aid: aid, cid: item.cid, progress: progress);
+      }
+    }
+
+    return snapshot;
+  }
+
   void toAudioPage() {
     int? id;
     int? extraId;
@@ -2139,6 +2184,7 @@ class VideoDetailController extends GetxController
       start: playedTime,
       audioUrl: audioUrl,
       extraId: extraId,
+      playlistProgress: _audioPlaylistProgressSnapshot(),
     );
   }
 

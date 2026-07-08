@@ -26,6 +26,7 @@ import 'package:PiliMax/utils/extension/file_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/path_utils.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -192,10 +193,7 @@ class DownloadService extends GetxService {
       return;
     }
     final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final source = SourceInfo(
-      avId: episode.aid!,
-      cid: cid,
-    );
+    final source = SourceInfo(avId: episode.aid!, cid: cid);
     final ep = EpInfo(
       avId: source.avId,
       page: index,
@@ -245,6 +243,71 @@ class DownloadService extends GetxService {
       pageData: null,
     );
     _createDownload(entry);
+  }
+
+  Future<void> downloadByIdentifiers({
+    required int cid,
+    required String bvid,
+    required int totalTimeMilli,
+    int? aid,
+    String? title,
+    String? cover,
+    int? ownerId,
+    String? ownerName,
+    VideoQuality? quality,
+  }) async {
+    if (downloadList.indexWhere((e) => e.cid == cid) != -1) {
+      return;
+    }
+    if (waitDownloadQueue.indexWhere((e) => e.cid == cid) != -1) {
+      return;
+    }
+
+    final avid = aid ?? IdUtils.bv2av(bvid);
+    final preferQ = quality ?? VideoQuality.fromCode(Pref.defaultVideoQa);
+    final currentTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final entry = BiliDownloadEntryInfo(
+      mediaType: 2,
+      hasDashAudio: true,
+      isCompleted: false,
+      totalBytes: 0,
+      downloadedBytes: 0,
+      title: title ?? bvid,
+      typeTag: preferQ.code.toString(),
+      cover: cover ?? '',
+      preferedVideoQuality: preferQ.code,
+      qualityPithyDescription: preferQ.desc,
+      guessedTotalBytes: 0,
+      totalTimeMilli: totalTimeMilli,
+      danmakuCount: 0,
+      timeUpdateStamp: currentTime,
+      timeCreateStamp: currentTime,
+      canPlayInAdvance: true,
+      interruptTransformTempFile: false,
+      avid: avid,
+      spid: 0,
+      seasonId: null,
+      ep: null,
+      source: null,
+      bvid: bvid,
+      ownerId: ownerId,
+      ownerName: ownerName,
+      pageData: PageInfo(
+        cid: cid,
+        page: 1,
+        from: null,
+        part: null,
+        vid: null,
+        hasAlias: false,
+        tid: 0,
+        width: 0,
+        height: 0,
+        rotate: 0,
+        downloadTitle: '视频已缓存完成',
+        downloadSubtitle: title ?? bvid,
+      ),
+    );
+    await _createDownload(entry);
   }
 
   Future<void> _createDownload(BiliDownloadEntryInfo entry) async {
@@ -410,10 +473,7 @@ class DownloadService extends GetxService {
             (sub) => {
               'lan': sub.lan,
               'lan_doc': sub.isAi
-                  ? sub.lanDoc!.substring(
-                      0,
-                      sub.lanDoc!.length - '（AI）'.length,
-                    )
+                  ? sub.lanDoc!.substring(0, sub.lanDoc!.length - '（AI）'.length)
                   : sub.lanDoc ?? '',
               'subtitle_url': sub.subtitleUrl ?? '',
               'subtitle_url_v2': sub.subtitleUrlV2,
@@ -431,9 +491,7 @@ class DownloadService extends GetxService {
     }
   }
 
-  Future<bool> _downloadCover({
-    required BiliDownloadEntryInfo entry,
-  }) async {
+  Future<bool> _downloadCover({required BiliDownloadEntryInfo entry}) async {
     try {
       final filePath = path.join(entry.entryDirPath, PathUtils.coverName);
       if (File(filePath).existsSync()) {
@@ -741,10 +799,7 @@ class DownloadService extends GetxService {
       waitDownloadQueue.remove(entry);
     }
     if (curDownload.value?.cid == entry.cid) {
-      await cancelDownload(
-        isDelete: true,
-        downloadNext: downloadNext,
-      );
+      await cancelDownload(isDelete: true, downloadNext: downloadNext);
     }
     final downloadDir = Directory(entry.pageDirPath);
     if (downloadDir.existsSync()) {
@@ -866,10 +921,7 @@ class DownloadService extends GetxService {
     return size;
   }
 
-  static Future<bool> _dirHasDifference(
-    Directory src,
-    Directory dest,
-  ) async {
+  static Future<bool> _dirHasDifference(Directory src, Directory dest) async {
     await for (final entity in src.list(recursive: true)) {
       if (entity is! File) continue;
       final relPath = path.relative(entity.path, from: src.path);

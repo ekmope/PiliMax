@@ -1,5 +1,6 @@
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/account_type.dart';
@@ -10,7 +11,9 @@ import 'package:PiliMax/pages/mine/controller.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/pages/video/ai_conclusion/view.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
+import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/download_dialog_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
@@ -60,6 +63,11 @@ class VideoPopupMenu extends StatelessWidget {
                     '稍后再看',
                     const Icon(MdiIcons.clockTimeEightOutline, size: 16),
                     () => UserHttp.toViewLater(bvid: videoItem.bvid),
+                  ),
+                  _VideoCustomAction(
+                    '离线缓存',
+                    const Icon(MdiIcons.folderDownloadOutline, size: 16),
+                    () => _downloadVideo(context),
                   ),
                   if (videoItem.cid != null && Pref.enableAi)
                     _VideoCustomAction(
@@ -114,9 +122,7 @@ class VideoPopupMenu extends StatelessWidget {
                           return;
                         }
                         if (tp.dislikeReasons == null && tp.feedbacks == null) {
-                          SmartDialog.showToast(
-                            "未能获取dislikeReasons或feedbacks",
-                          );
+                          SmartDialog.showToast("未能获取dislikeReasons或feedbacks");
                           return;
                         }
                         Widget actionButton(Reason? r, Reason? f) {
@@ -133,9 +139,7 @@ class VideoPopupMenu extends StatelessWidget {
                               );
                               SmartDialog.dismiss();
                               if (res.isSuccess) {
-                                SmartDialog.showToast(
-                                  r?.toast ?? f!.toast!,
-                                );
+                                SmartDialog.showToast(r?.toast ?? f!.toast!);
                                 onRemove?.call();
                               } else {
                                 res.toast();
@@ -177,9 +181,7 @@ class VideoPopupMenu extends StatelessWidget {
                                 Center(
                                   child: FilledButton.tonal(
                                     onPressed: () async {
-                                      SmartDialog.showLoading(
-                                        msg: '正在提交',
-                                      );
+                                      SmartDialog.showLoading(msg: '正在提交');
                                       final res =
                                           await VideoHttp.feedDislikeCancel(
                                             id: item.param!,
@@ -328,5 +330,66 @@ class VideoPopupMenu extends StatelessWidget {
               )
               .toList(),
     );
+  }
+
+  Future<void> _downloadVideo(BuildContext context) async {
+    final quality = await DownloadDialogUtils.showDownloadConfirmDialog(
+      context,
+      title: '确认缓存该视频？',
+      content: '将把此视频加入离线下载队列。',
+    );
+    if (quality == null) {
+      return;
+    }
+
+    try {
+      SmartDialog.showLoading(msg: '任务创建中');
+      final bvid = videoItem.bvid;
+      if (bvid == null || bvid.isEmpty) {
+        SmartDialog.dismiss();
+        SmartDialog.showToast('无法解析视频 bvid');
+        return;
+      }
+      if (videoItem.duration <= 0) {
+        SmartDialog.dismiss();
+        SmartDialog.showToast('视频时长错误');
+        return;
+      }
+
+      int? cid = videoItem.cid;
+      if (cid == null) {
+        cid = await SearchHttp.ab2c(
+          aid: videoItem is BaseVideoItemModel
+              ? (videoItem as BaseVideoItemModel).aid
+              : null,
+          bvid: videoItem.bvid,
+        );
+      }
+
+      if (cid == null) {
+        SmartDialog.dismiss();
+        SmartDialog.showToast('无法解析播放分片 cid');
+        return;
+      }
+
+      await Get.find<DownloadService>().downloadByIdentifiers(
+        cid: cid,
+        bvid: bvid,
+        totalTimeMilli: videoItem.duration * 1000,
+        aid: videoItem is BaseVideoItemModel
+            ? (videoItem as BaseVideoItemModel).aid
+            : null,
+        title: videoItem.title,
+        cover: videoItem.cover,
+        ownerId: videoItem.owner.mid,
+        ownerName: videoItem.owner.name,
+        quality: quality,
+      );
+      SmartDialog.dismiss();
+      SmartDialog.showToast('已加入下载队列');
+    } catch (e) {
+      SmartDialog.dismiss();
+      SmartDialog.showToast(e.toString());
+    }
   }
 }

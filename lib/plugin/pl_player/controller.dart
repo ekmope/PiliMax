@@ -112,7 +112,6 @@ class PlPlayerController with BlockConfigMixin {
   );
   final setSystemBrightness = Pref.setSystemBrightness;
 
-
   /// 系统音量（仅在应用内音量模式下用于追踪当前系统音量）
   final RxDouble systemVolume = RxDouble(1.0);
 
@@ -174,13 +173,38 @@ class PlPlayerController with BlockConfigMixin {
 
   String get bvid => _bvid!;
 
-  bool isCurrentVideoSource({
-    required String bvid,
-    required int cid,
-  }) =>
-      dataStatus.value == DataStatus.loaded &&
-      _bvid == bvid &&
-      this.cid == cid;
+  bool get _hasPlaybackProgress =>
+      position.value > 0 || buffered.value > 0 || positionInMilliseconds > 0;
+
+  bool get _hasUsableBuffer => buffered.value > position.value;
+
+  bool _isTransientNetworkError(String event) {
+    final lowerEvent = event.toLowerCase();
+    return lowerEvent.contains('tls') ||
+        lowerEvent.contains('ssl') ||
+        lowerEvent.contains('handshake') ||
+        lowerEvent.contains('stream ends prematurely') ||
+        lowerEvent.contains('unexpected end of file') ||
+        lowerEvent.contains('ffurl_read returned') ||
+        lowerEvent.contains('failed to open https://') ||
+        lowerEvent.contains('can not open external file https://') ||
+        lowerEvent.contains('connection reset') ||
+        lowerEvent.contains('connection aborted') ||
+        lowerEvent.contains('network is unreachable') ||
+        lowerEvent.contains('timed out');
+  }
+
+  bool _shouldSilenceRecoverableError(String event) {
+    if (!_isTransientNetworkError(event)) {
+      return false;
+    }
+    return (playerStatus.isPlaying && _hasPlaybackProgress) ||
+        (!isBuffering.value && _hasPlaybackProgress) ||
+        (isBuffering.value && _hasUsableBuffer);
+  }
+
+  bool isCurrentVideoSource({required String bvid, required int cid}) =>
+      dataStatus.value == DataStatus.loaded && _bvid == bvid && this.cid == cid;
 
   /// 视频播放速度
   double get playbackSpeed => _playbackSpeed.value;
@@ -475,7 +499,6 @@ class PlPlayerController with BlockConfigMixin {
   static PlayCallback? _playCallBack;
 
   static Future<void>? playIfExists() {
-
     if (_instance != null && !(_instance!.playerStatus.isPlaying)) {
       return _instance!.play();
     }
@@ -658,9 +681,7 @@ class PlPlayerController with BlockConfigMixin {
         : SuperResolutionType.disable;
     superResolutionType.value = defaultSuperResolutionType;
     if (_videoPlayerController != null) {
-      unawaited(
-        setShader(defaultSuperResolutionType, _videoPlayerController!),
-      );
+      unawaited(setShader(defaultSuperResolutionType, _videoPlayerController!));
     }
   }
 
@@ -851,10 +872,13 @@ class PlPlayerController with BlockConfigMixin {
     final opt = {
       'video-sync': Pref.videoSync,
       if (Platform.isAndroid) 'ao': Pref.audioOutput,
-      'volume': (PlatformUtils.isMobile
-              ? (Pref.enableAppVolume ? volume.value * 100 : Pref.playerVolume)
-              : volume.value * 100)
-          .toString(),
+      'volume':
+          (PlatformUtils.isMobile
+                  ? (Pref.enableAppVolume
+                        ? volume.value * 100
+                        : Pref.playerVolume)
+                  : volume.value * 100)
+              .toString(),
       'volume-max': kMaxVolume.toString(),
     };
     final autosync = Pref.autosync;
@@ -947,14 +971,10 @@ class PlPlayerController with BlockConfigMixin {
           audioNormalization = _audioNormalizationParam.replaceFirstMapped(
             loudnormRegExp,
             (i) =>
-                'loudnorm=${volume.format(
-                  Map.fromEntries(
-                    i.group(1)!.split(':').map((item) {
-                      final parts = item.split('=');
-                      return MapEntry(parts[0].toLowerCase(), num.parse(parts[1]));
-                    }),
-                  ),
-                )}',
+                'loudnorm=${volume.format(Map.fromEntries(i.group(1)!.split(':').map((item) {
+                  final parts = item.split('=');
+                  return MapEntry(parts[0].toLowerCase(), num.parse(parts[1]));
+                })))}',
           );
         } else {
           audioNormalization = _audioNormalizationParam.replaceFirst(
@@ -969,11 +989,7 @@ class PlPlayerController with BlockConfigMixin {
     }
 
     await player.open(
-      Media(
-        video,
-        start: seekTo,
-        extras: extras.isEmpty ? null : extras,
-      ),
+      Media(video, start: seekTo, extras: extras.isEmpty ? null : extras),
       play: false,
     );
   }
@@ -1061,9 +1077,7 @@ class PlPlayerController with BlockConfigMixin {
             element(.completed);
           }
 
-
           makeHeartBeat(-1, type: .completed);
-
         }
       }),
 
@@ -1108,6 +1122,12 @@ class PlPlayerController with BlockConfigMixin {
       stream.error.listen((String event) {
         if (dataSource is FileSource &&
             event.startsWith("Failed to open file")) {
+          return;
+        }
+        if (_shouldSilenceRecoverableError(event)) {
+          if (kDebugMode) {
+            debugPrint('PlPlayerController: ignore recoverable error: $event');
+          }
           return;
         }
         if (isLive) {
@@ -1157,6 +1177,14 @@ class PlPlayerController with BlockConfigMixin {
               event.startsWith("Failed to open .") ||
               event.startsWith("Cannot open") ||
               event.startsWith("Can not open")) {
+            return;
+          }
+          if (_hasPlaybackProgress && _isTransientNetworkError(event)) {
+            if (kDebugMode) {
+              debugPrint(
+                'PlPlayerController: suppress transient playback error: $event',
+              );
+            }
             return;
           }
           Utils.reportError(event);
@@ -1866,10 +1894,7 @@ class PlPlayerController with BlockConfigMixin {
     final enable = !continuePlayInBackground.value;
     continuePlayInBackground.value = enable;
     if (!tempPlayerConf) {
-      setting.put(
-        SettingBoxKey.continuePlayInBackground,
-        enable,
-      );
+      setting.put(SettingBoxKey.continuePlayInBackground, enable);
     }
     if (enable) {
       setBackgroundPlay(true);
@@ -1940,7 +1965,9 @@ class PlPlayerController with BlockConfigMixin {
         context: Get.context!,
         builder: (context) => GestureDetector(
           onTap: () async {
-            final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
             if (bytes != null) {
               ImageUtils.saveByteImg(
                 bytes: bytes.buffer.asUint8List(),

@@ -16,6 +16,8 @@ import 'package:PiliMax/grpc/bilibili/app/listener/v1.pb.dart'
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/video.dart';
+import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart' as pgc;
 import 'package:PiliMax/models_new/video/video_detail/episode.dart' as ugc;
 import 'package:PiliMax/pages/common/common_intro_controller.dart'
@@ -86,6 +88,8 @@ class AudioController extends GetxController
   List<StreamSubscription>? _subscriptions;
   Timer? _autoTailSkipCompletedTimer;
   int _autoTailSkipGeneration = 0;
+  int _heartDuration = 0;
+  bool _completedHeartBeatSynced = false;
 
   int? index;
   List<DetailItem>? playlist;
@@ -201,11 +205,15 @@ class AudioController extends GetxController
 
   Future<void>? onPlay() {
     _cancelAutoTailSkipCompleted();
+    if (player?.state.completed == true) {
+      _resetHeartBeatProgress();
+    }
     return player?.play();
   }
 
   Future<void>? onPause() {
     _cancelAutoTailSkipCompleted();
+    _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
     return player?.pause();
   }
 
@@ -214,6 +222,8 @@ class AudioController extends GetxController
     BlockSkipSource skipSource = BlockSkipSource.manual,
   }) {
     _cancelAutoTailSkipCompleted();
+    _heartDuration = duration.inSeconds;
+    _completedHeartBeatSynced = false;
     if (skipSource == BlockSkipSource.automatic) {
       _scheduleAutoTailSkipCompleted(duration);
     }
@@ -224,6 +234,72 @@ class AudioController extends GetxController
     _autoTailSkipGeneration++;
     _autoTailSkipCompletedTimer?.cancel();
     _autoTailSkipCompletedTimer = null;
+  }
+
+  bool get _enableHeartBeat => Accounts.heartbeat.isLogin && !Pref.historyPause;
+
+  bool get _canReportHeartBeat => isUgc && _enableHeartBeat;
+
+  void _unawaitedHeartBeat(Future<void>? future) {
+    if (future != null) {
+      unawaited(future);
+    }
+  }
+
+  Future<void>? _sendHeartBeat(int progress) {
+    final currentCid = subId.firstOrNull?.toInt();
+    if (!_canReportHeartBeat || currentCid == null || progress == 0) {
+      return null;
+    }
+    return VideoHttp.heartBeat(
+      bvid: IdUtils.av2bv(oid.toInt()),
+      cid: currentCid,
+      progress: progress,
+      videoType: VideoType.ugc,
+    );
+  }
+
+  Future<void>? _reportPlayingHeartBeat(Duration currentPosition) {
+    final currentPlayer = player;
+    if (currentPlayer?.state.playing != true) {
+      return null;
+    }
+    final progress = currentPosition.inSeconds;
+    if (progress <= 0 || progress - _heartDuration < 5) {
+      return null;
+    }
+    _heartDuration = progress;
+    return _sendHeartBeat(progress);
+  }
+
+  Future<void>? _reportStatusHeartBeat({bool force = false}) {
+    final currentPlayer = player;
+    if (currentPlayer == null) {
+      return null;
+    }
+    if (_completedHeartBeatSynced && currentPlayer.state.completed) {
+      return null;
+    }
+    final progress = _rawAudioPosition(currentPlayer).inSeconds;
+    if (progress <= 0 || (!force && progress - _heartDuration < 2)) {
+      return null;
+    }
+    _heartDuration = progress;
+    return _sendHeartBeat(progress);
+  }
+
+  Future<void>? _reportCompletedHeartBeat() {
+    if (_completedHeartBeatSynced) {
+      return null;
+    }
+    _completedHeartBeatSynced = true;
+    _heartDuration = -1;
+    return _sendHeartBeat(-1);
+  }
+
+  void _resetHeartBeatProgress() {
+    _heartDuration = 0;
+    _completedHeartBeatSynced = false;
   }
 
   void _scheduleAutoTailSkipCompleted(Duration target) {
@@ -261,6 +337,7 @@ class AudioController extends GetxController
 
   void _handlePlaybackCompleted() {
     _cancelAutoTailSkipCompleted();
+    _unawaitedHeartBeat(_reportCompletedHeartBeat());
     if (shutdownTimerService.isWaiting) {
       shutdownTimerService.handleWaiting();
     } else {
@@ -569,6 +646,7 @@ class AudioController extends GetxController
     final currentPlayer = player;
     if (currentPlayer == null) return;
     final start = _start;
+    _resetHeartBeatProgress();
     currentPlayer.setMediaHeader(
       userAgent: ua,
       // mpv cannot clear referer option
@@ -617,6 +695,7 @@ class AudioController extends GetxController
           this.position.value = seconds;
           _videoDetailController?.playedTime = position;
           videoPlayerServiceHandler?.onPositionChange(position);
+          _unawaitedHeartBeat(_reportPlayingHeartBeat(position));
         }
       }),
       stream.duration.listen((duration) {
@@ -863,6 +942,7 @@ class AudioController extends GetxController
 
   bool playPrev() {
     if (index != null && playlist != null && player != null) {
+      _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
       final prev = index! - 1;
       if (prev >= 0) {
         playIndex(prev);
@@ -879,9 +959,11 @@ class AudioController extends GetxController
           final subId = this.subId.firstOrNull;
           final nextIndex = parts.indexWhere((e) => e.subId == subId) + 1;
           if (nextIndex != 0 && nextIndex < parts.length) {
+            _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
             final nextPart = parts[nextIndex];
             oid = nextPart.oid;
             this.subId = [nextPart.subId];
+            _resetHeartBeatProgress();
             _queryPlayUrl().then((res) {
               if (res) {
                 final currentItem = audioItem.value;
@@ -898,6 +980,7 @@ class AudioController extends GetxController
     if (index != null && playlist != null && player != null) {
       final next = index! + 1;
       if (next < playlist!.length) {
+        _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
         if (next == playlist!.length - 1 && _next != null) {
           _queryPlayList(isLoadNext: true);
         }
@@ -910,6 +993,7 @@ class AudioController extends GetxController
 
   void playIndex(int index, {List<Int64>? subId}) {
     if (index == this.index && subId == null) return;
+    _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
     this.index = index;
     final audioItem = playlist![index];
     final item = audioItem.item;
@@ -918,6 +1002,7 @@ class AudioController extends GetxController
         subId ??
         (item.subId.isNotEmpty ? item.subId : [audioItem.parts.first.subId]);
     itemType = item.itemType;
+    _resetHeartBeatProgress();
     _queryPlayUrl().then((res) {
       if (res) {
         _updateCurrItem(audioItem);
@@ -1007,6 +1092,7 @@ class AudioController extends GetxController
     _subscriptions?.clear();
     _subscriptions = null;
     _cancelAutoTailSkipCompleted();
+    _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
     player?.dispose();
     player = null;
     animController.dispose();

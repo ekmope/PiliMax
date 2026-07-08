@@ -75,6 +75,18 @@ List<SettingsModel> get extraSettings => [
       onTap: _showDownPathDialog,
     ),
   ],
+  NormalModel(
+    title: '同时缓存任务',
+    getSubtitle: () => '当前: ${Pref.downloadTaskCount} 个',
+    leading: const Icon(Icons.downloading),
+    onTap: _showDownloadTaskCountDialog,
+  ),
+  const SwitchModel(
+    title: '禁止移动流量下载',
+    leading: Icon(Icons.signal_cellular_off_outlined),
+    setKey: SettingBoxKey.disableMobileDownload,
+    defaultVal: false,
+  ),
   if (Platform.isAndroid)
     SwitchModel(
       title: '后台恢复页面',
@@ -420,10 +432,7 @@ List<SettingsModel> get extraSettings => [
   if (Platform.isAndroid)
     const SwitchModel(
       title: '使用「哔哩发评反诈」检查评论',
-      leading: Icon(
-        FontAwesomeIcons.b,
-        size: 22,
-      ),
+      leading: Icon(FontAwesomeIcons.b, size: 22),
       setKey: SettingBoxKey.biliSendCommAntifraud,
       defaultVal: false,
     ),
@@ -705,10 +714,7 @@ Future<void> audioNormalization(
             spacing: 16,
             children: [
               const Text('等同于 --lavfi-complex="[aid1] 参数 [ao]"'),
-              TextField(
-                autofocus: true,
-                onChanged: (value) => param = value,
-              ),
+              TextField(autofocus: true, onChanged: (value) => param = value),
             ],
           ),
           actions: [
@@ -785,6 +791,25 @@ void _showDownPathDialog(BuildContext context, VoidCallback setState) {
       ],
     ),
   );
+}
+
+Future<void> _showDownloadTaskCountDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<int>(
+    context: context,
+    builder: (context) => SelectDialog<int>(
+      title: '同时缓存任务',
+      value: Pref.downloadTaskCount,
+      values: const [(1, '1'), (2, '2'), (3, '3')],
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.downloadTaskCount, res);
+    setState();
+    SmartDialog.showToast('重启生效');
+  }
 }
 
 void _showDynDialog(BuildContext context) {
@@ -1019,10 +1044,7 @@ Future<void> _showSuperResolutionDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(
-      SettingBoxKey.superResolutionType,
-      res.index,
-    );
+    await GStorage.setting.put(SettingBoxKey.superResolutionType, res.index);
     setState();
   }
 }
@@ -1171,10 +1193,7 @@ Future<void> _showDefDynDialog(
     ),
   );
   if (res != null) {
-    await GStorage.setting.put(
-      SettingBoxKey.defaultDynamicType,
-      res.index,
-    );
+    await GStorage.setting.put(SettingBoxKey.defaultDynamicType, res.index);
     setState();
   }
 }

@@ -77,7 +77,7 @@ class _DownloadingPageState extends State<DownloadingPage>
                       itemCount: _waitDownloadQueue.length,
                       itemBuilder: (context, index) {
                         final entry = _waitDownloadQueue[index];
-                        final isCurr = entry.cid == _downloadService.curCid;
+                        final isCurr = _downloadService.isActive(entry);
                         return DetailItem(
                           entry: entry,
                           downloadService: _downloadService,
@@ -86,9 +86,7 @@ class _DownloadingPageState extends State<DownloadingPage>
                           onDelete: () => _downloadService.deleteDownload(
                             entry: entry,
                             removeQueue: true,
-                            downloadNext:
-                                isCurr &&
-                                entry.status == DownloadStatus.downloading,
+                            downloadNext: isCurr,
                           ),
                           controller: this,
                         );
@@ -113,9 +111,6 @@ class _DownloadingPageState extends State<DownloadingPage>
       onConfirm: () async {
         SmartDialog.showLoading();
         final allChecked = this.allChecked.toSet();
-        final isDownloading =
-            _downloadService.curDownload.value?.status ==
-            DownloadStatus.downloading;
         for (final entry in allChecked) {
           await _downloadService.deleteDownload(
             entry: entry,
@@ -124,9 +119,7 @@ class _DownloadingPageState extends State<DownloadingPage>
           );
         }
         _downloadService.waitDownloadQueue.removeWhere(allChecked.contains);
-        if (isDownloading && _downloadService.curDownload.value == null) {
-          _downloadService.nextDownload();
-        }
+        _downloadService.nextDownload();
         if (enableMultiSelect.value) {
           rxCount.value = 0;
           enableMultiSelect.value = false;

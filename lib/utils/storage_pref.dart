@@ -331,10 +331,8 @@ abstract final class Pref {
     }
     return SegmentType.values
         .map(
-          (item) => Pair(
-            first: item,
-            second: SkipType.values[list[item.index]],
-          ),
+          (item) =>
+              Pair(first: item, second: SkipType.values[list[item.index]]),
         )
         .toList();
   }
@@ -344,13 +342,11 @@ abstract final class Pref {
     if (list == null || list.length != SegmentType.values.length) {
       return SegmentType.values.map((i) => i.color).toList();
     }
-    return SegmentType.values.map(
-      (item) {
-        final String e = list[item.index];
-        final color = e.isNotEmpty ? int.tryParse('FF$e', radix: 16) : null;
-        return color != null ? Color(color) : item.color;
-      },
-    ).toList();
+    return SegmentType.values.map((item) {
+      final String e = list[item.index];
+      final color = e.isNotEmpty ? int.tryParse('FF$e', radix: 16) : null;
+      return color != null ? Color(color) : item.color;
+    }).toList();
   }
 
   static bool get feedBackEnable =>
@@ -589,10 +585,8 @@ abstract final class Pref {
         defaultValue: FlexSchemeVariant.material3Legacy.index,
       )];
 
-  static double get danmakuFontScaleFS => _setting.get(
-    SettingBoxKey.danmakuFontScaleFS,
-    defaultValue: 1.0,
-  );
+  static double get danmakuFontScaleFS =>
+      _setting.get(SettingBoxKey.danmakuFontScaleFS, defaultValue: 1.0);
 
   static bool get danmakuMassiveMode =>
       _setting.get(SettingBoxKey.danmakuMassiveMode, defaultValue: false);
@@ -856,10 +850,8 @@ abstract final class Pref {
   static bool get expandDynLivePanel =>
       _setting.get(SettingBoxKey.expandDynLivePanel, defaultValue: false);
 
-  static bool get slideDismissReplyPage => _setting.get(
-    SettingBoxKey.slideDismissReplyPage,
-    defaultValue: false,
-  );
+  static bool get slideDismissReplyPage =>
+      _setting.get(SettingBoxKey.slideDismissReplyPage, defaultValue: false);
 
   static bool get showFSActionItem =>
       _setting.get(SettingBoxKey.showFSActionItem, defaultValue: true);
@@ -1086,20 +1078,14 @@ abstract final class Pref {
     defaultValue: true,
   );
 
-  static bool get applyFilterToHotVideos => _setting.get(
-    SettingBoxKey.applyFilterToHotVideos,
-    defaultValue: false,
-  );
+  static bool get applyFilterToHotVideos =>
+      _setting.get(SettingBoxKey.applyFilterToHotVideos, defaultValue: false);
 
-  static bool get applyFilterToRankVideos => _setting.get(
-    SettingBoxKey.applyFilterToRankVideos,
-    defaultValue: false,
-  );
+  static bool get applyFilterToRankVideos =>
+      _setting.get(SettingBoxKey.applyFilterToRankVideos, defaultValue: false);
 
-  static bool get applyFilterToSearch => _setting.get(
-    SettingBoxKey.applyFilterToSearch,
-    defaultValue: false,
-  );
+  static bool get applyFilterToSearch =>
+      _setting.get(SettingBoxKey.applyFilterToSearch, defaultValue: false);
 
   static bool get enableBackgroundPlay =>
       _setting.get(SettingBoxKey.enableBackgroundPlay, defaultValue: true);
@@ -1167,10 +1153,8 @@ abstract final class Pref {
     defaultValue: false,
   );
 
-  static bool get dynamicsShowSelfUp => _setting.get(
-    SettingBoxKey.dynamicsShowSelfUp,
-    defaultValue: true,
-  );
+  static bool get dynamicsShowSelfUp =>
+      _setting.get(SettingBoxKey.dynamicsShowSelfUp, defaultValue: true);
 
   static bool get enableShowDanmaku =>
       _setting.get(SettingBoxKey.enableShowDanmaku, defaultValue: true);
@@ -1230,8 +1214,10 @@ abstract final class Pref {
   static bool get enableInAppPip =>
       _setting.get(SettingBoxKey.enableInAppPip, defaultValue: false);
 
-  static bool get enableInAppPipToSystemPip =>
-      _setting.get(SettingBoxKey.enableInAppPipToSystemPip, defaultValue: false);
+  static bool get enableInAppPipToSystemPip => _setting.get(
+    SettingBoxKey.enableInAppPipToSystemPip,
+    defaultValue: false,
+  );
 
   static bool get enableAndroidRouteRestore =>
       _setting.get(SettingBoxKey.enableAndroidRouteRestore, defaultValue: true);
@@ -1255,10 +1241,8 @@ abstract final class Pref {
   static double get danmakuOpacity =>
       _setting.get(SettingBoxKey.danmakuOpacity, defaultValue: 0.5);
 
-  static double get danmakuFontScale => _setting.get(
-    SettingBoxKey.danmakuFontScale,
-    defaultValue: 0.6,
-  );
+  static double get danmakuFontScale =>
+      _setting.get(SettingBoxKey.danmakuFontScale, defaultValue: 0.6);
 
   static double get danmakuDuration =>
       _setting.get(SettingBoxKey.danmakuDuration, defaultValue: 8.0);
@@ -1266,15 +1250,11 @@ abstract final class Pref {
   static double get danmakuStaticDuration =>
       _setting.get(SettingBoxKey.danmakuStaticDuration, defaultValue: 4.0);
 
-  static double get danmakuStrokeWidth => _setting.get(
-    SettingBoxKey.danmakuStrokeWidth,
-    defaultValue: 1.0,
-  );
+  static double get danmakuStrokeWidth =>
+      _setting.get(SettingBoxKey.danmakuStrokeWidth, defaultValue: 1.0);
 
-  static int get danmakuFontWeight => _setting.get(
-    SettingBoxKey.danmakuFontWeight,
-    defaultValue: 4,
-  );
+  static int get danmakuFontWeight =>
+      _setting.get(SettingBoxKey.danmakuFontWeight, defaultValue: 4);
 
   static bool get enableLongShowControl =>
       _setting.get(SettingBoxKey.enableLongShowControl, defaultValue: false);
@@ -1481,6 +1461,20 @@ abstract final class Pref {
 
   static bool get enableVolumeBoost =>
       _setting.get(SettingBoxKey.enableVolumeBoost, defaultValue: false);
+
+  static int get downloadTaskCount {
+    final value = _setting.get(
+      SettingBoxKey.downloadTaskCount,
+      defaultValue: 2,
+    );
+    if (value is! num) {
+      return 2;
+    }
+    return value.clamp(1, 3).toInt();
+  }
+
+  static bool get disableMobileDownload =>
+      _setting.get(SettingBoxKey.disableMobileDownload, defaultValue: false);
 
   static String? get downloadPath => _setting.get(SettingBoxKey.downloadPath);
 

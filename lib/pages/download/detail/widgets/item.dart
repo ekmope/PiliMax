@@ -122,11 +122,9 @@ class DetailItem extends StatelessWidget {
                     });
                   }
                 } else {
-                  final curDownload = downloadService.curDownload.value;
-                  if (curDownload != null &&
-                      curDownload.cid == cid &&
-                      curDownload.status.isDownloading) {
+                  if (downloadService.isEntryDownloading(entry)) {
                     downloadService.cancelDownload(
+                      entry: entry,
                       isDelete: false,
                       downloadNext: false,
                     );
@@ -227,12 +225,8 @@ class DetailItem extends StatelessWidget {
                                 PBadge(
                                   text: progress >= entry.totalTimeMilli - 400
                                       ? '已看完'
-                                      : '${DurationUtils.formatDuration(
-                                              progress ~/ 1000,
-                                            )}/'
-                                            '${DurationUtils.formatDuration(
-                                              entry.totalTimeMilli ~/ 1000,
-                                            )}',
+                                      : '${DurationUtils.formatDuration(progress ~/ 1000)}/'
+                                            '${DurationUtils.formatDuration(entry.totalTimeMilli ~/ 1000)}',
                                   right: 6,
                                   bottom: 7,
                                   type: PBadgeType.gray,
@@ -342,36 +336,32 @@ class DetailItem extends StatelessWidget {
                         bottom: 0,
                         child: isCurr
                             ? RepaintBoundary(
-                                child: Obx(
-                                  () {
-                                    final curDownload =
-                                        downloadService.curDownload.value;
-                                    if (curDownload != null) {
-                                      final status = curDownload.status;
-                                      final color =
-                                          status != DownloadStatus.pause
-                                          ? theme.colorScheme.primary
-                                          : theme.colorScheme.outline;
-                                      return progressWidget(
-                                        statusMsg: status.message,
-                                        progressStr:
-                                            status ==
-                                                    DownloadStatus
-                                                        .downloading ||
-                                                status == DownloadStatus.pause
-                                            ? '${CacheManager.formatSize(curDownload.downloadedBytes)}/${CacheManager.formatSize(curDownload.totalBytes)}'
-                                            : '',
-                                        progress: curDownload.totalBytes == 0
-                                            ? 0
-                                            : curDownload.downloadedBytes /
-                                                  curDownload.totalBytes,
-                                        color: color,
-                                        highlightColor: theme.highlightColor,
-                                      );
-                                    }
-                                    return entryProgress(theme);
-                                  },
-                                ),
+                                child: Obx(() {
+                                  final curDownload = downloadService
+                                      .activeEntry(entry.cid);
+                                  if (curDownload != null) {
+                                    final status = curDownload.status;
+                                    final color = status != DownloadStatus.pause
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.outline;
+                                    return progressWidget(
+                                      statusMsg: status.message,
+                                      progressStr:
+                                          status ==
+                                                  DownloadStatus.downloading ||
+                                              status == DownloadStatus.pause
+                                          ? '${CacheManager.formatSize(curDownload.downloadedBytes)}/${CacheManager.formatSize(curDownload.totalBytes)}'
+                                          : '',
+                                      progress: curDownload.totalBytes == 0
+                                          ? 0
+                                          : curDownload.downloadedBytes /
+                                                curDownload.totalBytes,
+                                      color: color,
+                                      highlightColor: theme.highlightColor,
+                                    );
+                                  }
+                                  return entryProgress(theme);
+                                }),
                               )
                             : entryProgress(theme),
                       ),
@@ -414,19 +404,11 @@ class DetailItem extends StatelessWidget {
           children: [
             Text(
               statusMsg,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1,
-                color: color,
-              ),
+              style: TextStyle(fontSize: 12, height: 1, color: color),
             ),
             Text(
               progressStr,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1,
-                color: color,
-              ),
+              style: TextStyle(fontSize: 12, height: 1, color: color),
             ),
           ],
         ),
@@ -645,7 +627,8 @@ class _ExportDialog extends StatelessWidget {
                         minHeight: 4,
                         borderRadius: BorderRadius.circular(2),
                         color: theme.colorScheme.primary,
-                        backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                        backgroundColor:
+                            theme.colorScheme.surfaceContainerHighest,
                       ),
                       const SizedBox(height: 6),
                       Text(

@@ -333,12 +333,25 @@ class AudioController extends GetxController
     return _sendHeartBeat(progress);
   }
 
+  void _recordCurrentAudioProgress(int progress) {
+    final currentCid = subId.firstOrNull?.toInt();
+    if (!isUgc || currentCid == null || progress == 0) {
+      return;
+    }
+    _initialPlaylistProgress[_progressKey(oid.toInt(), currentCid)] = progress;
+    final currentItem = audioItem.value;
+    if (currentItem != null && currentItem.parts.length <= 1) {
+      currentItem.progress = Int64(progress);
+    }
+  }
+
   Future<void>? _reportCompletedHeartBeat() {
     if (_completedHeartBeatSynced) {
       return null;
     }
     _completedHeartBeatSynced = true;
     _heartDuration = -1;
+    _recordCurrentAudioProgress(-1);
     return _sendHeartBeat(-1);
   }
 
@@ -680,8 +693,9 @@ class AudioController extends GetxController
   }
 
   int _playlistItemProgressSeconds(DetailItem item, int aid, int cid) {
-    final snapshotProgress = _initialPlaylistProgress[_progressKey(aid, cid)];
-    if (snapshotProgress != null && snapshotProgress > 0) {
+    if (_initialPlaylistProgress[_progressKey(aid, cid)]
+        case final snapshotProgress?) {
+      if (snapshotProgress <= 0) return 0;
       return snapshotProgress;
     }
     return _detailProgressSeconds(item, cid);
@@ -900,6 +914,7 @@ class AudioController extends GetxController
         final seconds = position.inSeconds;
         if (seconds != this.position.value) {
           this.position.value = seconds;
+          _recordCurrentAudioProgress(seconds);
           _videoDetailController?.playedTime = position;
           videoPlayerServiceHandler?.onPositionChange(position);
           _unawaitedHeartBeat(_reportPlayingHeartBeat(position));

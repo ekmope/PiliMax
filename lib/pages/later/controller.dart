@@ -95,24 +95,23 @@ mixin BaseLaterController
       onConfirm: () async {
         final removeList = allChecked.toSet();
         SmartDialog.showLoading(msg: '请求中');
-        final res = await UserHttp.toViewDel(
-          aids: removeList.map((item) => item.aid).join(','),
-        );
-        if (res.isSuccess) {
-          updateCount?.call(removeList.length);
-          afterDelete(removeList);
+        try {
+          final res = await UserHttp.toViewDel(
+            aids: removeList.map((item) => item.aid).join(','),
+          );
+          if (res.isSuccess) {
+            updateCount?.call(removeList.length);
+            afterDelete(removeList);
+          }
+        } finally {
+          SmartDialog.dismiss();
         }
-        SmartDialog.dismiss();
       },
     );
   }
 
   // single
-  void toViewDel(
-    BuildContext context,
-    int index,
-    int? aid,
-  ) {
+  void toViewDel(BuildContext context, int index, int? aid) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -129,12 +128,17 @@ mixin BaseLaterController
           TextButton(
             onPressed: () async {
               Get.back();
-              final res = await UserHttp.toViewDel(aids: aid.toString());
-              if (res.isSuccess) {
-                loadingState
-                  ..value.data!.removeAt(index)
-                  ..refresh();
-                updateCount?.call(1);
+              SmartDialog.showLoading(msg: '请求中');
+              try {
+                final res = await UserHttp.toViewDel(aids: aid.toString());
+                if (res.isSuccess) {
+                  loadingState
+                    ..value.data!.removeAt(index)
+                    ..refresh();
+                  updateCount?.call(1);
+                }
+              } finally {
+                SmartDialog.dismiss();
               }
             },
             child: const Text('确认移除'),
@@ -200,19 +204,28 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
       title: const Text('确认'),
       content: Text(content),
       onConfirm: () async {
-        final res = await UserHttp.toViewClear(cleanType);
-        if (res.isSuccess) {
-          onReload();
-          final restTypes = List<LaterViewType>.from(LaterViewType.values)
-            ..remove(laterViewType);
-          for (final item in restTypes) {
-            try {
-              Get.find<LaterController>(tag: item.type.toString()).onReload();
-            } catch (_) {}
+        SmartDialog.showLoading(msg: '请求中');
+        LoadingState<void>? result;
+        try {
+          final res = await UserHttp.toViewClear(cleanType);
+          if (res.isSuccess) {
+            onReload();
+            final restTypes = List<LaterViewType>.from(LaterViewType.values)
+              ..remove(laterViewType);
+            for (final item in restTypes) {
+              try {
+                Get.find<LaterController>(tag: item.type.toString()).onReload();
+              } catch (_) {}
+            }
           }
+          result = res;
+        } finally {
+          SmartDialog.dismiss();
+        }
+        if (result?.isSuccess == true) {
           SmartDialog.showToast('已清空');
         } else {
-          res.toast();
+          await result?.toast();
         }
       },
     );

@@ -57,6 +57,22 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
 
+class _AudioPlaybackIdentity {
+  const _AudioPlaybackIdentity({
+    required this.player,
+    required this.oid,
+    required this.subId,
+    required this.index,
+    required this.item,
+  });
+
+  final Player player;
+  final Int64 oid;
+  final Int64? subId;
+  final int? index;
+  final DetailItem? item;
+}
+
 class AudioController extends GetxController
     with
         GetTickerProviderStateMixin,
@@ -238,6 +254,29 @@ class AudioController extends GetxController
     _autoTailSkipCompletedTimer = null;
   }
 
+  _AudioPlaybackIdentity? _currentPlaybackIdentity([Player? currentPlayer]) {
+    final resolvedPlayer = currentPlayer ?? player;
+    if (resolvedPlayer == null) {
+      return null;
+    }
+    return _AudioPlaybackIdentity(
+      player: resolvedPlayer,
+      oid: oid,
+      subId: subId.firstOrNull,
+      index: index,
+      item: audioItem.value,
+    );
+  }
+
+  bool _isSamePlaybackIdentity(_AudioPlaybackIdentity identity) {
+    return !isClosed &&
+        identical(player, identity.player) &&
+        oid == identity.oid &&
+        subId.firstOrNull == identity.subId &&
+        index == identity.index &&
+        identical(audioItem.value, identity.item);
+  }
+
   bool get _enableHeartBeat => Accounts.heartbeat.isLogin && !Pref.historyPause;
 
   bool get _canReportHeartBeat => isUgc && _enableHeartBeat;
@@ -307,6 +346,8 @@ class AudioController extends GetxController
   void _scheduleAutoTailSkipCompleted(Duration target) {
     final currentPlayer = player;
     if (currentPlayer == null) return;
+    final identity = _currentPlaybackIdentity(currentPlayer);
+    if (identity == null) return;
     final total = _rawAudioDuration(currentPlayer);
     if (total <= Duration.zero) return;
 
@@ -322,8 +363,7 @@ class AudioController extends GetxController
       remaining + const Duration(seconds: 1),
       () {
         if (generation != _autoTailSkipGeneration ||
-            isClosed ||
-            !identical(player, currentPlayer)) {
+            !_isSamePlaybackIdentity(identity)) {
           return;
         }
         final currentDuration = _rawAudioDuration(currentPlayer);
@@ -1022,6 +1062,7 @@ class AudioController extends GetxController
           final subId = this.subId.firstOrNull;
           final nextIndex = parts.indexWhere((e) => e.subId == subId) + 1;
           if (nextIndex != 0 && nextIndex < parts.length) {
+            _cancelAutoTailSkipCompleted();
             _playIndexGeneration++;
             _unawaitedHeartBeat(_reportStatusHeartBeat(force: true));
             final prevOid = oid;
@@ -1078,6 +1119,7 @@ class AudioController extends GetxController
     final audioItem = playlist![index];
     final item = audioItem.item;
     final generation = ++_playIndexGeneration;
+    _cancelAutoTailSkipCompleted();
     _defaultSubIdsForPlaylistItem(
       audioItem,
       item,

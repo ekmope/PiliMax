@@ -267,7 +267,10 @@ class Request {
         options: options,
         cancelToken: cancelToken,
       );
-    } on DioException catch (e) {
+    } on DioException catch (e, s) {
+      try {
+        Utils.reportError(e, s);
+      } catch (_) {}
       return Response(
         data: {
           'message': await AccountManager.dioError(e),
@@ -297,8 +300,11 @@ class Request {
         options: options,
         cancelToken: cancelToken,
       );
-    } on DioException catch (e) {
-      AccountManager.toast(e);
+    } on DioException catch (e, s) {
+      try {
+        AccountManager.toast(e);
+        Utils.reportError(e, s);
+      } catch (_) {}
       return Response(
         data: {
           'message': await AccountManager.dioError(e),
@@ -328,7 +334,10 @@ class Request {
         // },
       );
       // if (kDebugMode) debugPrint('downloadFile success: ${response.data}');
-    } on DioException catch (e) {
+    } on DioException catch (e, s) {
+      try {
+        Utils.reportError(e, s);
+      } catch (_) {}
       // if (kDebugMode) debugPrint('downloadFile error: $e');
       return Response(
         data: {

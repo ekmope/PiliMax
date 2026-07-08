@@ -14,6 +14,7 @@ import 'package:PiliMax/models/login/model.dart';
 import 'package:PiliMax/pages/login/geetest/geetest_webview_dialog.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
+import 'package:PiliMax/utils/loading_action_mixin.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
 import 'package:dio/dio.dart';
@@ -23,8 +24,10 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart' as web;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
+enum LoginAction { cookie, password, sms }
+
 class LoginPageController extends GetxController
-    with GetSingleTickerProviderStateMixin {
+    with GetSingleTickerProviderStateMixin, LoadingActionMixin<LoginAction> {
   final TextEditingController telTextController = TextEditingController();
   final TextEditingController usernameTextController = TextEditingController();
   final TextEditingController passwordTextController = TextEditingController();
@@ -163,6 +166,10 @@ class LoginPageController extends GetxController
 
   // cookie登录
   Future<void> loginByCookie() async {
+    await runWithActionLoading(LoginAction.cookie, _loginByCookie);
+  }
+
+  Future<void> _loginByCookie() async {
     if (cookieTextController.text.isEmpty) {
       SmartDialog.showToast('cookie不能为空');
       return;
@@ -324,6 +331,10 @@ class LoginPageController extends GetxController
 
   // app端密码登录
   Future<void> loginByPassword() async {
+    await runWithActionLoading(LoginAction.password, _loginByPassword);
+  }
+
+  Future<void> _loginByPassword() async {
     String username = usernameTextController.text;
     String password = passwordTextController.text;
     if (username.isEmpty || password.isEmpty) {
@@ -580,6 +591,10 @@ class LoginPageController extends GetxController
 
   // 短信验证码登录
   Future<void> loginBySmsCode() async {
+    await runWithActionLoading(LoginAction.sms, _loginBySmsCode);
+  }
+
+  Future<void> _loginBySmsCode() async {
     if (telTextController.text.isEmpty) {
       SmartDialog.showToast('手机号不能为空');
       return;

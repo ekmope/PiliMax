@@ -1028,6 +1028,7 @@ class PlPlayerController with BlockConfigMixin {
 
   List<StreamSubscription>? _subscriptions;
   final Set<ValueChanged<Duration>> _positionListeners = {};
+  final Set<ValueChanged<Duration>> _seekListeners = {};
   final Set<ValueChanged<PlayerStatus>> _statusListeners = {};
 
   /// 播放事件监听
@@ -1215,6 +1216,9 @@ class PlPlayerController with BlockConfigMixin {
     }
     if (position < Duration.zero) {
       position = Duration.zero;
+    }
+    for (final listener in _seekListeners) {
+      listener(position);
     }
     _heartDuration = position.inSeconds;
 
@@ -1721,6 +1725,14 @@ class PlPlayerController with BlockConfigMixin {
   void removePositionListener(ValueChanged<Duration> listener) =>
       _positionListeners.remove(listener);
 
+  void addSeekListener(ValueChanged<Duration> listener) {
+    if (_playerCount == 0) return;
+    _seekListeners.add(listener);
+  }
+
+  void removeSeekListener(ValueChanged<Duration> listener) =>
+      _seekListeners.remove(listener);
+
   void addStatusLister(ValueChanged<PlayerStatus> listener) {
     if (_playerCount == 0) return;
     _statusListeners.add(listener);
@@ -1867,6 +1879,7 @@ class PlPlayerController with BlockConfigMixin {
 
     _removeListeners();
     _positionListeners.clear();
+    _seekListeners.clear();
     _statusListeners.clear();
     if (playerStatus.isPlaying) {
       WakelockPlus.disable();

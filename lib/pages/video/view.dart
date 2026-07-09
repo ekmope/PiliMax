@@ -2330,6 +2330,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     Widget coverHero() => Obx(
       () => VideoCoverHero(
         tag: heroTag,
+        borderRadius: BorderRadius.zero,
         child: NetworkImgLayer(
           type: .emote,
           quality: 60,

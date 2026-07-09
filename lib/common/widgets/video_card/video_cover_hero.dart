@@ -28,7 +28,10 @@ class VideoCoverHero extends StatelessWidget {
     final toHero = toHeroContext.widget as Hero;
     final beginRadius = _heroBorderRadius(fromHero.child);
     final endRadius = _heroBorderRadius(toHero.child);
-    final shuttleChild = _heroClipChild(fromHero.child);
+    final shuttleChild = switch (flightDirection) {
+      HeroFlightDirection.push => _heroClipChild(fromHero.child),
+      HeroFlightDirection.pop => _heroClipChild(toHero.child),
+    };
     return AnimatedBuilder(
       animation: animation,
       child: shuttleChild,

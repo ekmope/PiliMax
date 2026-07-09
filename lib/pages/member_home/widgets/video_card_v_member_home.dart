@@ -31,13 +31,13 @@ class VideoCardVMemberHome extends StatelessWidget {
     String? goto = videoItem.goto;
     switch (goto) {
       case 'bangumi':
-        PageUtils.viewPgc(epId: videoItem.param);
+        PageUtils.viewPgc(epId: videoItem.param, heroTag: _heroTag);
         break;
 
       case 'av':
         if (videoItem.isPgc == true) {
           if (videoItem.uri?.isNotEmpty == true) {
-            PageUtils.viewPgcFromUri(videoItem.uri!);
+            PageUtils.viewPgcFromUri(videoItem.uri!, heroTag: _heroTag);
           }
           return;
         }

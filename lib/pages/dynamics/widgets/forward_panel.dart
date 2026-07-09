@@ -1,6 +1,7 @@
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/widgets/dyn_content.dart';
+import 'package:PiliMax/pages/dynamics/widgets/dynamic_video_hero_tag.dart';
 import 'package:PiliMax/pages/dynamics/widgets/module_panel.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -15,6 +16,72 @@ Widget forwardPanel(
   required DynamicItemModel orig,
   required bool isSave,
   required bool isDetail,
+}) {
+  return _ForwardPanel(
+    floor: floor,
+    theme: theme,
+    orig: orig,
+    isSave: isSave,
+    isDetail: isDetail,
+  );
+}
+
+class _ForwardPanel extends StatefulWidget {
+  const _ForwardPanel({
+    required this.floor,
+    required this.theme,
+    required this.orig,
+    required this.isSave,
+    required this.isDetail,
+  });
+
+  final int floor;
+  final ThemeData theme;
+  final DynamicItemModel orig;
+  final bool isSave;
+  final bool isDetail;
+
+  @override
+  State<_ForwardPanel> createState() => _ForwardPanelState();
+}
+
+class _ForwardPanelState extends State<_ForwardPanel> {
+  String? _cachedVideoHeroTag;
+
+  String? get _videoHeroTag =>
+      _cachedVideoHeroTag ??=
+          makeDynamicVideoHeroTag(widget.orig, identityHashCode(this));
+
+  @override
+  void didUpdateWidget(covariant _ForwardPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.orig != widget.orig) {
+      _cachedVideoHeroTag = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _forwardPanel(
+      context,
+      floor: widget.floor,
+      theme: widget.theme,
+      orig: widget.orig,
+      isSave: widget.isSave,
+      isDetail: widget.isDetail,
+      videoHeroTag: _videoHeroTag,
+    );
+  }
+}
+
+Widget _forwardPanel(
+  BuildContext context, {
+  required int floor,
+  required ThemeData theme,
+  required DynamicItemModel orig,
+  required bool isSave,
+  required bool isDetail,
+  String? videoHeroTag,
 }) {
   final moduleDynamic = orig.modules.moduleDynamic;
   final major = moduleDynamic?.major;
@@ -42,6 +109,7 @@ Widget forwardPanel(
           isDetail: isDetail,
           item: orig,
           floor: floor + 1,
+          videoHeroTag: videoHeroTag,
         ),
       ],
     );
@@ -116,7 +184,7 @@ Widget forwardPanel(
   }
 
   return InkWell(
-    onTap: () => PageUtils.pushDynDetail(orig),
+    onTap: () => PageUtils.pushDynDetail(orig, heroTag: videoHeroTag),
     onLongPress: showMore,
     onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
     child: child,

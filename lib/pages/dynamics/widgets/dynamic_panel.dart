@@ -5,13 +5,14 @@ import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/widgets/action_panel.dart';
 import 'package:PiliMax/pages/dynamics/widgets/author_panel.dart';
 import 'package:PiliMax/pages/dynamics/widgets/dyn_content.dart';
+import 'package:PiliMax/pages/dynamics/widgets/dynamic_video_hero_tag.dart';
 import 'package:PiliMax/pages/dynamics/widgets/interaction.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 
-class DynamicPanel extends StatelessWidget {
+class DynamicPanel extends StatefulWidget {
   final DynamicItemModel item;
   final bool isDetail;
   final ValueChanged<Object>? onRemove;
@@ -43,6 +44,37 @@ class DynamicPanel extends StatelessWidget {
   });
 
   @override
+  State<DynamicPanel> createState() => _DynamicPanelState();
+}
+
+class _DynamicPanelState extends State<DynamicPanel> {
+  String? _cachedVideoHeroTag;
+
+  DynamicItemModel get item => widget.item;
+  bool get isDetail => widget.isDetail;
+  ValueChanged<Object>? get onRemove => widget.onRemove;
+  bool get isSave => widget.isSave;
+  void Function(bool isTop, Object dynId)? get onSetTop => widget.onSetTop;
+  VoidCallback? get onBlock => widget.onBlock;
+  VoidCallback? get onUnfold => widget.onUnfold;
+  bool get isDetailPortraitW => widget.isDetailPortraitW;
+  VoidCallback? get onEdit => widget.onEdit;
+  ValueChanged<int>? get onSetReplySubject => widget.onSetReplySubject;
+  ValueChanged<DynamicItemModel>? get onUpdate => widget.onUpdate;
+
+  String? get _videoHeroTag =>
+      _cachedVideoHeroTag ??=
+          makeDynamicVideoHeroTag(item, identityHashCode(this));
+
+  @override
+  void didUpdateWidget(covariant DynamicPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item != widget.item) {
+      _cachedVideoHeroTag = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (item.visible == false) {
       return const SizedBox.shrink();
@@ -55,7 +87,7 @@ class DynamicPanel extends StatelessWidget {
       isSave: isSave,
       onSetTop: onSetTop,
       onBlock: onBlock,
-      onSetPubSetting: onSetPubSetting,
+      onSetPubSetting: widget.onSetPubSetting,
       onEdit: onEdit,
       onSetReplySubject: onSetReplySubject,
     );
@@ -78,7 +110,11 @@ class DynamicPanel extends StatelessWidget {
                   'DYNAMIC_TYPE_COURSES_SEASON',
                 }.contains(item.type)
             ? null
-            : () => PageUtils.pushDynDetail(item, onUpdate: onUpdate),
+            : () => PageUtils.pushDynDetail(
+                item,
+                onUpdate: onUpdate,
+                heroTag: _videoHeroTag,
+              ),
         onLongPress: showMore,
         onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
         child: Column(
@@ -98,6 +134,7 @@ class DynamicPanel extends StatelessWidget {
               isDetail: isDetail,
               item: item,
               floor: 1,
+              videoHeroTag: _videoHeroTag,
             ),
             const SizedBox(height: 2),
             if (!isDetail) ...[

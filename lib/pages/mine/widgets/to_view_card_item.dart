@@ -26,14 +26,14 @@ class ToViewCardItem extends StatelessWidget {
 
   Future<void> _onTap() async {
     if (item.isPugv ?? false) {
-      PageUtils.viewPugv(seasonId: item.aid);
+      PageUtils.viewPugv(seasonId: item.aid, heroTag: _heroTag);
       return;
     }
     if (item.isPgc ?? false) {
       if (item.bangumi?.epId != null) {
-        PageUtils.viewPgc(epId: item.bangumi!.epId);
+        PageUtils.viewPgc(epId: item.bangumi!.epId, heroTag: _heroTag);
       } else if (item.redirectUrl?.isNotEmpty == true) {
-        PageUtils.viewPgcFromUri(item.redirectUrl!);
+        PageUtils.viewPgcFromUri(item.redirectUrl!, heroTag: _heroTag);
       }
       return;
     }

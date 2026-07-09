@@ -65,6 +65,7 @@ class VideoCardHMemberVideo extends StatelessWidget {
                     if (PageUtils.viewPgcFromUri(
                       videoItem.uri!,
                       isPgc: isPgc,
+                      heroTag: _heroTag,
                     )) {
                       return;
                     }

@@ -39,6 +39,7 @@ Widget module(
   required DynamicItemModel item,
   required bool isSave,
   required bool isDetail,
+  String? videoHeroTag,
 }) {
   final moduleDynamic = item.modules.moduleDynamic;
   final major = moduleDynamic?.major;
@@ -75,6 +76,7 @@ Widget module(
         floor: floor,
         isSave: isSave,
         isDetail: isDetail,
+        heroTag: videoHeroTag,
       );
     // 转发
     case 'DYNAMIC_TYPE_FORWARD':

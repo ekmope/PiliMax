@@ -53,11 +53,15 @@ class SearchArchiveGrpc extends StatelessWidget {
             onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
             onTap: () {
               if (item.isPugv) {
-                PageUtils.viewPgcFromUri(item.uri, isPgc: false);
+                PageUtils.viewPgcFromUri(
+                  item.uri,
+                  isPgc: false,
+                  heroTag: heroTag,
+                );
                 return;
               }
               if (arc.hasRedirectUrl()) {
-                PageUtils.viewPgcFromUri(arc.redirectUrl);
+                PageUtils.viewPgcFromUri(arc.redirectUrl, heroTag: heroTag);
                 return;
               }
               PageUtils.toVideoPage(

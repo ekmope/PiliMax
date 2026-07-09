@@ -3,6 +3,7 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/svg/play_icon.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/watch_later_button.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
@@ -17,12 +18,14 @@ Widget videoSeasonWidget(
   required DynamicItemModel item,
   required bool isSave,
   required bool isDetail,
+  String? heroTag,
 }) {
   return _VideoSeasonWidget(
     floor: floor,
     theme: theme,
     item: item,
     isDetail: isDetail,
+    heroTag: heroTag,
   );
 }
 
@@ -32,12 +35,14 @@ class _VideoSeasonWidget extends StatefulWidget {
     required this.theme,
     required this.item,
     required this.isDetail,
+    required this.heroTag,
   });
 
   final int floor;
   final ThemeData theme;
   final DynamicItemModel item;
   final bool isDetail;
+  final String? heroTag;
 
   @override
   State<_VideoSeasonWidget> createState() => _VideoSeasonWidgetState();
@@ -52,6 +57,7 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
     final theme = widget.theme;
     final item = widget.item;
     final isDetail = widget.isDetail;
+    final heroTag = widget.heroTag;
 
     // type archive / ugcSeason
     // archive: 视频，显示发布人；ugcSeason: 合集，不显示发布人
@@ -86,12 +92,21 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
                 clipBehavior: Clip.none,
                 children: [
                   LayoutBuilder(
-                    builder: (context, constraints) => NetworkImgLayer(
-                      width: constraints.maxWidth,
-                      height: constraints.maxWidth / Style.aspectRatio,
-                      src: cover,
-                      quality: 40,
-                    ),
+                    builder: (context, constraints) {
+                      final coverWidget = NetworkImgLayer(
+                        width: constraints.maxWidth,
+                        height: constraints.maxWidth / Style.aspectRatio,
+                        src: cover,
+                        quality: 40,
+                      );
+                      if (heroTag == null) {
+                        return coverWidget;
+                      }
+                      return VideoCoverHero(
+                        tag: heroTag,
+                        child: coverWidget,
+                      );
+                    },
                   ),
                   if (video.badge?.text case final badge?)
                     PBadge(

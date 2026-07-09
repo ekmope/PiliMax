@@ -226,6 +226,7 @@ abstract final class PageUtils {
     bool isPush = false,
     ValueChanged<DynamicItemModel>? onUpdate,
     bool viewComment = false,
+    String? heroTag,
   }) async {
     feedBack();
 
@@ -265,21 +266,21 @@ abstract final class PageUtils {
         if (archive.type == 2) {
           // jumpUrl
           if (archive.jumpUrl case final jumpUrl?) {
-            if (viewPgcFromUri(jumpUrl)) {
+            if (viewPgcFromUri(jumpUrl, heroTag: heroTag)) {
               return;
             }
           }
           // redirectUrl from intro
           final res = await VideoHttp.videoIntro(bvid: archive.bvid!);
           if (res.dataOrNull?.redirectUrl case final redirectUrl?) {
-            if (viewPgcFromUri(redirectUrl)) {
+            if (viewPgcFromUri(redirectUrl, heroTag: heroTag)) {
               return;
             }
           }
           // redirectUrl from jumpUrl
           if (await UrlUtils.parseRedirectUrl(archive.jumpUrl.http2https, false)
               case final redirectUrl?) {
-            if (viewPgcFromUri(redirectUrl)) {
+            if (viewPgcFromUri(redirectUrl, heroTag: heroTag)) {
               return;
             }
           }
@@ -296,6 +297,7 @@ abstract final class PageUtils {
               cid: cid,
               cover: cover,
               dimension: res!.dimension,
+              heroTag: heroTag,
             );
           }
         } catch (err) {
@@ -358,6 +360,7 @@ abstract final class PageUtils {
             cid: cid,
             cover: cover,
             dimension: res!.dimension,
+            heroTag: heroTag,
           );
         }
         break;
@@ -367,7 +370,7 @@ abstract final class PageUtils {
         // if (kDebugMode) debugPrint('DYNAMIC_TYPE_PGC_UNION 鐣墽');
         DynamicArchiveModel pgc = item.modules.moduleDynamic!.major!.pgc!;
         if (pgc.epid != null) {
-          viewPgc(epId: pgc.epid);
+          viewPgc(epId: pgc.epid, heroTag: heroTag);
         }
         break;
 
@@ -394,6 +397,7 @@ abstract final class PageUtils {
       case 'DYNAMIC_TYPE_COURSES_SEASON':
         PageUtils.viewPugv(
           seasonId: item.modules.moduleDynamic!.major!.courses!.id,
+          heroTag: heroTag,
         );
         break;
 
@@ -606,6 +610,7 @@ abstract final class PageUtils {
     int? progress, // milliseconds
     int? aid,
     bool off = false,
+    String? heroTag,
   }) {
     RegExpMatch? match = _pgcRegex.firstMatch(uri);
     if (match != null) {
@@ -617,6 +622,7 @@ abstract final class PageUtils {
           epId: isSeason ? null : id,
           progress: progress,
           off: off,
+          heroTag: heroTag,
         );
       } else {
         viewPugv(
@@ -624,6 +630,7 @@ abstract final class PageUtils {
           epId: isSeason ? null : id,
           aid: aid,
           off: off,
+          heroTag: heroTag,
         );
       }
       return true;
@@ -652,6 +659,7 @@ abstract final class PageUtils {
     dynamic epId,
     int? progress, // milliseconds
     bool off = false,
+    String? heroTag,
   }) async {
     try {
       SmartDialog.showLoading(msg: '资源获取中');
@@ -677,6 +685,7 @@ abstract final class PageUtils {
               'pgcItem': response,
             },
             off: off,
+            heroTag: heroTag,
           );
         }
 
@@ -726,6 +735,7 @@ abstract final class PageUtils {
               'pgcItem': response,
             },
             off: off,
+            heroTag: heroTag,
           );
           return;
         } else {
@@ -752,6 +762,7 @@ abstract final class PageUtils {
     dynamic epId,
     int? aid,
     bool off = false,
+    String? heroTag,
   }) async {
     try {
       SmartDialog.showLoading(msg: '资源获取中');
@@ -780,6 +791,7 @@ abstract final class PageUtils {
               'pgcItem': response,
             },
             off: off,
+            heroTag: heroTag,
           );
         } else {
       SmartDialog.showToast('资源加载失败');

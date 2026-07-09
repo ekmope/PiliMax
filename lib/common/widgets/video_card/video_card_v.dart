@@ -75,7 +75,7 @@ class _VideoCardVState extends State<VideoCardV> {
   Future<void> onPushDetail() async {
     switch (videoItem.goto) {
       case 'bangumi':
-        PageUtils.viewPgc(epId: videoItem.param!);
+        PageUtils.viewPgc(epId: videoItem.param!, heroTag: _heroTag);
         break;
       case 'av':
         var bvid = videoItem.bvid ?? IdUtils.av2bv(videoItem.aid!);

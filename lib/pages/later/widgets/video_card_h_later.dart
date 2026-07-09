@@ -56,14 +56,23 @@ class VideoCardHLater extends StatelessWidget {
             ? () => ctr.onSelect(videoItem)
             : () async {
                 if (videoItem.isPugv ?? false) {
-                  PageUtils.viewPugv(seasonId: videoItem.aid);
+                  PageUtils.viewPugv(
+                    seasonId: videoItem.aid,
+                    heroTag: _heroTag,
+                  );
                   return;
                 }
                 if (videoItem.isPgc ?? false) {
                   if (videoItem.bangumi?.epId != null) {
-                    PageUtils.viewPgc(epId: videoItem.bangumi!.epId);
+                    PageUtils.viewPgc(
+                      epId: videoItem.bangumi!.epId,
+                      heroTag: _heroTag,
+                    );
                   } else if (videoItem.redirectUrl?.isNotEmpty == true) {
-                    PageUtils.viewPgcFromUri(videoItem.redirectUrl!);
+                    PageUtils.viewPgcFromUri(
+                      videoItem.redirectUrl!,
+                      heroTag: _heroTag,
+                    );
                   }
                   return;
                 }

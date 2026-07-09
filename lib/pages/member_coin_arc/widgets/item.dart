@@ -3,6 +3,7 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/video_card_v.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
@@ -14,13 +15,33 @@ import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 
-class MemberCoinLikeItem extends StatelessWidget {
+class MemberCoinLikeItem extends StatefulWidget {
   final CoinLikeArcItem item;
 
   const MemberCoinLikeItem({
     super.key,
     required this.item,
   });
+
+  @override
+  State<MemberCoinLikeItem> createState() => _MemberCoinLikeItemState();
+}
+
+class _MemberCoinLikeItemState extends State<MemberCoinLikeItem> {
+  String? _cachedHeroTag;
+
+  CoinLikeArcItem get item => widget.item;
+  String get _heroTag =>
+      _cachedHeroTag ??=
+          'member-coin-like-${item.param ?? item.uri ?? item.cover}-${identityHashCode(this)}';
+
+  @override
+  void didUpdateWidget(covariant MemberCoinLikeItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item != widget.item) {
+      _cachedHeroTag = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +56,7 @@ class MemberCoinLikeItem extends StatelessWidget {
         onTap: () async {
           if (item.isPgc == true) {
             if (item.uri?.isNotEmpty == true) {
-              PageUtils.viewPgcFromUri(item.uri!);
+              PageUtils.viewPgcFromUri(item.uri!, heroTag: _heroTag);
             }
             return;
           }
@@ -50,6 +71,7 @@ class MemberCoinLikeItem extends StatelessWidget {
                 cover: item.cover,
                 title: item.title,
                 dimension: res!.dimension,
+                heroTag: _heroTag,
               );
             }
           }
@@ -68,11 +90,14 @@ class MemberCoinLikeItem extends StatelessWidget {
                   return Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      NetworkImgLayer(
-                        src: item.cover,
-                        width: maxWidth,
-                        height: maxHeight,
-                        type: .emote,
+                      VideoCoverHero(
+                        tag: _heroTag,
+                        child: NetworkImgLayer(
+                          src: item.cover,
+                          width: maxWidth,
+                          height: maxHeight,
+                          type: .emote,
+                        ),
                       ),
                       if (item.isCooperation == true)
                         const PBadge(

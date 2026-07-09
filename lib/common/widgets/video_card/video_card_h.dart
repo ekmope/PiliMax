@@ -25,11 +25,13 @@ class VideoCardH extends StatefulWidget {
     super.key,
     required this.videoItem,
     this.onTap,
+    this.onTapWithHeroTag,
     this.onViewLater,
     this.onRemove,
   });
   final HorizontalVideoModel videoItem;
   final VoidCallback? onTap;
+  final ValueChanged<String>? onTapWithHeroTag;
   final ValueChanged<int>? onViewLater;
   final VoidCallback? onRemove;
 
@@ -46,6 +48,7 @@ class _VideoCardHState extends State<VideoCardH> {
       _cachedHeroTag ??=
           'video-card-h-${videoItem.bvid ?? videoItem.aid ?? videoItem.cid}-${identityHashCode(this)}';
   VoidCallback? get onTap => widget.onTap;
+  ValueChanged<String>? get onTapWithHeroTag => widget.onTapWithHeroTag;
   VoidCallback? get onRemove => widget.onRemove;
 
   @override
@@ -70,6 +73,59 @@ class _VideoCardHState extends State<VideoCardH> {
       ownerName: videoItem.owner.name,
     );
     final theme = Theme.of(context);
+
+    Future<void> onPushDetail() async {
+      if (videoItem.isPugv ?? false) {
+        PageUtils.viewPugv(
+          seasonId: videoItem.seasonId,
+          heroTag: _heroTag,
+        );
+        return;
+      }
+
+      if (videoItem.isLive ?? false) {
+        if (videoItem.roomId case final roomId?) {
+          PageUtils.toLiveRoom(roomId);
+        }
+        return;
+      }
+
+      if (videoItem.redirectUrl?.isNotEmpty == true &&
+          PageUtils.viewPgcFromUri(
+            videoItem.redirectUrl!,
+            heroTag: _heroTag,
+          )) {
+        return;
+      }
+
+      int? cid = videoItem.cid;
+      Dimension? dimension = videoItem.dimension;
+      if (cid == null) {
+        if (await SearchHttp.ab2cWithDimension(
+              aid: videoItem.aid,
+              bvid: videoItem.bvid,
+            )
+            case final res?) {
+          cid = res.cid;
+          dimension = res.dimension;
+        }
+      }
+      if (cid != null) {
+        PageUtils.toVideoPage(
+          bvid: videoItem.bvid,
+          cid: cid,
+          cover: videoItem.cover,
+          title: videoItem.title,
+          dimension: dimension,
+          heroTag: _heroTag,
+        );
+        final String? key = videoItem.bvid ?? videoItem.aid?.toString();
+        if (key != null && key.isNotEmpty) {
+          VideoCardH.clickedBvids.add(key);
+        }
+      }
+    }
+
     return Material(
       type: .transparency,
       child: MouseRegion(
@@ -85,54 +141,9 @@ class _VideoCardHState extends State<VideoCardH> {
             InkWell(
               onLongPress: onLongPress,
               onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-              onTap:
-                  onTap ??
-                  () async {
-                    if (videoItem.isPugv ?? false) {
-                      PageUtils.viewPugv(seasonId: videoItem.seasonId);
-                      return;
-                    }
-
-                    if (videoItem.isLive ?? false) {
-                      if (videoItem.roomId case final roomId?) {
-                        PageUtils.toLiveRoom(roomId);
-                      }
-                      return;
-                    }
-
-                    if (videoItem.redirectUrl?.isNotEmpty == true &&
-                        PageUtils.viewPgcFromUri(videoItem.redirectUrl!)) {
-                      return;
-                    }
-
-                    int? cid = videoItem.cid;
-                    Dimension? dimension = videoItem.dimension;
-                    if (cid == null) {
-                      if (await SearchHttp.ab2cWithDimension(
-                            aid: videoItem.aid,
-                            bvid: videoItem.bvid,
-                          )
-                          case final res?) {
-                        cid = res.cid;
-                        dimension = res.dimension;
-                      }
-                    }
-                    if (cid != null) {
-                      PageUtils.toVideoPage(
-                        bvid: videoItem.bvid,
-                        cid: cid,
-                        cover: videoItem.cover,
-                        title: videoItem.title,
-                        dimension: dimension,
-                        heroTag: _heroTag,
-                      );
-                      final String? key =
-                          videoItem.bvid ?? videoItem.aid?.toString();
-                      if (key != null && key.isNotEmpty) {
-                        VideoCardH.clickedBvids.add(key);
-                      }
-                    }
-                  },
+              onTap: onTapWithHeroTag != null
+                  ? () => onTapWithHeroTag!(_heroTag)
+                  : onTap ?? onPushDetail,
               child: Padding(
                 padding: const .symmetric(
                   horizontal: Style.safeSpace,

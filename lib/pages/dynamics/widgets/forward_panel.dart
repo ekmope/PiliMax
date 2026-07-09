@@ -51,11 +51,12 @@ class _ForwardPanelState extends State<_ForwardPanel> {
   String? get _videoHeroTag =>
       _cachedVideoHeroTag ??=
           makeDynamicVideoHeroTag(widget.orig, identityHashCode(this));
+  Object? get _videoHeroKey => dynamicVideoHeroKey(widget.orig);
 
   @override
   void didUpdateWidget(covariant _ForwardPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.orig != widget.orig) {
+    if (dynamicVideoHeroKey(oldWidget.orig) != _videoHeroKey) {
       _cachedVideoHeroTag = null;
     }
   }

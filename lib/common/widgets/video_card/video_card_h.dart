@@ -44,9 +44,10 @@ class _VideoCardHState extends State<VideoCardH> {
   String? _cachedHeroTag;
 
   HorizontalVideoModel get videoItem => widget.videoItem;
+  Object? get _heroKey => videoItem.bvid ?? videoItem.aid ?? videoItem.cid;
   String get _heroTag =>
       _cachedHeroTag ??=
-          'video-card-h-${videoItem.bvid ?? videoItem.aid ?? videoItem.cid}-${identityHashCode(this)}';
+          'video-card-h-$_heroKey-${identityHashCode(this)}';
   VoidCallback? get onTap => widget.onTap;
   ValueChanged<String>? get onTapWithHeroTag => widget.onTapWithHeroTag;
   VoidCallback? get onRemove => widget.onRemove;
@@ -54,7 +55,9 @@ class _VideoCardHState extends State<VideoCardH> {
   @override
   void didUpdateWidget(covariant VideoCardH oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.videoItem != widget.videoItem) {
+    final oldItem = oldWidget.videoItem;
+    final oldKey = oldItem.bvid ?? oldItem.aid ?? oldItem.cid;
+    if (oldKey != _heroKey) {
       _cachedHeroTag = null;
     }
   }

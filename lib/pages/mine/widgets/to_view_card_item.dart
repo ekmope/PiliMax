@@ -21,8 +21,7 @@ class ToViewCardItem extends StatelessWidget {
   );
 
   String get _heroTag =>
-      'mine-later-${item.bvid ?? item.aid}-${item.cid}-'
-      '${identityHashCode(item)}';
+      'mine-later-${item.bvid ?? item.aid}-${item.cid}';
 
   Future<void> _onTap() async {
     if (item.isPugv ?? false) {

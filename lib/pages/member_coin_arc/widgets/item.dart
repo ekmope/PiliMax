@@ -31,14 +31,17 @@ class _MemberCoinLikeItemState extends State<MemberCoinLikeItem> {
   String? _cachedHeroTag;
 
   CoinLikeArcItem get item => widget.item;
+  Object? get _heroKey => item.param ?? item.uri ?? item.cover;
   String get _heroTag =>
       _cachedHeroTag ??=
-          'member-coin-like-${item.param ?? item.uri ?? item.cover}-${identityHashCode(this)}';
+          'member-coin-like-$_heroKey-${identityHashCode(this)}';
 
   @override
   void didUpdateWidget(covariant MemberCoinLikeItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.item != widget.item) {
+    final oldKey =
+        oldWidget.item.param ?? oldWidget.item.uri ?? oldWidget.item.cover;
+    if (oldKey != _heroKey) {
       _cachedHeroTag = null;
     }
   }

@@ -44,15 +44,18 @@ class _VideoCardVState extends State<VideoCardV> {
   String? _cachedHeroTag;
 
   BaseRcmdVideoItemModel get videoItem => widget.videoItem;
+  Object? get _heroKey => videoItem.bvid ?? videoItem.aid ?? videoItem.cid;
   String get _heroTag =>
       _cachedHeroTag ??=
-          'video-card-v-${videoItem.bvid ?? videoItem.aid ?? videoItem.cid}-${identityHashCode(this)}';
+          'video-card-v-$_heroKey-${identityHashCode(this)}';
   VoidCallback? get onRemove => widget.onRemove;
 
   @override
   void didUpdateWidget(covariant VideoCardV oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.videoItem != widget.videoItem) {
+    final oldItem = oldWidget.videoItem;
+    final oldKey = oldItem.bvid ?? oldItem.aid ?? oldItem.cid;
+    if (oldKey != _heroKey) {
       _cachedHeroTag = null;
     }
   }

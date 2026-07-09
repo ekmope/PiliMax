@@ -33,8 +33,7 @@ class VideoCardHLater extends StatelessWidget {
   final void Function(int cid, String heroTag) onViewLater;
 
   String get _heroTag =>
-      'later-${videoItem.bvid ?? videoItem.aid}-${videoItem.cid}-'
-      '${identityHashCode(videoItem)}';
+      'later-${videoItem.bvid ?? videoItem.aid}-${videoItem.cid}';
 
   @override
   Widget build(BuildContext context) {

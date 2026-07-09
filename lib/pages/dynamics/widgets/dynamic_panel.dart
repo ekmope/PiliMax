@@ -65,11 +65,12 @@ class _DynamicPanelState extends State<DynamicPanel> {
   String? get _videoHeroTag =>
       _cachedVideoHeroTag ??=
           makeDynamicVideoHeroTag(item, identityHashCode(this));
+  Object? get _videoHeroKey => dynamicVideoHeroKey(item);
 
   @override
   void didUpdateWidget(covariant DynamicPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.item != widget.item) {
+    if (dynamicVideoHeroKey(oldWidget.item) != _videoHeroKey) {
       _cachedVideoHeroTag = null;
     }
   }

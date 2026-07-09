@@ -26,7 +26,7 @@ class HistoryCardItem extends StatelessWidget {
 
   String get _heroTag =>
       'mine-history-${item.history.business}-${item.history.oid}-'
-      '${item.history.cid}-${item.history.page}-${identityHashCode(item)}';
+      '${item.history.cid}-${item.history.page}';
 
   // 宽高比与 HistoryItem 大图区一致（16:10）
   static const double _cardWidth = 180.0;

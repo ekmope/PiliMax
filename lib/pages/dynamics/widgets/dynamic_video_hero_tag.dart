@@ -13,11 +13,18 @@ DynamicArchiveModel? dynamicVideoHeroArchive(DynamicItemModel item) {
 }
 
 String? makeDynamicVideoHeroTag(DynamicItemModel item, int ownerHash) {
+  final key = dynamicVideoHeroKey(item);
+  if (key == null) {
+    return null;
+  }
+  return 'dynamic-video-$key-$ownerHash';
+}
+
+Object? dynamicVideoHeroKey(DynamicItemModel item) {
   final video = dynamicVideoHeroArchive(item);
   final cover = video?.cover;
   if (video == null || cover == null || cover.isEmpty) {
     return null;
   }
-  final key = item.idStr ?? video.bvid ?? video.aid ?? cover;
-  return 'dynamic-video-$key-$ownerHash';
+  return item.idStr ?? video.bvid ?? video.aid ?? cover;
 }

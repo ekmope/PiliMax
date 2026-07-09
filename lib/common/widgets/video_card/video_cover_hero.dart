@@ -28,8 +28,10 @@ class VideoCoverHero extends StatelessWidget {
     final toHero = toHeroContext.widget as Hero;
     final beginRadius = _heroBorderRadius(fromHero.child);
     final endRadius = _heroBorderRadius(toHero.child);
-    final fromChild = _heroClipChild(fromHero.child);
-    final toChild = _heroClipChild(toHero.child);
+    final shuttleChild = switch (flightDirection) {
+      HeroFlightDirection.push => _heroClipChild(fromHero.child),
+      HeroFlightDirection.pop => _heroClipChild(toHero.child),
+    };
     return AnimatedBuilder(
       animation: animation,
       builder: (context, _) {
@@ -41,21 +43,7 @@ class VideoCoverHero extends StatelessWidget {
           borderRadius:
               BorderRadiusGeometry.lerp(beginRadius, endRadius, radiusProgress)
               ?? endRadius,
-          child: _fillFlightBounds(
-            Stack(
-              fit: StackFit.passthrough,
-              children: [
-                Opacity(
-                  opacity: 1 - radiusProgress,
-                  child: fromChild,
-                ),
-                Opacity(
-                  opacity: radiusProgress,
-                  child: toChild,
-                ),
-              ],
-            ),
-          ),
+          child: _fillFlightBounds(shuttleChild),
         );
       },
     );

@@ -8,6 +8,9 @@ import 'package:audio_session/audio_session.dart';
 class AudioSessionHandler {
   late AudioSession session;
   bool _playInterrupted = false;
+  bool _forceMixWithOthers = false;
+
+  bool get mixWithOthers => Pref.mixWithOthers || _forceMixWithOthers;
 
   Future<bool> setActive(bool active) {
     return session.setActive(active);
@@ -18,7 +21,7 @@ class AudioSessionHandler {
   }
 
   Future<void> _configureSession() async {
-    if (Pref.mixWithOthers && Platform.isIOS) {
+    if (mixWithOthers && Platform.isIOS) {
       await session.configure(
         const AudioSessionConfiguration(
           avAudioSessionCategory: AVAudioSessionCategory.playback,
@@ -35,9 +38,23 @@ class AudioSessionHandler {
     }
   }
 
-  Future<void> reconfigure() async {
+  Future<void> reconfigure({bool? active}) async {
     await session.setActive(false);
     await _configureSession();
+    if (active == true) {
+      await session.setActive(true);
+    }
+  }
+
+  Future<void> setForceMixWithOthers(bool value, {bool? active}) async {
+    if (_forceMixWithOthers == value) {
+      if (active != null) {
+        await session.setActive(active);
+      }
+      return;
+    }
+    _forceMixWithOthers = value;
+    await reconfigure(active: active);
   }
 
   Future<void> initSession() async {
@@ -56,7 +73,7 @@ class AudioSessionHandler {
             break;
           case AudioInterruptionType.pause:
             // 接收到其他 App 播放音频的通知，如果允许了同时播放，就无视
-            if (Pref.mixWithOthers) return;
+            if (mixWithOthers) return;
             PlPlayerController.pauseIfExists(isInterrupt: true);
             // player.pause(isInterrupt: true);
             _playInterrupted = true;

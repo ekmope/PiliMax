@@ -236,8 +236,27 @@ class LiveRoomController extends GetxController {
     return setOnlyPlayAudio(!plPlayerController.onlyPlayAudio.value);
   }
 
+  bool get _shouldMixWithOthersForBackgroundAudio =>
+      plPlayerController.continuePlayInBackground.value &&
+      plPlayerController.onlyPlayAudio.value;
+
+  void _syncBackgroundAudioMixMode() {
+    unawaited(
+      audioSessionHandler?.setForceMixWithOthers(
+        _shouldMixWithOthersForBackgroundAudio,
+        active: plPlayerController.playerStatus.isPlaying,
+      ),
+    );
+  }
+
+  void toggleBackgroundPlay() {
+    plPlayerController.setContinuePlayInBackground();
+    _syncBackgroundAudioMixMode();
+  }
+
   Future<void> setOnlyPlayAudio(bool value) async {
     if (plPlayerController.onlyPlayAudio.value == value) {
+      _syncBackgroundAudioMixMode();
       return;
     }
     final prevOnlyPlayAudio = plPlayerController.onlyPlayAudio.value;
@@ -246,9 +265,11 @@ class LiveRoomController extends GetxController {
     if (!success) {
       plPlayerController.onlyPlayAudio.value = prevOnlyPlayAudio;
       await plPlayerController.applyOnlyPlayAudioTrack();
+      _syncBackgroundAudioMixMode();
       return;
     }
     await plPlayerController.applyOnlyPlayAudioTrack();
+    _syncBackgroundAudioMixMode();
     _syncAudioServiceState();
   }
 
@@ -626,6 +647,7 @@ class LiveRoomController extends GetxController {
     LiveHttp.cancelLiveHeartbeat();
     // 濡傛灉鍦ㄥ皬绐楁ā寮忥紝涓嶆竻鐞嗚祫婧?
     if (!isInPipMode.value) {
+      unawaited(audioSessionHandler?.setForceMixWithOthers(false));
       closeLiveMsg();
       cancelLikeTimer();
       cancelLiveTimer();

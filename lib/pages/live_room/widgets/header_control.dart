@@ -224,7 +224,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
               return ComBtn(
                 height: 30,
                 tooltip: '${continuePlayInBackground ? '关闭' : ''}后台播放',
-                onTap: plPlayerController.setContinuePlayInBackground,
+                onTap: liveController.toggleBackgroundPlay,
                 icon: continuePlayInBackground
                     ? const Icon(
                         size: 18,

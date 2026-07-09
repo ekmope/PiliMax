@@ -2061,51 +2061,54 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     required double width,
     required double height,
     bool isPipMode = false,
-  }) => popScope(
-    key: videoDetailController.videoPlayerKey,
-    canPop:
+  }) => Obx(() {
+    final allowRoutePop =
         !isFullScreen &&
         !videoDetailController.plPlayerController.isDesktopPip &&
-        (videoDetailController.horizontalScreen || isPortrait),
-    onPopInvokedWithResult: _onPopInvokedWithResult,
-    child: Obx(
-      () =>
-          (!isPipMode && !videoDetailController.videoState.value) ||
-              !videoDetailController.autoPlay ||
-              plPlayerController?.videoController == null
-          ? const SizedBox.shrink()
-          : PLVideoPlayer(
-              maxWidth: width,
-              maxHeight: height,
-              isPipMode: isPipMode,
-              plPlayerController: plPlayerController!,
-              videoDetailController: videoDetailController,
-              introController: introController,
-              headerControl: HeaderControl(
-                key: videoDetailController.headerCtrKey,
-                isPortrait: isPortrait,
-                controller: videoDetailController.plPlayerController,
-                videoDetailCtr: videoDetailController,
-                heroTag: heroTag,
-              ),
-              danmuWidget: isPipMode && pipNoDanmaku
-                  ? null
-                  : Obx(
-                      () => PlDanmaku(
-                        key: ValueKey(videoDetailController.cid.value),
-                        isPipMode: isPipMode,
-                        cid: videoDetailController.cid.value,
-                        playerController: plPlayerController!,
-                        isFullScreen: plPlayerController!.isFullScreen.value,
-                        isFileSource: videoDetailController.isFileSource,
-                        size: Size(width, height),
-                      ),
-                    ),
-              showEpisodes: showEpisodes,
-              showViewPoints: showViewPoints,
+        (videoDetailController.horizontalScreen || isPortrait);
+    final child =
+        (!isPipMode && !videoDetailController.videoState.value) ||
+            !videoDetailController.autoPlay ||
+            plPlayerController?.videoController == null
+        ? const SizedBox.shrink()
+        : PLVideoPlayer(
+            maxWidth: width,
+            maxHeight: height,
+            isPipMode: isPipMode,
+            plPlayerController: plPlayerController!,
+            videoDetailController: videoDetailController,
+            introController: introController,
+            headerControl: HeaderControl(
+              key: videoDetailController.headerCtrKey,
+              isPortrait: isPortrait,
+              controller: videoDetailController.plPlayerController,
+              videoDetailCtr: videoDetailController,
+              heroTag: heroTag,
             ),
-    ),
-  );
+            danmuWidget: isPipMode && pipNoDanmaku
+                ? null
+                : Obx(
+                    () => PlDanmaku(
+                      key: ValueKey(videoDetailController.cid.value),
+                      isPipMode: isPipMode,
+                      cid: videoDetailController.cid.value,
+                      playerController: plPlayerController!,
+                      isFullScreen: plPlayerController!.isFullScreen.value,
+                      isFileSource: videoDetailController.isFileSource,
+                      size: Size(width, height),
+                    ),
+                  ),
+            showEpisodes: showEpisodes,
+            showViewPoints: showViewPoints,
+          );
+
+    return popScope(
+      key: videoDetailController.videoPlayerKey,
+      canPop: allowRoutePop,
+      onPopInvokedWithResult: _onPopInvokedWithResult,
+      child: child,
+    );
+  });
 
   late ThemeData themeData;
   late bool isPortrait;

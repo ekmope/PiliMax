@@ -479,7 +479,7 @@ class _NavigationDestinationInfo extends InheritedWidget {
 
   final GestureLongPressEndCallback? onLongPressEnd;
 
-  final GestureLongPressCancelCallback? onLongPressCancel;
+  final VoidCallback? onLongPressCancel;
 
   final WidgetStateProperty<TextStyle?>? labelTextStyle;
 

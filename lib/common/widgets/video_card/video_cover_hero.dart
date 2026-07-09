@@ -25,7 +25,11 @@ class VideoCoverHero extends StatelessWidget {
     BuildContext toHeroContext,
   ) {
     final fromHero = fromHeroContext.widget as Hero;
-    return fromHero.child;
+    final toHero = toHeroContext.widget as Hero;
+    return switch (flightDirection) {
+      HeroFlightDirection.push => fromHero.child,
+      HeroFlightDirection.pop => toHero.child,
+    };
   }
 
   Widget _buildPlaceholder(BuildContext context, Size heroSize, Widget child) {

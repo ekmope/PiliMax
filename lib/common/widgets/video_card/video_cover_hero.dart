@@ -17,13 +17,24 @@ class VideoCoverHero extends StatelessWidget {
   static Tween<Rect?> _createRectTween(Rect? begin, Rect? end) =>
       RectTween(begin: begin, end: end);
 
+  Widget _buildPlaceholder(BuildContext context, Size heroSize, Widget child) {
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: SizedBox(
+        width: heroSize.width,
+        height: heroSize.height,
+        child: const ColoredBox(color: Colors.black),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Hero(
       tag: tag,
       createRectTween: _createRectTween,
       transitionOnUserGestures: true,
-      placeholderBuilder: (context, heroSize, heroChild) => heroChild,
+      placeholderBuilder: _buildPlaceholder,
       child: ClipRRect(
         borderRadius: borderRadius,
         child: child,

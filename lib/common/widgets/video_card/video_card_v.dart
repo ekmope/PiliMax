@@ -17,7 +17,6 @@ import 'package:PiliMax/utils/extension/dimension_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:PiliMax/utils/utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -45,9 +44,8 @@ class _VideoCardVState extends State<VideoCardV> {
 
   BaseRcmdVideoItemModel get videoItem => widget.videoItem;
   String get _heroTag =>
-      _cachedHeroTag ??= Utils.makeHeroTag(
-        videoItem.cid ?? videoItem.aid ?? videoItem.bvid ?? identityHashCode(this),
-      );
+      _cachedHeroTag ??=
+          'video-card-v-${videoItem.bvid ?? videoItem.aid ?? videoItem.cid}-${identityHashCode(this)}';
   VoidCallback? get onRemove => widget.onRemove;
 
   @override

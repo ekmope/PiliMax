@@ -13,7 +13,6 @@ import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -43,9 +42,8 @@ class _VideoCardHState extends State<VideoCardH> {
 
   HorizontalVideoModel get videoItem => widget.videoItem;
   String get _heroTag =>
-      _cachedHeroTag ??= Utils.makeHeroTag(
-        videoItem.cid ?? videoItem.aid ?? videoItem.bvid ?? identityHashCode(this),
-      );
+      _cachedHeroTag ??=
+          'video-card-h-${videoItem.bvid ?? videoItem.aid ?? videoItem.cid}-${identityHashCode(this)}';
   VoidCallback? get onTap => widget.onTap;
   VoidCallback? get onRemove => widget.onRemove;
 

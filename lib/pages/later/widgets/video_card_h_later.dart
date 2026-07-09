@@ -5,6 +5,7 @@ import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliMax/common/widgets/select_mask.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/stat_type.dart';
@@ -29,7 +30,11 @@ class VideoCardHLater extends StatelessWidget {
   final int index;
   final BaseLaterController ctr;
   final LaterItemModel videoItem;
-  final ValueChanged<int> onViewLater;
+  final void Function(int cid, String heroTag) onViewLater;
+
+  String get _heroTag =>
+      'later-${videoItem.bvid ?? videoItem.aid}-${videoItem.cid}-'
+      '${identityHashCode(videoItem)}';
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +75,7 @@ class VideoCardHLater extends StatelessWidget {
                         bvid: videoItem.bvid,
                       );
                   if (cid != null) {
-                    onViewLater(cid);
+                    onViewLater(cid, _heroTag);
                   }
                 } catch (err) {
                   SmartDialog.showToast(err.toString());
@@ -94,11 +99,14 @@ class VideoCardHLater extends StatelessWidget {
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        NetworkImgLayer(
-                          src: videoItem.pic,
-                          width: maxWidth,
-                          height: maxHeight,
-                          cacheWidth: videoItem.dimension?.cacheWidth,
+                        VideoCoverHero(
+                          tag: _heroTag,
+                          child: NetworkImgLayer(
+                            src: videoItem.pic,
+                            width: maxWidth,
+                            height: maxHeight,
+                            cacheWidth: videoItem.dimension?.cacheWidth,
+                          ),
                         ),
                         if (videoItem.isCharging == true)
                           const PBadge(

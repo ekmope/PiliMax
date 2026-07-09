@@ -76,6 +76,7 @@ import 'package:PiliMax/pages/sponsor_block/view.dart';
 import 'package:PiliMax/pages/subscription/view.dart';
 import 'package:PiliMax/pages/subscription_detail/view.dart';
 import 'package:PiliMax/pages/video/view.dart';
+import 'package:PiliMax/pages/video/video_detail_transition.dart';
 import 'package:PiliMax/pages/webdav/view.dart';
 import 'package:PiliMax/pages/webview/view.dart';
 import 'package:PiliMax/pages/whisper/view.dart';
@@ -91,7 +92,12 @@ class Routes {
     // 热门
     GetPage(name: '/hot', page: () => const HotPage()),
     // 视频详情
-    GetPage(name: '/videoV', page: () => const VideoDetailPageV()),
+    GetPage(
+      name: '/videoV',
+      page: () => const VideoDetailPageV(),
+      customTransition: const VideoDetailTransition(),
+      transitionDuration: const Duration(milliseconds: 320),
+    ),
     //
     GetPage(name: '/webview', page: () => const WebviewPage()),
     // 设置

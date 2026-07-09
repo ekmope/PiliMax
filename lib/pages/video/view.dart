@@ -94,12 +94,14 @@ class VideoDetailPageV extends StatefulWidget {
 }
 
 class _VideoDetailPageVState extends State<VideoDetailPageV>
-    with RouteAware, RouteAwareMixin, WidgetsBindingObserver {
+    with RouteAware, RouteAwareMixin, WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final heroTag = Get.arguments['heroTag'];
 
   late final VideoDetailController videoDetailController;
   late final VideoReplyController _videoReplyController;
   PlPlayerController? plPlayerController;
+  late final AnimationController _pageFadeController;
+  late final Animation<double> _pageFadeAnimation;
 
   // 标志位：是否正在进入 PiP 模式（用于防止 dispose/didPushNext 时清理播放器状态）
   bool _isEnteringPipMode = false;
@@ -185,6 +187,15 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   @override
   void initState() {
     super.initState();
+    _pageFadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
+    _pageFadeAnimation = CurvedAnimation(
+      parent: _pageFadeController,
+      curve: Curves.easeOutCubic,
+    );
+    _pageFadeController.forward();
     VideoStackManager.increment(); // 追踪视频页面层级
     final bool fromPip = Get.arguments['fromPip'] ?? false;
     final String? targetContextKey = PipOverlayService.contextKeyFromArgs(
@@ -853,6 +864,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       }
     }
     removeObserverMobile(this);
+    _pageFadeController.dispose();
 
     super.dispose();
   }
@@ -1153,10 +1165,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   Widget get childWhenDisabled {
     return Obx(() {
       final isFullScreen = this.isFullScreen;
-      return Scaffold(
-        backgroundColor: themeData.scaffoldBackgroundColor,
-        resizeToAvoidBottomInset: false,
-        appBar: removeAppBar(isFullScreen)
+      return FadeTransition(
+        opacity: _pageFadeAnimation,
+        child: Scaffold(
+          backgroundColor: themeData.scaffoldBackgroundColor,
+          resizeToAvoidBottomInset: false,
+          appBar: removeAppBar(isFullScreen)
             ? null
             : PreferredSize(
                 preferredSize: const Size.fromHeight(0),
@@ -1184,9 +1198,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                   );
                 }),
               ),
-        body: ExtendedNestedScrollView(
-          key: videoDetailController.scrollKey,
-          controller: videoDetailController.scrollCtr,
+          body: ExtendedNestedScrollView(
+            key: videoDetailController.scrollKey,
+            controller: videoDetailController.scrollCtr,
           onlyOneScrollInBody: true,
           pinnedHeaderSliverHeightBuilder: () {
             double pinnedHeight = this.isFullScreen || !isPortrait
@@ -1429,6 +1443,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
               ],
             ),
           ),
+          ),
         ),
       );
     });
@@ -1570,6 +1585,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
           },
           behavior: .opaque,
           child: _buildOverlayToolBar(scrollRatio),
+        ),
         ),
       );
     });

@@ -1,4 +1,3 @@
-import 'package:PiliMax/common/widgets/glass_container.dart';
 import 'package:flutter/material.dart';
 
 class MainPageSwitchDestination {
@@ -31,9 +30,7 @@ class MainPageSwitchOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final width = (MediaQuery.widthOf(context) - 32)
-        .clamp(260.0, 360.0)
-        .toDouble();
+    final width = MainPageSwitchMetrics.widthFor(context);
     return Align(
       alignment: Alignment.bottomCenter,
       child: SafeArea(
@@ -41,30 +38,66 @@ class MainPageSwitchOverlay extends StatelessWidget {
         minimum: const EdgeInsets.only(bottom: 92),
         child: SizedBox(
           width: width,
-          child: GlassContainer(
-            borderRadius: const BorderRadius.all(Radius.circular(28)),
-            blurSigma: 22,
-            opacity: 0.5,
-            borderOpacity: 0.28,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: destinations
-                  .map(
-                    (destination) => Expanded(
-                      child: _SwitchItem(
-                        destination: destination,
-                        selected: destination.index == hoverIndex,
-                        current: destination.index == currentIndex,
-                        colorScheme: colorScheme,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surface.withValues(alpha: 0.96),
+              borderRadius: const BorderRadius.all(Radius.circular(28)),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: destinations
+                    .map(
+                      (destination) => Expanded(
+                        child: _SwitchItem(
+                          destination: destination,
+                          selected: destination.index == hoverIndex,
+                          current: destination.index == currentIndex,
+                          colorScheme: colorScheme,
+                        ),
                       ),
-                    ),
-                  )
-                  .toList(),
+                    )
+                    .toList(),
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+class MainPageSwitchMetrics {
+  const MainPageSwitchMetrics._();
+
+  static double widthFor(BuildContext context) {
+    return (MediaQuery.widthOf(context) - 32).clamp(260.0, 360.0).toDouble();
+  }
+
+  static int? indexFromGlobalX({
+    required BuildContext context,
+    required double globalX,
+    required List<MainPageSwitchDestination> destinations,
+  }) {
+    if (destinations.isEmpty) {
+      return null;
+    }
+    final screenWidth = MediaQuery.widthOf(context);
+    final width = widthFor(context);
+    final left = (screenWidth - width) / 2;
+    final relative = ((globalX - left) / width).clamp(0.0, 0.999).toDouble();
+    final slot = (relative * destinations.length).floor();
+    return destinations[slot].index;
   }
 }
 

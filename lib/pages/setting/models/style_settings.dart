@@ -187,16 +187,8 @@ List<SettingsModel> get styleSettings => [
     needReboot: true,
   ),
   const SwitchModel(
-    title: '液态玻璃效果',
-    subtitle: '底栏、首页顶部与快捷切换器使用半透明模糊视觉',
-    leading: Icon(Icons.blur_on_outlined),
-    setKey: SettingBoxKey.enableLiquidGlass,
-    defaultVal: true,
-    needReboot: true,
-  ),
-  const SwitchModel(
-    title: '长按快速切换首页',
-    subtitle: '在首页、动态、我的长按后横向滑动切换一级页',
+    title: '悬浮底栏长按切换',
+    subtitle: '开启悬浮底栏后，可在首页、动态、我的长按并横向滑动切换',
     leading: Icon(Icons.swipe_outlined),
     setKey: SettingBoxKey.enableMainPageGestureSwitch,
     defaultVal: true,

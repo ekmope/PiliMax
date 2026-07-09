@@ -510,7 +510,9 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   bool get _canUseMainSwitch {
-    if (!Pref.enableMainPageGestureSwitch) {
+    if (!Pref.enableMainPageGestureSwitch ||
+        !_mainController.useBottomNav ||
+        !_mainController.floatingNavBar) {
       return false;
     }
     final currentIndex = _mainController.selectedIndex.value;
@@ -529,14 +531,11 @@ class _MainAppState extends PopScopeState<MainApp>
     if (destinations.isEmpty) {
       return null;
     }
-    final screenWidth = MediaQuery.widthOf(context);
-    final overlayWidth = (screenWidth - 32).clamp(260.0, 360.0).toDouble();
-    final left = (screenWidth - overlayWidth) / 2;
-    final relative = ((globalX - left) / overlayWidth)
-        .clamp(0.0, 0.999)
-        .toDouble();
-    final slot = (relative * destinations.length).floor();
-    return destinations[slot].index;
+    return MainPageSwitchMetrics.indexFromGlobalX(
+      context: context,
+      globalX: globalX,
+      destinations: destinations,
+    );
   }
 
   void _startMainSwitch(LongPressStartDetails details) {
@@ -588,7 +587,9 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Widget _wrapMainSwitchGesture(Widget child) {
-    if (!Pref.enableMainPageGestureSwitch) {
+    if (!Pref.enableMainPageGestureSwitch ||
+        !_mainController.useBottomNav ||
+        !_mainController.floatingNavBar) {
       return child;
     }
     return GestureDetector(
@@ -598,7 +599,7 @@ class _MainAppState extends PopScopeState<MainApp>
       onLongPressEnd: _endMainSwitch,
       onLongPressCancel: _cancelMainSwitch,
       child: AnimatedScale(
-        scale: _mainSwitchVisible ? 0.98 : 1,
+        scale: _mainSwitchVisible ? 0.99 : 1,
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         child: child,
@@ -608,6 +609,8 @@ class _MainAppState extends PopScopeState<MainApp>
 
   Widget _wrapMainSwitchOverlay(Widget child) {
     if (!Pref.enableMainPageGestureSwitch ||
+        !_mainController.useBottomNav ||
+        !_mainController.floatingNavBar ||
         _mainSwitchDestinations.length < 2) {
       return child;
     }

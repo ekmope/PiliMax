@@ -1364,9 +1364,6 @@ abstract final class Pref {
   static bool get continuePlayInBackground =>
       _setting.get(SettingBoxKey.continuePlayInBackground, defaultValue: false);
 
-  static bool get enableLiquidGlass =>
-      _setting.get(SettingBoxKey.enableLiquidGlass, defaultValue: true);
-
   static bool get enableMainPageGestureSwitch => _setting.get(
     SettingBoxKey.enableMainPageGestureSwitch,
     defaultValue: true,

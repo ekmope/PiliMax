@@ -16,6 +16,7 @@ import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_dynamic_header.dart';
 import 'package:PiliMax/common/widgets/sliver/video_header.dart';
 import 'package:PiliMax/common/widgets/svg/play_icon.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
 import 'package:PiliMax/models/common/list_order.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
@@ -2309,20 +2310,16 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   Widget videoPlayer({required double width, required double height}) {
     final isFullScreen = this.isFullScreen;
     Widget coverHero() => Obx(
-      () => Hero(
+      () => VideoCoverHero(
         tag: heroTag,
-        transitionOnUserGestures: true,
-        child: ClipRRect(
-          borderRadius: Style.mdRadius,
-          child: NetworkImgLayer(
-            type: .emote,
-            quality: 60,
-            src: videoDetailController.cover.value,
-            width: width,
-            height: height,
-            cacheWidth: true,
-            getPlaceHolder: () => Center(child: Image.asset(Assets.loading)),
-          ),
+        child: NetworkImgLayer(
+          type: .emote,
+          quality: 60,
+          src: videoDetailController.cover.value,
+          width: width,
+          height: height,
+          cacheWidth: true,
+          getPlaceHolder: () => Center(child: Image.asset(Assets.loading)),
         ),
       ),
     );

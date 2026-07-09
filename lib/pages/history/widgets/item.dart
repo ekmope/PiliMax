@@ -4,6 +4,7 @@ import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliMax/common/widgets/select_mask.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
@@ -140,20 +141,14 @@ class HistoryItem extends StatelessWidget {
                         return Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            Hero(
+                            VideoCoverHero(
                               tag: _heroTag,
-                              transitionOnUserGestures: true,
-                              placeholderBuilder:
-                                  (context, heroSize, child) => child,
-                              child: ClipRRect(
-                                borderRadius: Style.mdRadius,
-                                child: NetworkImgLayer(
-                                  src: item.cover?.isNotEmpty == true
-                                      ? item.cover
-                                      : item.covers?.firstOrNull ?? '',
-                                  width: maxWidth,
-                                  height: maxHeight,
-                                ),
+                              child: NetworkImgLayer(
+                                src: item.cover?.isNotEmpty == true
+                                    ? item.cover
+                                    : item.covers?.firstOrNull ?? '',
+                                width: maxWidth,
+                                height: maxHeight,
                               ),
                             ),
                             if (hasDuration)

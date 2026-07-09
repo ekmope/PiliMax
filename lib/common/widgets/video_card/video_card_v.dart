@@ -3,6 +3,7 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/watch_later_button.dart';
 import 'package:PiliMax/common/widgets/video_popup_menu.dart';
 import 'package:PiliMax/http/search.dart';
@@ -163,19 +164,13 @@ class _VideoCardVState extends State<VideoCardV> {
                         return Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            Hero(
+                            VideoCoverHero(
                               tag: _heroTag,
-                              transitionOnUserGestures: true,
-                              placeholderBuilder: (context, heroSize, child) =>
-                                  child,
-                              child: ClipRRect(
-                                borderRadius: Style.mdRadius,
-                                child: NetworkImgLayer(
-                                  src: videoItem.cover,
-                                  width: maxWidth,
-                                  height: maxHeight,
-                                  type: .emote,
-                                ),
+                              child: NetworkImgLayer(
+                                src: videoItem.cover,
+                                width: maxWidth,
+                                height: maxHeight,
+                                type: .emote,
                               ),
                             ),
                             if (videoItem.duration > 0)

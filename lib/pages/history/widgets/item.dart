@@ -45,6 +45,9 @@ class HistoryItem extends StatelessWidget {
     int aid = item.history.oid!;
     String bvid = item.history.bvid ?? IdUtils.av2bv(aid);
     final business = item.history.business;
+    final cover = item.cover?.isNotEmpty == true
+        ? item.cover
+        : item.covers?.firstOrNull ?? '';
     final enableMultiSelect = ctr.enableMultiSelect.value;
     final isDownloadableVideo =
         business != 'pgc' &&
@@ -111,7 +114,7 @@ class HistoryItem extends StatelessWidget {
                       aid: aid,
                       bvid: bvid,
                       cid: cid,
-                      cover: item.cover,
+                      cover: cover,
                       title: item.title,
                       dimension: dimension,
                       heroTag: _heroTag,
@@ -144,9 +147,7 @@ class HistoryItem extends StatelessWidget {
                             VideoCoverHero(
                               tag: _heroTag,
                               child: NetworkImgLayer(
-                                src: item.cover?.isNotEmpty == true
-                                    ? item.cover
-                                    : item.covers?.firstOrNull ?? '',
+                                src: cover,
                                 width: maxWidth,
                                 height: maxHeight,
                               ),
@@ -267,7 +268,7 @@ class HistoryItem extends StatelessWidget {
                             part: item.history.page,
                             totalTimeMilli: (item.duration ?? 0) * 1000,
                             title: item.title,
-                            cover: item.cover,
+                            cover: cover,
                             ownerId: item.authorMid,
                             ownerName: item.authorName,
                           ),

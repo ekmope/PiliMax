@@ -680,7 +680,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     videoDetailController.playedTime = completedDuration;
     _syncCompletedProgress();
     if (kDebugMode) {
-      debugPrint('[VideoPage] persist completed progress before close: $reason');
+      debugPrint(
+        '[VideoPage] persist completed progress before close: $reason',
+      );
     }
     return true;
   }
@@ -2324,18 +2326,20 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             left: 16,
             bottom: isFullScreen ? max(75, maxHeight * 0.25) : 75,
             width: MediaQuery.textScalerOf(context).scale(120),
-            child: AnimatedList(
-              padding: EdgeInsets.zero,
-              key: videoDetailController.listKey,
-              reverse: true,
-              shrinkWrap: true,
-              initialItemCount: videoDetailController.listData.length,
-              itemBuilder: (context, index, animation) {
-                return videoDetailController.buildItem(
-                  videoDetailController.listData[index],
-                  animation,
-                );
-              },
+            child: ExcludeSemantics(
+              child: AnimatedList(
+                padding: EdgeInsets.zero,
+                key: videoDetailController.listKey,
+                reverse: true,
+                shrinkWrap: true,
+                initialItemCount: videoDetailController.listData.length,
+                itemBuilder: (context, index, animation) {
+                  return videoDetailController.buildItem(
+                    videoDetailController.listData[index],
+                    animation,
+                  );
+                },
+              ),
             ),
           ),
 

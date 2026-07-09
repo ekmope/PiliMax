@@ -155,6 +155,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       final pages = videoDetail.value.pages;
       if (pages != null && pages.isNotEmpty && cid.value == 0) {
         cid.value = pages.first.cid!;
+        videoDetailCtr.cid.value = cid.value;
       }
       queryUserStat(response.staff);
     } else {
@@ -669,8 +670,9 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         isCurrent: () => isCurrentIntroRequest(currentIntroGeneration),
       );
       return true;
-    } catch (e) {
+    } catch (e, s) {
       if (kDebugMode) debugPrint('ugc onChangeEpisode: $e');
+      Utils.reportError(e, s, 'UgcIntroController.onChangeEpisode');
       return false;
     }
   }
@@ -723,6 +725,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       }
     }
 
+    if (episodes.isEmpty) {
+      return false;
+    }
+
     final int currentIndex = episodes.indexWhere(
       (e) =>
           e.cid ==
@@ -732,6 +738,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
                     : videoDetail.pages!.first.cid
               : this.cid.value),
     );
+
+    if (currentIndex == -1) {
+      return false;
+    }
 
     int prevIndex = currentIndex - 1;
     final PlayRepeat playRepeat = videoDetailCtr.plPlayerController.playRepeat;
@@ -822,6 +832,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
                       : videoDetail.pages!.first.cid
                 : this.cid.value),
       );
+
+      if (currentIndex == -1) {
+        return false;
+      }
 
       int nextIndex = currentIndex + 1;
 

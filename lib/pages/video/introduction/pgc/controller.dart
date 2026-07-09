@@ -200,10 +200,7 @@ class PgcIntroController extends CommonIntroController {
             ),
           if (isLogin)
             DialogOption(
-              child: const Text(
-                '分享至消息',
-                style: TextStyle(fontSize: 14),
-              ),
+              child: const Text('分享至消息', style: TextStyle(fontSize: 14)),
               onPressed: () {
                 Get.back();
                 try {
@@ -321,8 +318,9 @@ class PgcIntroController extends CommonIntroController {
       );
       queryVideoIntroForSwitch(currentIntroGeneration, episode as EpisodeItem);
       return true;
-    } catch (e) {
+    } catch (e, s) {
       if (kDebugMode) debugPrint('pgc onChangeEpisode: $e');
+      Utils.reportError(e, s, 'PgcIntroController.onChangeEpisode');
       return false;
     }
   }
@@ -365,10 +363,16 @@ class PgcIntroController extends CommonIntroController {
 
   @override
   bool prevPlay({bool manual = false}) {
-    final episodes = pgcItem.episodes!;
+    final episodes = pgcItem.episodes;
+    if (episodes == null || episodes.isEmpty) {
+      return false;
+    }
     int currentIndex = episodes.indexWhere(
       (e) => e.cid == videoDetailCtr.cid.value,
     );
+    if (currentIndex == -1) {
+      return false;
+    }
     int prevIndex = currentIndex - 1;
     PlayRepeat playRepeat = videoDetailCtr.plPlayerController.playRepeat;
     if (prevIndex < 0) {
@@ -386,13 +390,19 @@ class PgcIntroController extends CommonIntroController {
   @override
   bool nextPlay({bool manual = false}) {
     try {
-      final episodes = pgcItem.episodes!;
+      final episodes = pgcItem.episodes;
+      if (episodes == null || episodes.isEmpty) {
+        return false;
+      }
 
       PlayRepeat playRepeat = videoDetailCtr.plPlayerController.playRepeat;
 
       int currentIndex = episodes.indexWhere(
         (e) => e.cid == videoDetailCtr.cid.value,
       );
+      if (currentIndex == -1) {
+        return false;
+      }
       int nextIndex = currentIndex + 1;
       // 列表循环
       if (nextIndex >= episodes.length) {
@@ -495,10 +505,7 @@ class PgcIntroController extends CommonIntroController {
     );
   }
 
-  void _queryVideoIntro({
-    EpisodeItem? episode,
-    bool Function()? isCurrent,
-  }) {
+  void _queryVideoIntro({EpisodeItem? episode, bool Function()? isCurrent}) {
     bool isCurrentIntro() => isCurrent?.call() ?? true;
     if (!isCurrentIntro()) {
       return;

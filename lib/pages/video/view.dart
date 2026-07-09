@@ -1380,39 +1380,41 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                           ? const SizedBox.shrink()
                           : Positioned.fill(
                               bottom: -2,
-                              child: GestureDetector(
-                                onTap: () {
-                                  if (!videoDetailController.isFileSource) {
-                                    if (videoDetailController.isQuerying) {
-                                      if (kDebugMode) {
-                                        debugPrint('handlePlay: querying');
+                              child: _routeFadeTransition(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    if (!videoDetailController.isFileSource) {
+                                      if (videoDetailController.isQuerying) {
+                                        if (kDebugMode) {
+                                          debugPrint('handlePlay: querying');
+                                        }
+                                        return;
                                       }
-                                      return;
+                                      if (videoDetailController.videoUrl ==
+                                              null ||
+                                          videoDetailController.audioUrl ==
+                                              null) {
+                                        if (kDebugMode) {
+                                          debugPrint(
+                                            'handlePlay: videoUrl/audioUrl not initialized',
+                                          );
+                                        }
+                                        videoDetailController.queryVideoUrl();
+                                        return;
+                                      }
                                     }
-                                    if (videoDetailController.videoUrl ==
-                                            null ||
-                                        videoDetailController.audioUrl ==
+                                    videoDetailController.scrollRatio.value = 0;
+                                    if (plPlayerController == null ||
+                                        videoDetailController.playedTime ==
                                             null) {
-                                      if (kDebugMode) {
-                                        debugPrint(
-                                          'handlePlay: videoUrl/audioUrl not initialized',
-                                        );
-                                      }
-                                      videoDetailController.queryVideoUrl();
-                                      return;
+                                      handlePlay();
+                                    } else {
+                                      plPlayerController!.onDoubleTapCenter();
                                     }
-                                  }
-                                  videoDetailController.scrollRatio.value = 0;
-                                  if (plPlayerController == null ||
-                                      videoDetailController.playedTime ==
-                                          null) {
-                                    handlePlay();
-                                  } else {
-                                    plPlayerController!.onDoubleTapCenter();
-                                  }
-                                },
-                                behavior: HitTestBehavior.opaque,
-                                child: toolbar(),
+                                  },
+                                  behavior: HitTestBehavior.opaque,
+                                  child: toolbar(),
+                                ),
                               ),
                             );
                     }),
@@ -1563,34 +1565,35 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       }
       return Positioned.fill(
         bottom: -2,
-        child: GestureDetector(
-          onTap: () {
-            if (!videoDetailController.isFileSource) {
-              if (videoDetailController.isQuerying) {
-                if (kDebugMode) {
-                  debugPrint('handlePlay: querying');
+        child: _routeFadeTransition(
+          child: GestureDetector(
+            onTap: () {
+              if (!videoDetailController.isFileSource) {
+                if (videoDetailController.isQuerying) {
+                  if (kDebugMode) {
+                    debugPrint('handlePlay: querying');
+                  }
+                  return;
                 }
-                return;
-              }
-              if (videoDetailController.videoUrl == null ||
-                  videoDetailController.audioUrl == null) {
-                if (kDebugMode) {
-                  debugPrint('handlePlay: videoUrl/audioUrl not initialized');
+                if (videoDetailController.videoUrl == null ||
+                    videoDetailController.audioUrl == null) {
+                  if (kDebugMode) {
+                    debugPrint('handlePlay: videoUrl/audioUrl not initialized');
+                  }
+                  videoDetailController.queryVideoUrl();
+                  return;
                 }
-                videoDetailController.queryVideoUrl();
-                return;
               }
-            }
-            if (plPlayerController == null ||
-                videoDetailController.playedTime == null) {
-              handlePlay();
-            } else {
-              plPlayerController!.onDoubleTapCenter();
-            }
-          },
-          behavior: .opaque,
-          child: _buildOverlayToolBar(scrollRatio),
-        ),
+              if (plPlayerController == null ||
+                  videoDetailController.playedTime == null) {
+                handlePlay();
+              } else {
+                plPlayerController!.onDoubleTapCenter();
+              }
+            },
+            behavior: .opaque,
+            child: _buildOverlayToolBar(scrollRatio),
+          ),
         ),
       );
     });
@@ -1628,28 +1631,31 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         ),
         Offstage(
           offstage: isFullScreen,
-          child: SizedBox(
-            width: introWidth,
-            height: maxHeight - padding.top,
-            child: Scaffold(
-              key: videoDetailController.childKey,
-              resizeToAvoidBottomInset: false,
-              backgroundColor: Colors.transparent,
-              body: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  buildTabBar(),
-                  Expanded(
-                    child: tabBarView(
-                      controller: videoDetailController.tabCtr,
-                      children: [
-                        videoIntro(width: introWidth, height: maxHeight),
-                        if (videoDetailController.showReply) videoReplyPanel(),
-                        if (_shouldShowSeasonPanel) seasonPanel,
-                      ],
+          child: _routeFadeTransition(
+            child: SizedBox(
+              width: introWidth,
+              height: maxHeight - padding.top,
+              child: Scaffold(
+                key: videoDetailController.childKey,
+                resizeToAvoidBottomInset: false,
+                backgroundColor: Colors.transparent,
+                body: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    buildTabBar(),
+                    Expanded(
+                      child: tabBarView(
+                        controller: videoDetailController.tabCtr,
+                        children: [
+                          videoIntro(width: introWidth, height: maxHeight),
+                          if (videoDetailController.showReply)
+                            videoReplyPanel(),
+                          if (_shouldShowSeasonPanel) seasonPanel,
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1672,10 +1678,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             children: [
               Offstage(
                 offstage: isFullScreen,
-                child: SizedBox(
-                  width: introWidth,
-                  height: introHeight,
-                  child: videoIntro(width: introWidth, height: introHeight),
+                child: _routeFadeTransition(
+                  child: SizedBox(
+                    width: introWidth,
+                    height: introHeight,
+                    child: videoIntro(width: introWidth, height: introHeight),
+                  ),
                 ),
               ),
               SizedBox(
@@ -1685,27 +1693,29 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
               ),
               Offstage(
                 offstage: isFullScreen,
-                child: SizedBox(
-                  width: introWidth,
-                  height: introHeight,
-                  child: Scaffold(
-                    key: videoDetailController.childKey,
-                    resizeToAvoidBottomInset: false,
-                    backgroundColor: Colors.transparent,
-                    body: Column(
-                      children: [
-                        buildTabBar(showIntro: false),
-                        Expanded(
-                          child: tabBarView(
-                            controller: videoDetailController.tabCtr,
-                            children: [
-                              if (videoDetailController.showReply)
-                                videoReplyPanel(),
-                              if (_shouldShowSeasonPanel) seasonPanel,
-                            ],
+                child: _routeFadeTransition(
+                  child: SizedBox(
+                    width: introWidth,
+                    height: introHeight,
+                    child: Scaffold(
+                      key: videoDetailController.childKey,
+                      resizeToAvoidBottomInset: false,
+                      backgroundColor: Colors.transparent,
+                      body: Column(
+                        children: [
+                          buildTabBar(showIntro: false),
+                          Expanded(
+                            child: tabBarView(
+                              controller: videoDetailController.tabCtr,
+                              children: [
+                                if (videoDetailController.showReply)
+                                  videoReplyPanel(),
+                                if (_shouldShowSeasonPanel) seasonPanel,
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1751,14 +1761,16 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             if (!videoDetailController.isFileSource)
               Offstage(
                 offstage: isFullScreen,
-                child: SizedBox(
-                  width: width,
-                  height: introHeight,
-                  child: videoIntro(
+                child: _routeFadeTransition(
+                  child: SizedBox(
                     width: width,
                     height: introHeight,
-                    needRelated: false,
-                    needCtr: false,
+                    child: videoIntro(
+                      width: width,
+                      height: introHeight,
+                      needRelated: false,
+                      needCtr: false,
+                    ),
                   ),
                 ),
               ),
@@ -1766,7 +1778,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         ),
         Offstage(
           offstage: isFullScreen,
-          child: SizedBox(
+          child: _routeFadeTransition(
+            child: SizedBox(
             width: maxWidth - width - padding.horizontal,
             height: maxHeight - padding.top,
             child: Scaffold(
@@ -1809,6 +1822,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                   ),
                 ],
               ),
+            ),
             ),
           ),
         ),
@@ -1864,7 +1878,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         ),
         Offstage(
           offstage: isFullScreen,
-          child: SizedBox(
+          child: _routeFadeTransition(
+            child: SizedBox(
             width: maxWidth - padding.horizontal,
             height: bottomHeight,
             child: Scaffold(
@@ -1898,6 +1913,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                   ),
                 ],
               ),
+            ),
             ),
           ),
         ),
@@ -2332,22 +2348,26 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
         Positioned.fill(bottom: -1, child: coverHero()),
 
-        plPlayer(width: width, height: height),
+        _routeFadeTransition(
+          child: plPlayer(width: width, height: height),
+        ),
 
         Obx(() {
           if (!videoDetailController.autoPlay) {
             return Positioned.fill(
               bottom: -1,
-              child: GestureDetector(
-                onTap: handlePlay,
-                behavior: .opaque,
-                child: const SizedBox.expand(),
+              child: _routeFadeTransition(
+                child: GestureDetector(
+                  onTap: handlePlay,
+                  behavior: .opaque,
+                  child: const SizedBox.expand(),
+                ),
               ),
             );
           }
           return const SizedBox.shrink();
         }),
-        manualPlayerWidget,
+        _routeFadeTransition(child: manualPlayerWidget),
 
         if (videoDetailController.plPlayerController.enableBlock ||
             videoDetailController.continuePlayingPart)
@@ -2355,19 +2375,21 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             left: 16,
             bottom: isFullScreen ? max(75, maxHeight * 0.25) : 75,
             width: MediaQuery.textScalerOf(context).scale(120),
-            child: ExcludeSemantics(
-              child: AnimatedList(
-                padding: EdgeInsets.zero,
-                key: videoDetailController.listKey,
-                reverse: true,
-                shrinkWrap: true,
-                initialItemCount: videoDetailController.listData.length,
-                itemBuilder: (context, index, animation) {
-                  return videoDetailController.buildItem(
-                    videoDetailController.listData[index],
-                    animation,
-                  );
-                },
+            child: _routeFadeTransition(
+              child: ExcludeSemantics(
+                child: AnimatedList(
+                  padding: EdgeInsets.zero,
+                  key: videoDetailController.listKey,
+                  reverse: true,
+                  shrinkWrap: true,
+                  initialItemCount: videoDetailController.listData.length,
+                  itemBuilder: (context, index, animation) {
+                    return videoDetailController.buildItem(
+                      videoDetailController.listData[index],
+                      animation,
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -2403,66 +2425,68 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         //     child: const Text('index'),
         //   ),
         // ),
-        Obx(() {
-          if (videoDetailController.showSteinEdgeInfo.value) {
-            try {
-              return Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    bottom: plPlayerController?.showControls.value == true
-                        ? 75
-                        : 16,
-                  ),
-                  child: Wrap(
-                    spacing: 25,
-                    runSpacing: 10,
-                    children: videoDetailController
-                        .steinEdgeInfo!
-                        .edges!
-                        .questions!
-                        .first
-                        .choices!
-                        .map((item) {
-                          return FilledButton.tonal(
-                            style: FilledButton.styleFrom(
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: .all(.circular(6)),
+        _routeFadeTransition(
+          child: Obx(() {
+            if (videoDetailController.showSteinEdgeInfo.value) {
+              try {
+                return Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      bottom: plPlayerController?.showControls.value == true
+                          ? 75
+                          : 16,
+                    ),
+                    child: Wrap(
+                      spacing: 25,
+                      runSpacing: 10,
+                      children: videoDetailController
+                          .steinEdgeInfo!
+                          .edges!
+                          .questions!
+                          .first
+                          .choices!
+                          .map((item) {
+                            return FilledButton.tonal(
+                              style: FilledButton.styleFrom(
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: .all(.circular(6)),
+                                ),
+                                backgroundColor: themeData
+                                    .colorScheme
+                                    .secondaryContainer
+                                    .withValues(alpha: 0.8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 15,
+                                  vertical: 10,
+                                ),
+                                visualDensity: VisualDensity.compact,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
-                              backgroundColor: themeData
-                                  .colorScheme
-                                  .secondaryContainer
-                                  .withValues(alpha: 0.8),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 15,
-                                vertical: 10,
-                              ),
-                              visualDensity: VisualDensity.compact,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            onPressed: () {
-                              ugcIntroController.onChangeEpisode(
-                                item,
-                                isStein: true,
-                              );
-                              videoDetailController.getSteinEdgeInfo(item.id);
-                            },
-                            child: Text(item.option!),
-                          );
-                        })
-                        .toList(),
+                              onPressed: () {
+                                ugcIntroController.onChangeEpisode(
+                                  item,
+                                  isStein: true,
+                                );
+                                videoDetailController.getSteinEdgeInfo(item.id);
+                              },
+                              child: Text(item.option!),
+                            );
+                          })
+                          .toList(),
+                    ),
                   ),
-                ),
-              );
-            } catch (e) {
-              if (kDebugMode) debugPrint('build stein edges: $e');
-              return const SizedBox.shrink();
+                );
+              } catch (e) {
+                if (kDebugMode) debugPrint('build stein edges: $e');
+                return const SizedBox.shrink();
+              }
             }
-          }
-          return const SizedBox.shrink();
-        }),
+            return const SizedBox.shrink();
+          }),
+        ),
       ],
     );
   }

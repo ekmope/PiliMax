@@ -17,7 +17,6 @@ import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -27,9 +26,9 @@ class HistoryItem extends StatelessWidget {
   final HistoryItemModel item;
   final MultiSelectBase ctr;
   final void Function(int kid, String business) onDelete;
-  late final String _heroTag = Utils.makeHeroTag(
-    '${item.history.business}-${item.history.oid}-${item.history.cid}-${item.history.page}',
-  );
+
+  String get _heroTag =>
+      'history-${item.history.business}-${item.history.oid}-${item.history.cid}-${item.history.page}-${identityHashCode(item)}';
 
   const HistoryItem({
     super.key,

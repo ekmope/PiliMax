@@ -17,10 +17,14 @@ import 'package:flutter/material.dart';
 
 class MemberCoinLikeItem extends StatefulWidget {
   final CoinLikeArcItem item;
+  final String heroScope;
+  final int index;
 
   const MemberCoinLikeItem({
     super.key,
     required this.item,
+    required this.heroScope,
+    required this.index,
   });
 
   @override
@@ -34,14 +38,16 @@ class _MemberCoinLikeItemState extends State<MemberCoinLikeItem> {
   Object? get _heroKey => item.param ?? item.uri ?? item.cover;
   String get _heroTag =>
       _cachedHeroTag ??=
-          'member-coin-like-$_heroKey-${identityHashCode(this)}';
+          'member-${widget.heroScope}-$_heroKey-${widget.index}';
 
   @override
   void didUpdateWidget(covariant MemberCoinLikeItem oldWidget) {
     super.didUpdateWidget(oldWidget);
     final oldKey =
         oldWidget.item.param ?? oldWidget.item.uri ?? oldWidget.item.cover;
-    if (oldKey != _heroKey) {
+    if (oldKey != _heroKey ||
+        oldWidget.heroScope != widget.heroScope ||
+        oldWidget.index != widget.index) {
       _cachedHeroTag = null;
     }
   }

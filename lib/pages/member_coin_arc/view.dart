@@ -93,7 +93,15 @@ class _MemberCoinArcPageState extends State<MemberCoinArcPage> {
                   if (index == response.length - 1) {
                     _ctr.onLoadMore();
                   }
-                  return MemberCoinLikeItem(item: response[index]);
+                  final item = response[index];
+                  return MemberCoinLikeItem(
+                    key: ValueKey(
+                      '${item.param ?? item.uri ?? item.cover}-$index',
+                    ),
+                    item: item,
+                    heroScope: 'coin',
+                    index: index,
+                  );
                 },
               )
             : HttpError(onReload: _ctr.onReload),

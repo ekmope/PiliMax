@@ -124,9 +124,11 @@ class _HotPageState extends State<HotPage>
                   if (index == response.length - 1) {
                     controller.onLoadMore();
                   }
+                  final item = response[index];
                   return VideoCardH(
-                    key: ValueKey(response[index].bvid),
-                    videoItem: response[index],
+                    key: ValueKey(item.bvid),
+                    videoItem: item,
+                    heroTag: 'hot-${item.bvid ?? item.aid ?? item.cid}-$index',
                     onRemove: () => controller.loadingState
                       ..value.data!.removeAt(index)
                       ..refresh(),

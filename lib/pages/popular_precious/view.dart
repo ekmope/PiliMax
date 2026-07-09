@@ -54,6 +54,8 @@ class _PopularPreciousPageState extends State<PopularPreciousPage>
             return VideoCardH(
               key: ValueKey(item.bvid),
               videoItem: item,
+              heroTag:
+                  'popular-precious-${item.bvid ?? item.aid ?? item.cid}-$index',
               onTapWithHeroTag: (heroTag) {
                 PageUtils.toVideoPage(
                   bvid: item.bvid,

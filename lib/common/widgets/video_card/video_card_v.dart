@@ -27,13 +27,19 @@ import 'package:intl/intl.dart';
 class VideoCardV extends StatefulWidget {
   final BaseRcmdVideoItemModel videoItem;
   final VoidCallback? onRemove;
+  final String? heroTag;
   static final _pubdateTextPattern = RegExp(
     r'刚刚|昨天|今天|前|\d{1,4}[-/.年]\d{1,2}|周[一二三四五六日天]',
   );
   static final shortFormat = DateFormat('M-d');
   static final longFormat = DateFormat('yy-M-d');
 
-  const VideoCardV({super.key, required this.videoItem, this.onRemove});
+  const VideoCardV({
+    super.key,
+    required this.videoItem,
+    this.onRemove,
+    this.heroTag,
+  });
 
   @override
   State<VideoCardV> createState() => _VideoCardVState();
@@ -46,6 +52,7 @@ class _VideoCardVState extends State<VideoCardV> {
   BaseRcmdVideoItemModel get videoItem => widget.videoItem;
   Object? get _heroKey => videoItem.bvid ?? videoItem.aid ?? videoItem.cid;
   String get _heroTag =>
+      widget.heroTag ??
       _cachedHeroTag ??=
           'video-card-v-$_heroKey-${identityHashCode(this)}';
   VoidCallback? get onRemove => widget.onRemove;
@@ -55,7 +62,7 @@ class _VideoCardVState extends State<VideoCardV> {
     super.didUpdateWidget(oldWidget);
     final oldItem = oldWidget.videoItem;
     final oldKey = oldItem.bvid ?? oldItem.aid ?? oldItem.cid;
-    if (oldKey != _heroKey) {
+    if (oldKey != _heroKey || oldWidget.heroTag != widget.heroTag) {
       _cachedHeroTag = null;
     }
   }

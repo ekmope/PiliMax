@@ -68,6 +68,9 @@ class _PopularSeriesPageState extends State<PopularSeriesPage> with GridMixin {
               return VideoCardH(
                 key: ValueKey(item.bvid),
                 videoItem: item,
+                heroTag:
+                    'popular-series-${_controller.number}-'
+                    '${item.bvid ?? item.aid ?? item.cid}-$index',
                 onTapWithHeroTag: (heroTag) {
                   final config = _controller.config.value;
                   PageUtils.toVideoPage(

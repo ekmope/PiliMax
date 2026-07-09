@@ -67,6 +67,10 @@ class _ZonePageState extends State<ZonePage>
                     return VideoCardH(
                       key: ValueKey(item.bvid),
                       videoItem: item,
+                      heroTag:
+                          'rank-zone-${widget.rid ?? 'root'}-'
+                          '${widget.seasonType ?? 'root'}-'
+                          '${item.bvid ?? item.aid ?? item.cid}-$index',
                       onRemove: () => controller.loadingState
                         ..value.data!.removeAt(index)
                         ..refresh(),

@@ -28,12 +28,14 @@ class VideoCardH extends StatefulWidget {
     this.onTapWithHeroTag,
     this.onViewLater,
     this.onRemove,
+    this.heroTag,
   });
   final HorizontalVideoModel videoItem;
   final VoidCallback? onTap;
   final ValueChanged<String>? onTapWithHeroTag;
   final ValueChanged<int>? onViewLater;
   final VoidCallback? onRemove;
+  final String? heroTag;
 
   @override
   State<VideoCardH> createState() => _VideoCardHState();
@@ -46,6 +48,7 @@ class _VideoCardHState extends State<VideoCardH> {
   HorizontalVideoModel get videoItem => widget.videoItem;
   Object? get _heroKey => videoItem.bvid ?? videoItem.aid ?? videoItem.cid;
   String get _heroTag =>
+      widget.heroTag ??
       _cachedHeroTag ??=
           'video-card-h-$_heroKey-${identityHashCode(this)}';
   VoidCallback? get onTap => widget.onTap;
@@ -57,7 +60,7 @@ class _VideoCardHState extends State<VideoCardH> {
     super.didUpdateWidget(oldWidget);
     final oldItem = oldWidget.videoItem;
     final oldKey = oldItem.bvid ?? oldItem.aid ?? oldItem.cid;
-    if (oldKey != _heroKey) {
+    if (oldKey != _heroKey || oldWidget.heroTag != widget.heroTag) {
       _cachedHeroTag = null;
     }
   }

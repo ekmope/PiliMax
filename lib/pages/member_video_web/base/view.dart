@@ -101,9 +101,13 @@ abstract class BaseVideoWebState<
                         controller.onLoadMore();
                       }
                       // TODO: dimension
+                      final item = response[index];
                       return VideoCardH(
-                        key: ValueKey(response[index].bvid),
-                        videoItem: response[index],
+                        key: ValueKey(item.bvid),
+                        videoItem: item,
+                        heroTag:
+                            'member-video-web-$name-'
+                            '${item.bvid ?? item.aid ?? item.cid}-$index',
                       );
                     },
                   ),

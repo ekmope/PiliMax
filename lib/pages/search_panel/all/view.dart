@@ -62,6 +62,9 @@ class _SearchAllPanelState
               child: VideoCardH(
                 key: ValueKey(e.bvid ?? e.aid ?? index),
                 videoItem: e,
+                heroTag:
+                    'search-all-video-${widget.tag}-'
+                    '${e.bvid ?? e.aid ?? e.cid}-$index',
               ),
             ),
             List<SearchPgcItemModel> e =>

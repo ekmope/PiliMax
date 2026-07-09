@@ -1291,7 +1291,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                                             color:
                                                 themeData.colorScheme.onSurface,
                                           ),
-                                          onPressed: Get.back,
+                                          onPressed: _popVideoRoute,
                                         ),
                                       ),
                                       SizedBox(
@@ -1501,7 +1501,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                           size: 15,
                           color: themeData.colorScheme.onSurface,
                         ),
-                        onPressed: Get.back,
+                        onPressed: _popVideoRoute,
                       ),
                     ),
                     SizedBox(
@@ -1932,7 +1932,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                         color: Colors.white,
                         shadows: [Shadow(blurRadius: 1.5, color: Colors.black)],
                       ),
-                      onPressed: Get.back,
+                      onPressed: _popVideoRoute,
                     ),
                   ),
                   SizedBox(
@@ -3007,6 +3007,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       // 会在 didPopNext 中切回可见页面；这里不能再由旧页面去 pause 共享播放器。
       pauseOnPop: !_isEnteringPipMode && !returningToVideoPage,
     );
+  }
+
+  void _popVideoRoute() {
+    unawaited(Navigator.of(context).maybePop());
   }
 
   bool _isReturningToVideoPageInStack() {

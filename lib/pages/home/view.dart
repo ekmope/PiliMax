@@ -209,7 +209,6 @@ class _HomePageState extends CommonPageState<HomePage>
                 ),
                 child: searchContent,
               ),
-            ),
       ),
     );
   }

@@ -244,7 +244,7 @@ class LiveRoomController extends GetxController {
     unawaited(
       audioSessionHandler?.setForceMixWithOthers(
         _shouldMixWithOthersForBackgroundAudio,
-        active: plPlayerController.playerStatus.isPlaying,
+        active: plPlayerController.playerStatus.value.isPlaying,
       ),
     );
   }

@@ -266,6 +266,7 @@ class HeaderControl extends StatefulWidget {
     required this.controller,
     required this.videoDetailCtr,
     required this.heroTag,
+    this.onBack,
     super.key,
   });
 
@@ -273,6 +274,7 @@ class HeaderControl extends StatefulWidget {
   final PlPlayerController controller;
   final VideoDetailController videoDetailCtr;
   final String heroTag;
+  final VoidCallback? onBack;
 
   @override
   State<HeaderControl> createState() => HeaderControlState();
@@ -427,6 +429,21 @@ class HeaderControlState extends State<HeaderControl>
   late final horizontalScreen = videoDetailCtr.horizontalScreen;
 
   Box setting = GStorage.setting;
+
+  void _handleBack() {
+    final canUseRouteBack =
+        widget.onBack != null &&
+        !plPlayerController.controlsLock.value &&
+        !plPlayerController.isDesktopPip &&
+        !plPlayerController.isPipMode &&
+        !plPlayerController.isFullScreen.value &&
+        (horizontalScreen || isPortrait);
+    if (canUseRouteBack) {
+      widget.onBack!();
+      return;
+    }
+    plPlayerController.onPopInvokedWithResult(false, null);
+  }
 
   @override
   void initState() {
@@ -1904,8 +1921,7 @@ class HeaderControlState extends State<HeaderControl>
                     size: 15,
                     color: Colors.white,
                   ),
-                  onPressed: () =>
-                      plPlayerController.onPopInvokedWithResult(false, null),
+                  onPressed: _handleBack,
                 ),
               ),
               if (!plPlayerController.isDesktopPip &&

@@ -2103,6 +2103,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
               controller: videoDetailController.plPlayerController,
               videoDetailCtr: videoDetailController,
               heroTag: heroTag,
+              onBack: _popVideoRoute,
             ),
             danmuWidget: isPipMode && pipNoDanmaku
                 ? null

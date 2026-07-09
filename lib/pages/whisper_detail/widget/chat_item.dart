@@ -35,6 +35,7 @@ class ChatItem extends StatelessWidget {
   const ChatItem({
     super.key,
     required this.item,
+    required this.index,
     required this.eInfos,
     required this.onLongPress,
     required this.onSecondaryTapUp,
@@ -42,6 +43,7 @@ class ChatItem extends StatelessWidget {
   });
 
   final Msg item;
+  final int index;
   final List<EmotionInfo>? eInfos;
   final VoidCallback onLongPress;
   final GestureTapUpCallback? onSecondaryTapUp;
@@ -57,11 +59,20 @@ class ChatItem extends StatelessWidget {
     if (item.hasCliMsgId()) {
       return item.cliMsgId.toString();
     }
-    return '${item.timestamp}-${identityHashCode(item)}';
+    return '${item.senderUid}-${item.receiverId}-${item.timestamp}-'
+        '${item.msgType}-${_stableContentHash(item.content)}-$index';
   }
 
   String _videoHeroTag(Object? source, Object? suffix) =>
       'chat-video-$_messageHeroKey-${source ?? item.msgType}-$suffix';
+
+  static String _stableContentHash(String value) {
+    var hash = 0;
+    for (final codeUnit in value.codeUnits) {
+      hash = 0x3fffffff & ((hash * 31) + codeUnit);
+    }
+    return hash.toRadixString(16);
+  }
 
   // 消息来源
   // enum MsgSource {
@@ -336,7 +347,8 @@ class ChatItem extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            for (final i in content['sub_cards'])
+            for (final (subCardIndex, i) in
+                (content['sub_cards'] as Iterable).indexed)
               GestureDetector(
                 onTap: () async {
                   String? bvid = IdUtils.bvRegex
@@ -358,7 +370,7 @@ class ChatItem extends StatelessWidget {
                           dimension: res!.dimension,
                           heroTag: _videoHeroTag(
                             i['jump_url'] ?? i['cover_url'],
-                            identityHashCode(i),
+                            subCardIndex,
                           ),
                         );
                       }
@@ -377,7 +389,7 @@ class ChatItem extends StatelessWidget {
                     VideoCoverHero(
                       tag: _videoHeroTag(
                         i['jump_url'] ?? i['cover_url'],
-                        identityHashCode(i),
+                        subCardIndex,
                       ),
                       child: NetworkImgLayer(
                         width: 130,

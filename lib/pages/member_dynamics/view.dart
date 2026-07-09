@@ -106,8 +106,12 @@ class _MemberDynamicsPageState extends State<MemberDynamicsPage>
     if (index == list.length - 1) {
       _memberDynamicController.onLoadMore();
     }
+    final item = list[index];
     return DynamicPanel(
-      item: list[index],
+      key: ValueKey('member-dynamic-$mid-${item.idStr ?? index}-$index'),
+      item: item,
+      index: index,
+      heroScope: 'member-dynamic-$mid',
       onRemove: _memberDynamicController.onRemove,
       onSetTop: _memberDynamicController.onSetTop,
     );

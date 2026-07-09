@@ -116,7 +116,13 @@ class _MemberSearchChildPageState extends State<MemberSearchChildPage>
     if (index == list.length - 1) {
       _controller.onLoadMore();
     }
-    return DynamicPanel(item: list[index]);
+    final item = list[index];
+    return DynamicPanel(
+      key: ValueKey('member-search-dynamic-${item.idStr ?? index}-$index'),
+      item: item,
+      index: index,
+      heroScope: 'member-search-dynamic',
+    );
   }
 
   @override

@@ -26,6 +26,8 @@ class DynamicPanel extends StatefulWidget {
   final VoidCallback? onEdit;
   final ValueChanged<int>? onSetReplySubject;
   final ValueChanged<DynamicItemModel>? onUpdate;
+  final int? index;
+  final String heroScope;
 
   const DynamicPanel({
     super.key,
@@ -41,6 +43,8 @@ class DynamicPanel extends StatefulWidget {
     this.onEdit,
     this.onSetReplySubject,
     this.onUpdate,
+    this.index,
+    this.heroScope = 'dynamic',
   });
 
   @override
@@ -61,16 +65,22 @@ class _DynamicPanelState extends State<DynamicPanel> {
   VoidCallback? get onEdit => widget.onEdit;
   ValueChanged<int>? get onSetReplySubject => widget.onSetReplySubject;
   ValueChanged<DynamicItemModel>? get onUpdate => widget.onUpdate;
+  Object get _videoHeroOwnerKey =>
+      '${widget.heroScope}-${widget.index ?? identityHashCode(this)}';
 
   String? get _videoHeroTag =>
-      _cachedVideoHeroTag ??=
-          makeDynamicVideoHeroTag(item, identityHashCode(this));
+      _cachedVideoHeroTag ??= makeDynamicVideoHeroTag(
+        item,
+        _videoHeroOwnerKey,
+      );
   Object? get _videoHeroKey => dynamicVideoHeroKey(item);
 
   @override
   void didUpdateWidget(covariant DynamicPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (dynamicVideoHeroKey(oldWidget.item) != _videoHeroKey) {
+    if (dynamicVideoHeroKey(oldWidget.item) != _videoHeroKey ||
+        oldWidget.index != widget.index ||
+        oldWidget.heroScope != widget.heroScope) {
       _cachedVideoHeroTag = null;
     }
   }

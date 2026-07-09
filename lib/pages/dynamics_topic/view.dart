@@ -406,7 +406,15 @@ class _DynTopicPageState extends State<DynTopicPage>
     final item = list[index];
 
     if (item.dynamicCardItem case final dynamicCardItem?) {
-      return DynamicPanel(item: dynamicCardItem);
+      return DynamicPanel(
+        key: ValueKey(
+          'dynamic-topic-${_controller.topicId}-'
+          '${dynamicCardItem.idStr ?? index}-$index',
+        ),
+        item: dynamicCardItem,
+        index: index,
+        heroScope: 'dynamic-topic-${_controller.topicId}',
+      );
     }
 
     if (item.foldCardItem case final foldCardItem?) {

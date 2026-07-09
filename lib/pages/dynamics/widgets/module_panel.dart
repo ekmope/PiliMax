@@ -88,6 +88,7 @@ Widget module(
         orig: item.orig!,
         isDetail: isDetail,
         floor: floor + 1,
+        parentHeroKey: item.idStr ?? floor,
       );
     // 直播
     case 'DYNAMIC_TYPE_LIVE_RCMD':

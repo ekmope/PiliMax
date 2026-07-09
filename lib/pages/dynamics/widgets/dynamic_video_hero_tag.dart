@@ -12,12 +12,12 @@ DynamicArchiveModel? dynamicVideoHeroArchive(DynamicItemModel item) {
   };
 }
 
-String? makeDynamicVideoHeroTag(DynamicItemModel item, int ownerHash) {
+String? makeDynamicVideoHeroTag(DynamicItemModel item, Object ownerKey) {
   final key = dynamicVideoHeroKey(item);
   if (key == null) {
     return null;
   }
-  return 'dynamic-video-$key-$ownerHash';
+  return 'dynamic-video-$ownerKey-$key';
 }
 
 Object? dynamicVideoHeroKey(DynamicItemModel item) {

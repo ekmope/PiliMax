@@ -382,6 +382,8 @@ class _SavePanelState extends State<SavePanel> {
                             item: dyn,
                             isDetail: true,
                             isSave: true,
+                            index: 0,
+                            heroScope: 'save-dynamic-${dyn.idStr}',
                           ),
                         ),
                         _ => throw UnsupportedError(_item.toString()),

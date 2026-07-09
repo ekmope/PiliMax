@@ -16,6 +16,7 @@ Widget forwardPanel(
   required DynamicItemModel orig,
   required bool isSave,
   required bool isDetail,
+  required Object parentHeroKey,
 }) {
   return _ForwardPanel(
     floor: floor,
@@ -23,6 +24,7 @@ Widget forwardPanel(
     orig: orig,
     isSave: isSave,
     isDetail: isDetail,
+    parentHeroKey: parentHeroKey,
   );
 }
 
@@ -33,6 +35,7 @@ class _ForwardPanel extends StatefulWidget {
     required this.orig,
     required this.isSave,
     required this.isDetail,
+    required this.parentHeroKey,
   });
 
   final int floor;
@@ -40,6 +43,7 @@ class _ForwardPanel extends StatefulWidget {
   final DynamicItemModel orig;
   final bool isSave;
   final bool isDetail;
+  final Object parentHeroKey;
 
   @override
   State<_ForwardPanel> createState() => _ForwardPanelState();
@@ -49,14 +53,18 @@ class _ForwardPanelState extends State<_ForwardPanel> {
   String? _cachedVideoHeroTag;
 
   String? get _videoHeroTag =>
-      _cachedVideoHeroTag ??=
-          makeDynamicVideoHeroTag(widget.orig, identityHashCode(this));
+      _cachedVideoHeroTag ??= makeDynamicVideoHeroTag(
+        widget.orig,
+        'forward-${widget.parentHeroKey}-${widget.floor}',
+      );
   Object? get _videoHeroKey => dynamicVideoHeroKey(widget.orig);
 
   @override
   void didUpdateWidget(covariant _ForwardPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (dynamicVideoHeroKey(oldWidget.orig) != _videoHeroKey) {
+    if (dynamicVideoHeroKey(oldWidget.orig) != _videoHeroKey ||
+        oldWidget.floor != widget.floor ||
+        oldWidget.parentHeroKey != widget.parentHeroKey) {
       _cachedVideoHeroTag = null;
     }
   }

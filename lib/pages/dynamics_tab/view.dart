@@ -109,7 +109,12 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
     }
     final item = list[index];
     return DynamicPanel(
+      key: ValueKey(
+        'dynamic-tab-$tag-${item.idStr ?? index}-$index',
+      ),
       item: item,
+      index: index,
+      heroScope: 'dynamic-tab-$tag',
       onRemove: (idStr) => controller.onRemove(index, idStr),
       onBlock: () => controller.onBlock(index),
       onUnfold: () => controller.onUnfold(item, index),

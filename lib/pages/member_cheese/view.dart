@@ -69,7 +69,15 @@ class _MemberCheeseState extends State<MemberCheese>
                   if (index == response.length - 1) {
                     _controller.onLoadMore();
                   }
-                  return MemberCheeseItem(item: response[index]);
+                  final item = response[index];
+                  return MemberCheeseItem(
+                    key: ValueKey(
+                      'member-cheese-${item.seasonId ?? item.cover}-$index',
+                    ),
+                    item: item,
+                    index: index,
+                    heroScope: 'member-cheese',
+                  );
                 },
                 itemCount: response.length,
               )

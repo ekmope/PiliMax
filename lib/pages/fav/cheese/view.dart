@@ -63,7 +63,12 @@ class _FavCheesePageState extends State<FavCheesePage>
                   }
                   final item = response[index];
                   return MemberCheeseItem(
+                    key: ValueKey(
+                      'fav-cheese-${item.seasonId ?? item.cover}-$index',
+                    ),
                     item: item,
+                    index: index,
+                    heroScope: 'fav-cheese',
                     onRemove: () => showConfirmDialog(
                       context: context,
                       title: const Text('确定取消收藏该课堂？'),

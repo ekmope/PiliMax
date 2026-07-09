@@ -15,13 +15,18 @@ class MemberCheeseItem extends StatelessWidget {
     super.key,
     required this.item,
     this.onRemove,
+    this.index,
+    this.heroScope = 'member-cheese',
   });
 
   final SpaceCheeseItem item;
   final VoidCallback? onRemove;
+  final int? index;
+  final String heroScope;
 
   String get _heroTag =>
-      'member-cheese-${item.seasonId ?? item.cover}-${identityHashCode(item)}';
+      '$heroScope-${item.seasonId ?? item.cover}-'
+      '${index ?? identityHashCode(item)}';
 
   @override
   Widget build(BuildContext context) {

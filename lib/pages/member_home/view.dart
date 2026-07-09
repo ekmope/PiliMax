@@ -88,8 +88,15 @@ class _MemberHomeState extends State<MemberHome>
                       sliver: SliverGrid.builder(
                         gridDelegate: gridDelegateV,
                         itemBuilder: (context, index) {
+                          final item = res.archive!.item![index];
                           return VideoCardVMemberHome(
-                            videoItem: res.archive!.item![index],
+                            key: ValueKey(
+                              'member-home-archive-'
+                              '${item.bvid ?? item.param ?? item.cover}-$index',
+                            ),
+                            videoItem: item,
+                            index: index,
+                            heroScope: 'member-home-archive',
                           );
                         },
                         itemCount: min(
@@ -131,8 +138,15 @@ class _MemberHomeState extends State<MemberHome>
                       sliver: SliverGrid.builder(
                         gridDelegate: gridDelegateV,
                         itemBuilder: (context, index) {
+                          final item = res.coinArchive!.item![index];
                           return VideoCardVMemberHome(
-                            videoItem: res.coinArchive!.item![index],
+                            key: ValueKey(
+                              'member-home-coin-'
+                              '${item.bvid ?? item.param ?? item.cover}-$index',
+                            ),
+                            videoItem: item,
+                            index: index,
+                            heroScope: 'member-home-coin',
                           );
                         },
                         itemCount: min(
@@ -157,8 +171,15 @@ class _MemberHomeState extends State<MemberHome>
                       sliver: SliverGrid.builder(
                         gridDelegate: gridDelegateV,
                         itemBuilder: (context, index) {
+                          final item = res.likeArchive!.item![index];
                           return VideoCardVMemberHome(
-                            videoItem: res.likeArchive!.item![index],
+                            key: ValueKey(
+                              'member-home-like-'
+                              '${item.bvid ?? item.param ?? item.cover}-$index',
+                            ),
+                            videoItem: item,
+                            index: index,
+                            heroScope: 'member-home-like',
                           );
                         },
                         itemCount: min(

@@ -17,15 +17,19 @@ import 'package:flutter/material.dart';
 // 视频卡片 - 垂直布局
 class VideoCardVMemberHome extends StatelessWidget {
   final SpaceArchiveItem videoItem;
+  final int index;
+  final String heroScope;
 
   const VideoCardVMemberHome({
     super.key,
     required this.videoItem,
+    required this.index,
+    required this.heroScope,
   });
 
   String get _heroTag =>
-      'member-home-${videoItem.bvid ?? videoItem.param}-${videoItem.cid}-'
-      '${identityHashCode(videoItem)}';
+      '$heroScope-${videoItem.bvid ?? videoItem.param ?? videoItem.cover}-'
+      '${videoItem.cid}-$index';
 
   Future<void> onPushDetail() async {
     String? goto = videoItem.goto;

@@ -14,13 +14,16 @@ class PgcCardVTimeline extends StatelessWidget {
   const PgcCardVTimeline({
     super.key,
     required this.item,
+    required this.index,
+    required this.heroScope,
   });
 
   final Episode item;
+  final int index;
+  final String heroScope;
 
   String get _heroTag =>
-      'pgc-timeline-${item.seasonId}-${item.episodeId}-'
-      '${identityHashCode(item)}';
+      '$heroScope-${item.seasonId}-${item.episodeId}-$index';
 
   @override
   Widget build(BuildContext context) {

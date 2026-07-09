@@ -24,15 +24,19 @@ class VideoCardHMemberVideo extends StatelessWidget {
     this.onTap,
     this.bvid,
     this.fromViewAid,
+    this.index,
+    this.heroScope = 'member-video',
   });
   final SpaceArchiveItem videoItem;
   final VoidCallback? onTap;
   final dynamic bvid;
   final String? fromViewAid;
+  final int? index;
+  final String heroScope;
 
   String get _heroTag =>
-      'member-video-${videoItem.bvid ?? videoItem.param}-${videoItem.cid}-'
-      '${identityHashCode(videoItem)}';
+      '$heroScope-${videoItem.bvid ?? videoItem.param ?? videoItem.cover}-'
+      '${videoItem.cid}-${index ?? identityHashCode(videoItem)}';
 
   @override
   Widget build(BuildContext context) {

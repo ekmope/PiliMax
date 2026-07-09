@@ -187,6 +187,9 @@ class _MemberVideoState extends State<MemberVideo>
     ThemeData theme,
     LoadingState<List<SpaceArchiveItem>?> loadingState,
   ) {
+    final heroScope =
+        'member-video-${widget.type.name}-'
+        '${widget.seasonId ?? 'all'}-${widget.seriesId ?? 'all'}';
     return switch (loadingState) {
       Loading() => gridSkeleton,
       Success(:final response) =>
@@ -201,8 +204,15 @@ class _MemberVideoState extends State<MemberVideo>
                           index == response.length - 1) {
                         _controller.onLoadMore();
                       }
+                      final videoItem = response[index];
                       return VideoCardHMemberVideo(
-                        videoItem: response[index],
+                        key: ValueKey(
+                          '$heroScope-'
+                          '${videoItem.bvid ?? videoItem.param ?? videoItem.cover}-$index',
+                        ),
+                        videoItem: videoItem,
+                        index: index,
+                        heroScope: heroScope,
                         fromViewAid: _controller.fromViewAid,
                       );
                     },

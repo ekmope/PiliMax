@@ -173,6 +173,7 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
     ThemeData theme,
     LoadingState<List<SpaceArchiveItem>?> loadingState,
   ) {
+    final heroScope = 'video-member-${widget.videoDetailController.heroTag}';
     return switch (loadingState) {
       Loading() => SliverFixedExtentList.builder(
         itemCount: 10,
@@ -193,8 +194,14 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 2),
                         child: VideoCardHMemberVideo(
+                          key: ValueKey(
+                            '$heroScope-'
+                            '${videoItem.bvid ?? videoItem.param ?? videoItem.cover}-$index',
+                          ),
                           videoItem: videoItem,
                           bvid: _bvid,
+                          index: index,
+                          heroScope: heroScope,
                           onTap: () {
                             Get.back();
                             widget.ugcIntroController.onChangeEpisode(

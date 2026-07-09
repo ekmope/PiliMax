@@ -158,7 +158,9 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                       Expanded(
                         child: TabBarView(
                           physics: const NeverScrollableScrollPhysics(),
-                          children: response.map((item) {
+                          children: response.asMap().entries.map((entry) {
+                            final dayIndex = entry.key;
+                            final item = entry.value;
                             if (item.episodes.isNullOrEmpty) {
                               return const SizedBox.shrink();
                             }
@@ -168,6 +170,9 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                               itemCount: item.episodes!.length,
                               padding: EdgeInsets.zero,
                               itemBuilder: (context, index) {
+                                final episode = item.episodes![index];
+                                final heroScope =
+                                    'pgc-${widget.tabType.name}-timeline-$dayIndex';
                                 return Container(
                                   width: Grid.smallCardWidth / 2,
                                   margin: EdgeInsets.only(
@@ -177,7 +182,13 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                                         : 0,
                                   ),
                                   child: PgcCardVTimeline(
-                                    item: item.episodes![index],
+                                    key: ValueKey(
+                                      '$heroScope-${episode.seasonId}-'
+                                      '${episode.episodeId}-$index',
+                                    ),
+                                    item: episode,
+                                    index: index,
+                                    heroScope: heroScope,
                                   ),
                                 );
                               },
@@ -320,7 +331,16 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                   if (index == response.length - 1) {
                     controller.onLoadMore();
                   }
-                  return PgcCardVPgcIndex(item: response[index]);
+                  final item = response[index];
+                  final heroScope = 'pgc-${widget.tabType.name}-rcmd';
+                  return PgcCardVPgcIndex(
+                    key: ValueKey(
+                      '$heroScope-${item.seasonId ?? item.cover}-$index',
+                    ),
+                    item: item,
+                    index: index,
+                    heroScope: heroScope,
+                  );
                 },
                 itemCount: response.length,
               )
@@ -416,7 +436,20 @@ class _PgcPageState extends State<PgcPage> with AutomaticKeepAliveClientMixin {
                       left: Style.safeSpace,
                       right: index == response.length - 1 ? Style.safeSpace : 0,
                     ),
-                    child: PgcCardV(item: response[index]),
+                    child: Builder(
+                      builder: (context) {
+                        final item = response[index];
+                        final heroScope = 'pgc-${widget.tabType.name}-follow';
+                        return PgcCardV(
+                          key: ValueKey(
+                            '$heroScope-${item.seasonId ?? item.cover}-$index',
+                          ),
+                          item: item,
+                          index: index,
+                          heroScope: heroScope,
+                        );
+                      },
+                    ),
                   );
                 },
               )

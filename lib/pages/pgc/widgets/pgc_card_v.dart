@@ -14,12 +14,16 @@ class PgcCardV extends StatelessWidget {
   const PgcCardV({
     super.key,
     required this.item,
+    required this.index,
+    required this.heroScope,
   });
 
   final FavPgcItemModel item;
+  final int index;
+  final String heroScope;
 
   String get _heroTag =>
-      'pgc-card-${item.seasonId ?? item.cover}-${identityHashCode(item)}';
+      '$heroScope-${item.seasonId ?? item.cover}-$index';
 
   @override
   Widget build(BuildContext context) {

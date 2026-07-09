@@ -242,7 +242,16 @@ class _PgcIndexPageState extends State<PgcIndexPage>
                   if (index == response.length - 1) {
                     _ctr.onLoadMore();
                   }
-                  return PgcCardVPgcIndex(item: response[index]);
+                  final item = response[index];
+                  final heroScope = 'pgc-index-${widget.indexType ?? 'root'}';
+                  return PgcCardVPgcIndex(
+                    key: ValueKey(
+                      '$heroScope-${item.seasonId ?? item.cover}-$index',
+                    ),
+                    item: item,
+                    index: index,
+                    heroScope: heroScope,
+                  );
                 },
                 itemCount: response.length,
               )

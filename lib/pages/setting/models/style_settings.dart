@@ -152,7 +152,9 @@ List<SettingsModel> get styleSettings => [
   NormalModel(
     title: '页面过渡动画',
     leading: const Icon(Icons.animation),
-    getSubtitle: () => '当前：${Pref.pageTransition.name}',
+    getSubtitle: () => Platform.isAndroid && Pref.enablePredictiveBack
+        ? '当前：${Pref.effectivePageTransition.name}（预测性返回已接管）'
+        : '当前：${Pref.effectivePageTransition.name}',
     onTap: _showTransitionDialog,
   ),
   if (Platform.isAndroid)
@@ -869,10 +871,7 @@ Future<void> _showTransitionDialog(
   );
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.pageTransition, res.index);
-    Get.rootController.defaultTransition =
-        Platform.isAndroid && Pref.enablePredictiveBack
-        ? Transition.native
-        : res;
+    Get.rootController.defaultTransition = Pref.effectivePageTransition;
     setState();
   }
 }

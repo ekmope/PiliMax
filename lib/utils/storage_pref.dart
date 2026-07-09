@@ -1220,6 +1220,11 @@ abstract final class Pref {
         defaultValue: Transition.native.index,
       )];
 
+  static Transition get effectivePageTransition =>
+      Platform.isAndroid && enablePredictiveBack
+          ? Transition.native
+          : pageTransition;
+
   static bool get enableQuickDouble =>
       _setting.get(SettingBoxKey.enableQuickDouble, defaultValue: false);
 

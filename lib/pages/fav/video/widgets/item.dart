@@ -1,6 +1,7 @@
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/models_new/fav/fav_folder/list.dart';
 import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:flutter/material.dart';
@@ -42,7 +43,7 @@ class FavVideoItem extends StatelessWidget {
                 aspectRatio: Style.aspectRatio,
                 child: LayoutBuilder(
                   builder: (context, boxConstraints) {
-                    return Hero(
+                    return VideoCoverHero(
                       tag: heroTag,
                       child: NetworkImgLayer(
                         src: item.cover,

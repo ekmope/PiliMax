@@ -4,6 +4,7 @@ import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/fav_order_type.dart';
@@ -363,7 +364,7 @@ class _FavDetailPageState extends State<FavDetailPage> with GridMixin {
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    Hero(
+                    VideoCoverHero(
                       tag: _favDetailController.heroTag,
                       child: NetworkImgLayer(
                         width: 176,

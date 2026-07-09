@@ -3,6 +3,7 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/select_mask.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/fav/fav_pgc/list.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
@@ -23,6 +24,9 @@ class FavPgcItem extends StatelessWidget {
   final MultiSelectBase ctr;
   final VoidCallback onSelect;
   final VoidCallback onUpdateStatus;
+
+  String get _heroTag =>
+      'fav-pgc-${item.seasonId ?? item.cover}-${identityHashCode(item)}';
 
   void onLongPress() {
     if (!ctr.enableMultiSelect.value) {
@@ -45,7 +49,10 @@ class FavPgcItem extends StatelessWidget {
                 onSelect();
                 return;
               }
-              PageUtils.viewPgc(seasonId: item.seasonId);
+              PageUtils.viewPgc(
+                seasonId: item.seasonId,
+                heroTag: _heroTag,
+              );
             },
             onLongPress: onLongPress,
             onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
@@ -64,12 +71,18 @@ class FavPgcItem extends StatelessWidget {
                         return Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            NetworkImgLayer(
-                              src: item.cover,
-                              width: boxConstraints.maxWidth,
-                              height: boxConstraints.maxHeight,
+                            VideoCoverHero(
+                              tag: _heroTag,
                               borderRadius: const BorderRadius.all(
                                 Radius.circular(4),
+                              ),
+                              child: NetworkImgLayer(
+                                src: item.cover,
+                                width: boxConstraints.maxWidth,
+                                height: boxConstraints.maxHeight,
+                                borderRadius: const BorderRadius.all(
+                                  Radius.circular(4),
+                                ),
                               ),
                             ),
                             PBadge(

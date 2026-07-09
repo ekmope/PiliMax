@@ -3,6 +3,7 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/models_new/space/space_cheese/item.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -18,6 +19,9 @@ class MemberCheeseItem extends StatelessWidget {
 
   final SpaceCheeseItem item;
   final VoidCallback? onRemove;
+
+  String get _heroTag =>
+      'member-cheese-${item.seasonId ?? item.cover}-${identityHashCode(item)}';
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +79,10 @@ class MemberCheeseItem extends StatelessWidget {
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        onTap: () => PageUtils.viewPugv(seasonId: item.seasonId),
+        onTap: () => PageUtils.viewPugv(
+          seasonId: item.seasonId,
+          heroTag: _heroTag,
+        ),
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Padding(
@@ -98,6 +105,7 @@ class MemberCheeseItem extends StatelessWidget {
                         Radius.circular(4),
                       ),
                     );
+                    child = VideoCoverHero(tag: _heroTag, child: child);
                     if (item.marks?.isNotEmpty == true) {
                       return Stack(
                         clipBehavior: Clip.none,

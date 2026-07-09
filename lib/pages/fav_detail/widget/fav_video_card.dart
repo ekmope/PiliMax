@@ -82,6 +82,7 @@ class FavVideoCardH extends StatelessWidget {
                     PageUtils.viewPgc(
                       seasonId: item.ogv!.seasonId,
                       epId: item.id,
+                      heroTag: _heroTag,
                     );
                     break;
                   default:

@@ -2,6 +2,7 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_timeline/episode.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -17,6 +18,10 @@ class PgcCardVTimeline extends StatelessWidget {
 
   final Episode item;
 
+  String get _heroTag =>
+      'pgc-timeline-${item.seasonId}-${item.episodeId}-'
+      '${identityHashCode(item)}';
+
   @override
   Widget build(BuildContext context) {
     void onLongPress() => imageSaveDialog(
@@ -29,8 +34,11 @@ class PgcCardVTimeline extends StatelessWidget {
         borderRadius: Style.mdRadius,
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-        onTap: () =>
-            PageUtils.viewPgc(seasonId: item.seasonId, epId: item.episodeId),
+        onTap: () => PageUtils.viewPgc(
+          seasonId: item.seasonId,
+          epId: item.episodeId,
+          heroTag: _heroTag,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -43,10 +51,13 @@ class PgcCardVTimeline extends StatelessWidget {
                   return Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      NetworkImgLayer(
-                        src: item.cover,
-                        width: maxWidth,
-                        height: maxHeight,
+                      VideoCoverHero(
+                        tag: _heroTag,
+                        child: NetworkImgLayer(
+                          src: item.cover,
+                          width: maxWidth,
+                          height: maxHeight,
+                        ),
                       ),
                       if (item.follow == 1)
                         const PBadge(

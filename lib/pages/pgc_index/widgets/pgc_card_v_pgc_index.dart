@@ -2,6 +2,7 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_index_result/list.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -17,6 +18,9 @@ class PgcCardVPgcIndex extends StatelessWidget {
 
   final PgcIndexItem item;
 
+  String get _heroTag =>
+      'pgc-index-${item.seasonId ?? item.cover}-${identityHashCode(item)}';
+
   @override
   Widget build(BuildContext context) {
     void onLongPress() => imageSaveDialog(
@@ -27,7 +31,10 @@ class PgcCardVPgcIndex extends StatelessWidget {
       shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
       child: InkWell(
         borderRadius: Style.mdRadius,
-        onTap: () => PageUtils.viewPgc(seasonId: item.seasonId),
+        onTap: () => PageUtils.viewPgc(
+          seasonId: item.seasonId,
+          heroTag: _heroTag,
+        ),
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Column(
@@ -42,10 +49,13 @@ class PgcCardVPgcIndex extends StatelessWidget {
                   return Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      NetworkImgLayer(
-                        src: item.cover,
-                        width: maxWidth,
-                        height: maxHeight,
+                      VideoCoverHero(
+                        tag: _heroTag,
+                        child: NetworkImgLayer(
+                          src: item.cover,
+                          width: maxWidth,
+                          height: maxHeight,
+                        ),
                       ),
                       PBadge(
                         text: item.badge,

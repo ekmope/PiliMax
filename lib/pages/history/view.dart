@@ -219,6 +219,10 @@ class _HistoryPageState extends State<HistoryPage>
                   }
                   final item = response[index];
                   return HistoryItem(
+                    key: ValueKey(
+                      '${item.history.business}-${item.history.oid}-'
+                      '${item.history.cid}-${item.history.page}',
+                    ),
                     item: item,
                     ctr: _historyController,
                     onDelete: (kid, business) =>

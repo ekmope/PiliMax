@@ -59,7 +59,10 @@ class _SearchAllPanelState
           return switch (list[index]) {
             SearchVideoItemModel e => SizedBox(
               height: 120,
-              child: VideoCardH(videoItem: e),
+              child: VideoCardH(
+                key: ValueKey(e.bvid ?? e.aid ?? index),
+                videoItem: e,
+              ),
             ),
             List<SearchPgcItemModel> e =>
               e.length == 1

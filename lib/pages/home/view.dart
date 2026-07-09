@@ -1,5 +1,6 @@
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/custom_height_widget.dart';
+import 'package:PiliMax/common/widgets/glass_container.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/pages/common/common_page.dart';
@@ -9,6 +10,7 @@ import 'package:PiliMax/pages/mine/controller.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -38,31 +40,23 @@ class _HomePageState extends CommonPageState<HomePage>
     Widget tabBar;
     if (_homeController.tabs.length > 1) {
       tabBar = Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: SizedBox(
-          height: 42,
-          width: double.infinity,
-          child: TabBar(
-            controller: _homeController.tabController,
-            tabs: _homeController.tabs.map((e) => Tab(text: e.label)).toList(),
-            isScrollable: true,
-            dividerColor: Colors.transparent,
-            dividerHeight: 0,
-            splashBorderRadius: Style.mdRadius,
-            tabAlignment: TabAlignment.center,
-            onTap: (_) {
-              feedBack();
-              if (!_homeController.tabController.indexIsChanging) {
-                _homeController.animateToTop();
-              }
-            },
-          ),
-        ),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+        child: Pref.enableLiquidGlass
+            ? GlassContainer(
+                borderRadius: const BorderRadius.all(Radius.circular(22)),
+                blurSigma: 14,
+                opacity: 0.34,
+                borderOpacity: 0.18,
+                child: _homeTabBar(),
+              )
+            : _homeTabBar(),
       );
       if (_homeController.hideTopBar &&
           _mainController.barHideType == .instant) {
         tabBar = Material(
-          color: theme.colorScheme.surface,
+          color: Pref.enableLiquidGlass
+              ? Colors.transparent
+              : theme.colorScheme.surface,
           child: tabBar,
         );
       }
@@ -84,6 +78,28 @@ class _HomePageState extends CommonPageState<HomePage>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _homeTabBar() {
+    return SizedBox(
+      height: 42,
+      width: double.infinity,
+      child: TabBar(
+        controller: _homeController.tabController,
+        tabs: _homeController.tabs.map((e) => Tab(text: e.label)).toList(),
+        isScrollable: true,
+        dividerColor: Colors.transparent,
+        dividerHeight: 0,
+        splashBorderRadius: Style.mdRadius,
+        tabAlignment: TabAlignment.center,
+        onTap: (_) {
+          feedBack();
+          if (!_homeController.tabController.indexIsChanging) {
+            _homeController.animateToTop();
+          }
+        },
+      ),
     );
   }
 
@@ -140,47 +156,60 @@ class _HomePageState extends CommonPageState<HomePage>
 
   Widget searchBar(ThemeData theme) {
     const borderRadius = BorderRadius.all(Radius.circular(25));
+    final searchContent = InkWell(
+      borderRadius: borderRadius,
+      splashColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+      onTap: () => Get.toNamed(
+        '/search',
+        parameters: _homeController.enableSearchWord
+            ? {'hintText': _homeController.defaultSearch.value}
+            : null,
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 14),
+          Icon(
+            Icons.search_outlined,
+            color: theme.colorScheme.onSecondaryContainer,
+            semanticLabel: '搜索',
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Obx(
+              () => Text(
+                _homeController.defaultSearch.value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: theme.colorScheme.outline),
+              ),
+            ),
+          ),
+          const SizedBox(width: 5),
+        ],
+      ),
+    );
     return Expanded(
       child: SizedBox(
         height: 44,
-        child: Material(
-          borderRadius: borderRadius,
-          color: theme.colorScheme.onSecondaryContainer.withValues(alpha: 0.05),
-          child: InkWell(
-            borderRadius: borderRadius,
-            splashColor: theme.colorScheme.primaryContainer.withValues(
-              alpha: 0.3,
-            ),
-            onTap: () => Get.toNamed(
-              '/search',
-              parameters: _homeController.enableSearchWord
-                  ? {'hintText': _homeController.defaultSearch.value}
-                  : null,
-            ),
-            child: Row(
-              children: [
-                const SizedBox(width: 14),
-                Icon(
-                  Icons.search_outlined,
-                  color: theme.colorScheme.onSecondaryContainer,
-                  semanticLabel: '搜索',
+        child: Pref.enableLiquidGlass
+            ? GlassContainer(
+                borderRadius: borderRadius,
+                blurSigma: 14,
+                opacity: 0.42,
+                borderOpacity: 0.22,
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: searchContent,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Obx(
-                    () => Text(
-                      _homeController.defaultSearch.value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: theme.colorScheme.outline),
-                    ),
-                  ),
+              )
+            : Material(
+                borderRadius: borderRadius,
+                color: theme.colorScheme.onSecondaryContainer.withValues(
+                  alpha: 0.05,
                 ),
-                const SizedBox(width: 5),
-              ],
+                child: searchContent,
+              ),
             ),
-          ),
-        ),
       ),
     );
   }

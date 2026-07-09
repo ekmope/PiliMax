@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:PiliMax/common/widgets/glass_container.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:flutter/material.dart';
 
@@ -85,54 +86,48 @@ class FloatingNavigationBar extends StatelessWidget {
         child: SizedBox(
           height: _kNavigationHeight,
           width: destinations.length * _kIndicatorWidth,
-          child: DecoratedBox(
-            decoration: ShapeDecoration(
-              color: ElevationOverlay.applySurfaceTint(
-                backgroundColor ??
-                    navigationBarTheme.backgroundColor ??
-                    defaults.backgroundColor!,
-                surfaceTintColor ??
-                    navigationBarTheme.surfaceTintColor ??
-                    defaults.surfaceTintColor,
-                elevation ??
-                    navigationBarTheme.elevation ??
-                    defaults.elevation!,
-              ),
-              shape: RoundedSuperellipseBorder(
-                side: defaults.borderSide,
-                borderRadius: _kBorderRadius,
-              ),
+          child: GlassContainer(
+            borderRadius: _kBorderRadius,
+            blurSigma: 20,
+            opacity: 0.5,
+            borderOpacity: 0.22,
+            color: ElevationOverlay.applySurfaceTint(
+              backgroundColor ??
+                  navigationBarTheme.backgroundColor ??
+                  defaults.backgroundColor!,
+              surfaceTintColor ??
+                  navigationBarTheme.surfaceTintColor ??
+                  defaults.surfaceTintColor,
+              elevation ?? navigationBarTheme.elevation ?? defaults.elevation!,
             ),
-            child: Padding(
-              padding: _kIndicatorPadding,
-              child: Row(
-                crossAxisAlignment: .stretch,
-                children: <Widget>[
-                  for (int i = 0; i < destinations.length; i++)
-                    Expanded(
-                      child: _SelectableAnimatedBuilder(
-                        duration: animationDuration,
-                        isSelected: i == selectedIndex,
-                        builder: (context, animation) {
-                          return _NavigationDestinationInfo(
-                            index: i,
-                            selectedIndex: selectedIndex,
-                            totalNumberOfDestinations: destinations.length,
-                            selectedAnimation: animation,
-                            labelBehavior: effectiveLabelBehavior,
-                            indicatorColor: indicatorColor,
-                            indicatorShape: indicatorShape,
-                            overlayColor: overlayColor,
-                            onTap: _handleTap(i),
-                            labelTextStyle: labelTextStyle,
-                            labelPadding: labelPadding,
-                            child: destinations[i],
-                          );
-                        },
-                      ),
+            padding: _kIndicatorPadding,
+            child: Row(
+              crossAxisAlignment: .stretch,
+              children: <Widget>[
+                for (int i = 0; i < destinations.length; i++)
+                  Expanded(
+                    child: _SelectableAnimatedBuilder(
+                      duration: animationDuration,
+                      isSelected: i == selectedIndex,
+                      builder: (context, animation) {
+                        return _NavigationDestinationInfo(
+                          index: i,
+                          selectedIndex: selectedIndex,
+                          totalNumberOfDestinations: destinations.length,
+                          selectedAnimation: animation,
+                          labelBehavior: effectiveLabelBehavior,
+                          indicatorColor: indicatorColor,
+                          indicatorShape: indicatorShape,
+                          overlayColor: overlayColor,
+                          onTap: _handleTap(i),
+                          labelTextStyle: labelTextStyle,
+                          labelPadding: labelPadding,
+                          child: destinations[i],
+                        );
+                      },
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
         ),

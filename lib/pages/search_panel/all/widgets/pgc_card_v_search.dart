@@ -18,7 +18,7 @@ class PgcCardVSearch extends StatelessWidget {
   final SearchPgcItemModel item;
 
   String get _heroTag =>
-      'search-pgc-v-${item.seasonId ?? item.cover}-${identityHashCode(item)}';
+      'search-pgc-v-${item.seasonId ?? item.mediaId ?? item.cover}';
 
   @override
   Widget build(BuildContext context) {

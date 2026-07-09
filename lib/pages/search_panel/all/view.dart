@@ -68,7 +68,10 @@ class _SearchAllPanelState
               e.length == 1
                   ? SizedBox(
                       height: 160,
-                      child: SearchPgcItem(item: e.first),
+                      child: SearchPgcItem(
+                        item: e.first,
+                        heroTagPrefix: 'search-all-pgc',
+                      ),
                     )
                   : SizedBox(
                       height:

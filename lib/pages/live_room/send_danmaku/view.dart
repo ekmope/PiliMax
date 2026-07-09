@@ -137,7 +137,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
             emojiBtn,
             Obx(
               () => FilledButton.tonal(
-                onPressed: enablePublish.value && !isPublishing.value
+                onPressed: enablePublish.value && !isPublishing
                     ? onPublishThrottle
                     : null,
                 style: FilledButton.styleFrom(
@@ -145,7 +145,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
                   padding: const .symmetric(horizontal: 20, vertical: 10),
                 ),
                 child: LoadingButtonChild(
-                  isLoading: isPublishing.value,
+                  isLoading: isPublishing,
                   child: const Text('发送'),
                 ),
               ),

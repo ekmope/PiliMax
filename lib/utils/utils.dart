@@ -87,10 +87,13 @@ abstract final class Utils {
   /// containing the `catch` block with
   /// `@pragma('vm:notify-debugger-on-exception')` to allow an attached debugger
   /// to treat the exception as unhandled.
-  static void reportError(Object exception, [StackTrace? stack]) {
+  static void reportError(Object exception, [StackTrace? stack, String? label]) {
     if (Pref.enableLog) {
       try {
-        Catcher2.reportCheckedError(exception, stack);
+        Catcher2.reportCheckedError(
+          label == null ? exception : '$label: $exception',
+          stack,
+        );
       } catch (_) {}
     }
   }

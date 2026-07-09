@@ -22,7 +22,7 @@ import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart' as pgc;
 import 'package:PiliMax/models_new/video/video_detail/episode.dart' as ugc;
 import 'package:PiliMax/pages/common/common_intro_controller.dart'
-    show FavMixin;
+    show FavMixin, IntroAction;
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
 import 'package:PiliMax/pages/main_reply/view.dart';
 import 'package:PiliMax/pages/setting/models/play_settings.dart'
@@ -44,6 +44,7 @@ import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/id_utils.dart';
+import 'package:PiliMax/utils/loading_action_mixin.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/share_utils.dart';
@@ -52,7 +53,9 @@ import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:PiliMax/utils/video_utils.dart';
+import 'package:collection/collection.dart' show IterableExtension;
 import 'package:fixnum/fixnum.dart' show Int64;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -78,6 +81,7 @@ class AudioController extends GetxController
     with
         GetTickerProviderStateMixin,
         TripleMixin,
+        LoadingActionMixin<IntroAction>,
         FavMixin,
         BlockConfigMixin,
         BlockMixin {
@@ -1370,16 +1374,17 @@ class AudioController extends GetxController
     final item = audioItem.item;
     final generation = ++_playIndexGeneration;
     _cancelAutoTailSkipCompleted(clearConsumed: false);
-    _defaultSubIdsForPlaylistItem(
-      audioItem,
-      item,
-      subId,
-      preferHistoryPart: preferHistoryPart,
-      isCurrent: () =>
-          generation == _playIndexGeneration &&
-          this.index == prevIndex &&
-          oid == prevOid,
-    ).then((resolvedSubId) {
+    unawaited(() async {
+      final resolvedSubId = await _defaultSubIdsForPlaylistItem(
+        audioItem,
+        item,
+        subId,
+        preferHistoryPart: preferHistoryPart,
+        isCurrent: () =>
+            generation == _playIndexGeneration &&
+            this.index == prevIndex &&
+            oid == prevOid,
+      );
       if (generation != _playIndexGeneration) return;
       this.index = index;
       oid = item.oid;
@@ -1391,9 +1396,8 @@ class AudioController extends GetxController
           : _playlistItemProgressSeconds(audioItem, oid.toInt(), currentCid);
       _start = progress > 0 ? Duration(seconds: progress) : null;
       _resetHeartBeatProgress();
-      return _queryPlayUrl();
-    }).then((res) {
-      if (generation != _playIndexGeneration || res == null) return;
+      final res = await _queryPlayUrl();
+      if (generation != _playIndexGeneration) return;
       if (res) {
         _updateCurrItem(audioItem);
       } else {
@@ -1409,7 +1413,7 @@ class AudioController extends GetxController
           _updateCurrItem(currentItem);
         }
       }
-    });
+    }());
   }
 
   void setSpeed(double speed) {

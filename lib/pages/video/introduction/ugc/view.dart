@@ -18,6 +18,8 @@ import 'package:PiliMax/models_new/video/video_detail/staff.dart';
 import 'package:PiliMax/models_new/video/video_tag/data.dart';
 import 'package:PiliMax/pages/mine/controller.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
+import 'package:PiliMax/pages/common/common_intro_controller.dart'
+    show IntroAction;
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/action_item.dart';

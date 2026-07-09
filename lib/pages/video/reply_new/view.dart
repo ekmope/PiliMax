@@ -211,7 +211,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
             const Spacer(),
             Obx(
               () => FilledButton.tonal(
-                onPressed: enablePublish.value && !isPublishing.value
+                onPressed: enablePublish.value && !isPublishing
                     ? onPublishThrottle
                     : null,
                 style: FilledButton.styleFrom(
@@ -223,7 +223,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                   visualDensity: VisualDensity.compact,
                 ),
                 child: LoadingButtonChild(
-                  isLoading: isPublishing.value,
+                  isLoading: isPublishing,
                   child: const Text('发送'),
                 ),
               ),

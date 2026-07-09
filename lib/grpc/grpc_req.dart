@@ -7,7 +7,7 @@ import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, compute;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, compute;
 import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 
 abstract final class GrpcReq {

@@ -29,6 +29,8 @@ class VideoCardV extends StatefulWidget {
   static final _pubdateTextPattern = RegExp(
     r'刚刚|昨天|今天|前|\d{1,4}[-/.年]\d{1,2}|周[一二三四五六日天]',
   );
+  static final shortFormat = DateFormat('M-d');
+  static final longFormat = DateFormat('yy-M-d');
 
   const VideoCardV({super.key, required this.videoItem, this.onRemove});
 
@@ -51,7 +53,7 @@ class _VideoCardVState extends State<VideoCardV> {
       return null;
     }
     final text = desc.split(' · ').last.trim();
-    if (text.isEmpty || !_pubdateTextPattern.hasMatch(text)) {
+    if (text.isEmpty || !VideoCardV._pubdateTextPattern.hasMatch(text)) {
       return null;
     }
     return text;
@@ -293,9 +295,6 @@ class _VideoCardVState extends State<VideoCardV> {
     );
   }
 
-  static final shortFormat = DateFormat('M-d');
-  static final longFormat = DateFormat('yy-M-d');
-
   Widget videoStat(BuildContext context, ThemeData theme) {
     return Row(
       children: [
@@ -315,8 +314,8 @@ class _VideoCardVState extends State<VideoCardV> {
               ),
               text: DateFormatUtils.dateFormat(
                 videoItem.pubdate,
-                short: shortFormat,
-                long: longFormat,
+                short: VideoCardV.shortFormat,
+                long: VideoCardV.longFormat,
               ),
             ),
           ),

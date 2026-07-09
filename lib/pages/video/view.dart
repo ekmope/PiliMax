@@ -754,6 +754,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final isResume = state == .resumed;
     final ctr = videoDetailController.plPlayerController..visible = isResume;
+    _syncAndroidPredictiveBack();
     if (isResume) {
       if (Platform.isAndroid && !showSystemBar_) {
         SystemChrome.setEnabledSystemUIMode(.immersiveSticky);

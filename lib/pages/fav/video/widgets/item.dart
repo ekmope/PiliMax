@@ -46,7 +46,7 @@ class FavVideoItem extends StatelessWidget {
                     return VideoCoverHero(
                       tag: heroTag,
                       child: NetworkImgLayer(
-                        type: .emote,
+                        clip: false,
                         src: item.cover,
                         width: boxConstraints.maxWidth,
                         height: boxConstraints.maxHeight,

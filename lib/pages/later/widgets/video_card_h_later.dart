@@ -112,7 +112,7 @@ class VideoCardHLater extends StatelessWidget {
                         VideoCoverHero(
                           tag: _heroTag,
                           child: NetworkImgLayer(
-                            type: .emote,
+                            clip: false,
                             src: videoItem.pic,
                             width: maxWidth,
                             height: maxHeight,

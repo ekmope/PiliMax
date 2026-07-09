@@ -22,6 +22,7 @@ class NetworkImgLayer extends StatelessWidget {
     this.fit = .cover,
     this.alignment = .center,
     this.cacheWidth,
+    this.clip = true,
   });
 
   final String? src;
@@ -36,6 +37,7 @@ class NetworkImgLayer extends StatelessWidget {
   final BoxFit fit;
   final Alignment alignment;
   final bool? cacheWidth;
+  final bool clip;
 
   static Color? reduceLuxColor = Pref.reduceLuxColor;
   static bool reduce = false;
@@ -46,7 +48,7 @@ class NetworkImgLayer extends StatelessWidget {
     final isAvatar = type == ImageType.avatar;
     if (src?.isNotEmpty == true) {
       Widget child = _buildImage(context, isEmote: isEmote, isAvatar: isAvatar);
-      if (isEmote) {
+      if (!clip || isEmote) {
         return child;
       } else if (isAvatar) {
         return ClipOval(child: child);
@@ -99,13 +101,13 @@ class NetworkImgLayer extends StatelessWidget {
     return Container(
       width: width,
       height: height,
-      clipBehavior: isEmote ? Clip.none : Clip.antiAlias,
+      clipBehavior: !clip || isEmote ? Clip.none : Clip.antiAlias,
       decoration: BoxDecoration(
-        shape: isAvatar ? BoxShape.circle : BoxShape.rectangle,
+        shape: clip && isAvatar ? BoxShape.circle : BoxShape.rectangle,
         color: Theme.of(
           context,
         ).colorScheme.onInverseSurface.withValues(alpha: 0.4),
-        borderRadius: isEmote || isAvatar ? null : borderRadius,
+        borderRadius: !clip || isEmote || isAvatar ? null : borderRadius,
       ),
       child: Center(
         child: Image.asset(

@@ -392,7 +392,7 @@ class ChatItem extends StatelessWidget {
                         subCardIndex,
                       ),
                       child: NetworkImgLayer(
-                        type: .emote,
+                        clip: false,
                         width: 130,
                         height: 73.125,
                         src: i['cover_url'],
@@ -493,7 +493,7 @@ class ChatItem extends StatelessWidget {
                       VideoCoverHero(
                         tag: heroTag,
                         child: NetworkImgLayer(
-                          type: ImageType.emote,
+                          clip: false,
                           width: constrains.maxWidth,
                           height: constrains.maxWidth / Style.aspectRatio16x9,
                           src: content['cover'],
@@ -639,7 +639,7 @@ class ChatItem extends StatelessWidget {
             VideoCoverHero(
               tag: activeHeroTag,
               child: NetworkImgLayer(
-                type: .emote,
+                clip: false,
                 width: 220,
                 height: 123.75,
                 src: content['thumb'],

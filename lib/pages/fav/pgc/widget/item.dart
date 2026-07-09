@@ -81,7 +81,7 @@ class FavPgcItem extends StatelessWidget {
                                 Radius.circular(4),
                               ),
                               child: NetworkImgLayer(
-                                type: .emote,
+                                clip: false,
                                 src: item.cover,
                                 width: boxConstraints.maxWidth,
                                 height: boxConstraints.maxHeight,

@@ -114,10 +114,10 @@ class VideoCardVMemberHome extends StatelessWidget {
                       VideoCoverHero(
                         tag: _heroTag,
                         child: NetworkImgLayer(
+                          clip: false,
                           src: videoItem.cover,
                           width: maxWidth,
                           height: maxHeight,
-                          type: .emote,
                         ),
                       ),
                       if (videoItem.duration > 0)

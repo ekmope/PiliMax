@@ -56,7 +56,7 @@ class PgcCardV extends StatelessWidget {
                       VideoCoverHero(
                         tag: _heroTag,
                         child: NetworkImgLayer(
-                          type: .emote,
+                          clip: false,
                           src: item.cover,
                           width: maxWidth,
                           height: maxHeight,

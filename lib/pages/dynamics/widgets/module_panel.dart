@@ -260,7 +260,7 @@ Widget module(
                 VideoCoverHero(
                   tag: major!.medialist!.cover!,
                   child: NetworkImgLayer(
-                    type: .emote,
+                    clip: false,
                     width: 180,
                     height: 110,
                     src: major.medialist!.cover,

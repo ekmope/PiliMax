@@ -134,7 +134,7 @@ class HistoryCardItem extends StatelessWidget {
                       tag: _heroTag,
                       borderRadius: _cardRadius,
                       child: NetworkImgLayer(
-                        type: .emote,
+                        clip: false,
                         src: coverSrc,
                         width: _cardWidth,
                         height: _cardHeight,

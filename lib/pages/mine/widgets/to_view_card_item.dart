@@ -91,7 +91,7 @@ class ToViewCardItem extends StatelessWidget {
                       tag: _heroTag,
                       borderRadius: _cardRadius,
                       child: NetworkImgLayer(
-                        type: .emote,
+                        clip: false,
                         src: item.pic,
                         width: _cardWidth,
                         height: _cardHeight,

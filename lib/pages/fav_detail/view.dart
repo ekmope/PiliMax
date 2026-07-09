@@ -367,7 +367,7 @@ class _FavDetailPageState extends State<FavDetailPage> with GridMixin {
                     VideoCoverHero(
                       tag: _favDetailController.heroTag,
                       child: NetworkImgLayer(
-                        type: .emote,
+                        clip: false,
                         width: 176,
                         height: 110,
                         src: folderInfo.cover,

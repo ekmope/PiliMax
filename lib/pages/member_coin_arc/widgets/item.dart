@@ -102,10 +102,10 @@ class _MemberCoinLikeItemState extends State<MemberCoinLikeItem> {
                       VideoCoverHero(
                         tag: _heroTag,
                         child: NetworkImgLayer(
+                          clip: false,
                           src: item.cover,
                           width: maxWidth,
                           height: maxHeight,
-                          type: .emote,
                         ),
                       ),
                       if (item.isCooperation == true)

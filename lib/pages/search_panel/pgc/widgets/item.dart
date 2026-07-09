@@ -53,7 +53,7 @@ class SearchPgcItem extends StatelessWidget {
                   VideoCoverHero(
                     tag: _heroTag,
                     child: NetworkImgLayer(
-                      type: .emote,
+                      clip: false,
                       width: 111,
                       height: 148,
                       src: item.cover,

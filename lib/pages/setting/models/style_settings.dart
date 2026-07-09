@@ -868,8 +868,11 @@ Future<void> _showTransitionDialog(
     ),
   );
   if (res != null) {
-    Get.rootController.defaultTransition = res;
     await GStorage.setting.put(SettingBoxKey.pageTransition, res.index);
+    Get.rootController.defaultTransition =
+        Platform.isAndroid && Pref.enablePredictiveBack
+        ? Transition.native
+        : res;
     setState();
   }
 }

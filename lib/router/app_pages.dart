@@ -94,7 +94,6 @@ class Routes {
     GetPage(
       name: '/videoV',
       page: () => const VideoDetailPageV(),
-      transition: Transition.native,
     ),
     //
     GetPage(name: '/webview', page: () => const WebviewPage()),

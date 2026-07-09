@@ -297,7 +297,9 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       getPages: Routes.getPages,
       routingCallback: RouteRestoreService.onRouteChanged,
-      defaultTransition: Pref.pageTransition,
+      defaultTransition: Platform.isAndroid && Pref.enablePredictiveBack
+          ? Transition.native
+          : Pref.pageTransition,
       builder: FlutterSmartDialog.init(
         toastBuilder: CustomToast.new,
         loadingBuilder: LoadingWidget.new,

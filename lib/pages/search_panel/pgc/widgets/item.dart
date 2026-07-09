@@ -2,6 +2,7 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -16,6 +17,9 @@ class SearchPgcItem extends StatelessWidget {
 
   final SearchPgcItemModel item;
 
+  String get _heroTag =>
+      'search-pgc-${item.seasonId ?? item.cover}-${identityHashCode(item)}';
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -27,7 +31,10 @@ class SearchPgcItem extends StatelessWidget {
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        onTap: () => PageUtils.viewPgc(seasonId: item.seasonId),
+        onTap: () => PageUtils.viewPgc(
+          seasonId: item.seasonId,
+          heroTag: _heroTag,
+        ),
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Padding(
@@ -41,10 +48,13 @@ class SearchPgcItem extends StatelessWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  NetworkImgLayer(
-                    width: 111,
-                    height: 148,
-                    src: item.cover,
+                  VideoCoverHero(
+                    tag: _heroTag,
+                    child: NetworkImgLayer(
+                      width: 111,
+                      height: 148,
+                      src: item.cover,
+                    ),
                   ),
                   PBadge(
                     text: item.seasonTypeName,

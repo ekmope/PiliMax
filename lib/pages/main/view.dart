@@ -8,7 +8,6 @@ import 'package:PiliMax/common/widgets/floating_navigation_bar.dart';
 import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliMax/common/widgets/flutter/tabs.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/main_page_switch_overlay.dart';
 import 'package:PiliMax/common/widgets/route_aware_mixin.dart';
 import 'package:PiliMax/models/common/nav_bar_config.dart';
 import 'package:PiliMax/pages/home/view.dart';
@@ -27,7 +26,7 @@ import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show HapticFeedback, SystemUiOverlayStyle;
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:get/get.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:win32/win32.dart' as kernel32;
@@ -53,8 +52,6 @@ class _MainAppState extends PopScopeState<MainApp>
   late EdgeInsets _padding;
   late ThemeData theme;
   Brightness? _brightness;
-  bool _mainSwitchVisible = false;
-  int? _mainSwitchHoverIndex;
 
   static const List<NavigationBarType> _mainSwitchTypes = [
     NavigationBarType.home,
@@ -399,6 +396,28 @@ class _MainAppState extends PopScopeState<MainApp>
     }
   }
 
+  Set<int> get _mainSwitchDestinationIndexes {
+    if (!Pref.enableMainPageGestureSwitch) {
+      return const <int>{};
+    }
+    final currentIndex = _mainController.selectedIndex.value;
+    if (currentIndex < 0 ||
+        currentIndex >= _mainController.navigationBars.length ||
+        !_mainSwitchTypes.contains(
+          _mainController.navigationBars[currentIndex],
+        )) {
+      return const <int>{};
+    }
+    final indexes = <int>{};
+    for (final type in _mainSwitchTypes) {
+      final index = _mainController.navigationBars.indexOf(type);
+      if (index >= 0) {
+        indexes.add(index);
+      }
+    }
+    return indexes;
+  }
+
   Widget? get _bottomNav {
     Widget? bottomNav;
     if (_mainController.navigationBars.length > 1) {
@@ -410,6 +429,7 @@ class _MainAppState extends PopScopeState<MainApp>
                 : NavigationDestinationLabelBehavior.alwaysHide,
             onDestinationSelected: _mainController.setIndex,
             selectedIndex: _mainController.selectedIndex.value,
+            longPressDestinationIndexes: _mainSwitchDestinationIndexes,
             destinations: _mainController.navigationBars
                 .map(
                   (e) => FloatingNavigationDestination(
@@ -488,157 +508,6 @@ class _MainAppState extends PopScopeState<MainApp>
     }
 
     return bottomNav;
-  }
-
-  List<MainPageSwitchDestination> get _mainSwitchDestinations {
-    final destinations = <MainPageSwitchDestination>[];
-    for (final type in _mainSwitchTypes) {
-      final index = _mainController.navigationBars.indexOf(type);
-      if (index < 0) {
-        continue;
-      }
-      destinations.add(
-        MainPageSwitchDestination(
-          index: index,
-          label: type.label,
-          icon: type.icon,
-          selectedIcon: type.selectIcon,
-        ),
-      );
-    }
-    return destinations;
-  }
-
-  bool get _canUseMainSwitch {
-    if (!Pref.enableMainPageGestureSwitch ||
-        !_mainController.useBottomNav ||
-        !_mainController.floatingNavBar) {
-      return false;
-    }
-    final currentIndex = _mainController.selectedIndex.value;
-    if (currentIndex < 0 ||
-        currentIndex >= _mainController.navigationBars.length) {
-      return false;
-    }
-    return _mainSwitchTypes.contains(
-          _mainController.navigationBars[currentIndex],
-        ) &&
-        _mainSwitchDestinations.length > 1;
-  }
-
-  int? _mainSwitchIndexFromGlobalX(double globalX) {
-    final destinations = _mainSwitchDestinations;
-    if (destinations.isEmpty) {
-      return null;
-    }
-    return MainPageSwitchMetrics.indexFromGlobalX(
-      context: context,
-      globalX: globalX,
-      destinations: destinations,
-    );
-  }
-
-  void _startMainSwitch(LongPressStartDetails details) {
-    if (!_canUseMainSwitch) {
-      return;
-    }
-    HapticFeedback.lightImpact();
-    final currentIndex = _mainController.selectedIndex.value;
-    setState(() {
-      _mainSwitchVisible = true;
-      _mainSwitchHoverIndex =
-          _mainSwitchIndexFromGlobalX(details.globalPosition.dx) ??
-          currentIndex;
-    });
-  }
-
-  void _updateMainSwitch(LongPressMoveUpdateDetails details) {
-    if (!_mainSwitchVisible) {
-      return;
-    }
-    final hoverIndex = _mainSwitchIndexFromGlobalX(details.globalPosition.dx);
-    if (hoverIndex != null && hoverIndex != _mainSwitchHoverIndex) {
-      setState(() => _mainSwitchHoverIndex = hoverIndex);
-    }
-  }
-
-  void _endMainSwitch(LongPressEndDetails details) {
-    if (!_mainSwitchVisible) {
-      return;
-    }
-    final targetIndex = _mainSwitchHoverIndex;
-    setState(() {
-      _mainSwitchVisible = false;
-      _mainSwitchHoverIndex = null;
-    });
-    if (targetIndex != null &&
-        targetIndex != _mainController.selectedIndex.value) {
-      _mainController.setIndex(targetIndex);
-    }
-  }
-
-  void _cancelMainSwitch() {
-    if (_mainSwitchVisible) {
-      setState(() {
-        _mainSwitchVisible = false;
-        _mainSwitchHoverIndex = null;
-      });
-    }
-  }
-
-  Widget _wrapMainSwitchGesture(Widget child) {
-    if (!Pref.enableMainPageGestureSwitch ||
-        !_mainController.useBottomNav ||
-        !_mainController.floatingNavBar) {
-      return child;
-    }
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onLongPressStart: _startMainSwitch,
-      onLongPressMoveUpdate: _updateMainSwitch,
-      onLongPressEnd: _endMainSwitch,
-      onLongPressCancel: _cancelMainSwitch,
-      child: AnimatedScale(
-        scale: _mainSwitchVisible ? 0.99 : 1,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        child: child,
-      ),
-    );
-  }
-
-  Widget _wrapMainSwitchOverlay(Widget child) {
-    if (!Pref.enableMainPageGestureSwitch ||
-        !_mainController.useBottomNav ||
-        !_mainController.floatingNavBar ||
-        _mainSwitchDestinations.length < 2) {
-      return child;
-    }
-    final currentIndex = _mainController.selectedIndex.value;
-    return Stack(
-      children: [
-        child,
-        Positioned.fill(
-          child: IgnorePointer(
-            child: AnimatedOpacity(
-              opacity: _mainSwitchVisible ? 1 : 0,
-              duration: const Duration(milliseconds: 160),
-              curve: Curves.easeOutCubic,
-              child: AnimatedScale(
-                scale: _mainSwitchVisible ? 1 : 0.96,
-                duration: const Duration(milliseconds: 160),
-                curve: Curves.easeOutCubic,
-                child: MainPageSwitchOverlay(
-                  destinations: _mainSwitchDestinations,
-                  currentIndex: currentIndex,
-                  hoverIndex: _mainSwitchHoverIndex ?? currentIndex,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _sideBar(ThemeData theme) {
@@ -749,8 +618,6 @@ class _MainAppState extends PopScopeState<MainApp>
       );
     }
 
-    child = _wrapMainSwitchGesture(child);
-
     child = Scaffold(
       extendBody: true,
       resizeToAvoidBottomInset: false,
@@ -764,8 +631,6 @@ class _MainAppState extends PopScopeState<MainApp>
       ),
       bottomNavigationBar: bottomNav,
     );
-
-    child = _wrapMainSwitchOverlay(child);
 
     if (PlatformUtils.isMobile) {
       child = AnnotatedRegion<SystemUiOverlayStyle>(

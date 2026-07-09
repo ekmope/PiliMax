@@ -54,6 +54,7 @@ import 'package:PiliMax/pages/video/medialist/view.dart';
 import 'package:PiliMax/pages/video/note/view.dart';
 import 'package:PiliMax/pages/video/post_panel/view.dart';
 import 'package:PiliMax/pages/video/send_danmaku/view.dart';
+import 'package:PiliMax/pages/video/video_detail_args.dart';
 import 'package:PiliMax/pages/video/widgets/header_control.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/data_source.dart';
@@ -436,7 +437,7 @@ class VideoDetailController extends GetxController
   @override
   void onInit() {
     super.onInit();
-    args = Get.arguments;
+    args = VideoDetailArgs.normalize(Get.arguments);
 
     // 开启新视频时，如果存在前代播放器的应用内小窗，则按播放上下文决定是否重置旧状态
     // 避免不同视频/分P之间 SponsorBlock 片段状态污染，同时保留同上下文无缝恢复能力

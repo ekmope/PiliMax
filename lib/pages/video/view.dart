@@ -44,6 +44,7 @@ import 'package:PiliMax/pages/video/member/view.dart';
 import 'package:PiliMax/pages/video/related/view.dart';
 import 'package:PiliMax/pages/video/reply/controller.dart';
 import 'package:PiliMax/pages/video/reply/view.dart';
+import 'package:PiliMax/pages/video/video_detail_args.dart';
 import 'package:PiliMax/pages/video/view_point/view.dart';
 import 'package:PiliMax/pages/video/widgets/header_control.dart';
 import 'package:PiliMax/pages/video/widgets/player_focus.dart';
@@ -95,7 +96,8 @@ class VideoDetailPageV extends StatefulWidget {
 
 class _VideoDetailPageVState extends State<VideoDetailPageV>
     with RouteAware, RouteAwareMixin, WidgetsBindingObserver {
-  final heroTag = Get.arguments['heroTag'];
+  final Map _videoArgs = VideoDetailArgs.normalize(Get.arguments);
+  late final String heroTag = _videoArgs['heroTag'] as String;
 
   late final VideoDetailController videoDetailController;
   late final VideoReplyController _videoReplyController;
@@ -186,9 +188,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   void initState() {
     super.initState();
     VideoStackManager.increment(); // 追踪视频页面层级
-    final bool fromPip = Get.arguments['fromPip'] ?? false;
+    final bool fromPip = _videoArgs['fromPip'] ?? false;
     final String? targetContextKey = PipOverlayService.contextKeyFromArgs(
-      Get.arguments is Map ? Get.arguments as Map : null,
+      _videoArgs,
     );
 
     // 如果有直播间 PiP 在运行，关闭它（采用非销毁式，避免干扰视频播放器单例）
@@ -986,7 +988,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     }
 
     // 如果是从开启新页面方式（Get.toNamed）从小窗手动返回，播放器应已在运行，跳过部分重置逻辑
-    final bool fromPip = Get.arguments?['fromPip'] ?? false;
+    final bool fromPip = _videoArgs['fromPip'] ?? false;
     if (fromPip) {
       isShowing = true;
       PlPlayerController.setPlayCallBack(playCallBack);

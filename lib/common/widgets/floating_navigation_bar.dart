@@ -67,6 +67,7 @@ class _FloatingNavigationBarState extends State<FloatingNavigationBar> {
   final _barKey = GlobalKey();
   int? _longPressHoverIndex;
   bool _isLongPressSwitching = false;
+  bool _ignoreNextTap = false;
 
   bool get _canLongPressSwitch =>
       widget.onDestinationSelected != null &&
@@ -81,17 +82,7 @@ class _FloatingNavigationBarState extends State<FloatingNavigationBar> {
         .toSet();
   }
 
-  VoidCallback _handleTap(int index) {
-    return widget.onDestinationSelected != null
-        ? () => widget.onDestinationSelected!(index)
-        : () {};
-  }
-
-  int? _indexFromGlobalX(double globalX) {
-    final indexes = _effectiveLongPressIndexes;
-    if (indexes.isEmpty) {
-      return null;
-    }
+  int? _indexFromGlobalX(double globalX, {Set<int>? allowedIndexes}) {
     final barContext = _barKey.currentContext;
     final box = barContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) {
@@ -103,11 +94,28 @@ class _FloatingNavigationBarState extends State<FloatingNavigationBar> {
         .floor()
         .clamp(0, widget.destinations.length - 1)
         .toInt();
-    return indexes.contains(index) ? index : null;
+    return allowedIndexes == null || allowedIndexes.contains(index)
+        ? index
+        : null;
   }
 
-  void _startLongPressSwitch(int index) {
-    if (!_effectiveLongPressIndexes.contains(index)) {
+  void _tapDestination(TapUpDetails details) {
+    if (_ignoreNextTap) {
+      _ignoreNextTap = false;
+      return;
+    }
+    final index = _indexFromGlobalX(details.globalPosition.dx);
+    if (index != null) {
+      widget.onDestinationSelected?.call(index);
+    }
+  }
+
+  void _startLongPressSwitch(LongPressStartDetails details) {
+    final index = _indexFromGlobalX(
+      details.globalPosition.dx,
+      allowedIndexes: _effectiveLongPressIndexes,
+    );
+    if (index == null) {
       return;
     }
     HapticFeedback.lightImpact();
@@ -121,7 +129,10 @@ class _FloatingNavigationBarState extends State<FloatingNavigationBar> {
     if (!_isLongPressSwitching) {
       return;
     }
-    final index = _indexFromGlobalX(details.globalPosition.dx);
+    final index = _indexFromGlobalX(
+      details.globalPosition.dx,
+      allowedIndexes: _effectiveLongPressIndexes,
+    );
     if (index != null && index != _longPressHoverIndex) {
       HapticFeedback.selectionClick();
       setState(() => _longPressHoverIndex = index);
@@ -139,6 +150,7 @@ class _FloatingNavigationBarState extends State<FloatingNavigationBar> {
     setState(() {
       _isLongPressSwitching = false;
       _longPressHoverIndex = null;
+      _ignoreNextTap = true;
     });
   }
 
@@ -149,6 +161,7 @@ class _FloatingNavigationBarState extends State<FloatingNavigationBar> {
     setState(() {
       _isLongPressSwitching = false;
       _longPressHoverIndex = null;
+      _ignoreNextTap = true;
     });
   }
 
@@ -172,76 +185,80 @@ class _FloatingNavigationBarState extends State<FloatingNavigationBar> {
           padding.right,
           widget.bottomPadding + padding.bottom,
         ),
-        child: SizedBox(
-          key: _barKey,
-          height: _kNavigationHeight,
-          width: widget.destinations.length * _kIndicatorWidth,
-          child: DecoratedBox(
-            decoration: ShapeDecoration(
-              color: ElevationOverlay.applySurfaceTint(
-                widget.backgroundColor ??
-                    navigationBarTheme.backgroundColor ??
-                    defaults.backgroundColor!,
-                widget.surfaceTintColor ??
-                    navigationBarTheme.surfaceTintColor ??
-                    defaults.surfaceTintColor,
-                widget.elevation ??
-                    navigationBarTheme.elevation ??
-                    defaults.elevation!,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTapUp: widget.onDestinationSelected != null
+              ? _tapDestination
+              : null,
+          onLongPressStart: _canLongPressSwitch
+              ? _startLongPressSwitch
+              : null,
+          onLongPressMoveUpdate: _canLongPressSwitch
+              ? _updateLongPressSwitch
+              : null,
+          onLongPressEnd: _canLongPressSwitch
+              ? (_) => _endLongPressSwitch()
+              : null,
+          onLongPressCancel: _canLongPressSwitch
+              ? _cancelLongPressSwitch
+              : null,
+          child: SizedBox(
+            key: _barKey,
+            height: _kNavigationHeight,
+            width: widget.destinations.length * _kIndicatorWidth,
+            child: DecoratedBox(
+              decoration: ShapeDecoration(
+                color: ElevationOverlay.applySurfaceTint(
+                  widget.backgroundColor ??
+                      navigationBarTheme.backgroundColor ??
+                      defaults.backgroundColor!,
+                  widget.surfaceTintColor ??
+                      navigationBarTheme.surfaceTintColor ??
+                      defaults.surfaceTintColor,
+                  widget.elevation ??
+                      navigationBarTheme.elevation ??
+                      defaults.elevation!,
+                ),
+                shape: RoundedSuperellipseBorder(
+                  side: defaults.borderSide,
+                  borderRadius: _kBorderRadius,
+                ),
               ),
-              shape: RoundedSuperellipseBorder(
-                side: defaults.borderSide,
-                borderRadius: _kBorderRadius,
-              ),
-            ),
-            child: Padding(
-              padding: _kIndicatorPadding,
-              child: Row(
-                crossAxisAlignment: .stretch,
-                children: <Widget>[
-                  for (int i = 0; i < widget.destinations.length; i++)
-                    Expanded(
-                      child: _SelectableAnimatedBuilder(
-                        duration: widget.animationDuration,
-                        isSelected:
-                            i == (_longPressHoverIndex ?? widget.selectedIndex),
-                        builder: (context, animation) {
-                          final canLongPressSwitch =
-                              _effectiveLongPressIndexes.contains(i);
-                          return _NavigationDestinationInfo(
-                            index: i,
-                            selectedIndex:
-                                _longPressHoverIndex ?? widget.selectedIndex,
-                            totalNumberOfDestinations:
-                                widget.destinations.length,
-                            selectedAnimation: animation,
-                            isLongPressSwitching: _isLongPressSwitching,
-                            isLongPressHovered: _longPressHoverIndex == i,
-                            labelBehavior: effectiveLabelBehavior,
-                            indicatorColor: widget.indicatorColor,
-                            indicatorShape: widget.indicatorShape,
-                            overlayColor: widget.overlayColor,
-                            onTap: _handleTap(i),
-                            onLongPressStart: canLongPressSwitch
-                                ? () => _startLongPressSwitch(i)
-                                : null,
-                            onLongPressMoveUpdate: canLongPressSwitch
-                                ? _updateLongPressSwitch
-                                : null,
-                            onLongPressEnd: canLongPressSwitch
-                                ? (_) => _endLongPressSwitch()
-                                : null,
-                            onLongPressCancel: canLongPressSwitch
-                                ? _cancelLongPressSwitch
-                                : null,
-                            labelTextStyle: widget.labelTextStyle,
-                            labelPadding: widget.labelPadding,
-                            child: widget.destinations[i],
-                          );
-                        },
+              child: Padding(
+                padding: _kIndicatorPadding,
+                child: Row(
+                  crossAxisAlignment: .stretch,
+                  children: <Widget>[
+                    for (int i = 0; i < widget.destinations.length; i++)
+                      Expanded(
+                        child: _SelectableAnimatedBuilder(
+                          duration: widget.animationDuration,
+                          isSelected:
+                              i ==
+                              (_longPressHoverIndex ?? widget.selectedIndex),
+                          builder: (context, animation) {
+                            return _NavigationDestinationInfo(
+                              index: i,
+                              selectedIndex:
+                                  _longPressHoverIndex ?? widget.selectedIndex,
+                              totalNumberOfDestinations:
+                                  widget.destinations.length,
+                              selectedAnimation: animation,
+                              isLongPressSwitching: _isLongPressSwitching,
+                              isLongPressHovered: _longPressHoverIndex == i,
+                              labelBehavior: effectiveLabelBehavior,
+                              indicatorColor: widget.indicatorColor,
+                              indicatorShape: widget.indicatorShape,
+                              overlayColor: widget.overlayColor,
+                              labelTextStyle: widget.labelTextStyle,
+                              labelPadding: widget.labelPadding,
+                              child: widget.destinations[i],
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -395,23 +412,10 @@ class _NavigationDestinationBuilderState
   Widget build(BuildContext context) {
     final info = _NavigationDestinationInfo.of(context);
 
-    Widget child = GestureDetector(
-      behavior: .opaque,
-      onTap: widget.enabled ? info.onTap : null,
-      onLongPressStart:
-          widget.enabled && info.onLongPressStart != null
-          ? (_) => info.onLongPressStart!()
-          : null,
-      onLongPressMoveUpdate: widget.enabled
-          ? info.onLongPressMoveUpdate
-          : null,
-      onLongPressEnd: widget.enabled ? info.onLongPressEnd : null,
-      onLongPressCancel: widget.enabled ? info.onLongPressCancel : null,
-      child: _NavigationBarDestinationLayout(
-        icon: widget.buildIcon(context),
-        iconKey: iconKey,
-        label: widget.buildLabel(context),
-      ),
+    Widget child = _NavigationBarDestinationLayout(
+      icon: widget.buildIcon(context),
+      iconKey: iconKey,
+      label: widget.buildLabel(context),
     );
     child = AnimatedScale(
       scale: info.isLongPressHovered ? 1.06 : 1,
@@ -441,11 +445,6 @@ class _NavigationDestinationInfo extends InheritedWidget {
     required this.indicatorColor,
     required this.indicatorShape,
     required this.overlayColor,
-    required this.onTap,
-    this.onLongPressStart,
-    this.onLongPressMoveUpdate,
-    this.onLongPressEnd,
-    this.onLongPressCancel,
     this.labelTextStyle,
     this.labelPadding,
     required super.child,
@@ -471,16 +470,6 @@ class _NavigationDestinationInfo extends InheritedWidget {
 
   final WidgetStateProperty<Color?>? overlayColor;
 
-  final VoidCallback onTap;
-
-  final VoidCallback? onLongPressStart;
-
-  final GestureLongPressMoveUpdateCallback? onLongPressMoveUpdate;
-
-  final GestureLongPressEndCallback? onLongPressEnd;
-
-  final VoidCallback? onLongPressCancel;
-
   final WidgetStateProperty<TextStyle?>? labelTextStyle;
 
   final EdgeInsetsGeometry? labelPadding;
@@ -503,12 +492,7 @@ class _NavigationDestinationInfo extends InheritedWidget {
         selectedAnimation != oldWidget.selectedAnimation ||
         isLongPressSwitching != oldWidget.isLongPressSwitching ||
         isLongPressHovered != oldWidget.isLongPressHovered ||
-        labelBehavior != oldWidget.labelBehavior ||
-        onTap != oldWidget.onTap ||
-        onLongPressStart != oldWidget.onLongPressStart ||
-        onLongPressMoveUpdate != oldWidget.onLongPressMoveUpdate ||
-        onLongPressEnd != oldWidget.onLongPressEnd ||
-        onLongPressCancel != oldWidget.onLongPressCancel;
+        labelBehavior != oldWidget.labelBehavior;
   }
 }
 

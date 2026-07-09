@@ -53,12 +53,6 @@ class _MainAppState extends PopScopeState<MainApp>
   late ThemeData theme;
   Brightness? _brightness;
 
-  static const List<NavigationBarType> _mainSwitchTypes = [
-    NavigationBarType.home,
-    NavigationBarType.dynamics,
-    NavigationBarType.mine,
-  ];
-
   @override
   bool get initCanPop => _allowAndroidPredictiveExit;
 
@@ -396,28 +390,6 @@ class _MainAppState extends PopScopeState<MainApp>
     }
   }
 
-  Set<int> get _mainSwitchDestinationIndexes {
-    if (!Pref.enableMainPageGestureSwitch) {
-      return const <int>{};
-    }
-    final currentIndex = _mainController.selectedIndex.value;
-    if (currentIndex < 0 ||
-        currentIndex >= _mainController.navigationBars.length ||
-        !_mainSwitchTypes.contains(
-          _mainController.navigationBars[currentIndex],
-        )) {
-      return const <int>{};
-    }
-    final indexes = <int>{};
-    for (final type in _mainSwitchTypes) {
-      final index = _mainController.navigationBars.indexOf(type);
-      if (index >= 0) {
-        indexes.add(index);
-      }
-    }
-    return indexes;
-  }
-
   Widget? get _bottomNav {
     Widget? bottomNav;
     if (_mainController.navigationBars.length > 1) {
@@ -429,7 +401,6 @@ class _MainAppState extends PopScopeState<MainApp>
                 : NavigationDestinationLabelBehavior.alwaysHide,
             onDestinationSelected: _mainController.setIndex,
             selectedIndex: _mainController.selectedIndex.value,
-            longPressDestinationIndexes: _mainSwitchDestinationIndexes,
             destinations: _mainController.navigationBars
                 .map(
                   (e) => FloatingNavigationDestination(

@@ -186,13 +186,6 @@ List<SettingsModel> get styleSettings => [
     defaultVal: false,
     needReboot: true,
   ),
-  const SwitchModel(
-    title: '悬浮底栏长按切换',
-    subtitle: '开启悬浮底栏后，可在首页、动态、我的长按并横向滑动切换',
-    leading: Icon(Icons.swipe_outlined),
-    setKey: SettingBoxKey.enableMainPageGestureSwitch,
-    defaultVal: true,
-  ),
   SwitchModel(
     title: 'Navbar显示文字',
     subtitle: 'Navbar按钮是否显示文字标签',

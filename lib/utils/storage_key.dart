@@ -187,7 +187,6 @@ abstract final class SettingBoxKey {
       showDynDispute = 'showDynDispute',
       touchSlopH = 'touchSlopH',
       floatingNavBar = 'floatingNavBar',
-      enableMainPageGestureSwitch = 'enableMainPageGestureSwitch',
       mixWithOthers = 'mixWithOthers',
       removeSafeArea = 'removeSafeArea',
       angleDegrees = 'angleDegrees',

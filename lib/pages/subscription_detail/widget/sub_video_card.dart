@@ -3,6 +3,7 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/stat_type.dart';
@@ -23,6 +24,9 @@ class SubVideoCardH extends StatelessWidget {
     required this.videoItem,
     this.searchType,
   });
+
+  String get _heroTag =>
+      'sub-video-${videoItem.bvid}-${identityHashCode(videoItem)}';
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +51,7 @@ class SubVideoCardH extends StatelessWidget {
               cover: videoItem.cover,
               title: videoItem.title,
               dimension: res!.dimension,
+              heroTag: _heroTag,
             );
           }
         },
@@ -69,10 +74,13 @@ class SubVideoCardH extends StatelessWidget {
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        NetworkImgLayer(
-                          src: videoItem.cover,
-                          width: maxWidth,
-                          height: maxHeight,
+                        VideoCoverHero(
+                          tag: _heroTag,
+                          child: NetworkImgLayer(
+                            src: videoItem.cover,
+                            width: maxWidth,
+                            height: maxHeight,
+                          ),
                         ),
                         PBadge(
                           text: DurationUtils.formatDuration(

@@ -5,6 +5,7 @@ import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/grpc/bilibili/app/interfaces/v1.pb.dart' show Arc;
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
@@ -33,6 +34,8 @@ class SearchArchiveGrpc extends StatelessWidget {
   Widget build(BuildContext context) {
     final arc = item.archive;
     final bvid = IdUtils.av2bv(arc.aid.toInt());
+    final heroTag =
+        'member-search-$bvid-${arc.firstCid}-${identityHashCode(item)}';
     final regTitle = Em.regTitle(arc.title);
     final titleStr = regTitle.map((e) => e.text).join();
     void onLongPress() => imageSaveDialog(
@@ -63,6 +66,7 @@ class SearchArchiveGrpc extends StatelessWidget {
                 cover: arc.pic,
                 title: titleStr,
                 isVertical: arc.dimension.isVertical,
+                heroTag: heroTag,
               );
             },
             child: Padding(
@@ -82,10 +86,13 @@ class SearchArchiveGrpc extends StatelessWidget {
                         return Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            NetworkImgLayer(
-                              src: arc.pic,
-                              width: maxWidth,
-                              height: maxHeight,
+                            VideoCoverHero(
+                              tag: heroTag,
+                              child: NetworkImgLayer(
+                                src: arc.pic,
+                                width: maxWidth,
+                                height: maxHeight,
+                              ),
                             ),
                             if (item.isPugv)
                               const PBadge(

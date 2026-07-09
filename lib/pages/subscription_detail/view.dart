@@ -127,6 +127,7 @@ class _SubDetailPageState extends State<SubDetailPage> with GridMixin {
       color: theme.colorScheme.outline,
     );
     Widget cover = NetworkImgLayer(
+      clip: false,
       width: 176,
       height: 110,
       src: info.cover,

@@ -94,6 +94,7 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final coverWidget = NetworkImgLayer(
+                        clip: false,
                         width: constraints.maxWidth,
                         height: constraints.maxWidth / Style.aspectRatio,
                         src: cover,

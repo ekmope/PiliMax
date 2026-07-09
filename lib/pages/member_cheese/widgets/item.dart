@@ -103,6 +103,7 @@ class MemberCheeseItem extends StatelessWidget {
                 child: LayoutBuilder(
                   builder: (context, boxConstraints) {
                     Widget child = NetworkImgLayer(
+                      clip: false,
                       src: item.cover,
                       width: boxConstraints.maxWidth,
                       height: boxConstraints.maxHeight,

@@ -2303,10 +2303,29 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   Widget videoPlayer({required double width, required double height}) {
     final isFullScreen = this.isFullScreen;
+    Widget coverHero() => Obx(
+      () => Hero(
+        tag: heroTag,
+        child: ClipRRect(
+          borderRadius: Style.mdRadius,
+          child: NetworkImgLayer(
+            type: .emote,
+            quality: 60,
+            src: videoDetailController.cover.value,
+            width: width,
+            height: height,
+            cacheWidth: true,
+            getPlaceHolder: () => Center(child: Image.asset(Assets.loading)),
+          ),
+        ),
+      ),
+    );
     return Stack(
       clipBehavior: Clip.none,
       children: [
         const Positioned.fill(child: ColoredBox(color: Colors.black)),
+
+        Positioned.fill(bottom: -1, child: coverHero()),
 
         plPlayer(width: width, height: height),
 
@@ -2317,24 +2336,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
               child: GestureDetector(
                 onTap: handlePlay,
                 behavior: .opaque,
-                child: Obx(
-                  () => Hero(
-                    tag: heroTag,
-                    child: ClipRRect(
-                      borderRadius: Style.mdRadius,
-                      child: NetworkImgLayer(
-                        type: .emote,
-                        quality: 60,
-                        src: videoDetailController.cover.value,
-                        width: width,
-                        height: height,
-                        cacheWidth: true,
-                        getPlaceHolder: () =>
-                            Center(child: Image.asset(Assets.loading)),
-                      ),
-                    ),
-                  ),
-                ),
+                child: const SizedBox.expand(),
               ),
             );
           }

@@ -1,5 +1,6 @@
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/history/list.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
@@ -14,6 +15,18 @@ class HistoryCardItem extends StatelessWidget {
   const HistoryCardItem({super.key, required this.item});
 
   final HistoryItemModel item;
+
+  static const BorderRadius _cardRadius = BorderRadius.all(
+    Radius.circular(12),
+  );
+
+  String get _cover => item.cover?.isNotEmpty == true
+      ? item.cover!
+      : item.covers?.firstOrNull ?? '';
+
+  String get _heroTag =>
+      'mine-history-${item.history.business}-${item.history.oid}-'
+      '${item.history.cid}-${item.history.page}-${identityHashCode(item)}';
 
   // 宽高比与 HistoryItem 大图区一致（16:10）
   static const double _cardWidth = 180.0;
@@ -73,8 +86,9 @@ class HistoryCardItem extends StatelessWidget {
           aid: aid,
           bvid: bvid,
           cid: cid,
-          cover: item.cover,
+          cover: _cover,
           title: item.title,
+          heroTag: _heroTag,
         );
       }
     }
@@ -84,9 +98,7 @@ class HistoryCardItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasDuration = item.duration != null && item.duration != 0;
-    final coverSrc = item.cover?.isNotEmpty == true
-        ? item.cover
-        : item.covers?.firstOrNull ?? '';
+    final coverSrc = _cover;
 
     return GestureDetector(
       onTap: _onTap,
@@ -97,7 +109,7 @@ class HistoryCardItem extends StatelessWidget {
           // 封面区域
           DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              borderRadius: _cardRadius,
               boxShadow: [
                 BoxShadow(
                   color: theme.colorScheme.onInverseSurface.withValues(
@@ -110,17 +122,21 @@ class HistoryCardItem extends StatelessWidget {
               ],
             ),
             child: ClipRRect(
-              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              borderRadius: _cardRadius,
               child: SizedBox(
                 width: _cardWidth,
                 height: _cardHeight,
                 child: Stack(
                   clipBehavior: Clip.hardEdge,
                   children: [
-                    NetworkImgLayer(
-                      src: coverSrc,
-                      width: _cardWidth,
-                      height: _cardHeight,
+                    VideoCoverHero(
+                      tag: _heroTag,
+                      borderRadius: _cardRadius,
+                      child: NetworkImgLayer(
+                        src: coverSrc,
+                        width: _cardWidth,
+                        height: _cardHeight,
+                      ),
                     ),
                     // 右上角：直播状态 / 专栏标记 / pgc badge
                     if (_isLive)

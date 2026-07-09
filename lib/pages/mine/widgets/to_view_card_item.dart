@@ -1,5 +1,6 @@
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/later/list.dart';
@@ -15,6 +16,13 @@ class ToViewCardItem extends StatelessWidget {
 
   static const double _cardWidth = 180.0;
   static const double _cardHeight = 110.0;
+  static const BorderRadius _cardRadius = BorderRadius.all(
+    Radius.circular(12),
+  );
+
+  String get _heroTag =>
+      'mine-later-${item.bvid ?? item.aid}-${item.cid}-'
+      '${identityHashCode(item)}';
 
   Future<void> _onTap() async {
     if (item.isPugv ?? false) {
@@ -30,7 +38,8 @@ class ToViewCardItem extends StatelessWidget {
       return;
     }
     try {
-      final cid = item.cid ?? await SearchHttp.ab2c(aid: item.aid, bvid: item.bvid);
+      final cid =
+          item.cid ?? await SearchHttp.ab2c(aid: item.aid, bvid: item.bvid);
       if (cid != null) {
         PageUtils.toVideoPage(
           aid: item.aid,
@@ -38,6 +47,7 @@ class ToViewCardItem extends StatelessWidget {
           cid: cid,
           cover: item.pic,
           title: item.title,
+          heroTag: _heroTag,
         );
       }
     } catch (err) {
@@ -58,10 +68,12 @@ class ToViewCardItem extends StatelessWidget {
         children: [
           DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              borderRadius: _cardRadius,
               boxShadow: [
                 BoxShadow(
-                  color: theme.colorScheme.onInverseSurface.withValues(alpha: 0.4),
+                  color: theme.colorScheme.onInverseSurface.withValues(
+                    alpha: 0.4,
+                  ),
                   offset: const Offset(6, -8),
                   blurRadius: 0.0,
                   spreadRadius: 0.0,
@@ -69,17 +81,21 @@ class ToViewCardItem extends StatelessWidget {
               ],
             ),
             child: ClipRRect(
-              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              borderRadius: _cardRadius,
               child: SizedBox(
                 width: _cardWidth,
                 height: _cardHeight,
                 child: Stack(
                   clipBehavior: Clip.hardEdge,
                   children: [
-                    NetworkImgLayer(
-                      src: item.pic,
-                      width: _cardWidth,
-                      height: _cardHeight,
+                    VideoCoverHero(
+                      tag: _heroTag,
+                      borderRadius: _cardRadius,
+                      child: NetworkImgLayer(
+                        src: item.pic,
+                        width: _cardWidth,
+                        height: _cardHeight,
+                      ),
                     ),
                     if (item.pgcLabel?.isNotEmpty == true)
                       PBadge(

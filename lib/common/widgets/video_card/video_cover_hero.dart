@@ -44,7 +44,19 @@ class VideoCoverHero extends StatelessWidget {
           borderRadius:
               BorderRadiusGeometry.lerp(beginRadius, endRadius, radiusProgress)
               ?? endRadius,
-          child: child,
+          child: child == null
+              ? null
+              : LayoutBuilder(
+                  builder: (context, constraints) => SizedBox(
+                    width: constraints.hasBoundedWidth
+                        ? constraints.maxWidth
+                        : null,
+                    height: constraints.hasBoundedHeight
+                        ? constraints.maxHeight
+                        : null,
+                    child: child,
+                  ),
+                ),
         );
       },
     );

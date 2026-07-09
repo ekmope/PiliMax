@@ -14,10 +14,14 @@ class VideoCoverHero extends StatelessWidget {
   final Widget child;
   final BorderRadiusGeometry borderRadius;
 
+  static Tween<Rect?> _createRectTween(Rect? begin, Rect? end) =>
+      RectTween(begin: begin, end: end);
+
   @override
   Widget build(BuildContext context) {
     return Hero(
       tag: tag,
+      createRectTween: _createRectTween,
       transitionOnUserGestures: true,
       placeholderBuilder: (context, heroSize, heroChild) => heroChild,
       child: ClipRRect(

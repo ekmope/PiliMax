@@ -15,7 +15,7 @@ class VideoCoverHero extends StatelessWidget {
   final BorderRadiusGeometry borderRadius;
 
   static Tween<Rect?> _createRectTween(Rect? begin, Rect? end) =>
-      RectTween(begin: begin, end: end);
+      MaterialRectArcTween(begin: begin, end: end);
 
   static Widget _flightShuttleBuilder(
     BuildContext flightContext,
@@ -64,7 +64,6 @@ class VideoCoverHero extends StatelessWidget {
       child: SizedBox(
         width: heroSize.width,
         height: heroSize.height,
-        child: const ColoredBox(color: Colors.black),
       ),
     );
   }

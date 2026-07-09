@@ -4,6 +4,7 @@ import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/marquee.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/stat_type.dart';
@@ -21,6 +22,10 @@ class MusicVideoCardH extends StatelessWidget {
     super.key,
     required this.videoItem,
   });
+
+  String get _heroTag =>
+      'music-video-${videoItem.bvid}-${videoItem.cid}-'
+      '${identityHashCode(videoItem)}';
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +54,7 @@ class MusicVideoCardH extends StatelessWidget {
               cover: videoItem.cover,
               title: videoItem.title,
               dimension: dimension,
+              heroTag: _heroTag,
             );
           }
         },
@@ -71,10 +77,13 @@ class MusicVideoCardH extends StatelessWidget {
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        NetworkImgLayer(
-                          src: videoItem.cover,
-                          width: maxWidth,
-                          height: maxHeight,
+                        VideoCoverHero(
+                          tag: _heroTag,
+                          child: NetworkImgLayer(
+                            src: videoItem.cover,
+                            width: maxWidth,
+                            height: maxHeight,
+                          ),
                         ),
                         PBadge(
                           text: DurationUtils.formatDuration(

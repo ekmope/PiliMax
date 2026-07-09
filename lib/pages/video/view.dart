@@ -1159,8 +1159,10 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       return child;
     }
     return FadeTransition(
-      opacity: animation.drive(
-        CurveTween(curve: const Interval(0.12, 1, curve: Curves.easeOutCubic)),
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: const Interval(0.12, 1, curve: Curves.easeOutCubic),
+        reverseCurve: Curves.linear,
       ),
       child: child,
     );

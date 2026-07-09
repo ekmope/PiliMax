@@ -62,8 +62,14 @@ class _MusicRecommendPageState extends State<MusicRecommendPage>
         response != null && response.isNotEmpty
             ? SliverGrid.builder(
                 gridDelegate: gridDelegate,
-                itemBuilder: (context, index) =>
-                    MusicVideoCardH(videoItem: response[index]),
+                itemBuilder: (context, index) {
+                  final item = response[index];
+                  return MusicVideoCardH(
+                    key: ValueKey('${item.bvid}-${item.cid}-$index'),
+                    videoItem: item,
+                    index: index,
+                  );
+                },
                 itemCount: response.length,
               )
             : HttpError(onReload: _controller.onReload),

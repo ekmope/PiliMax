@@ -17,15 +17,16 @@ import 'package:flutter/material.dart';
 
 class MusicVideoCardH extends StatelessWidget {
   final BgmRecommend videoItem;
+  final int index;
 
   const MusicVideoCardH({
     super.key,
     required this.videoItem,
+    required this.index,
   });
 
   String get _heroTag =>
-      'music-video-${videoItem.bvid}-${videoItem.cid}-'
-      '${identityHashCode(videoItem)}';
+      'music-video-${videoItem.bvid}-${videoItem.cid}-$index';
 
   @override
   Widget build(BuildContext context) {

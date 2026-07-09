@@ -18,15 +18,16 @@ import 'package:flutter/material.dart';
 class SubVideoCardH extends StatelessWidget {
   final SubDetailItemModel videoItem;
   final int? searchType;
+  final int index;
 
   const SubVideoCardH({
     super.key,
     required this.videoItem,
+    required this.index,
     this.searchType,
   });
 
-  String get _heroTag =>
-      'sub-video-${videoItem.bvid}-${identityHashCode(videoItem)}';
+  String get _heroTag => 'sub-video-${videoItem.bvid}-$index';
 
   @override
   Widget build(BuildContext context) {

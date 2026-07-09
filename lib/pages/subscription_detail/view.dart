@@ -88,8 +88,11 @@ class _SubDetailPageState extends State<SubDetailPage> with GridMixin {
                   if (index == response.length - 1) {
                     _subDetailController.onLoadMore();
                   }
+                  final item = response[index];
                   return SubVideoCardH(
-                    videoItem: response[index],
+                    key: ValueKey('${item.bvid}-$index'),
+                    videoItem: item,
+                    index: index,
                   );
                 },
                 itemCount: response.length,

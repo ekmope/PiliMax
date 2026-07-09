@@ -35,12 +35,18 @@ class VideoCoverHero extends StatelessWidget {
     return AnimatedBuilder(
       animation: animation,
       child: shuttleChild,
-      builder: (context, child) => ClipRRect(
-        borderRadius:
-            BorderRadiusGeometry.lerp(beginRadius, endRadius, animation.value)
-            ?? endRadius,
-        child: child,
-      ),
+      builder: (context, child) {
+        final radiusProgress = switch (flightDirection) {
+          HeroFlightDirection.push => animation.value,
+          HeroFlightDirection.pop => 1 - animation.value,
+        };
+        return ClipRRect(
+          borderRadius:
+              BorderRadiusGeometry.lerp(beginRadius, endRadius, radiusProgress)
+              ?? endRadius,
+          child: child,
+        );
+      },
     );
   }
 

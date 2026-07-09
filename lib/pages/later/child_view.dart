@@ -75,9 +75,14 @@ class _LaterViewChildPageState extends State<LaterViewChildPage>
                   }
                   final videoItem = response[index];
                   return VideoCardHLater(
+                    key: ValueKey(
+                      'later-${widget.laterViewType.type}-'
+                      '${videoItem.bvid ?? videoItem.aid}-${videoItem.cid}-$index',
+                    ),
                     index: index,
                     videoItem: videoItem,
                     ctr: _laterController,
+                    heroScope: 'later-${widget.laterViewType.type}',
                     onViewLater: (cid, heroTag) {
                       PageUtils.toVideoPage(
                         bvid: videoItem.bvid,

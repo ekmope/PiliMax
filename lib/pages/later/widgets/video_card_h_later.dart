@@ -26,14 +26,16 @@ class VideoCardHLater extends StatelessWidget {
     required this.index,
     required this.videoItem,
     required this.onViewLater,
+    required this.heroScope,
   });
   final int index;
   final BaseLaterController ctr;
   final LaterItemModel videoItem;
   final void Function(int cid, String heroTag) onViewLater;
+  final String heroScope;
 
   String get _heroTag =>
-      'later-${videoItem.bvid ?? videoItem.aid}-${videoItem.cid}';
+      '$heroScope-${videoItem.bvid ?? videoItem.aid}-${videoItem.cid}-$index';
 
   @override
   Widget build(BuildContext context) {

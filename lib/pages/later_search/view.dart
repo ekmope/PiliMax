@@ -69,9 +69,13 @@ class _LaterSearchPageState
         }
         final item = list[index];
         return VideoCardHLater(
+          key: ValueKey(
+            'later-search-${item.bvid ?? item.aid}-${item.cid}-$index',
+          ),
           index: index,
           videoItem: item,
           ctr: controller,
+          heroScope: 'later-search',
           onViewLater: (cid, heroTag) {
             PageUtils.toVideoPage(
               bvid: item.bvid,

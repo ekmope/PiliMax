@@ -581,7 +581,7 @@ abstract final class PageUtils {
       'progress': ?progress,
       'videoType': videoType,
       'isVertical': dimension?.isVertical ?? isVertical,
-      'heroTag': heroTag ?? 'video-detail-$cid',
+      'heroTag': heroTag ?? Utils.makeHeroTag(cid),
       ...?extraArguments,
     };
     if (off) {

@@ -111,6 +111,8 @@ Widget module(
     case 'DYNAMIC_TYPE_COMMON_SQUARE':
       final common = major?.common ?? major?.upowerCommon;
       if (common == null) return const SizedBox.shrink();
+      final commonHeroTag =
+          'dynamic-common-${item.idStr ?? common.jumpUrl ?? common.cover}';
       return Material(
         color: floor == 1
             ? theme.dividerColor.withValues(alpha: 0.08)
@@ -124,7 +126,7 @@ Widget module(
             try {
               String url = common.jumpUrl!;
               if (url.contains('bangumi/play') &&
-                  PageUtils.viewPgcFromUri(url)) {
+                  PageUtils.viewPgcFromUri(url, heroTag: commonHeroTag)) {
                 return;
               }
               PageUtils.handleWebview(url, inApp: true);
@@ -141,7 +143,8 @@ Widget module(
               spacing: 10,
               children: [
                 if (common.cover?.isNotEmpty ?? false)
-                  ClipRRect(
+                  VideoCoverHero(
+                    tag: commonHeroTag,
                     borderRadius: const BorderRadius.all(Radius.circular(6)),
                     child: CachedNetworkImage(
                       width: 45,

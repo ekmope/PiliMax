@@ -73,9 +73,7 @@ class DetailItem extends StatelessWidget {
   final bool? checked;
   final ValueChanged<BiliDownloadEntryInfo>? onSelect;
 
-  String get _heroTag =>
-      'download-detail-${entry.bvid ?? entry.avid}-${entry.cid}-'
-      '${identityHashCode(entry)}';
+  String get _heroTag => entry.heroTag;
 
   @override
   Widget build(BuildContext context) {

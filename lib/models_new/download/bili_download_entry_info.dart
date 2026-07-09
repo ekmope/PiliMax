@@ -51,6 +51,8 @@ class BiliDownloadEntryInfo with MultiSelectData {
 
   int get sortKey => ep?.sortIndex ?? pageData!.cid;
 
+  String get heroTag => 'download-entry-$bvid-$cid';
+
   String get showTitle {
     if (pageData case PageInfo(:final part)) {
       return part != null && part.isNotEmpty ? part : title;
@@ -86,11 +88,13 @@ class BiliDownloadEntryInfo with MultiSelectData {
                       PageUtils.viewPugv(
                         seasonId: seasonId,
                         epId: ep.episodeId,
+                        heroTag: heroTag,
                       );
                     } else {
                       PageUtils.viewPgc(
                         seasonId: seasonId,
                         epId: ep.episodeId,
+                        heroTag: heroTag,
                       );
                     }
                     return;
@@ -103,6 +107,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
                     title: title,
                     cover: cover,
                     isVertical: pageData?.isVertical ?? false,
+                    heroTag: heroTag,
                   );
                 },
               ),

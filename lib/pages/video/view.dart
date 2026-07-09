@@ -164,6 +164,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     final controller = videoDetailController.plPlayerController;
     return !controller.controlsLock.value &&
         !controller.isFullScreen.value &&
+        !controller.isPipMode &&
         !controller.isDesktopPip &&
         (videoDetailController.horizontalScreen || isPortrait);
   }
@@ -192,6 +193,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       ..add(
         ever<bool>(
           controller.isFullScreen,
+          (_) => _syncAndroidPredictiveBack(),
+        ),
+      )
+      ..add(
+        ever<bool>(
+          controller.isNativePip,
           (_) => _syncAndroidPredictiveBack(),
         ),
       );

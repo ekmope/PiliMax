@@ -28,14 +28,11 @@ class VideoCoverHero extends StatelessWidget {
     final toHero = toHeroContext.widget as Hero;
     final beginRadius = _heroBorderRadius(fromHero.child);
     final endRadius = _heroBorderRadius(toHero.child);
-    final shuttleChild = switch (flightDirection) {
-      HeroFlightDirection.push => _heroClipChild(fromHero.child),
-      HeroFlightDirection.pop => _heroClipChild(toHero.child),
-    };
+    final fromChild = _heroClipChild(fromHero.child);
+    final toChild = _heroClipChild(toHero.child);
     return AnimatedBuilder(
       animation: animation,
-      child: shuttleChild,
-      builder: (context, child) {
+      builder: (context, _) {
         final radiusProgress = switch (flightDirection) {
           HeroFlightDirection.push => animation.value,
           HeroFlightDirection.pop => 1 - animation.value,
@@ -44,21 +41,33 @@ class VideoCoverHero extends StatelessWidget {
           borderRadius:
               BorderRadiusGeometry.lerp(beginRadius, endRadius, radiusProgress)
               ?? endRadius,
-          child: child == null
-              ? null
-              : LayoutBuilder(
-                  builder: (context, constraints) => SizedBox(
-                    width: constraints.hasBoundedWidth
-                        ? constraints.maxWidth
-                        : null,
-                    height: constraints.hasBoundedHeight
-                        ? constraints.maxHeight
-                        : null,
-                    child: child,
-                  ),
+          child: _fillFlightBounds(
+            Stack(
+              fit: StackFit.passthrough,
+              children: [
+                Opacity(
+                  opacity: 1 - radiusProgress,
+                  child: fromChild,
                 ),
+                Opacity(
+                  opacity: radiusProgress,
+                  child: toChild,
+                ),
+              ],
+            ),
+          ),
         );
       },
+    );
+  }
+
+  static Widget _fillFlightBounds(Widget child) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SizedBox(
+        width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
+        height: constraints.hasBoundedHeight ? constraints.maxHeight : null,
+        child: child,
+      ),
     );
   }
 

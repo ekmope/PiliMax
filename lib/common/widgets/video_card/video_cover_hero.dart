@@ -17,6 +17,17 @@ class VideoCoverHero extends StatelessWidget {
   static Tween<Rect?> _createRectTween(Rect? begin, Rect? end) =>
       RectTween(begin: begin, end: end);
 
+  static Widget _flightShuttleBuilder(
+    BuildContext flightContext,
+    Animation<double> animation,
+    HeroFlightDirection flightDirection,
+    BuildContext fromHeroContext,
+    BuildContext toHeroContext,
+  ) {
+    final fromHero = fromHeroContext.widget as Hero;
+    return fromHero.child;
+  }
+
   Widget _buildPlaceholder(BuildContext context, Size heroSize, Widget child) {
     return ClipRRect(
       borderRadius: borderRadius,
@@ -33,6 +44,7 @@ class VideoCoverHero extends StatelessWidget {
     return Hero(
       tag: tag,
       createRectTween: _createRectTween,
+      flightShuttleBuilder: _flightShuttleBuilder,
       transitionOnUserGestures: true,
       placeholderBuilder: _buildPlaceholder,
       child: ClipRRect(

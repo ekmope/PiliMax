@@ -3238,7 +3238,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           'Tap to return from PiP, args contains: bvid=${args['bvid']}, cid=${args['cid']}, heroTag=${args['heroTag']}, title=${args['title']}, segmentList.length: ${videoDetailController.segmentList.length}',
         );
 
-        Get.toNamed('/videoV', arguments: args);
+        Get.toNamed(
+          '/videoV',
+          arguments: args,
+          preventDuplicates: false,
+        );
       },
     );
 

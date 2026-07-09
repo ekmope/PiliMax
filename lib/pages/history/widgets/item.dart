@@ -145,12 +145,15 @@ class HistoryItem extends StatelessWidget {
                               transitionOnUserGestures: true,
                               placeholderBuilder:
                                   (context, heroSize, child) => child,
-                              child: NetworkImgLayer(
-                                src: item.cover?.isNotEmpty == true
-                                    ? item.cover
-                                    : item.covers?.firstOrNull ?? '',
-                                width: maxWidth,
-                                height: maxHeight,
+                              child: ClipRRect(
+                                borderRadius: Style.mdRadius,
+                                child: NetworkImgLayer(
+                                  src: item.cover?.isNotEmpty == true
+                                      ? item.cover
+                                      : item.covers?.firstOrNull ?? '',
+                                  width: maxWidth,
+                                  height: maxHeight,
+                                ),
                               ),
                             ),
                             if (hasDuration)

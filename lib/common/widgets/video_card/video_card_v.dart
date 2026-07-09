@@ -168,11 +168,14 @@ class _VideoCardVState extends State<VideoCardV> {
                               transitionOnUserGestures: true,
                               placeholderBuilder: (context, heroSize, child) =>
                                   child,
-                              child: NetworkImgLayer(
-                                src: videoItem.cover,
-                                width: maxWidth,
-                                height: maxHeight,
-                                type: .emote,
+                              child: ClipRRect(
+                                borderRadius: Style.mdRadius,
+                                child: NetworkImgLayer(
+                                  src: videoItem.cover,
+                                  width: maxWidth,
+                                  height: maxHeight,
+                                  type: .emote,
+                                ),
                               ),
                             ),
                             if (videoItem.duration > 0)

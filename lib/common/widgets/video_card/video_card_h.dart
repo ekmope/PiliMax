@@ -157,10 +157,13 @@ class _VideoCardHState extends State<VideoCardH> {
                                 transitionOnUserGestures: true,
                                 placeholderBuilder:
                                     (context, heroSize, child) => child,
-                                child: NetworkImgLayer(
-                                  src: videoItem.cover,
-                                  width: maxWidth,
-                                  height: maxHeight,
+                                child: ClipRRect(
+                                  borderRadius: Style.mdRadius,
+                                  child: NetworkImgLayer(
+                                    src: videoItem.cover,
+                                    width: maxWidth,
+                                    height: maxHeight,
+                                  ),
                                 ),
                               ),
                               if (videoItem.badge case final badge?)

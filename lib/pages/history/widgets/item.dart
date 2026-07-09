@@ -142,6 +142,7 @@ class HistoryItem extends StatelessWidget {
                           children: [
                             Hero(
                               tag: _heroTag,
+                              transitionOnUserGestures: true,
                               placeholderBuilder:
                                   (context, heroSize, child) => child,
                               child: NetworkImgLayer(

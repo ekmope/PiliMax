@@ -2308,6 +2308,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     Widget coverHero() => Obx(
       () => Hero(
         tag: heroTag,
+        transitionOnUserGestures: true,
         child: ClipRRect(
           borderRadius: Style.mdRadius,
           child: NetworkImgLayer(

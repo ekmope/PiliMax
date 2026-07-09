@@ -95,7 +95,7 @@ class VideoDetailPageV extends StatefulWidget {
   State<VideoDetailPageV> createState() => _VideoDetailPageVState();
 }
 
-class _VideoDetailPageVState extends State<VideoDetailPageV>
+class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     with RouteAware, RouteAwareMixin, WidgetsBindingObserver {
   final Map _videoArgs = VideoDetailArgs.normalize(Get.arguments);
   late final String heroTag = _videoArgs['heroTag'] as String;
@@ -103,6 +103,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   late final VideoDetailController videoDetailController;
   late final VideoReplyController _videoReplyController;
   PlPlayerController? plPlayerController;
+  PlPlayerController? _predictiveBackController;
+  final List<Worker> _predictiveBackWorkers = <Worker>[];
+  bool _layoutReadyForRoutePop = false;
 
   // 标志位：是否正在进入 PiP 模式（用于防止 dispose/didPushNext 时清理播放器状态）
   bool _isEnteringPipMode = false;
@@ -153,6 +156,55 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   bool get isFullScreen =>
       videoDetailController.plPlayerController.isFullScreen.value;
+
+  bool get _allowVideoRoutePop {
+    if (!_layoutReadyForRoutePop) {
+      return true;
+    }
+    final controller = videoDetailController.plPlayerController;
+    return !controller.controlsLock.value &&
+        !controller.isFullScreen.value &&
+        !controller.isDesktopPip &&
+        (videoDetailController.horizontalScreen || isPortrait);
+  }
+
+  void _syncAndroidPredictiveBack() {
+    final canPop = _allowVideoRoutePop;
+    if (canPopNotifier.value != canPop) {
+      canPopNotifier.value = canPop;
+    }
+  }
+
+  void _bindAndroidPredictiveBack(PlPlayerController controller) {
+    if (identical(_predictiveBackController, controller)) {
+      _syncAndroidPredictiveBack();
+      return;
+    }
+    _disposeAndroidPredictiveBackWorkers();
+    _predictiveBackController = controller;
+    _predictiveBackWorkers
+      ..add(
+        ever<bool>(
+          controller.controlsLock,
+          (_) => _syncAndroidPredictiveBack(),
+        ),
+      )
+      ..add(
+        ever<bool>(
+          controller.isFullScreen,
+          (_) => _syncAndroidPredictiveBack(),
+        ),
+      );
+    _syncAndroidPredictiveBack();
+  }
+
+  void _disposeAndroidPredictiveBackWorkers() {
+    for (final worker in _predictiveBackWorkers) {
+      worker.dispose();
+    }
+    _predictiveBackWorkers.clear();
+    _predictiveBackController = null;
+  }
 
   bool get _shouldShowSeasonPanel {
     if (videoDetailController.isFileSource ||
@@ -496,6 +548,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     if (controller == null) {
       return;
     }
+    _bindAndroidPredictiveBack(controller);
     controller
       ..addStatusLister(playerListener)
       ..addPositionListener(positionListener)
@@ -818,6 +871,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       reason: 'dispose',
     );
     _completedGateScheduler.cancel();
+    _disposeAndroidPredictiveBackWorkers();
     _unbindPlayerListeners();
 
     Get.delete<HorizontalMemberPageController>(
@@ -1143,6 +1197,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       ..videoHeight = videoDetailController.isVertical.value
           ? maxVideoHeight
           : minVideoHeight;
+    _layoutReadyForRoutePop = true;
+    _syncAndroidPredictiveBack();
 
     themeData = videoDetailController.plPlayerController.darkVideoPage
         ? ThemeUtils.darkTheme
@@ -2081,10 +2137,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     required double height,
     bool isPipMode = false,
   }) => Obx(() {
-    final allowRoutePop =
-        !isFullScreen &&
-        !videoDetailController.plPlayerController.isDesktopPip &&
-        (videoDetailController.horizontalScreen || isPortrait);
     final child =
         (!isPipMode && !videoDetailController.videoState.value) ||
             !videoDetailController.autoPlay ||
@@ -2122,11 +2174,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             showViewPoints: showViewPoints,
           );
 
-    return popScope(
+    return StatefulBuilder(
       key: videoDetailController.videoPlayerKey,
-      canPop: allowRoutePop,
-      onPopInvokedWithResult: _onPopInvokedWithResult,
-      child: child,
+      builder: (_, _) => child,
     );
   });
 
@@ -2138,7 +2188,13 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   late EdgeInsets padding;
 
   @override
+  void onPopInvokedWithResult(bool didPop, Object? result) {
+    _onPopInvokedWithResult(didPop, result);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    _syncAndroidPredictiveBack();
     Widget child;
     if (videoDetailController.plPlayerController.isPipMode) {
       child = plPlayer(width: maxWidth, height: maxHeight, isPipMode: true);

@@ -7,6 +7,7 @@ import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliMax/common/widgets/select_mask.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
@@ -72,6 +73,10 @@ class DetailItem extends StatelessWidget {
   final bool? checked;
   final ValueChanged<BiliDownloadEntryInfo>? onSelect;
 
+  String get _heroTag =>
+      'download-detail-${entry.bvid ?? entry.avid}-${entry.cid}-'
+      '${identityHashCode(entry)}';
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -106,6 +111,7 @@ class DetailItem extends StatelessWidget {
                     cover: entry.cover,
                     title: entry.showTitle,
                     isVertical: entry.pageData?.isVertical ?? false,
+                    heroTag: _heroTag,
                     extraArguments: {
                       'sourceType': SourceType.file,
                       'entry': entry,
@@ -159,10 +165,10 @@ class DetailItem extends StatelessWidget {
                         } else {
                           cacheHeight = maxHeight.cacheSize(context);
                         }
-                        return cover.existsSync()
-                            ? ClipRRect(
-                                borderRadius: Style.mdRadius,
-                                child: Image.file(
+                        return VideoCoverHero(
+                          tag: _heroTag,
+                          child: cover.existsSync()
+                              ? Image.file(
                                   cover,
                                   width: maxWidth,
                                   height: maxHeight,
@@ -175,14 +181,14 @@ class DetailItem extends StatelessWidget {
                                   color: NetworkImgLayer.reduce
                                       ? NetworkImgLayer.reduceLuxColor
                                       : null,
+                                )
+                              : NetworkImgLayer(
+                                  src: entry.cover,
+                                  width: maxWidth,
+                                  height: maxHeight,
+                                  cacheWidth: entry.pageData?.cacheWidth,
                                 ),
-                              )
-                            : NetworkImgLayer(
-                                src: entry.cover,
-                                width: maxWidth,
-                                height: maxHeight,
-                                cacheWidth: entry.pageData?.cacheWidth,
-                              );
+                        );
                       },
                     ),
                   ),
@@ -436,11 +442,13 @@ class DetailItem extends StatelessWidget {
                         PageUtils.viewPugv(
                           seasonId: entry.seasonId,
                           epId: ep.episodeId,
+                          heroTag: _heroTag,
                         );
                       } else {
                         PageUtils.viewPgc(
                           seasonId: entry.seasonId,
                           epId: ep.episodeId,
+                          heroTag: _heroTag,
                         );
                       }
                       return;
@@ -452,6 +460,7 @@ class DetailItem extends StatelessWidget {
                       epId: entry.ep?.episodeId,
                       title: entry.title,
                       cover: entry.cover,
+                      heroTag: _heroTag,
                     );
                   },
                 ),

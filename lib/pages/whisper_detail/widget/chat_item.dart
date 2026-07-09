@@ -7,6 +7,7 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/grpc/bilibili/im/interfaces/v1.pb.dart'
     show EmotionInfo;
 import 'package:PiliMax/grpc/bilibili/im/type.pb.dart' show Msg, MsgType;
@@ -45,6 +46,22 @@ class ChatItem extends StatelessWidget {
   final VoidCallback onLongPress;
   final GestureTapUpCallback? onSecondaryTapUp;
   final bool isOwner;
+
+  String get _messageHeroKey {
+    if (item.hasMsgKey()) {
+      return item.msgKey.toString();
+    }
+    if (item.hasMsgSeqno()) {
+      return '${item.receiverId}-${item.msgSeqno}';
+    }
+    if (item.hasCliMsgId()) {
+      return item.cliMsgId.toString();
+    }
+    return '${item.timestamp}-${identityHashCode(item)}';
+  }
+
+  String _videoHeroTag(Object? source, Object? suffix) =>
+      'chat-video-$_messageHeroKey-${source ?? item.msgType}-$suffix';
 
   // 消息来源
   // enum MsgSource {
@@ -339,6 +356,10 @@ class ChatItem extends StatelessWidget {
                           cid: cid,
                           cover: i['cover_url'],
                           dimension: res!.dimension,
+                          heroTag: _videoHeroTag(
+                            i['jump_url'] ?? i['cover_url'],
+                            identityHashCode(i),
+                          ),
                         );
                       }
                     } catch (err) {
@@ -353,10 +374,16 @@ class ChatItem extends StatelessWidget {
                 child: Row(
                   spacing: 6,
                   children: [
-                    NetworkImgLayer(
-                      width: 130,
-                      height: 73.125,
-                      src: i['cover_url'],
+                    VideoCoverHero(
+                      tag: _videoHeroTag(
+                        i['jump_url'] ?? i['cover_url'],
+                        identityHashCode(i),
+                      ),
+                      child: NetworkImgLayer(
+                        width: 130,
+                        height: 73.125,
+                        src: i['cover_url'],
+                      ),
                     ),
                     Expanded(
                       child: Column(
@@ -407,6 +434,7 @@ class ChatItem extends StatelessWidget {
     try {
       attachMsg = content['attach_msg']?['content'];
     } catch (_) {}
+    final heroTag = _videoHeroTag(content['bvid'] ?? content['cover'], 'card');
 
     return Center(
       child: Container(
@@ -435,6 +463,7 @@ class ChatItem extends StatelessWidget {
                       cid: cid,
                       cover: content['cover'],
                       dimension: res!.dimension,
+                      heroTag: heroTag,
                     );
                   }
                 } catch (err) {
@@ -448,11 +477,14 @@ class ChatItem extends StatelessWidget {
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      NetworkImgLayer(
-                        type: ImageType.emote,
-                        width: constrains.maxWidth,
-                        height: constrains.maxWidth / Style.aspectRatio16x9,
-                        src: content['cover'],
+                      VideoCoverHero(
+                        tag: heroTag,
+                        child: NetworkImgLayer(
+                          type: ImageType.emote,
+                          width: constrains.maxWidth,
+                          height: constrains.maxWidth / Style.aspectRatio16x9,
+                          src: content['cover'],
+                        ),
                       ),
                       PBadge(
                         left: 6,
@@ -504,6 +536,7 @@ class ChatItem extends StatelessWidget {
 
   Widget msgTypeShareV2_7(dynamic content, Color textColor) {
     String? type;
+    String? heroTag;
     GestureTapCallback onTap;
     switch (content['source']) {
       // album
@@ -514,6 +547,10 @@ class ChatItem extends StatelessWidget {
 
       // video
       case 5:
+        heroTag = _videoHeroTag(
+          content['bvid'] ?? content['id'] ?? content['thumb'],
+          'share',
+        );
         type = '视频';
         onTap = () async {
           dynamic aid = content['id'];
@@ -538,6 +575,7 @@ class ChatItem extends StatelessWidget {
               cid: cid,
               cover: content['thumb'],
               dimension: res!.dimension,
+              heroTag: heroTag,
             );
           }
         };
@@ -563,7 +601,14 @@ class ChatItem extends StatelessWidget {
 
       // pgc
       case 16:
-        onTap = () => PageUtils.viewPgc(epId: content['id']);
+        heroTag = _videoHeroTag(
+          content['id'] ?? content['season_id'] ?? content['thumb'],
+          'pgc-share',
+        );
+        onTap = () => PageUtils.viewPgc(
+          epId: content['id'],
+          heroTag: heroTag,
+        );
         break;
 
       default:
@@ -577,11 +622,21 @@ class ChatItem extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          NetworkImgLayer(
-            width: 220,
-            height: 123.75,
-            src: content['thumb'],
-          ),
+          if (heroTag case final activeHeroTag?)
+            VideoCoverHero(
+              tag: activeHeroTag,
+              child: NetworkImgLayer(
+                width: 220,
+                height: 123.75,
+                src: content['thumb'],
+              ),
+            )
+          else
+            NetworkImgLayer(
+              width: 220,
+              height: 123.75,
+              src: content['thumb'],
+            ),
           const SizedBox(height: 6),
           Text(
             content['title'] ?? "",

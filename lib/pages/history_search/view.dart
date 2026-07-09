@@ -35,6 +35,10 @@ class _HistorySearchPageState
         }
         final item = list[index];
         return HistoryItem(
+          key: ValueKey(
+            '${item.history.business}-${item.history.oid}-'
+            '${item.history.cid}-${item.history.page}',
+          ),
           item: item,
           ctr: controller,
           onDelete: (kid, business) =>

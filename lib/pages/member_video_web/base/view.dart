@@ -101,7 +101,10 @@ abstract class BaseVideoWebState<
                         controller.onLoadMore();
                       }
                       // TODO: dimension
-                      return VideoCardH(videoItem: response[index]);
+                      return VideoCardH(
+                        key: ValueKey(response[index].bvid),
+                        videoItem: response[index],
+                      );
                     },
                   ),
                 ],

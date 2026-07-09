@@ -557,9 +557,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
               ),
               selectStatus: introController.hasFav.value,
               semanticsLabel: '收藏',
-              isLoading:
-                  introController.isActionLoading(IntroAction.favorite) ||
-                  introController.isActionLoading(IntroAction.triple),
+              isLoading: introController.isActionLoading(IntroAction.triple),
               text: !isLoading
                   ? NumUtils.numFormat(videoDetail.stat!.favorite)
                   : null,

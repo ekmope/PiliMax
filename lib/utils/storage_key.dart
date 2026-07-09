@@ -291,6 +291,7 @@ abstract final class SettingBoxKey {
       autoSideBar = 'autoSideBar',
       sideBarThreshold = 'sideBarThreshold',
       enableMYBar = 'enableMYBar',
+      showNavBarLabel = 'showNavBarLabel',
       hideTopBar = 'hideSearchBar',
       hideBottomBar = 'hideTabBar',
       barHideType = 'barHideType',

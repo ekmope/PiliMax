@@ -121,7 +121,7 @@ abstract class CommonIntroController extends GetxController
   void startTimer() {
     if (isShowOnlineTotal) {
       queryOnlineTotal();
-      timer ??= Timer.periodic(const Duration(seconds: 10), (Timer timer) {
+      timer ??= Timer.periodic(const Duration(minutes: 1), (Timer timer) {
         queryOnlineTotal();
       });
     }

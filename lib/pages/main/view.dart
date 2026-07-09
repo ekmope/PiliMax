@@ -67,8 +67,9 @@ class _MainAppState extends PopScopeState<MainApp>
     if (!_mainController.hasHome) {
       return false;
     }
-    return _mainController
-                .navigationBars[_mainController.selectedIndex.value] ==
+    return _mainController.navigationBars[_mainController
+                .selectedIndex
+                .value] ==
             NavigationBarType.home &&
         !_mainController.homeController.isRcmdTab;
   }
@@ -77,8 +78,9 @@ class _MainAppState extends PopScopeState<MainApp>
     if (!_mainController.hasDyn) {
       return false;
     }
-    return _mainController
-                .navigationBars[_mainController.selectedIndex.value] ==
+    return _mainController.navigationBars[_mainController
+                .selectedIndex
+                .value] ==
             NavigationBarType.dynamics &&
         !_mainController.dynamicController.isAllTab;
   }
@@ -394,6 +396,9 @@ class _MainAppState extends PopScopeState<MainApp>
       if (_mainController.floatingNavBar) {
         bottomNav = Obx(
           () => FloatingNavigationBar(
+            labelBehavior: _mainController.showNavBarLabel.value
+                ? NavigationDestinationLabelBehavior.alwaysShow
+                : NavigationDestinationLabelBehavior.alwaysHide,
             onDestinationSelected: _mainController.setIndex,
             selectedIndex: _mainController.selectedIndex.value,
             destinations: _mainController.navigationBars
@@ -411,6 +416,9 @@ class _MainAppState extends PopScopeState<MainApp>
         bottomNav = Obx(
           () => NavigationBar(
             maintainBottomViewPadding: true,
+            labelBehavior: _mainController.showNavBarLabel.value
+                ? NavigationDestinationLabelBehavior.alwaysShow
+                : NavigationDestinationLabelBehavior.alwaysHide,
             onDestinationSelected: _mainController.setIndex,
             selectedIndex: _mainController.selectedIndex.value,
             destinations: _mainController.navigationBars
@@ -432,6 +440,8 @@ class _MainAppState extends PopScopeState<MainApp>
             iconSize: 16,
             selectedFontSize: 12,
             unselectedFontSize: 12,
+            showSelectedLabels: _mainController.showNavBarLabel.value,
+            showUnselectedLabels: _mainController.showNavBarLabel.value,
             type: .fixed,
             items: _mainController.navigationBars
                 .map(
@@ -450,10 +460,7 @@ class _MainAppState extends PopScopeState<MainApp>
         if (_mainController.barOffset case final barOffset?) {
           return Obx(
             () => FractionalTranslation(
-              translation: Offset(
-                0.0,
-                barOffset.value / Style.topBarHeight,
-              ),
+              translation: Offset(0.0, barOffset.value / Style.topBarHeight),
               child: bottomNav,
             ),
           );
@@ -477,17 +484,18 @@ class _MainAppState extends PopScopeState<MainApp>
   Widget _sideBar(ThemeData theme) {
     return _mainController.navigationBars.length > 1
         ? context.isTablet && _mainController.optTabletNav
-              ? Column(
-                  children: [
-                    const SizedBox(height: 25),
-                    userAndSearchVertical(theme),
-                    const Spacer(flex: 2),
-                    Expanded(
-                      flex: 5,
-                      child: SizedBox(
-                        width: 130,
-                        child: Obx(
-                          () => NavigationDrawer(
+              ? Obx(() {
+                  final showLabel = _mainController.showNavBarLabel.value;
+                  return Column(
+                    children: [
+                      const SizedBox(height: 25),
+                      userAndSearchVertical(theme),
+                      const Spacer(flex: 2),
+                      Expanded(
+                        flex: 5,
+                        child: SizedBox(
+                          width: showLabel ? 130 : 80,
+                          child: NavigationDrawer(
                             backgroundColor: Colors.transparent,
                             tilePadding: const .symmetric(
                               vertical: 5,
@@ -501,7 +509,9 @@ class _MainAppState extends PopScopeState<MainApp>
                             children: _mainController.navigationBars
                                 .map(
                                   (e) => NavigationDrawerDestination(
-                                    label: Text(e.label),
+                                    label: showLabel
+                                        ? Text(e.label)
+                                        : const SizedBox.shrink(),
                                     icon: _buildIcon(type: e),
                                     selectedIcon: _buildIcon(
                                       type: e,
@@ -513,15 +523,17 @@ class _MainAppState extends PopScopeState<MainApp>
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                )
+                    ],
+                  );
+                })
               : Obx(
                   () => NavigationRail(
                     groupAlignment: 0.5,
                     selectedIndex: _mainController.selectedIndex.value,
                     onDestinationSelected: _mainController.setIndex,
-                    labelType: .selected,
+                    labelType: _mainController.showNavBarLabel.value
+                        ? NavigationRailLabelType.selected
+                        : NavigationRailLabelType.none,
                     leading: userAndSearchVertical(theme),
                     destinations: _mainController.navigationBars
                         .map(
@@ -625,19 +637,17 @@ class _MainAppState extends PopScopeState<MainApp>
   Widget _buildIcon({required NavigationBarType type, bool selected = false}) {
     final icon = selected ? type.selectIcon : type.icon;
     return type == .dynamics
-        ? Obx(
-            () {
-              final dynCount = _mainController.dynCount.value;
-              return Badge(
-                isLabelVisible: dynCount > 0,
-                label: _mainController.dynamicBadgeMode == .number
-                    ? Text(dynCount.toString())
-                    : null,
-                padding: const .symmetric(horizontal: 6),
-                child: icon,
-              );
-            },
-          )
+        ? Obx(() {
+            final dynCount = _mainController.dynCount.value;
+            return Badge(
+              isLabelVisible: dynCount > 0,
+              label: _mainController.dynamicBadgeMode == .number
+                  ? Text(dynCount.toString())
+                  : null,
+              padding: const .symmetric(horizontal: 6),
+              child: icon,
+            );
+          })
         : icon;
   }
 
@@ -649,10 +659,7 @@ class _MainAppState extends PopScopeState<MainApp>
         msgBadge(_mainController),
         IconButton(
           tooltip: '搜索',
-          icon: const Icon(
-            Icons.search_outlined,
-            semanticLabel: '搜索',
-          ),
+          icon: const Icon(Icons.search_outlined, semanticLabel: '搜索'),
           onPressed: () => Get.toNamed('/search'),
         ),
       ],

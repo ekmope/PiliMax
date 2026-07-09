@@ -186,6 +186,14 @@ List<SettingsModel> get styleSettings => [
     defaultVal: false,
     needReboot: true,
   ),
+  SwitchModel(
+    title: 'Navbar显示文字',
+    subtitle: 'Navbar按钮是否显示文字标签',
+    leading: const Icon(Icons.text_fields),
+    setKey: SettingBoxKey.showNavBarLabel,
+    defaultVal: true,
+    onChanged: (val) => Get.find<MainController>().showNavBarLabel.value = val,
+  ),
   NormalModel(
     leading: const Icon(Icons.calendar_view_week_outlined),
     title: '列表宽度（dp）限制',
@@ -295,10 +303,8 @@ List<SettingsModel> get styleSettings => [
     title: '图片质量',
     subtitle: '选择合适的图片清晰度，上限100%',
     leading: const Icon(Icons.image_outlined),
-    getTrailing: (theme) => Text(
-      '${Pref.picQuality}%',
-      style: theme.textTheme.titleSmall,
-    ),
+    getTrailing: (theme) =>
+        Text('${Pref.picQuality}%', style: theme.textTheme.titleSmall),
   ),
   NormalModel(
     onTap: (context, setState) => _showQualityDialog(
@@ -313,10 +319,8 @@ List<SettingsModel> get styleSettings => [
     title: '查看大图质量',
     subtitle: '选择合适的图片清晰度，上限100%',
     leading: const Icon(Icons.image_outlined),
-    getTrailing: (theme) => Text(
-      '${Pref.previewQ}%',
-      style: theme.textTheme.titleSmall,
-    ),
+    getTrailing: (theme) =>
+        Text('${Pref.previewQ}%', style: theme.textTheme.titleSmall),
   ),
   NormalModel(
     onTap: _showReduceColorDialog,
@@ -610,10 +614,7 @@ Future<void> _showDanmakuFontDialog(
   );
 }
 
-void _showUiScaleDialog(
-  BuildContext context,
-  VoidCallback setState,
-) {
+void _showUiScaleDialog(BuildContext context, VoidCallback setState) {
   const minUiScale = 0.5;
   const maxUiScale = 2.0;
 
@@ -985,10 +986,7 @@ Future<void> _showDynBadgeDialog(
     if (mainController.dynamicBadgeMode != DynamicBadgeMode.hidden) {
       mainController.getUnreadDynamic();
     }
-    await GStorage.setting.put(
-      SettingBoxKey.dynamicBadgeMode,
-      res.index,
-    );
+    await GStorage.setting.put(SettingBoxKey.dynamicBadgeMode, res.index);
     SmartDialog.showToast('设置成功');
     setState();
   }
@@ -1046,10 +1044,7 @@ Future<void> _showMsgUnReadDialog(
   }
 }
 
-void _showReduceColorDialog(
-  BuildContext context,
-  VoidCallback setState,
-) {
+void _showReduceColorDialog(BuildContext context, VoidCallback setState) {
   final reduceLuxColor = Pref.reduceLuxColor;
   showDialog(
     context: context,

@@ -65,6 +65,7 @@ class _ZonePageState extends State<ZonePage>
                   final item = response[index];
                   if (item is HotVideoItemModel) {
                     return VideoCardH(
+                      key: ValueKey(item.bvid),
                       videoItem: item,
                       onRemove: () => controller.loadingState
                         ..value.data!.removeAt(index)

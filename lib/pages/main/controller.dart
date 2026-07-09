@@ -59,6 +59,7 @@ class MainController extends GetxController
   final useSideBar = Pref.useSideBar;
   final mainTabBarView = Pref.mainTabBarView;
   late final optTabletNav = Pref.optTabletNav;
+  late final showNavBarLabel = Pref.showNavBarLabel.obs;
 
   late final RxBool directExitOnBack = Pref.directExitOnBack.obs;
   late bool showTrayIcon = Pref.showTrayIcon;
@@ -275,10 +276,7 @@ class MainController extends GetxController
     } else {
       Get.to(
         const Material(
-          child: ViewSafeArea(
-            top: true,
-            child: MinePage(showBackBtn: true),
-          ),
+          child: ViewSafeArea(top: true, child: MinePage(showBackBtn: true)),
         ),
       );
     }

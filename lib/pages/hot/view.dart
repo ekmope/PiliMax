@@ -40,16 +40,8 @@ class _HotPageState extends State<HotPage>
         spacing: 4,
         mainAxisSize: MainAxisSize.min,
         children: [
-          NetworkImgLayer(
-            width: 35,
-            height: 35,
-            type: .emote,
-            src: iconUrl,
-          ),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 12),
-          ),
+          NetworkImgLayer(width: 35, height: 35, type: .emote, src: iconUrl),
+          Text(title, style: const TextStyle(fontSize: 12)),
         ],
       ),
     );
@@ -114,9 +106,7 @@ class _HotPageState extends State<HotPage>
             ),
           SliverPadding(
             padding: const EdgeInsets.only(top: 7, bottom: 100),
-            sliver: Obx(
-              () => _buildBody(controller.loadingState.value),
-            ),
+            sliver: Obx(() => _buildBody(controller.loadingState.value)),
           ),
         ],
       ),
@@ -135,6 +125,7 @@ class _HotPageState extends State<HotPage>
                     controller.onLoadMore();
                   }
                   return VideoCardH(
+                    key: ValueKey(response[index].bvid),
                     videoItem: response[index],
                     onRemove: () => controller.loadingState
                       ..value.data!.removeAt(index)

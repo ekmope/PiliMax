@@ -44,6 +44,7 @@ class _RelatedVideoPanelState extends State<RelatedVideoPanel> with GridMixin {
                 gridDelegate: gridDelegate,
                 itemBuilder: (context, index) {
                   return VideoCardH(
+                    key: ValueKey(response[index].bvid),
                     videoItem: response[index],
                     onRemove: () => _relatedController.loadingState
                       ..value.data!.removeAt(index)

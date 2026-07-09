@@ -91,14 +91,16 @@ class _SearchVideoPanelState
                   padding: WidgetStatePropertyAll(EdgeInsets.zero),
                 ),
                 onPressed: () => controller.onShowFilterDialog(context),
-                icon: Obx(() => Icon(
-                  controller.includeKeywords.isNotEmpty ||
-                          controller.excludeKeywords.isNotEmpty
-                      ? Icons.filter_list
-                      : Icons.filter_list_off,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                )),
+                icon: Obx(
+                  () => Icon(
+                    controller.includeKeywords.isNotEmpty ||
+                            controller.excludeKeywords.isNotEmpty
+                        ? Icons.filter_list
+                        : Icons.filter_list_off,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
               ),
             ),
           ],
@@ -116,6 +118,7 @@ class _SearchVideoPanelState
           controller.onLoadMore();
         }
         return VideoCardH(
+          key: ValueKey(list[index].bvid),
           videoItem: list[index],
           onRemove: () => controller.loadingState
             ..value.data!.removeAt(index)

@@ -26,16 +26,17 @@ class SearchArchiveGrpc extends StatelessWidget {
   const SearchArchiveGrpc({
     super.key,
     required this.item,
+    required this.index,
   });
 
   final Arc item;
+  final int index;
 
   @override
   Widget build(BuildContext context) {
     final arc = item.archive;
     final bvid = IdUtils.av2bv(arc.aid.toInt());
-    final heroTag =
-        'member-search-$bvid-${arc.firstCid}-${identityHashCode(item)}';
+    final heroTag = 'member-search-$bvid-${arc.firstCid}-$index';
     final regTitle = Em.regTitle(arc.title);
     final titleStr = regTitle.map((e) => e.text).join();
     void onLongPress() => imageSaveDialog(

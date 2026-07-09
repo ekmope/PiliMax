@@ -32,7 +32,7 @@ class FavVideoCardH extends StatelessWidget {
   bool get isSort => ctr == null;
   String get _heroTag =>
       'fav-video-${item.bvid ?? item.id}-${item.ugc?.firstCid}-'
-      '${identityHashCode(item)}';
+      '${index ?? identityHashCode(item)}';
 
   @override
   Widget build(BuildContext context) {

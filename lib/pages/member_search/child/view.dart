@@ -78,7 +78,14 @@ class _MemberSearchChildPageState extends State<MemberSearchChildPage>
                     if (index == response.length - 1) {
                       _controller.onLoadMore();
                     }
-                    return SearchArchiveGrpc(item: response[index]);
+                    final item = response[index];
+                    return SearchArchiveGrpc(
+                      key: ValueKey(
+                        '${item.archive.aid}-${item.archive.firstCid}-$index',
+                      ),
+                      item: item,
+                      index: index,
+                    );
                   },
                   itemCount: response.length,
                 ),

@@ -13,6 +13,7 @@ import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -40,6 +41,7 @@ class _VideoCardHState extends State<VideoCardH> {
   bool _isHovering = false;
 
   HorizontalVideoModel get videoItem => widget.videoItem;
+  String get _heroTag => Utils.makeHeroTag(videoItem.cid ?? videoItem.aid ?? videoItem.bvid);
   VoidCallback? get onTap => widget.onTap;
   VoidCallback? get onRemove => widget.onRemove;
 
@@ -111,6 +113,7 @@ class _VideoCardHState extends State<VideoCardH> {
                         cover: videoItem.cover,
                         title: videoItem.title,
                         dimension: dimension,
+                        heroTag: _heroTag,
                       );
                       final String? key =
                           videoItem.bvid ?? videoItem.aid?.toString();
@@ -139,10 +142,13 @@ class _VideoCardHState extends State<VideoCardH> {
                           return Stack(
                             clipBehavior: .none,
                             children: [
-                              NetworkImgLayer(
-                                src: videoItem.cover,
-                                width: maxWidth,
-                                height: maxHeight,
+                              Hero(
+                                tag: _heroTag,
+                                child: NetworkImgLayer(
+                                  src: videoItem.cover,
+                                  width: maxWidth,
+                                  height: maxHeight,
+                                ),
                               ),
                               if (videoItem.badge case final badge?)
                                 PBadge(

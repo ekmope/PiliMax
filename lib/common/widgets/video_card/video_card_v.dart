@@ -17,6 +17,7 @@ import 'package:PiliMax/utils/extension/dimension_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -42,6 +43,7 @@ class _VideoCardVState extends State<VideoCardV> {
   bool _isHovering = false;
 
   BaseRcmdVideoItemModel get videoItem => widget.videoItem;
+  String get _heroTag => Utils.makeHeroTag(videoItem.cid ?? videoItem.aid ?? videoItem.bvid);
   VoidCallback? get onRemove => widget.onRemove;
 
   String? get _previewPubdateText {
@@ -90,6 +92,7 @@ class _VideoCardVState extends State<VideoCardV> {
             title: videoItem.title,
             isVertical: isVertical,
             dimension: dimension,
+            heroTag: _heroTag,
           );
         }
         break;
@@ -150,11 +153,14 @@ class _VideoCardVState extends State<VideoCardV> {
                         return Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            NetworkImgLayer(
-                              src: videoItem.cover,
-                              width: maxWidth,
-                              height: maxHeight,
-                              type: .emote,
+                            Hero(
+                              tag: _heroTag,
+                              child: NetworkImgLayer(
+                                src: videoItem.cover,
+                                width: maxWidth,
+                                height: maxHeight,
+                                type: .emote,
+                              ),
                             ),
                             if (videoItem.duration > 0)
                               PBadge(

@@ -51,10 +51,15 @@ class _VideoCardVState extends State<VideoCardV> {
 
   BaseRcmdVideoItemModel get videoItem => widget.videoItem;
   Object? get _heroKey => videoItem.bvid ?? videoItem.aid ?? videoItem.cid;
+  Object? get _widgetHeroKey {
+    final key = widget.key;
+    return key is ValueKey<Object?> ? key.value : key;
+  }
+
   String get _heroTag =>
       widget.heroTag ??
       _cachedHeroTag ??=
-          'video-card-v-$_heroKey-${identityHashCode(this)}';
+          'video-card-v-$_heroKey-${_widgetHeroKey ?? identityHashCode(this)}';
   VoidCallback? get onRemove => widget.onRemove;
 
   @override

@@ -47,10 +47,15 @@ class _VideoCardHState extends State<VideoCardH> {
 
   HorizontalVideoModel get videoItem => widget.videoItem;
   Object? get _heroKey => videoItem.bvid ?? videoItem.aid ?? videoItem.cid;
+  Object? get _widgetHeroKey {
+    final key = widget.key;
+    return key is ValueKey<Object?> ? key.value : key;
+  }
+
   String get _heroTag =>
       widget.heroTag ??
       _cachedHeroTag ??=
-          'video-card-h-$_heroKey-${identityHashCode(this)}';
+          'video-card-h-$_heroKey-${_widgetHeroKey ?? identityHashCode(this)}';
   VoidCallback? get onTap => widget.onTap;
   ValueChanged<String>? get onTapWithHeroTag => widget.onTapWithHeroTag;
   VoidCallback? get onRemove => widget.onRemove;

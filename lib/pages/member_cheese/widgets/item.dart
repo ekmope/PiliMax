@@ -26,7 +26,7 @@ class MemberCheeseItem extends StatelessWidget {
 
   String get _heroTag =>
       '$heroScope-${item.seasonId ?? item.cover}-'
-      '${index ?? identityHashCode(item)}';
+      '${index ?? item.ctime ?? item.title ?? item.cover}';
 
   @override
   Widget build(BuildContext context) {

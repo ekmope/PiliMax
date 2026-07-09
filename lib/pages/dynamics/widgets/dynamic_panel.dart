@@ -66,7 +66,7 @@ class _DynamicPanelState extends State<DynamicPanel> {
   ValueChanged<int>? get onSetReplySubject => widget.onSetReplySubject;
   ValueChanged<DynamicItemModel>? get onUpdate => widget.onUpdate;
   Object get _videoHeroOwnerKey =>
-      '${widget.heroScope}-${widget.index ?? identityHashCode(this)}';
+      '${widget.heroScope}-${widget.index ?? item.idStr ?? item.type}';
 
   String? get _videoHeroTag =>
       _cachedVideoHeroTag ??= makeDynamicVideoHeroTag(

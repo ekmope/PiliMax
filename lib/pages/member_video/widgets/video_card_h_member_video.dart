@@ -36,7 +36,8 @@ class VideoCardHMemberVideo extends StatelessWidget {
 
   String get _heroTag =>
       '$heroScope-${videoItem.bvid ?? videoItem.param ?? videoItem.cover}-'
-      '${videoItem.cid}-${index ?? identityHashCode(videoItem)}';
+      '${videoItem.cid}-'
+      '${index ?? videoItem.publishTimeText ?? videoItem.title}';
 
   @override
   Widget build(BuildContext context) {

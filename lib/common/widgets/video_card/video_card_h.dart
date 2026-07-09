@@ -178,6 +178,7 @@ class _VideoCardHState extends State<VideoCardH> {
                               VideoCoverHero(
                                 tag: _heroTag,
                                 child: NetworkImgLayer(
+                                  type: .emote,
                                   src: videoItem.cover,
                                   width: maxWidth,
                                   height: maxHeight,

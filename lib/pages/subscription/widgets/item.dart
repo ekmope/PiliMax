@@ -75,6 +75,7 @@ class SubItem extends StatelessWidget {
                         VideoCoverHero(
                           tag: heroTag,
                           child: NetworkImgLayer(
+                            type: .emote,
                             src: item.cover,
                             width: maxWidth,
                             height: maxHeight,

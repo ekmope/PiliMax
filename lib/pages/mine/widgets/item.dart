@@ -53,6 +53,7 @@ class FavFolderItem extends StatelessWidget {
               tag: heroTag,
               borderRadius: const BorderRadius.all(Radius.circular(12)),
               child: NetworkImgLayer(
+                type: .emote,
                 src: item.cover,
                 width: 180,
                 height: 110,

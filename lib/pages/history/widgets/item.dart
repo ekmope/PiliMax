@@ -152,6 +152,7 @@ class HistoryItem extends StatelessWidget {
                             VideoCoverHero(
                               tag: _heroTag,
                               child: NetworkImgLayer(
+                                type: .emote,
                                 src: cover,
                                 width: maxWidth,
                                 height: maxHeight,

@@ -181,6 +181,7 @@ class DetailItem extends StatelessWidget {
                                       : null,
                                 )
                               : NetworkImgLayer(
+                                  type: .emote,
                                   src: entry.cover,
                                   width: maxWidth,
                                   height: maxHeight,

@@ -112,6 +112,7 @@ class FavVideoCardH extends StatelessWidget {
                         VideoCoverHero(
                           tag: _heroTag,
                           child: NetworkImgLayer(
+                            type: .emote,
                             src: item.cover,
                             width: maxWidth,
                             height: maxHeight,

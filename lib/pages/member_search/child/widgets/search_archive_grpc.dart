@@ -94,6 +94,7 @@ class SearchArchiveGrpc extends StatelessWidget {
                             VideoCoverHero(
                               tag: heroTag,
                               child: NetworkImgLayer(
+                                type: .emote,
                                 src: arc.pic,
                                 width: maxWidth,
                                 height: maxHeight,

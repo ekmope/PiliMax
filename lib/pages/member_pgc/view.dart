@@ -85,8 +85,14 @@ class _MemberBangumiState extends State<MemberBangumi>
                   if (index == response.length - 1) {
                     _controller.onLoadMore();
                   }
+                  final item = response[index];
                   return PgcCardVMemberPgc(
-                    item: response[index],
+                    key: ValueKey(
+                      '${item.param ?? item.cover}-$index',
+                    ),
+                    item: item,
+                    index: index,
+                    heroScope: 'member-pgc',
                   );
                 },
                 itemCount: response.length,

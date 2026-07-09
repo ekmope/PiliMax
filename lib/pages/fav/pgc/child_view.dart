@@ -185,8 +185,13 @@ class _FavPgcChildPageState extends State<FavPgcChildPage>
                   }
                   final item = response[index];
                   return FavPgcItem(
+                    key: ValueKey(
+                      '${item.seasonId ?? item.cover}-$index',
+                    ),
                     item: item,
+                    index: index,
                     ctr: _favPgcController,
+                    heroScope: 'fav-pgc-${widget.type}',
                     onSelect: () => _favPgcController.onSelect(item),
                     onUpdateStatus: () => showPgcFollowDialog(
                       context: context,

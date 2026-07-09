@@ -15,18 +15,22 @@ class FavPgcItem extends StatelessWidget {
   const FavPgcItem({
     super.key,
     required this.item,
+    required this.index,
     required this.ctr,
     required this.onSelect,
     required this.onUpdateStatus,
+    this.heroScope = 'fav-pgc',
   });
 
   final FavPgcItemModel item;
+  final int index;
   final MultiSelectBase ctr;
   final VoidCallback onSelect;
   final VoidCallback onUpdateStatus;
+  final String heroScope;
 
   String get _heroTag =>
-      'fav-pgc-${item.seasonId ?? item.cover}-${identityHashCode(item)}';
+      '$heroScope-${item.seasonId ?? item.cover}-$index';
 
   void onLongPress() {
     if (!ctr.enableMultiSelect.value) {

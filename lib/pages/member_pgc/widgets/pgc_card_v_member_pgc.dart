@@ -12,12 +12,16 @@ class PgcCardVMemberPgc extends StatelessWidget {
   const PgcCardVMemberPgc({
     super.key,
     required this.item,
+    required this.index,
+    required this.heroScope,
   });
 
   final SpaceArchiveItem item;
+  final int index;
+  final String heroScope;
 
   String get _heroTag =>
-      'member-pgc-${item.param ?? item.cover}-${identityHashCode(item)}';
+      '$heroScope-${item.param ?? item.cover}-$index';
 
   @override
   Widget build(BuildContext context) {

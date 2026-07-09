@@ -234,8 +234,14 @@ class _MemberHomeState extends State<MemberHome>
                       sliver: SliverGrid.builder(
                         gridDelegate: gridDelegatePgc,
                         itemBuilder: (context, index) {
+                          final item = res.season!.item![index];
                           return PgcCardVMemberPgc(
-                            item: res.season!.item![index],
+                            key: ValueKey(
+                              '${item.param ?? item.cover}-$index',
+                            ),
+                            item: item,
+                            index: index,
+                            heroScope: 'member-home-pgc',
                           );
                         },
                         itemCount: min(

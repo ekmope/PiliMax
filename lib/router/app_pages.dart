@@ -76,7 +76,6 @@ import 'package:PiliMax/pages/sponsor_block/view.dart';
 import 'package:PiliMax/pages/subscription/view.dart';
 import 'package:PiliMax/pages/subscription_detail/view.dart';
 import 'package:PiliMax/pages/video/view.dart';
-import 'package:PiliMax/pages/video/video_detail_transition.dart';
 import 'package:PiliMax/pages/webdav/view.dart';
 import 'package:PiliMax/pages/webview/view.dart';
 import 'package:PiliMax/pages/whisper/view.dart';
@@ -95,8 +94,7 @@ class Routes {
     GetPage(
       name: '/videoV',
       page: () => const VideoDetailPageV(),
-      customTransition: const VideoDetailTransition(),
-      transitionDuration: const Duration(milliseconds: 320),
+      transition: Transition.native,
     ),
     //
     GetPage(name: '/webview', page: () => const WebviewPage()),

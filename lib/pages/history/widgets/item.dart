@@ -17,6 +17,7 @@ import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -26,6 +27,9 @@ class HistoryItem extends StatelessWidget {
   final HistoryItemModel item;
   final MultiSelectBase ctr;
   final void Function(int kid, String business) onDelete;
+  late final String _heroTag = Utils.makeHeroTag(
+    '${item.history.business}-${item.history.oid}-${item.history.cid}-${item.history.page}',
+  );
 
   const HistoryItem({
     super.key,
@@ -110,6 +114,7 @@ class HistoryItem extends StatelessWidget {
                       cover: item.cover,
                       title: item.title,
                       dimension: dimension,
+                      heroTag: _heroTag,
                     );
                   }
                 }
@@ -136,12 +141,17 @@ class HistoryItem extends StatelessWidget {
                         return Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            NetworkImgLayer(
-                              src: item.cover?.isNotEmpty == true
-                                  ? item.cover
-                                  : item.covers?.firstOrNull ?? '',
-                              width: maxWidth,
-                              height: maxHeight,
+                            Hero(
+                              tag: _heroTag,
+                              placeholderBuilder:
+                                  (context, heroSize, child) => child,
+                              child: NetworkImgLayer(
+                                src: item.cover?.isNotEmpty == true
+                                    ? item.cover
+                                    : item.covers?.firstOrNull ?? '',
+                                width: maxWidth,
+                                height: maxHeight,
+                              ),
                             ),
                             if (hasDuration)
                               PBadge(

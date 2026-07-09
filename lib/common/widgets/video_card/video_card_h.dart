@@ -39,11 +39,23 @@ class VideoCardH extends StatefulWidget {
 
 class _VideoCardHState extends State<VideoCardH> {
   bool _isHovering = false;
+  String? _cachedHeroTag;
 
   HorizontalVideoModel get videoItem => widget.videoItem;
-  String get _heroTag => Utils.makeHeroTag(videoItem.cid ?? videoItem.aid ?? videoItem.bvid);
+  String get _heroTag =>
+      _cachedHeroTag ??= Utils.makeHeroTag(
+        videoItem.cid ?? videoItem.aid ?? videoItem.bvid ?? identityHashCode(this),
+      );
   VoidCallback? get onTap => widget.onTap;
   VoidCallback? get onRemove => widget.onRemove;
+
+  @override
+  void didUpdateWidget(covariant VideoCardH oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoItem != widget.videoItem) {
+      _cachedHeroTag = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

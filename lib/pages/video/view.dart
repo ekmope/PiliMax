@@ -94,14 +94,12 @@ class VideoDetailPageV extends StatefulWidget {
 }
 
 class _VideoDetailPageVState extends State<VideoDetailPageV>
-    with RouteAware, RouteAwareMixin, WidgetsBindingObserver, SingleTickerProviderStateMixin {
+    with RouteAware, RouteAwareMixin, WidgetsBindingObserver {
   final heroTag = Get.arguments['heroTag'];
 
   late final VideoDetailController videoDetailController;
   late final VideoReplyController _videoReplyController;
   PlPlayerController? plPlayerController;
-  late final AnimationController _pageFadeController;
-  late final Animation<double> _pageFadeAnimation;
 
   // 标志位：是否正在进入 PiP 模式（用于防止 dispose/didPushNext 时清理播放器状态）
   bool _isEnteringPipMode = false;
@@ -187,15 +185,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
   @override
   void initState() {
     super.initState();
-    _pageFadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 260),
-    );
-    _pageFadeAnimation = CurvedAnimation(
-      parent: _pageFadeController,
-      curve: Curves.easeOutCubic,
-    );
-    _pageFadeController.forward();
     VideoStackManager.increment(); // 追踪视频页面层级
     final bool fromPip = Get.arguments['fromPip'] ?? false;
     final String? targetContextKey = PipOverlayService.contextKeyFromArgs(
@@ -864,7 +853,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       }
     }
     removeObserverMobile(this);
-    _pageFadeController.dispose();
 
     super.dispose();
   }
@@ -1162,15 +1150,26 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       videoDetailController.removeSafeArea ||
       (isWindowMode && isFullScreen && !isPortrait);
 
+  Widget _routeFadeTransition({required Widget child}) {
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation == null) {
+      return child;
+    }
+    return FadeTransition(
+      opacity: animation.drive(
+        CurveTween(curve: const Interval(0.12, 1, curve: Curves.easeOutCubic)),
+      ),
+      child: child,
+    );
+  }
+
   Widget get childWhenDisabled {
     return Obx(() {
       final isFullScreen = this.isFullScreen;
-      return FadeTransition(
-        opacity: _pageFadeAnimation,
-        child: Scaffold(
-          backgroundColor: themeData.scaffoldBackgroundColor,
-          resizeToAvoidBottomInset: false,
-          appBar: removeAppBar(isFullScreen)
+      return Scaffold(
+        backgroundColor: themeData.scaffoldBackgroundColor,
+        resizeToAvoidBottomInset: false,
+        appBar: removeAppBar(isFullScreen)
             ? null
             : PreferredSize(
                 preferredSize: const Size.fromHeight(0),
@@ -1198,9 +1197,9 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                   );
                 }),
               ),
-          body: ExtendedNestedScrollView(
-            key: videoDetailController.scrollKey,
-            controller: videoDetailController.scrollCtr,
+        body: ExtendedNestedScrollView(
+          key: videoDetailController.scrollKey,
+          controller: videoDetailController.scrollCtr,
           onlyOneScrollInBody: true,
           pinnedHeaderSliverHeightBuilder: () {
             double pinnedHeight = this.isFullScreen || !isPortrait
@@ -1418,31 +1417,32 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
               ),
             ];
           },
-          body: Scaffold(
-            key: videoDetailController.childKey,
-            resizeToAvoidBottomInset: false,
-            backgroundColor: Colors.transparent,
-            body: Column(
-              children: [
-                buildTabBar(onTap: videoDetailController.animToTop),
-                Expanded(
-                  child: tabBarView(
-                    controller: videoDetailController.tabCtr,
-                    children: [
-                      videoIntro(
-                        isHorizontal: false,
-                        needCtr: false,
-                        isNested: true,
-                      ),
-                      if (videoDetailController.showReply)
-                        videoReplyPanel(isNested: true),
-                      if (_shouldShowSeasonPanel) seasonPanel,
-                    ],
+          body: _routeFadeTransition(
+            child: Scaffold(
+              key: videoDetailController.childKey,
+              resizeToAvoidBottomInset: false,
+              backgroundColor: Colors.transparent,
+              body: Column(
+                children: [
+                  buildTabBar(onTap: videoDetailController.animToTop),
+                  Expanded(
+                    child: tabBarView(
+                      controller: videoDetailController.tabCtr,
+                      children: [
+                        videoIntro(
+                          isHorizontal: false,
+                          needCtr: false,
+                          isNested: true,
+                        ),
+                        if (videoDetailController.showReply)
+                          videoReplyPanel(isNested: true),
+                        if (_shouldShowSeasonPanel) seasonPanel,
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           ),
         ),
       );

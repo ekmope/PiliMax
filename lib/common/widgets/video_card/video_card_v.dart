@@ -41,10 +41,22 @@ class VideoCardV extends StatefulWidget {
 
 class _VideoCardVState extends State<VideoCardV> {
   bool _isHovering = false;
+  String? _cachedHeroTag;
 
   BaseRcmdVideoItemModel get videoItem => widget.videoItem;
-  String get _heroTag => Utils.makeHeroTag(videoItem.cid ?? videoItem.aid ?? videoItem.bvid);
+  String get _heroTag =>
+      _cachedHeroTag ??= Utils.makeHeroTag(
+        videoItem.cid ?? videoItem.aid ?? videoItem.bvid ?? identityHashCode(this),
+      );
   VoidCallback? get onRemove => widget.onRemove;
+
+  @override
+  void didUpdateWidget(covariant VideoCardV oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoItem != widget.videoItem) {
+      _cachedHeroTag = null;
+    }
+  }
 
   String? get _previewPubdateText {
     if (videoItem.pubdate != null) {

@@ -5,6 +5,7 @@ import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/select_mask.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:PiliMax/models/common/badge_type.dart';
@@ -29,6 +30,9 @@ class FavVideoCardH extends StatelessWidget {
     : assert(ctr == null || index != null);
 
   bool get isSort => ctr == null;
+  String get _heroTag =>
+      'fav-video-${item.bvid ?? item.id}-${item.ugc?.firstCid}-'
+      '${identityHashCode(item)}';
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +85,7 @@ class FavVideoCardH extends StatelessWidget {
                     );
                     break;
                   default:
-                    ctr!.onViewFav(item, index);
+                    ctr!.onViewFav(item, index, heroTag: _heroTag);
                     break;
                 }
               },
@@ -104,10 +108,13 @@ class FavVideoCardH extends StatelessWidget {
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        NetworkImgLayer(
-                          src: item.cover,
-                          width: maxWidth,
-                          height: maxHeight,
+                        VideoCoverHero(
+                          tag: _heroTag,
+                          child: NetworkImgLayer(
+                            src: item.cover,
+                            width: maxWidth,
+                            height: maxHeight,
+                          ),
                         ),
                         PBadge(
                           text: DurationUtils.formatDuration(item.duration),

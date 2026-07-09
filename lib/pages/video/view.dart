@@ -2304,15 +2304,18 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                 child: Obx(
                   () => Hero(
                     tag: heroTag,
-                    child: NetworkImgLayer(
-                      type: .emote,
-                      quality: 60,
-                      src: videoDetailController.cover.value,
-                      width: width,
-                      height: height,
-                      cacheWidth: true,
-                      getPlaceHolder: () =>
-                          Center(child: Image.asset(Assets.loading)),
+                    child: ClipRRect(
+                      borderRadius: Style.mdRadius,
+                      child: NetworkImgLayer(
+                        type: .emote,
+                        quality: 60,
+                        src: videoDetailController.cover.value,
+                        width: width,
+                        height: height,
+                        cacheWidth: true,
+                        getPlaceHolder: () =>
+                            Center(child: Image.asset(Assets.loading)),
+                      ),
                     ),
                   ),
                 ),

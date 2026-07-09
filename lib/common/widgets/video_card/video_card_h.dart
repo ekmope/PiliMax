@@ -144,6 +144,7 @@ class _VideoCardHState extends State<VideoCardH> {
                             children: [
                               Hero(
                                 tag: _heroTag,
+                                placeholderBuilder: (context, heroSize, child) => child,
                                 child: NetworkImgLayer(
                                   src: videoItem.cover,
                                   width: maxWidth,

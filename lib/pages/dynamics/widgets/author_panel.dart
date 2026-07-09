@@ -18,6 +18,8 @@ import 'package:PiliMax/pages/setting/dynamics_setting.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/color_utils.dart';
 import 'package:PiliMax/utils/date_utils.dart';
+import 'package:PiliMax/utils/download_dialog_utils.dart';
+import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
@@ -34,6 +36,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class AuthorPanel extends StatelessWidget {
   final DynamicItemModel item;
@@ -59,6 +62,35 @@ class AuthorPanel extends StatelessWidget {
     this.onEdit,
     this.onSetReplySubject,
   });
+
+  int _durationTextToMillis(String? durationText) {
+    try {
+      return DurationUtils.parseDuration(durationText) * 1000;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  ({int? aid, String? bvid, String? cover, String? title, int totalTimeMilli})?
+  _downloadInfoFromMajor(DynamicMajorModel? major) {
+    final archive = major?.archive ?? major?.ugcSeason ?? major?.pgc;
+    if (archive == null) {
+      return null;
+    }
+    return (
+      aid: archive.aid,
+      bvid: archive.bvid,
+      cover: archive.cover,
+      title: archive.title,
+      totalTimeMilli: _durationTextToMillis(archive.durationText),
+    );
+  }
+
+  ({int? aid, String? bvid, String? cover, String? title, int totalTimeMilli})?
+  _downloadInfo() {
+    return _downloadInfoFromMajor(item.modules.moduleDynamic?.major) ??
+        _downloadInfoFromMajor(item.orig?.modules.moduleDynamic?.major);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -261,21 +293,8 @@ class AuthorPanel extends StatelessWidget {
   }
 
   void morePanel(BuildContext context) {
-    String? bvid;
-    try {
-      String? getBvid(String? type, DynamicMajorModel? major) => switch (type) {
-        'DYNAMIC_TYPE_AV' => major?.archive?.bvid,
-        'DYNAMIC_TYPE_UGC_SEASON' => major?.ugcSeason?.bvid,
-        _ => null,
-      };
-      bvid = getBvid(item.type, item.modules.moduleDynamic?.major);
-      if (bvid == null && item.orig != null) {
-        bvid = getBvid(
-          item.orig!.type,
-          item.orig!.modules.moduleDynamic?.major,
-        );
-      }
-    } catch (_) {}
+    final downloadInfo = _downloadInfo();
+    final bvid = downloadInfo?.bvid;
 
     showModalBottomSheet(
       context: context,
@@ -320,6 +339,25 @@ class AuthorPanel extends StatelessWidget {
                   minLeadingWidth: 0,
                   leading: const Icon(Icons.watch_later_outlined, size: 19),
                   title: Text('稍后再看', style: theme.textTheme.titleSmall),
+                ),
+              if (Pref.showMoreDownloadButtons && downloadInfo != null)
+                ListTile(
+                  onTap: () {
+                    Get.back();
+                    DownloadDialogUtils.confirmAndDownloadByIdentifiers(
+                      context,
+                      aid: downloadInfo.aid,
+                      bvid: downloadInfo.bvid,
+                      totalTimeMilli: downloadInfo.totalTimeMilli,
+                      title: downloadInfo.title,
+                      cover: downloadInfo.cover,
+                      ownerId: moduleAuthor.mid,
+                      ownerName: moduleAuthor.name,
+                    );
+                  },
+                  minLeadingWidth: 0,
+                  leading: const Icon(MdiIcons.folderDownloadOutline, size: 19),
+                  title: Text('离线缓存', style: theme.textTheme.titleSmall!),
                 ),
               ListTile(
                 onTap: () {

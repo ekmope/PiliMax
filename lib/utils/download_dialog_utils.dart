@@ -1,8 +1,12 @@
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
 
 abstract final class DownloadDialogUtils {
   static Future<VideoQuality?> showDownloadConfirmDialog(
@@ -96,5 +100,65 @@ abstract final class DownloadDialogUtils {
     );
 
     return confirmed == true ? quality : null;
+  }
+
+  static Future<void> confirmAndDownloadByIdentifiers(
+    BuildContext context, {
+    required String? bvid,
+    required int totalTimeMilli,
+    int? cid,
+    int? aid,
+    int? part,
+    String? title,
+    String? cover,
+    int? ownerId,
+    String? ownerName,
+  }) async {
+    final quality = await showDownloadConfirmDialog(context);
+    if (quality == null) {
+      return;
+    }
+
+    final validBvid = bvid?.trim();
+    if (validBvid == null || validBvid.isEmpty) {
+      SmartDialog.showToast('无法解析视频 bvid');
+      return;
+    }
+    if (totalTimeMilli <= 0) {
+      SmartDialog.showToast('视频时长错误');
+      return;
+    }
+
+    try {
+      SmartDialog.showLoading(msg: '任务创建中');
+      final resolvedCid =
+          cid ?? await SearchHttp.ab2c(aid: aid, bvid: validBvid, part: part);
+      if (resolvedCid == null) {
+        SmartDialog.dismiss();
+        SmartDialog.showToast('无法解析播放分片 cid');
+        return;
+      }
+
+      await Get.find<DownloadService>().downloadByIdentifiers(
+        cid: resolvedCid,
+        bvid: validBvid,
+        totalTimeMilli: totalTimeMilli,
+        aid: aid,
+        title: title,
+        cover: cover,
+        ownerId: ownerId,
+        ownerName: ownerName,
+        quality: quality,
+      );
+      SmartDialog.dismiss();
+      SmartDialog.showToast('已加入下载队列');
+    } catch (e) {
+      SmartDialog.dismiss();
+      SmartDialog.showToast(e.toString());
+    }
+  }
+
+  static Future<VideoQuality?> confirmDownloadQuality(BuildContext context) {
+    return showDownloadConfirmDialog(context);
   }
 }

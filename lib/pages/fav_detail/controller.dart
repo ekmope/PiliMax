@@ -1,6 +1,7 @@
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/fav_order_type.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models_new/fav/fav_detail/data.dart';
@@ -10,13 +11,15 @@ import 'package:PiliMax/pages/common/common_list_controller.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/pages/common/multi_select/multi_select_controller.dart';
 import 'package:PiliMax/pages/fav_sort/view.dart';
+import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/download_dialog_utils.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:flutter/widgets.dart' show Text, ValueChanged;
+import 'package:flutter/widgets.dart' show BuildContext, Text, ValueChanged;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -210,6 +213,68 @@ class FavDetailController
         Get.to(FavSortPage(favDetailController: this));
       }
     }
+  }
+
+  Future<void> batchDownloadSelected(BuildContext context) async {
+    final selected = allChecked.toList();
+    if (selected.isEmpty) {
+      SmartDialog.showToast('未选择条目');
+      return;
+    }
+
+    final quality = await DownloadDialogUtils.confirmDownloadQuality(context);
+    if (quality == null) {
+      return;
+    }
+
+    var added = 0;
+    var skipped = 0;
+    SmartDialog.showLoading(msg: '正在加入下载队列');
+    try {
+      final downloadService = Get.find<DownloadService>();
+      for (final item in selected) {
+        try {
+          final bvid = item.bvid?.trim();
+          final duration = item.duration;
+          if (bvid == null ||
+              bvid.isEmpty ||
+              duration == null ||
+              duration <= 0 ||
+              item.type != 2) {
+            skipped++;
+            continue;
+          }
+
+          final cid = item.ugc?.firstCid ?? await SearchHttp.ab2c(bvid: bvid);
+          if (cid == null) {
+            skipped++;
+            continue;
+          }
+
+          await downloadService.downloadByIdentifiers(
+            cid: cid,
+            bvid: bvid,
+            totalTimeMilli: duration * 1000,
+            aid: item.id,
+            title: item.title,
+            cover: item.cover,
+            ownerId: item.upper?.mid,
+            ownerName: item.upper?.name,
+            quality: quality,
+          );
+          added++;
+        } catch (_) {
+          skipped++;
+        }
+      }
+    } finally {
+      SmartDialog.dismiss();
+    }
+
+    SmartDialog.showToast(
+      '已加入 $added 个缓存任务${skipped > 0 ? '，跳过 $skipped 个' : ''}',
+    );
+    handleSelect(checked: false);
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models/common/later_view_type.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
@@ -11,8 +12,10 @@ import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/pages/common/multi_select/multi_select_controller.dart';
 import 'package:PiliMax/pages/later/base_controller.dart';
 import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/download_dialog_utils.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/services/download/download_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -146,6 +149,69 @@ mixin BaseLaterController
         ],
       ),
     );
+  }
+
+  Future<void> batchDownloadSelected(BuildContext context) async {
+    final selected = allChecked.toList();
+    if (selected.isEmpty) {
+      SmartDialog.showToast('未选择条目');
+      return;
+    }
+
+    final quality = await DownloadDialogUtils.confirmDownloadQuality(context);
+    if (quality == null) {
+      return;
+    }
+
+    var added = 0;
+    var skipped = 0;
+    SmartDialog.showLoading(msg: '正在加入下载队列');
+    try {
+      final downloadService = Get.find<DownloadService>();
+      for (final item in selected) {
+        try {
+          final bvid = _validBvid(item);
+          final duration = item.duration;
+          if (bvid == null ||
+              duration == null ||
+              duration <= 0 ||
+              item.isPgc == true ||
+              item.isPugv == true) {
+            skipped++;
+            continue;
+          }
+
+          final cid =
+              item.cid ?? await SearchHttp.ab2c(aid: item.aid, bvid: bvid);
+          if (cid == null) {
+            skipped++;
+            continue;
+          }
+
+          await downloadService.downloadByIdentifiers(
+            cid: cid,
+            bvid: bvid,
+            totalTimeMilli: duration * 1000,
+            aid: item.aid,
+            title: item.title,
+            cover: item.pic,
+            ownerId: item.owner?.mid,
+            ownerName: item.owner?.name,
+            quality: quality,
+          );
+          added++;
+        } catch (_) {
+          skipped++;
+        }
+      }
+    } finally {
+      SmartDialog.dismiss();
+    }
+
+    SmartDialog.showToast(
+      '已加入 $added 个缓存任务${skipped > 0 ? '，跳过 $skipped 个' : ''}',
+    );
+    handleSelect(checked: false);
   }
 }
 

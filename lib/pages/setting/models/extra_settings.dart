@@ -153,6 +153,13 @@ List<SettingsModel> get extraSettings => [
     defaultVal: true,
   ),
   const SwitchModel(
+    title: '显示更多离线缓存按钮',
+    subtitle: '在部分列表和动态菜单中显示离线缓存入口',
+    leading: Icon(MdiIcons.folderDownloadOutline),
+    setKey: SettingBoxKey.showMoreDownloadButtons,
+    defaultVal: false,
+  ),
+  const SwitchModel(
     title: '显示视频评论',
     leading: Icon(MdiIcons.commentTextOutline),
     setKey: SettingBoxKey.showVideoReply,

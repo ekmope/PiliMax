@@ -64,93 +64,91 @@ class _LaterPageState extends State<LaterPage>
 
   @override
   Widget build(BuildContext context) {
-    return Obx(
-      () {
-        final enableMultiSelect = _baseCtr.enableMultiSelect.value;
-        return popScope(
-          canPop: !enableMultiSelect,
-          onPopInvokedWithResult: (didPop, result) {
-            if (enableMultiSelect) {
-              currCtr().handleSelect();
-            }
-          },
-          child: Scaffold(
-            resizeToAvoidBottomInset: false,
-            appBar: _buildAppbar(enableMultiSelect),
-            floatingActionButtonLocation: const NoRightMarginFabLocation(),
-            floatingActionButton: Padding(
-              padding: const .only(right: kFloatingActionButtonMargin),
-              child: Obx(
-                () => currCtr().loadingState.value.isSuccess
-                    ? AnimatedSlide(
-                        offset: _baseCtr.isPlayAll.value
-                            ? Offset.zero
-                            : const Offset(0.75, 0),
-                        duration: const Duration(milliseconds: 120),
-                        child: GestureDetector(
-                          onHorizontalDragDown: (details) =>
-                              _baseCtr.dx = details.localPosition.dx,
-                          onHorizontalDragStart: (details) =>
-                              _baseCtr.setIsPlayAll(
-                                details.localPosition.dx < _baseCtr.dx,
-                              ),
-                          child: FloatingActionButton.extended(
-                            onPressed: () {
-                              if (_baseCtr.isPlayAll.value) {
-                                currCtr().toViewPlayAll();
-                              } else {
-                                _baseCtr.setIsPlayAll(true);
-                              }
-                            },
-                            label: const Text('播放全部'),
-                            icon: const Icon(Icons.playlist_play),
-                          ),
+    return Obx(() {
+      final enableMultiSelect = _baseCtr.enableMultiSelect.value;
+      return popScope(
+        canPop: !enableMultiSelect,
+        onPopInvokedWithResult: (didPop, result) {
+          if (enableMultiSelect) {
+            currCtr().handleSelect();
+          }
+        },
+        child: Scaffold(
+          resizeToAvoidBottomInset: false,
+          appBar: _buildAppbar(enableMultiSelect),
+          floatingActionButtonLocation: const NoRightMarginFabLocation(),
+          floatingActionButton: Padding(
+            padding: const .only(right: kFloatingActionButtonMargin),
+            child: Obx(
+              () => currCtr().loadingState.value.isSuccess
+                  ? AnimatedSlide(
+                      offset: _baseCtr.isPlayAll.value
+                          ? Offset.zero
+                          : const Offset(0.75, 0),
+                      duration: const Duration(milliseconds: 120),
+                      child: GestureDetector(
+                        onHorizontalDragDown: (details) =>
+                            _baseCtr.dx = details.localPosition.dx,
+                        onHorizontalDragStart: (details) =>
+                            _baseCtr.setIsPlayAll(
+                              details.localPosition.dx < _baseCtr.dx,
+                            ),
+                        child: FloatingActionButton.extended(
+                          onPressed: () {
+                            if (_baseCtr.isPlayAll.value) {
+                              currCtr().toViewPlayAll();
+                            } else {
+                              _baseCtr.setIsPlayAll(true);
+                            }
+                          },
+                          label: const Text('播放全部'),
+                          icon: const Icon(Icons.playlist_play),
                         ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ),
-            body: ViewSafeArea(
-              child: Column(
-                children: [
-                  TabBar(
-                    // isScrollable: true,
-                    // tabAlignment: TabAlignment.start,
-                    controller: _tabController,
-                    tabs: LaterViewType.values.map((item) {
-                      final count = _baseCtr.counts[item.index];
-                      return Tab(
-                        text: '${item.title}${count != -1 ? '($count)' : ''}',
-                      );
-                    }).toList(),
-                    onTap: (_) {
-                      if (!_tabController.indexIsChanging) {
-                        currCtr().scrollController.animToTop();
-                      } else if (enableMultiSelect) {
-                        currCtr(_tabController.previousIndex).handleSelect();
-                      }
-                    },
-                  ),
-                  Expanded(
-                    child: TabBarView<CustomHorizontalDragGestureRecognizer>(
-                      physics: enableMultiSelect
-                          ? const NeverScrollableScrollPhysics()
-                          : clampingScrollPhysics,
-                      controller: _tabController,
-                      horizontalDragGestureRecognizer:
-                          CustomHorizontalDragGestureRecognizer.new,
-                      children: LaterViewType.values
-                          .map((item) => item.page)
-                          .toList(),
-                    ),
-                  ),
-                ],
-              ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ),
-        );
-      },
-    );
+          body: ViewSafeArea(
+            child: Column(
+              children: [
+                TabBar(
+                  // isScrollable: true,
+                  // tabAlignment: TabAlignment.start,
+                  controller: _tabController,
+                  tabs: LaterViewType.values.map((item) {
+                    final count = _baseCtr.counts[item.index];
+                    return Tab(
+                      text: '${item.title}${count != -1 ? '($count)' : ''}',
+                    );
+                  }).toList(),
+                  onTap: (_) {
+                    if (!_tabController.indexIsChanging) {
+                      currCtr().scrollController.animToTop();
+                    } else if (enableMultiSelect) {
+                      currCtr(_tabController.previousIndex).handleSelect();
+                    }
+                  },
+                ),
+                Expanded(
+                  child: TabBarView<CustomHorizontalDragGestureRecognizer>(
+                    physics: enableMultiSelect
+                        ? const NeverScrollableScrollPhysics()
+                        : clampingScrollPhysics,
+                    controller: _tabController,
+                    horizontalDragGestureRecognizer:
+                        CustomHorizontalDragGestureRecognizer.new,
+                    children: LaterViewType.values
+                        .map((item) => item.page)
+                        .toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   PreferredSizeWidget _buildAppbar(bool enableMultiSelect) {
@@ -189,6 +187,11 @@ class _LaterPageState extends State<LaterPage>
             );
           },
           child: Text('移动', style: textStyle),
+        ),
+        TextButton(
+          style: btnStyle,
+          onPressed: () => currCtr().batchDownloadSelected(context),
+          child: Text('缓存', style: textStyle),
         ),
       ],
       child: AppBar(
@@ -248,14 +251,8 @@ class _LaterPageState extends State<LaterPage>
                   ),
                 ),
                 itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: false,
-                    child: Text('最近添加'),
-                  ),
-                  const PopupMenuItem(
-                    value: true,
-                    child: Text('最早添加'),
-                  ),
+                  const PopupMenuItem(value: false, child: Text('最近添加')),
+                  const PopupMenuItem(value: true, child: Text('最早添加')),
                 ],
               );
             },

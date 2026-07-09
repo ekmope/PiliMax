@@ -12,9 +12,11 @@ import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
+import 'package:PiliMax/utils/download_dialog_utils.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -40,6 +42,12 @@ class HistoryItem extends StatelessWidget {
     String bvid = item.history.bvid ?? IdUtils.av2bv(aid);
     final business = item.history.business;
     final enableMultiSelect = ctr.enableMultiSelect.value;
+    final isDownloadableVideo =
+        business != 'pgc' &&
+        item.badge != '番剧' &&
+        item.tagName?.contains('动画') != true &&
+        business != 'live' &&
+        business?.contains('article') != true;
 
     final onLongPress = enableMultiSelect
         ? null
@@ -227,11 +235,7 @@ class HistoryItem extends StatelessWidget {
                         ],
                       ),
                     ),
-                  if (business != 'pgc' &&
-                      item.badge != '番剧' &&
-                      item.tagName?.contains('动画') != true &&
-                      business != 'live' &&
-                      business?.contains('article') != true)
+                  if (isDownloadableVideo)
                     PopupMenuItem(
                       onTap: () =>
                           UserHttp.toViewLater(bvid: item.history.bvid),
@@ -241,6 +245,30 @@ class HistoryItem extends StatelessWidget {
                           Icon(Icons.watch_later_outlined, size: 16),
                           SizedBox(width: 6),
                           Text('稍后再看', style: TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  if (Pref.showMoreDownloadButtons && isDownloadableVideo)
+                    PopupMenuItem(
+                      onTap: () =>
+                          DownloadDialogUtils.confirmAndDownloadByIdentifiers(
+                            context,
+                            cid: item.history.cid,
+                            aid: aid,
+                            bvid: bvid,
+                            part: item.history.page,
+                            totalTimeMilli: (item.duration ?? 0) * 1000,
+                            title: item.title,
+                            cover: item.cover,
+                            ownerId: item.authorMid,
+                            ownerName: item.authorName,
+                          ),
+                      height: 38,
+                      child: const Row(
+                        children: [
+                          Icon(MdiIcons.folderDownloadOutline, size: 16),
+                          SizedBox(width: 6),
+                          Text('离线缓存', style: TextStyle(fontSize: 13)),
                         ],
                       ),
                     ),

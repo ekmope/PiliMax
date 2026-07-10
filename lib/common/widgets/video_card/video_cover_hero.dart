@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 
 import 'package:flutter/material.dart';
 
@@ -26,6 +27,19 @@ class VideoCoverHero extends StatelessWidget {
   ) {
     final fromHero = fromHeroContext.widget as Hero;
     final toHero = toHeroContext.widget as Hero;
+    final fromIsDetail = VideoDetailHero.isDetailTargetHeroChild(
+      fromHero.child,
+    );
+    final toIsDetail = VideoDetailHero.isDetailTargetHeroChild(toHero.child);
+    if (fromIsDetail || toIsDetail) {
+      return _detailFlightShuttleBuilder(
+        animation: animation,
+        flightDirection: flightDirection,
+        fromHero: fromHero,
+        toHero: toHero,
+        fromIsDetail: fromIsDetail,
+      );
+    }
     final beginRadius = _heroBorderRadius(fromHero.child);
     final endRadius = _heroBorderRadius(toHero.child);
     final shuttleChild = switch (flightDirection) {
@@ -44,6 +58,75 @@ class VideoCoverHero extends StatelessWidget {
               BorderRadiusGeometry.lerp(beginRadius, endRadius, radiusProgress)
               ?? endRadius,
           child: _fillFlightBounds(shuttleChild),
+        );
+      },
+    );
+  }
+
+  static Widget _detailFlightShuttleBuilder({
+    required Animation<double> animation,
+    required HeroFlightDirection flightDirection,
+    required Hero fromHero,
+    required Hero toHero,
+    required bool fromIsDetail,
+  }) {
+    final isPop = flightDirection == HeroFlightDirection.pop;
+    final sourceHeroChild = fromIsDetail ? toHero.child : fromHero.child;
+    final detailHeroChild = fromIsDetail ? fromHero.child : toHero.child;
+    final sourceRadius = _heroBorderRadius(sourceHeroChild);
+    final detailRadius = VideoDetailHero.borderRadiusOfHeroChild(
+      detailHeroChild,
+    );
+    final sourceChild = _heroClipChild(sourceHeroChild);
+    final detailChild = VideoDetailHero.detailFlightSurfaceForHeroChild(
+      detailHeroChild,
+      isPop: isPop,
+    );
+
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        final progress = switch (flightDirection) {
+          HeroFlightDirection.push => animation.value,
+          HeroFlightDirection.pop => 1 - animation.value,
+        };
+        final radius =
+            (isPop
+                ? BorderRadiusGeometry.lerp(
+                    detailRadius,
+                    sourceRadius,
+                    progress,
+                  )
+                : BorderRadiusGeometry.lerp(
+                    sourceRadius,
+                    detailRadius,
+                    progress,
+                  )) ??
+            detailRadius;
+        final detailOpacity = isPop
+            ? 1 - _interval(progress, 0.08, 0.72)
+            : _interval(progress, 0.10, 0.88);
+        final sourceOpacity = isPop
+            ? _interval(progress, 0.24, 1)
+            : 1 - _interval(progress, 0, 0.45);
+
+        return RepaintBoundary(
+          child: ClipRRect(
+            borderRadius: radius,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Opacity(
+                  opacity: detailOpacity,
+                  child: _fillFlightBounds(detailChild),
+                ),
+                Opacity(
+                  opacity: sourceOpacity,
+                  child: _fillFlightBounds(sourceChild),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -68,6 +151,16 @@ class VideoCoverHero extends StatelessWidget {
       return child.child!;
     }
     return child;
+  }
+
+  static double _interval(double value, double begin, double end) {
+    if (value <= begin) {
+      return 0;
+    }
+    if (value >= end) {
+      return 1;
+    }
+    return Curves.easeOutCubic.transform((value - begin) / (end - begin));
   }
 
   Widget _buildPlaceholder(BuildContext context, Size heroSize, Widget child) {

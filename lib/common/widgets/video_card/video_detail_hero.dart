@@ -36,6 +36,9 @@ class VideoDetailHero extends StatelessWidget {
     final toHero = toHeroContext.widget as Hero;
     final fromChild = _heroChild(fromHero.child);
     final toChild = _heroChild(toHero.child);
+    final isPop = flightDirection == HeroFlightDirection.pop;
+    final sourceChild = fromChild.isDetailTarget ? toChild : fromChild;
+    final detailChild = fromChild.isDetailTarget ? fromChild : toChild;
 
     return AnimatedBuilder(
       animation: animation,
@@ -45,32 +48,72 @@ class VideoDetailHero extends StatelessWidget {
           HeroFlightDirection.pop => 1 - animation.value,
         };
         final radius =
-            BorderRadiusGeometry.lerp(
-              fromChild.borderRadius,
-              toChild.borderRadius,
-              progress,
-            ) ??
-            toChild.borderRadius;
-        final toOpacity = _interval(progress, 0.18, 1);
+            (isPop
+                ? BorderRadiusGeometry.lerp(
+                    detailChild.borderRadius,
+                    sourceChild.borderRadius,
+                    progress,
+                  )
+                : BorderRadiusGeometry.lerp(
+                    sourceChild.borderRadius,
+                    detailChild.borderRadius,
+                    progress,
+                  )) ??
+            detailChild.borderRadius;
+        final detailOpacity = isPop
+            ? 1 - _interval(progress, 0.08, 0.72)
+            : _interval(progress, 0.10, 0.88);
+        final sourceOpacity = isPop
+            ? _interval(progress, 0.24, 1)
+            : 1 - _interval(progress, 0, 0.45);
 
-        return ClipRRect(
-          borderRadius: radius,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Opacity(
-                opacity: 1 - toOpacity,
-                child: _fillFlightBounds(fromChild.child),
-              ),
-              Opacity(
-                opacity: toOpacity,
-                child: _fillFlightBounds(toChild.child),
-              ),
-            ],
+        return RepaintBoundary(
+          child: ClipRRect(
+            borderRadius: radius,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Opacity(
+                  opacity: detailOpacity,
+                  child: _fillFlightBounds(
+                    _detailFlightSurface(detailChild.child, isPop: isPop),
+                  ),
+                ),
+                Opacity(
+                  opacity: sourceOpacity,
+                  child: _fillFlightBounds(sourceChild.child),
+                ),
+              ],
+            ),
           ),
         );
       },
     );
+  }
+
+  static Widget _detailFlightSurface(Widget child, {required bool isPop}) {
+    if (child is VideoDetailHeroShell) {
+      return VideoDetailHeroShell(
+        playerSurfaceOpacity: isPop ? 0.08 : 1,
+        bodySurfaceOpacity: isPop ? 0.88 : 1,
+      );
+    }
+    return child;
+  }
+
+  static bool isDetailTargetHeroChild(Widget child) {
+    return child is _VideoDetailHeroChild && child.isDetailTarget;
+  }
+
+  static BorderRadiusGeometry borderRadiusOfHeroChild(Widget child) {
+    return _heroChild(child).borderRadius;
+  }
+
+  static Widget detailFlightSurfaceForHeroChild(
+    Widget child, {
+    required bool isPop,
+  }) {
+    return _detailFlightSurface(_heroChild(child).child, isPop: isPop);
   }
 
   static _VideoDetailHeroChild _heroChild(Widget child) {
@@ -128,61 +171,124 @@ class VideoDetailHero extends StatelessWidget {
 }
 
 class VideoDetailHeroShell extends StatelessWidget {
-  const VideoDetailHeroShell({super.key});
+  const VideoDetailHeroShell({
+    super.key,
+    this.playerSurfaceOpacity = 1,
+    this.bodySurfaceOpacity = 1,
+  });
+
+  final double playerSurfaceOpacity;
+  final double bodySurfaceOpacity;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return ColoredBox(
-      color: colorScheme.surface,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final mediaSize = MediaQuery.sizeOf(context);
-          final width = constraints.maxWidth.isFinite
-              ? constraints.maxWidth
-              : mediaSize.width;
-          final height = constraints.maxHeight.isFinite
-              ? constraints.maxHeight
-              : mediaSize.height;
-          final playerHeight = (width / Style.aspectRatio).clamp(
-            height * 0.26,
-            height * 0.46,
-          ).toDouble();
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: playerHeight,
-                width: double.infinity,
-                child: const ColoredBox(color: Colors.black),
-              ),
-              if (height > 120) _TabSkeleton(colorScheme: colorScheme),
-              if (height > 180)
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _AuthorSkeleton(colorScheme: colorScheme),
-                        const SizedBox(height: 14),
-                        _LineSkeleton(colorScheme: colorScheme, width: 0.92),
-                        const SizedBox(height: 8),
-                        _LineSkeleton(colorScheme: colorScheme, width: 0.68),
-                        const SizedBox(height: 18),
-                        for (int index = 0; index < 4; index++) ...[
-                          _RecommendSkeleton(colorScheme: colorScheme),
-                          const SizedBox(height: 12),
-                        ],
-                      ],
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mediaSize = MediaQuery.sizeOf(context);
+        final width = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : mediaSize.width;
+        final height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : mediaSize.height;
+        final playerHeight = (width / Style.aspectRatio).clamp(
+          height * 0.26,
+          height * 0.46,
+        ).toDouble();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: playerHeight,
+              width: double.infinity,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(
+                    alpha: playerSurfaceOpacity,
                   ),
                 ),
-            ],
-          );
-        },
+              ),
+            ),
+            if (height > 120)
+              _VideoDetailTabOutline(
+                colorScheme: colorScheme,
+                opacity: bodySurfaceOpacity,
+              ),
+            if (height > 180)
+              Expanded(
+                child: _VideoDetailBodySurface(
+                  colorScheme: colorScheme,
+                  opacity: bodySurfaceOpacity,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _VideoDetailTabOutline extends StatelessWidget {
+  const _VideoDetailTabOutline({
+    required this.colorScheme,
+    required this.opacity,
+  });
+
+  final ColorScheme colorScheme;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: opacity),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+          ),
+        ),
       ),
+      child: Row(
+        children: [
+          _TabMarker(colorScheme: colorScheme, width: 46, opacity: opacity),
+          const SizedBox(width: 18),
+          _TabMarker(
+            colorScheme: colorScheme,
+            width: 46,
+            opacity: opacity * 0.62,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VideoDetailBodySurface extends StatelessWidget {
+  const _VideoDetailBodySurface({
+    required this.colorScheme,
+    required this.opacity,
+  });
+
+  final ColorScheme colorScheme;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            colorScheme.surface.withValues(alpha: 0.96 * opacity),
+            colorScheme.surface.withValues(alpha: 0.88 * opacity),
+          ],
+        ),
+      ),
+      child: const SizedBox.expand(),
     );
   }
 }
@@ -207,156 +313,32 @@ class _VideoDetailHeroChild extends StatelessWidget {
   }
 }
 
-class _TabSkeleton extends StatelessWidget {
-  const _TabSkeleton({required this.colorScheme});
-
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          _PillSkeleton(colorScheme: colorScheme, width: 46),
-          const SizedBox(width: 18),
-          _PillSkeleton(colorScheme: colorScheme, width: 46, alpha: 0.16),
-        ],
-      ),
-    );
-  }
-}
-
-class _AuthorSkeleton extends StatelessWidget {
-  const _AuthorSkeleton({required this.colorScheme});
-
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: _skeletonColor(colorScheme),
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _LineSkeleton(colorScheme: colorScheme, width: 0.38, height: 12),
-              const SizedBox(height: 7),
-              _LineSkeleton(colorScheme: colorScheme, width: 0.24, height: 10),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RecommendSkeleton extends StatelessWidget {
-  const _RecommendSkeleton({required this.colorScheme});
-
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 118,
-          child: AspectRatio(
-            aspectRatio: Style.aspectRatio,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.76),
-                borderRadius: Style.mdRadius,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _LineSkeleton(colorScheme: colorScheme, width: 0.94),
-              const SizedBox(height: 8),
-              _LineSkeleton(colorScheme: colorScheme, width: 0.72),
-              const SizedBox(height: 12),
-              _LineSkeleton(colorScheme: colorScheme, width: 0.46, height: 10),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _LineSkeleton extends StatelessWidget {
-  const _LineSkeleton({
+class _TabMarker extends StatelessWidget {
+  const _TabMarker({
     required this.colorScheme,
     required this.width,
-    this.height = 13,
+    required this.opacity,
   });
 
   final ColorScheme colorScheme;
   final double width;
-  final double height;
+  final double opacity;
 
   @override
   Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      widthFactor: width,
-      alignment: Alignment.centerLeft,
-      child: Container(
-        height: height,
-        decoration: BoxDecoration(
-          color: _skeletonColor(colorScheme),
-          borderRadius: BorderRadius.circular(height / 2),
-        ),
-      ),
-    );
-  }
-}
-
-class _PillSkeleton extends StatelessWidget {
-  const _PillSkeleton({
-    required this.colorScheme,
-    required this.width,
-    this.alpha = 0.28,
-  });
-
-  final ColorScheme colorScheme;
-  final double width;
-  final double alpha;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: width,
       height: 22,
-      decoration: BoxDecoration(
-        color: colorScheme.primary.withValues(alpha: alpha),
-        borderRadius: BorderRadius.circular(12),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          height: 3,
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withValues(alpha: 0.42 * opacity),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
       ),
     );
   }
 }
-
-Color _skeletonColor(ColorScheme colorScheme) =>
-    colorScheme.onSurfaceVariant.withValues(alpha: 0.18);

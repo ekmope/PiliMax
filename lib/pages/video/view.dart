@@ -99,13 +99,20 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     with RouteAware, RouteAwareMixin, WidgetsBindingObserver {
   final Map _videoArgs = VideoDetailArgs.normalize(Get.arguments);
   late final String heroTag = _videoArgs['heroTag'] as String;
+  late final bool _fromPip = _videoArgs['fromPip'] ?? false;
 
   late final VideoDetailController videoDetailController;
   late final VideoReplyController _videoReplyController;
   PlPlayerController? plPlayerController;
+  PlPlayerController? _playerListenersController;
   PlPlayerController? _predictiveBackController;
   final List<Worker> _predictiveBackWorkers = <Worker>[];
   bool _layoutReadyForRoutePop = false;
+  Animation<double>? _initialRouteAnimation;
+  bool _initialHeroTransitionCompleted = false;
+  bool _initialVideoSourceReady = false;
+  bool _initialPlayerStarted = false;
+  bool _allowPlayerMount = false;
 
   // 标志位：是否正在进入 PiP 模式（用于防止 dispose/didPushNext 时清理播放器状态）
   bool _isEnteringPipMode = false;
@@ -248,20 +255,19 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   void initState() {
     super.initState();
     VideoStackManager.increment(); // 追踪视频页面层级
-    final bool fromPip = _videoArgs['fromPip'] ?? false;
     final String? targetContextKey = PipOverlayService.contextKeyFromArgs(
       _videoArgs,
     );
 
     // 如果有直播间 PiP 在运行，关闭它（采用非销毁式，避免干扰视频播放器单例）
-    if (LivePipOverlayService.isInPipMode && !fromPip) {
+    if (LivePipOverlayService.isInPipMode && !_fromPip) {
       LivePipOverlayService.stopLivePip(callOnClose: false);
     }
 
     PlPlayerController.setPlayCallBack(playCallBack);
 
     // 如果从 PiP 返回，尝试恢复保存的控制器
-    if (fromPip && PipOverlayService.isInPipMode) {
+    if (_fromPip && PipOverlayService.isInPipMode) {
       final savedController =
           PipOverlayService.getSavedController<VideoDetailController>();
       if (savedController != null) {
@@ -349,7 +355,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       // 注意：_savedReplyControllerFromPip 在 stopPip 之前已提前取出
       final savedReplyController =
           _savedReplyControllerFromPip ??
-          (fromPip
+          (_fromPip
               ? PipOverlayService.getAdditionalController<VideoReplyController>(
                   'reply',
                 )
@@ -375,7 +381,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     // 注意：_savedIntroControllerFromPip 在 stopPip 之前已提前取出
     final savedIntroController =
         _savedIntroControllerFromPip ??
-        (fromPip ? PipOverlayService.getAdditionalController('intro') : null);
+        (_fromPip ? PipOverlayService.getAdditionalController('intro') : null);
 
     if (videoDetailController.isFileSource) {
       if (savedIntroController != null &&
@@ -416,8 +422,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       Get.put(AiChatController(heroTag: heroTag), tag: heroTag);
     }
 
-    if (fromPip) {
+    if (_fromPip) {
       _justReturnedFromPip = true;
+      _allowPlayerMount = true;
+      _initialHeroTransitionCompleted = true;
+      _initialVideoSourceReady = true;
+      _initialPlayerStarted = true;
 
       plPlayerController = videoDetailController.plPlayerController;
       final wasPlaying = plPlayerController!.playerStatus.isPlaying;
@@ -542,11 +552,106 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   // 获取视频资源，初始化播放器
   void videoSourceInit() {
+    if (_shouldDeferInitialPlayerMount) {
+      if (videoDetailController.isFileSource) {
+        _initialVideoSourceReady = true;
+      } else {
+        unawaited(
+          videoDetailController
+              .queryVideoUrl(
+                autoFullScreenFlag: false,
+                reinitializePlayer: false,
+              )
+              .whenComplete(() {
+                if (!mounted) return;
+                _initialVideoSourceReady = true;
+                _startInitialPlayerWhenReady();
+              }),
+        );
+      }
+      _startInitialPlayerWhenReady();
+      return;
+    }
+
+    _allowPlayerMount = true;
+    _initialHeroTransitionCompleted = true;
+    _initialVideoSourceReady = true;
     videoDetailController.queryVideoUrl(autoFullScreenFlag: true);
     if (videoDetailController.autoPlay) {
       plPlayerController = videoDetailController.plPlayerController;
       _bindPlayerListeners();
     }
+  }
+
+  bool get _shouldDeferInitialPlayerMount =>
+      !_fromPip && !videoDetailController.plPlayerController.isPipMode;
+
+  void _attachInitialRouteAnimation() {
+    if (_initialHeroTransitionCompleted || _initialRouteAnimation != null) {
+      return;
+    }
+    final animation = ModalRoute.of(context)?.animation;
+    if (animation == null ||
+        animation.status == AnimationStatus.completed ||
+        animation.value >= 1) {
+      _markInitialHeroTransitionCompleted();
+      return;
+    }
+    _initialRouteAnimation = animation;
+    animation.addStatusListener(_handleInitialRouteAnimationStatus);
+  }
+
+  void _handleInitialRouteAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      _markInitialHeroTransitionCompleted();
+    }
+  }
+
+  void _markInitialHeroTransitionCompleted() {
+    if (_initialHeroTransitionCompleted) {
+      return;
+    }
+    _initialRouteAnimation?.removeStatusListener(
+      _handleInitialRouteAnimationStatus,
+    );
+    _initialRouteAnimation = null;
+    _initialHeroTransitionCompleted = true;
+    _startInitialPlayerWhenReady();
+  }
+
+  void _startInitialPlayerWhenReady() {
+    if (!_initialHeroTransitionCompleted) {
+      return;
+    }
+    if (!_allowPlayerMount && mounted) {
+      setState(() {
+        _allowPlayerMount = true;
+      });
+    } else {
+      _allowPlayerMount = true;
+    }
+    if (!videoDetailController.autoPlay ||
+        _initialPlayerStarted ||
+        !_initialVideoSourceReady) {
+      return;
+    }
+    _initialPlayerStarted = true;
+    plPlayerController = videoDetailController.plPlayerController;
+    _bindPlayerListeners();
+    if (videoDetailController.isFileSource) {
+      unawaited(videoDetailController.queryVideoUrl(autoFullScreenFlag: true));
+      return;
+    }
+    if (videoDetailController.videoUrl == null ||
+        videoDetailController.audioUrl == null) {
+      return;
+    }
+    unawaited(
+      videoDetailController.playerInit(
+        autoplay: true,
+        autoFullScreenFlag: true,
+      ),
+    );
   }
 
   void _bindPlayerListeners() {
@@ -555,6 +660,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     if (controller == null) {
       return;
     }
+    if (identical(_playerListenersController, controller)) {
+      return;
+    }
+    _unbindPlayerListeners();
+    _playerListenersController = controller;
     _bindAndroidPredictiveBack(controller);
     controller
       ..addStatusLister(playerListener)
@@ -563,7 +673,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   }
 
   void _unbindPlayerListeners() {
-    final controller = plPlayerController;
+    final controller = _playerListenersController;
     if (controller == null) {
       return;
     }
@@ -571,6 +681,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       ..removeStatusLister(playerListener)
       ..removePositionListener(positionListener)
       ..removeSeekListener(_onPlayerSeek);
+    _playerListenersController = null;
   }
 
   void positionListener(Duration position) {
@@ -833,6 +944,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   /// 未开启自动播放时触发播放
   Future<void>? handlePlay() {
+    if (!_allowPlayerMount) {
+      return null;
+    }
     if (!videoDetailController.isFileSource) {
       if (videoDetailController.isQuerying) {
         if (kDebugMode) debugPrint('handlePlay: querying');
@@ -878,6 +992,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     final persistedCompleted = _persistCompletedProgressIfNeeded(
       reason: 'dispose',
     );
+    _initialRouteAnimation?.removeStatusListener(
+      _handleInitialRouteAnimationStatus,
+    );
+    _initialRouteAnimation = null;
     _completedGateScheduler.cancel();
     _disposeAndroidPredictiveBackWorkers();
     _unbindPlayerListeners();
@@ -1211,6 +1329,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     themeData = videoDetailController.plPlayerController.darkVideoPage
         ? ThemeUtils.darkTheme
         : Theme.of(context);
+    _attachInitialRouteAnimation();
   }
 
   bool removeAppBar(bool isFullScreen) =>
@@ -1225,7 +1344,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     return FadeTransition(
       opacity: CurvedAnimation(
         parent: animation,
-        curve: const Interval(0.12, 1, curve: Curves.easeOutCubic),
+        curve: const Interval(0.32, 1, curve: Curves.easeOutCubic),
         reverseCurve: Curves.linear,
       ),
       child: child,
@@ -2146,7 +2265,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     bool isPipMode = false,
   }) => Obx(() {
     final child =
-        (!isPipMode && !videoDetailController.videoState.value) ||
+        (!isPipMode && !_allowPlayerMount) ||
+            (!isPipMode && !videoDetailController.videoState.value) ||
             !videoDetailController.autoPlay ||
             plPlayerController?.videoController == null
         ? const SizedBox.shrink()

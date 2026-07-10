@@ -225,6 +225,7 @@ class _HistoryPageState extends State<HistoryPage>
                     ),
                     item: item,
                     ctr: _historyController,
+                    heroScope: 'history-${_historyController.type ?? 'all'}',
                     onDelete: (kid, business) =>
                         _historyController.delHistory(item),
                   );

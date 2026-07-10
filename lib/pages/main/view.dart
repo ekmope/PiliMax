@@ -553,6 +553,16 @@ class _MainAppState extends PopScopeState<MainApp>
           );
   }
 
+  List<Widget> get _navigationPages => List.generate(
+    _mainController.navigationBars.length,
+    (index) => Obx(
+      () => HeroMode(
+        enabled: _mainController.selectedIndex.value == index,
+        child: _mainController.navigationBars[index].page,
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     Widget child;
@@ -561,13 +571,13 @@ class _MainAppState extends PopScopeState<MainApp>
         scrollDirection: _mainController.useBottomNav ? .horizontal : .vertical,
         physics: const NeverScrollableScrollPhysics(),
         controller: _mainController.controller,
-        children: _mainController.navigationBars.map((i) => i.page).toList(),
+        children: _navigationPages,
       );
     } else {
       child = PageView(
         physics: const NeverScrollableScrollPhysics(),
         controller: _mainController.controller,
-        children: _mainController.navigationBars.map((i) => i.page).toList(),
+        children: _navigationPages,
       );
     }
 

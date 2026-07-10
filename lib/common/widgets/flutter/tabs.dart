@@ -84,6 +84,7 @@ class _CustomTabBarViewState extends State<CustomTabBarView> {
   int? _currentIndex;
   int _warpUnderwayCount = 0;
   int _scrollUnderwayCount = 0;
+  bool _hasScheduledChildrenUpdate = false;
   bool _debugHasScheduledValidChildrenCountCheck = false;
 
   // If the TabBarView is rebuilt with a new tab controller, the caller should
@@ -143,7 +144,6 @@ class _CustomTabBarViewState extends State<CustomTabBarView> {
   @override
   void initState() {
     super.initState();
-    _updateChildren();
   }
 
   @override
@@ -159,6 +159,7 @@ class _CustomTabBarViewState extends State<CustomTabBarView> {
     } else {
       _pageController!.jumpToPage(_currentIndex!);
     }
+    _updateChildren();
   }
 
   @override
@@ -168,6 +169,7 @@ class _CustomTabBarViewState extends State<CustomTabBarView> {
       _updateTabController();
       _currentIndex = _controller!.index;
       _jumpToPage(_currentIndex!);
+      _updateChildren();
     }
     if (widget.viewportFraction != oldWidget.viewportFraction) {
       _pageController?.dispose();
@@ -196,10 +198,26 @@ class _CustomTabBarViewState extends State<CustomTabBarView> {
 
   void _updateChildren() {
     _childrenWithKey = KeyedSubtree.ensureUniqueKeysForList(
-      widget.children.map<Widget>((Widget child) {
-        return Semantics(role: SemanticsRole.tabPanel, child: child);
+      widget.children.asMap().entries.map<Widget>((entry) {
+        return HeroMode(
+          enabled: entry.key == _currentIndex,
+          child: Semantics(role: SemanticsRole.tabPanel, child: entry.value),
+        );
       }).toList(),
     );
+  }
+
+  void _scheduleUpdateChildren() {
+    if (_hasScheduledChildrenUpdate || !mounted) {
+      return;
+    }
+    _hasScheduledChildrenUpdate = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hasScheduledChildrenUpdate = false;
+      if (mounted) {
+        setState(_updateChildren);
+      }
+    }, debugLabel: 'CustomTabBarView.updateChildren');
   }
 
   void _handleTabControllerAnimationTick() {
@@ -310,13 +328,21 @@ class _CustomTabBarViewState extends State<CustomTabBarView> {
         !_controller!.indexIsChanging) {
       final bool pageChanged = (page - _controller!.index).abs() > 1.0;
       if (pageChanged) {
-        _controller!.index = page.round();
-        _currentIndex = _controller!.index;
+        final int newIndex = page.round();
+        _controller!.index = newIndex;
+        if (_currentIndex != newIndex) {
+          _currentIndex = newIndex;
+          _scheduleUpdateChildren();
+        }
       }
       _syncControllerOffset();
     } else if (notification is ScrollEndNotification) {
-      _controller!.index = page.round();
-      _currentIndex = _controller!.index;
+      final int newIndex = page.round();
+      _controller!.index = newIndex;
+      if (_currentIndex != newIndex) {
+        _currentIndex = newIndex;
+        _scheduleUpdateChildren();
+      }
       if (!_controller!.indexIsChanging) {
         _syncControllerOffset();
       }

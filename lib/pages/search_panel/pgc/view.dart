@@ -58,7 +58,10 @@ class _SearchPgcPanelState
         if (index == list.length - 1) {
           controller.onLoadMore();
         }
-        return SearchPgcItem(item: list[index]);
+        return SearchPgcItem(
+          item: list[index],
+          heroTagPrefix: 'search-pgc-${widget.searchType.name}-${widget.tag}',
+        );
       },
       itemCount: list.length,
     );

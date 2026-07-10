@@ -13,12 +13,14 @@ class PgcCardVSearch extends StatelessWidget {
   const PgcCardVSearch({
     super.key,
     required this.item,
+    this.heroTagPrefix = 'search-pgc-v',
   });
 
   final SearchPgcItemModel item;
+  final String heroTagPrefix;
 
   String get _heroTag =>
-      'search-pgc-v-${item.seasonId ?? item.mediaId ?? item.cover}';
+      '$heroTagPrefix-${item.seasonId ?? item.mediaId ?? item.cover}';
 
   @override
   Widget build(BuildContext context) {

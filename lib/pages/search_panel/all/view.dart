@@ -73,7 +73,7 @@ class _SearchAllPanelState
                       height: 160,
                       child: SearchPgcItem(
                         item: e.first,
-                        heroTagPrefix: 'search-all-pgc',
+                        heroTagPrefix: 'search-all-pgc-${widget.tag}',
                       ),
                     )
                   : SizedBox(
@@ -85,16 +85,20 @@ class _SearchAllPanelState
                         physics: const AlwaysScrollableScrollPhysics(),
                         scrollDirection: Axis.horizontal,
                         itemCount: e.length,
-                        itemBuilder: (context, index) {
+                        itemBuilder: (context, itemIndex) {
                           return Container(
                             width: Grid.smallCardWidth / 2,
                             margin: EdgeInsets.only(
                               left: Style.safeSpace,
-                              right: index == e.length - 1
+                              right: itemIndex == e.length - 1
                                   ? Style.safeSpace
                                   : 0,
                             ),
-                            child: PgcCardVSearch(item: e[index]),
+                            child: PgcCardVSearch(
+                              item: e[itemIndex],
+                              heroTagPrefix:
+                                  'search-all-pgc-v-${widget.tag}-$index',
+                            ),
                           );
                         },
                       ),

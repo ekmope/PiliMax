@@ -14,13 +14,16 @@ class SearchPgcItem extends StatelessWidget {
     super.key,
     required this.item,
     this.heroTagPrefix = 'search-pgc',
+    this.index,
   });
 
   final SearchPgcItemModel item;
   final String heroTagPrefix;
+  final int? index;
 
   String get _heroTag =>
-      '$heroTagPrefix-${item.seasonId ?? item.mediaId ?? item.cover}';
+      '$heroTagPrefix-${item.seasonId ?? item.mediaId ?? item.cover}'
+      '${index == null ? '' : '-$index'}';
 
   @override
   Widget build(BuildContext context) {

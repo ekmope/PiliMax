@@ -61,6 +61,7 @@ class _SearchPgcPanelState
         return SearchPgcItem(
           item: list[index],
           heroTagPrefix: 'search-pgc-${widget.searchType.name}-${widget.tag}',
+          index: index,
         );
       },
       itemCount: list.length,

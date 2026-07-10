@@ -74,6 +74,7 @@ class _SearchAllPanelState
                       child: SearchPgcItem(
                         item: e.first,
                         heroTagPrefix: 'search-all-pgc-${widget.tag}',
+                        index: index,
                       ),
                     )
                   : SizedBox(
@@ -98,6 +99,7 @@ class _SearchAllPanelState
                               item: e[itemIndex],
                               heroTagPrefix:
                                   'search-all-pgc-v-${widget.tag}-$index',
+                              index: itemIndex,
                             ),
                           );
                         },

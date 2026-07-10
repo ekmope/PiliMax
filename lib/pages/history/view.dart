@@ -221,10 +221,12 @@ class _HistoryPageState extends State<HistoryPage>
                   return HistoryItem(
                     key: ValueKey(
                       '${item.history.business}-${item.history.oid}-'
-                      '${item.history.cid}-${item.history.page}-${item.kid}',
+                      '${item.history.cid}-${item.history.page}-'
+                      '${item.kid ?? 'idx-$index'}',
                     ),
                     item: item,
                     ctr: _historyController,
+                    index: index,
                     heroScope: 'history-${_historyController.type ?? 'all'}',
                     onDelete: (kid, business) =>
                         _historyController.delHistory(item),

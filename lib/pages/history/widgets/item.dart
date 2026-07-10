@@ -28,10 +28,11 @@ class HistoryItem extends StatelessWidget {
   final MultiSelectBase ctr;
   final void Function(int kid, String business) onDelete;
   final String heroScope;
+  final int index;
 
   String get _heroTag =>
       '$heroScope-${item.history.business}-${item.history.oid}-'
-      '${item.history.cid}-${item.history.page}-${item.kid ?? 'unknown'}';
+      '${item.history.cid}-${item.history.page}-${item.kid ?? 'idx-$index'}';
 
   const HistoryItem({
     super.key,
@@ -39,6 +40,7 @@ class HistoryItem extends StatelessWidget {
     required this.ctr,
     required this.onDelete,
     this.heroScope = 'history',
+    this.index = -1,
   });
 
   @override

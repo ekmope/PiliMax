@@ -85,6 +85,8 @@ class VideoCoverHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Hero(
       tag: tag,
+      curve: Curves.linear,
+      reverseCurve: Curves.linear,
       createRectTween: _createRectTween,
       flightShuttleBuilder: _flightShuttleBuilder,
       transitionOnUserGestures: true,

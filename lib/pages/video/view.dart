@@ -2398,7 +2398,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         borderRadius: BorderRadius.zero,
         child: NetworkImgLayer(
           clip: false,
-          quality: 60,
           src: videoDetailController.cover.value,
           width: width,
           height: height,

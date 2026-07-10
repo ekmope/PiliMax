@@ -221,7 +221,7 @@ class _HistoryPageState extends State<HistoryPage>
                   return HistoryItem(
                     key: ValueKey(
                       '${item.history.business}-${item.history.oid}-'
-                      '${item.history.cid}-${item.history.page}',
+                      '${item.history.cid}-${item.history.page}-${item.kid}',
                     ),
                     item: item,
                     ctr: _historyController,

@@ -56,6 +56,11 @@ class _VideoCardVState extends State<VideoCardV> {
     return key is ValueKey<Object?> ? key.value : key;
   }
 
+  Object? _widgetHeroKeyOf(Widget widget) {
+    final key = widget.key;
+    return key is ValueKey<Object?> ? key.value : key;
+  }
+
   String get _heroTag {
     if (widget.heroTag case final heroTag?) {
       return heroTag;
@@ -70,7 +75,9 @@ class _VideoCardVState extends State<VideoCardV> {
     super.didUpdateWidget(oldWidget);
     final oldItem = oldWidget.videoItem;
     final oldKey = oldItem.bvid ?? oldItem.aid ?? oldItem.cid;
-    if (oldKey != _heroKey || oldWidget.heroTag != widget.heroTag) {
+    if (oldKey != _heroKey ||
+        oldWidget.heroTag != widget.heroTag ||
+        _widgetHeroKeyOf(oldWidget) != _widgetHeroKey) {
       _cachedHeroTag = null;
     }
   }

@@ -76,7 +76,6 @@ class VideoCoverHero extends StatelessWidget {
       child: SizedBox(
         width: heroSize.width,
         height: heroSize.height,
-        child: const ColoredBox(color: Colors.black),
       ),
     );
   }

@@ -2053,6 +2053,9 @@ class PlPlayerController with BlockConfigMixin {
       exitDesktopPip();
       return;
     }
+    if (isPipMode) {
+      return;
+    }
     if (isFullScreen.value) {
       triggerFullScreen(status: false);
       return;

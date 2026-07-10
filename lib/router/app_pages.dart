@@ -94,6 +94,7 @@ class Routes {
     GetPage(
       name: '/videoV',
       page: () => const VideoDetailPageV(),
+      popGesture: true,
     ),
     //
     GetPage(name: '/webview', page: () => const WebviewPage()),

@@ -3,7 +3,7 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
-import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/watch_later_button.dart';
 import 'package:PiliMax/common/widgets/video_popup_menu.dart';
 import 'package:PiliMax/http/search.dart';
@@ -164,11 +164,9 @@ class _VideoCardVState extends State<VideoCardV> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        VideoDetailHero.source(
-          tag: _heroTag,
-          child: Card(
-            clipBehavior: Clip.hardEdge,
-            child: MouseRegion(
+        Card(
+          clipBehavior: Clip.hardEdge,
+          child: MouseRegion(
             onEnter: PlatformUtils.isMobile
                 ? null
                 : (_) => setState(() => _isHovering = true),
@@ -191,11 +189,14 @@ class _VideoCardVState extends State<VideoCardV> {
                         return Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            NetworkImgLayer(
-                              clip: false,
-                              src: videoItem.cover,
-                              width: maxWidth,
-                              height: maxHeight,
+                            VideoCoverHero(
+                              tag: _heroTag,
+                              child: NetworkImgLayer(
+                                clip: false,
+                                src: videoItem.cover,
+                                width: maxWidth,
+                                height: maxHeight,
+                              ),
                             ),
                             if (videoItem.duration > 0)
                               PBadge(
@@ -244,7 +245,6 @@ class _VideoCardVState extends State<VideoCardV> {
                   content(context),
                 ],
               ),
-            ),
             ),
           ),
         ),

@@ -31,7 +31,7 @@ class HistoryItem extends StatelessWidget {
 
   String get _heroTag =>
       '$heroScope-${item.history.business}-${item.history.oid}-'
-      '${item.history.cid}-${item.history.page}';
+      '${item.history.cid}-${item.history.page}-${item.kid ?? 'unknown'}';
 
   const HistoryItem({
     super.key,

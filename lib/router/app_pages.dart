@@ -94,8 +94,6 @@ class Routes {
     GetPage(
       name: '/videoV',
       page: () => const VideoDetailPageV(),
-      transition: Transition.fadeIn,
-      transitionDuration: const Duration(milliseconds: 320),
     ),
     //
     GetPage(name: '/webview', page: () => const WebviewPage()),

@@ -107,6 +107,32 @@ class DynamicsController extends GetxController
     }
   }
 
+  bool _clearUpUpdates(Iterable<UpItem>? items) {
+    var changed = false;
+    if (items == null) {
+      return changed;
+    }
+    for (final item in items) {
+      if (item.hasUpdate == true) {
+        item.hasUpdate = false;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  bool _clearFollowUpUpdates(FollowUpModel? data) {
+    final upChanged = _clearUpUpdates(data?.upList);
+    final liveChanged = _clearUpUpdates(data?.liveUsers?.items);
+    return upChanged || liveChanged;
+  }
+
+  void _markAllUpAsRead() {
+    if (_clearFollowUpUpdates(upState.value.dataOrNull)) {
+      upState.refresh();
+    }
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -178,7 +204,7 @@ class DynamicsController extends GetxController
   }
 
   late bool isQuerying = false;
-  Future<void> queryFollowUp() async {
+  Future<void> queryFollowUp({bool clearUpdates = false}) async {
     if (isQuerying) return;
     isQuerying = true;
 
@@ -224,6 +250,9 @@ class DynamicsController extends GetxController
           _upEnd = true;
         }
       }
+      if (clearUpdates) {
+        _clearFollowUpUpdates(data);
+      }
       upState.value = Success(data);
     } else {
       upState.value = const Error(null);
@@ -237,9 +266,11 @@ class DynamicsController extends GetxController
     if (this.mid.value == mid) {
       currentMid.value = mid;
       tabController.index = DynamicsTabType.all.index;
-      _markUpAsRead(mid);
       if (mid == -1) {
-        queryFollowUp();
+        _markAllUpAsRead();
+        unawaited(queryFollowUp(clearUpdates: true));
+      } else {
+        _markUpAsRead(mid);
       }
       controller?.onReload();
       return;

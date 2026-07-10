@@ -98,11 +98,12 @@ class _RcmdPageState extends State<RcmdPage>
                         ? index - 1
                         : index;
                     final item = response[actualIndex];
+                    final heroTag =
+                        'rcmd-${item.bvid ?? item.aid ?? item.cid}-$actualIndex';
                     return VideoCardV(
-                      key: ValueKey(item.bvid),
+                      key: ValueKey(heroTag),
                       videoItem: item,
-                      heroTag:
-                          'rcmd-${item.bvid ?? item.aid ?? item.cid}-$actualIndex',
+                      heroTag: heroTag,
                       onRemove: () {
                         if (controller.lastRefreshAt != null &&
                             actualIndex < controller.lastRefreshAt!) {
@@ -116,10 +117,12 @@ class _RcmdPageState extends State<RcmdPage>
                     );
                   } else {
                     final item = response[index];
+                    final heroTag =
+                        'rcmd-${item.bvid ?? item.aid ?? item.cid}-$index';
                     return VideoCardV(
-                      key: ValueKey(item.bvid),
+                      key: ValueKey(heroTag),
                       videoItem: item,
-                      heroTag: 'rcmd-${item.bvid ?? item.aid ?? item.cid}-$index',
+                      heroTag: heroTag,
                       onRemove: () => controller.loadingState
                         ..value.data!.removeAt(index)
                         ..refresh(),

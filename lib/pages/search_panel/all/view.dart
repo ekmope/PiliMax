@@ -57,16 +57,19 @@ class _SearchAllPanelState
             controller.onLoadMore();
           }
           return switch (list[index]) {
-            SearchVideoItemModel e => SizedBox(
-              height: 120,
-              child: VideoCardH(
-                key: ValueKey(e.bvid ?? e.aid ?? index),
-                videoItem: e,
-                heroTag:
-                    'search-all-video-${widget.tag}-'
-                    '${e.bvid ?? e.aid ?? e.cid}-$index',
-              ),
-            ),
+            SearchVideoItemModel e => () {
+              final heroTag =
+                  'search-all-video-${widget.tag}-'
+                  '${e.bvid ?? e.aid ?? e.cid}-$index';
+              return SizedBox(
+                height: 120,
+                child: VideoCardH(
+                  key: ValueKey(heroTag),
+                  videoItem: e,
+                  heroTag: heroTag,
+                ),
+              );
+            }(),
             List<SearchPgcItemModel> e =>
               e.length == 1
                   ? SizedBox(

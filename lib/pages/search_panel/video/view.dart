@@ -118,12 +118,13 @@ class _SearchVideoPanelState
           controller.onLoadMore();
         }
         final item = list[index];
+        final heroTag =
+            'search-video-${widget.searchType.name}-${widget.tag}-'
+            '${item.bvid ?? item.aid ?? item.cid}-$index';
         return VideoCardH(
-          key: ValueKey(item.bvid),
+          key: ValueKey(heroTag),
           videoItem: item,
-          heroTag:
-              'search-video-${widget.searchType.name}-${widget.tag}-'
-              '${item.bvid ?? item.aid ?? item.cid}-$index',
+          heroTag: heroTag,
           onRemove: () => controller.loadingState
             ..value.data!.removeAt(index)
             ..refresh(),

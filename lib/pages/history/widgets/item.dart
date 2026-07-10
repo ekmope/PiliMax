@@ -4,7 +4,7 @@ import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliMax/common/widgets/select_mask.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
@@ -136,12 +136,14 @@ class HistoryItem extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Style.safeSpace,
-                vertical: 5,
-              ),
-              child: Row(
+            VideoDetailHero.source(
+              tag: _heroTag,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Style.safeSpace,
+                  vertical: 5,
+                ),
+                child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AspectRatio(
@@ -153,14 +155,11 @@ class HistoryItem extends StatelessWidget {
                         return Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            VideoCoverHero(
-                              tag: _heroTag,
-                              child: NetworkImgLayer(
-                                clip: false,
-                                src: cover,
-                                width: maxWidth,
-                                height: maxHeight,
-                              ),
+                            NetworkImgLayer(
+                              clip: false,
+                              src: cover,
+                              width: maxWidth,
+                              height: maxHeight,
                             ),
                             if (hasDuration)
                               PBadge(
@@ -217,6 +216,7 @@ class HistoryItem extends StatelessWidget {
                   const SizedBox(width: 10),
                   content(theme),
                 ],
+                ),
               ),
             ),
             Positioned(

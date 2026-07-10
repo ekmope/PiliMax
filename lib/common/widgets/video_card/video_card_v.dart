@@ -56,10 +56,13 @@ class _VideoCardVState extends State<VideoCardV> {
     return key is ValueKey<Object?> ? key.value : key;
   }
 
-  String get _heroTag =>
-      widget.heroTag ??
-      _cachedHeroTag ??=
-          'video-card-v-$_heroKey-${_widgetHeroKey ?? identityHashCode(this)}';
+  String get _heroTag {
+    if (widget.heroTag case final heroTag?) {
+      return heroTag;
+    }
+    return _cachedHeroTag ??=
+        'video-card-v-$_heroKey-${_widgetHeroKey ?? identityHashCode(this)}';
+  }
   VoidCallback? get onRemove => widget.onRemove;
 
   @override

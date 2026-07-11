@@ -2516,6 +2516,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       () => VideoCoverHero(
         tag: heroTag,
         borderRadius: BorderRadius.zero,
+        transitionOnUserGestures:
+            !_fromPip &&
+            isPortrait &&
+            !videoDetailController.plPlayerController.isPipMode &&
+            !videoDetailController.plPlayerController.isDesktopPip,
+        popFlightFadeIn: true,
         child: NetworkImgLayer(
           clip: false,
           src: videoDetailController.cover.value,
@@ -2531,7 +2537,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       children: [
         const Positioned.fill(child: ColoredBox(color: Colors.black)),
 
-        Positioned.fill(bottom: -1, child: coverHero()),
+        Positioned.fill(child: ClipRect(child: coverHero())),
 
         _routeFadeTransition(
           child: plPlayer(width: width, height: height),
@@ -2540,7 +2546,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         Obx(() {
           if (!videoDetailController.autoPlay) {
             return Positioned.fill(
-              bottom: -1,
               child: _routeFadeTransition(
                 child: GestureDetector(
                   onTap: handlePlay,

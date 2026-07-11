@@ -265,6 +265,7 @@ class HeaderControl extends StatefulWidget {
     required this.isPortrait,
     required this.controller,
     required this.videoDetailCtr,
+    required this.introController,
     required this.heroTag,
     this.onBack,
     super.key,
@@ -273,6 +274,7 @@ class HeaderControl extends StatefulWidget {
   final bool isPortrait;
   final PlPlayerController controller;
   final VideoDetailController videoDetailCtr;
+  final CommonIntroController introController;
   final String heroTag;
   final VoidCallback? onBack;
 
@@ -421,7 +423,7 @@ class HeaderControlState extends State<HeaderControl>
   static const TextStyle titleStyle = TextStyle(fontSize: 14);
 
   String get heroTag => widget.heroTag;
-  late CommonIntroController introController;
+  CommonIntroController get introController => widget.introController;
 
   @override
   bool get isPortrait => widget.isPortrait;
@@ -443,18 +445,6 @@ class HeaderControlState extends State<HeaderControl>
       return;
     }
     plPlayerController.onPopInvokedWithResult(false, null);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    if (isFileSource) {
-      introController = Get.find<LocalIntroController>(tag: heroTag);
-    } else if (videoDetailCtr.isUgc) {
-      introController = Get.find<UgcIntroController>(tag: heroTag);
-    } else {
-      introController = Get.find<PgcIntroController>(tag: heroTag);
-    }
   }
 
   /// 设置面板

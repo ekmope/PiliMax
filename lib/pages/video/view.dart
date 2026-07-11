@@ -107,6 +107,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   PlPlayerController? _playerListenersController;
   PlPlayerController? _predictiveBackController;
   final List<Worker> _predictiveBackWorkers = <Worker>[];
+  final Set<TabController> _pendingTabControllerDisposals =
+      <TabController>{};
   bool _layoutReadyForRoutePop = false;
   Animation<double>? _initialRouteAnimation;
   bool _initialHeroTransitionCompleted = false;
@@ -218,6 +220,31 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
     _predictiveBackWorkers.clear();
     _predictiveBackController = null;
+  }
+
+  void _disposeTabControllerAfterBuild(TabController controller) {
+    if (!_pendingTabControllerDisposals.add(controller)) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pendingTabControllerDisposals.remove(controller);
+      if (controller.animation != null) {
+        controller.dispose();
+      }
+    });
+  }
+
+  void _disposeTabControllers() {
+    for (final controller in _pendingTabControllerDisposals) {
+      if (controller.animation != null) {
+        controller.dispose();
+      }
+    }
+    _pendingTabControllerDisposals.clear();
+    final controller = videoDetailController.tabCtr;
+    if (controller.animation != null) {
+      controller.dispose();
+    }
   }
 
   bool get _shouldShowSeasonPanel {
@@ -999,6 +1026,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     _completedGateScheduler.cancel();
     _disposeAndroidPredictiveBackWorkers();
     _unbindPlayerListeners();
+    if (!isInAppPip && !_isEnteringPipMode) {
+      _disposeTabControllers();
+    }
 
     Get.delete<HorizontalMemberPageController>(
       tag: videoDetailController.heroTag,
@@ -1008,9 +1038,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         !isInAppPip &&
         !_isEnteringPipMode) {
       if (videoDetailController.isUgc) {
-        ugcIntroController
-          ..cancelTimer()
-          ..videoDetail.close();
+        ugcIntroController.cancelTimer();
       } else {
         pgcIntroController.cancelTimer();
       }
@@ -2282,6 +2310,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
               isPortrait: isPortrait,
               controller: videoDetailController.plPlayerController,
               videoDetailCtr: videoDetailController,
+              introController: introController,
               heroTag: heroTag,
               onBack: _popVideoRoute,
             ),
@@ -2375,7 +2404,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           ? 0
           : oldTabCtr.index.clamp(0, tabs.length - 1);
       if (!oldTabCtrDisposed) {
-        oldTabCtr.dispose();
+        _disposeTabControllerAfterBuild(oldTabCtr);
       }
       videoDetailController.tabCtr = TabController(
         vsync: videoDetailController,

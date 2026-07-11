@@ -1980,7 +1980,6 @@ class VideoDetailController extends GetxController
     }
     introScrollCtr?.dispose();
     introScrollCtr = null;
-    tabCtr.dispose();
     _scrollCtr?.dispose();
     animController
       ?..removeListener(_animListener)

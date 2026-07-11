@@ -231,10 +231,15 @@ class PlPlayerController with BlockConfigMixin {
   final RxBool isBuffering = true.obs;
 
   /// 全屏方向
+  // ignore: unnecessary_getters_setters
   bool get isVertical => _isVertical;
 
   void updateVerticalState(bool isVertical) {
     _isVertical = isVertical;
+  }
+
+  set isVertical(bool value) {
+    _isVertical = value;
   }
 
   /// 弹幕开关

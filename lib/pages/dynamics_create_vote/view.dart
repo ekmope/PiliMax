@@ -91,7 +91,7 @@ class _CreateVotePageState extends State<CreateVotePage> {
               theme,
               key: ValueKey('${_controller.key}desc'),
               initialValue: _controller.desc.value,
-              onChanged: (value) => _controller.desc.value = value,
+              onChanged: _controller.desc.call,
               desc: '投票说明',
               inputFormatters: [LengthLimitingTextInputFormatter(100)],
             ),
@@ -191,10 +191,7 @@ class _CreateVotePageState extends State<CreateVotePage> {
                   child: StaticPopupMenuButton<int>(
                     initialValue: choiceCnt,
                     requestFocus: false,
-                    child: Text(
-                      choiceCnt == 1 ? '单选         ' : '最多选$choiceCnt项',
-                    ),
-                    onSelected: (value) => _controller.choiceCnt.value = value,
+                    onSelected: _controller.choiceCnt.call,
                     itemBuilder: (context) {
                       return choices
                           .map(
@@ -205,6 +202,9 @@ class _CreateVotePageState extends State<CreateVotePage> {
                           )
                           .toList();
                     },
+                    child: Text(
+                      choiceCnt == 1 ? '单选         ' : '最多选$choiceCnt项',
+                    ),
                   ),
                 );
               }),

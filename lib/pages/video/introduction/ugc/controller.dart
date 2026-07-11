@@ -43,15 +43,13 @@ import 'package:PiliMax/utils/request_utils.dart';
 import 'package:PiliMax/utils/share_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:expandable/expandable.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 class UgcIntroController extends CommonIntroController with ReloadMixin {
-  late ExpandableController expandableCtr;
-
+  late final RxBool expand;
   final RxBool status = true.obs;
 
   // up主粉丝数
@@ -77,18 +75,15 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   @override
   void onInit() {
     super.onInit();
-    bool alwaysExpandIntroPanel = Pref.alwaysExpandIntroPanel;
-    expandableCtr = ExpandableController(
-      initialExpanded: alwaysExpandIntroPanel,
-    );
+    final alwaysExpandIntroPanel = Pref.alwaysExpandIntroPanel;
+    expand = RxBool(alwaysExpandIntroPanel);
     if (!alwaysExpandIntroPanel && Pref.expandIntroPanelH) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!expandableCtr.expanded && !DeviceUtils.size.isPortrait) {
-          expandableCtr.toggle();
+        if (!expand.value && !DeviceUtils.size.isPortrait) {
+          expand.toggle();
         }
       });
     }
-
     videoDetail.value.title = Get.arguments['title'] ?? '';
   }
 
@@ -685,7 +680,6 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       );
     }
     if (isEnteringPip) return;
-    expandableCtr.dispose();
     super.onClose();
   }
 

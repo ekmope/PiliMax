@@ -68,7 +68,7 @@ class _CreateReservePageState extends State<CreateReservePage> {
                 () => StaticPopupMenuButton(
                   requestFocus: false,
                   initialValue: _controller.subType.value,
-                  onSelected: (value) => _controller.subType.value = value,
+                  onSelected: _controller.subType.call,
                   itemBuilder: (context) {
                     return const [
                       PopupMenuItem(

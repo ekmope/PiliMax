@@ -1,5 +1,5 @@
-import 'dart:async';
-import 'dart:convert';
+import 'dart:async' show Timer, StreamSubscription;
+import 'dart:convert' show jsonDecode;
 import 'dart:math' as math;
 
 import 'package:PiliMax/common/widgets/dialog/report.dart';
@@ -155,6 +155,27 @@ class LiveRoomController extends GetxController {
     }
     return const SizedBox.shrink();
   });
+
+  StreamSubscription? _sizeSub;
+
+  void _onSizeChanged((int, int) value) {
+    final isVertical = value.$2 > value.$1;
+    isPortrait.value = isVertical;
+    plPlayerController.isVertical = isVertical;
+  }
+
+  void _startSizeSub() {
+    if (isPortrait.value) return;
+    _stopSizeSub();
+    _sizeSub = plPlayerController.videoPlayerController?.stream.size.listen(
+      _onSizeChanged,
+    );
+  }
+
+  void _stopSizeSub() {
+    _sizeSub?.cancel();
+    _sizeSub = null;
+  }
 
   @override
   void onInit() {
@@ -398,7 +419,7 @@ class LiveRoomController extends GetxController {
     currentQnDesc.value =
         LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
     videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
-    return playerInit();
+    return playerInit()?.whenComplete(_startSizeSub);
   }
 
   // 直播投屏时，优先选择 HLS 协议的播放地址，且不使用 AV1 编码
@@ -644,6 +665,7 @@ class LiveRoomController extends GetxController {
   @override
   void onClose() {
     // 蹇冭烦瀹氭椂鍣ㄦ槸闈欐€佺殑锛屾棤璁烘槸鍚﹀皬绐楅兘瑕佸彇娑?
+    _stopSizeSub();
     LiveHttp.cancelLiveHeartbeat();
     // 濡傛灉鍦ㄥ皬绐楁ā寮忥紝涓嶆竻鐞嗚祫婧?
     if (!isInPipMode.value) {

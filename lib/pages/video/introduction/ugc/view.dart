@@ -1,7 +1,9 @@
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/animated_height.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
+import 'package:PiliMax/common/widgets/expandable.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
@@ -42,7 +44,6 @@ import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/request_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:expandable/expandable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -89,13 +90,6 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    const expandTheme = ExpandableThemeData(
-      animationDuration: Duration(milliseconds: 300),
-      scrollAnimationDuration: Duration(milliseconds: 300),
-      crossFadePoint: 0,
-      fadeCurve: Curves.ease,
-      sizeCurve: Curves.linear,
-    );
     final isPortrait = widget.isPortrait;
     final isHorizontal = !isPortrait && widget.isHorizontal;
     return SliverPadding(
@@ -116,7 +110,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                 return;
               }
               feedBack();
-              introController.expandableCtr.toggle();
+              introController.expand.toggle();
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,11 +180,16 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     child: _buildVideoTitle(theme, videoDetail, isExpand: true),
                   )
                 else
-                  ExpandablePanel(
-                    controller: introController.expandableCtr,
-                    collapsed: _buildTitle(theme, videoDetail),
-                    expanded: _buildTitle(theme, videoDetail, isExpand: true),
-                    theme: expandTheme,
+                  Obx(
+                    () => ExpandablePanel(
+                      expand: introController.expand.value,
+                      collapsed: _buildTitle(theme, videoDetail),
+                      expanded: _buildTitle(
+                        theme,
+                        videoDetail,
+                        isExpand: true,
+                      ),
+                    ),
                   ),
                 const SizedBox(height: 8),
                 Stack(
@@ -229,15 +228,16 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                 if (isHorizontal && PlatformUtils.isDesktop)
                   ..._infos(theme, videoDetail)
                 else
-                  ExpandablePanel(
-                    controller: introController.expandableCtr,
-                    collapsed: const SizedBox.shrink(),
-                    expanded: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _infos(theme, videoDetail),
+                  Obx(
+                    () => AnimatedHeight(
+                      expand: introController.expand.value,
+                      duration: const Duration(milliseconds: 300),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _infos(theme, videoDetail),
+                      ),
                     ),
-                    theme: expandTheme,
                   ),
                 Obx(
                   () => introController.status.value

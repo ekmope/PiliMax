@@ -2535,7 +2535,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         ),
       ),
       child: SizedBox(
-        height: 45,
+        height: VideoDetailLayoutMetrics.tabBarHeight,
         child: Row(
           children: [
             if (tabs.isEmpty)

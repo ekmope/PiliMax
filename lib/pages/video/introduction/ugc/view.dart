@@ -1,6 +1,5 @@
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/constants.dart';
-import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/animated_height.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/expandable.dart';
@@ -29,6 +28,7 @@ import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/page.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/season.dart';
+import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/bili_colors.dart';
 import 'package:PiliMax/utils/date_utils.dart';
@@ -102,9 +102,9 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     final isHorizontal = !isPortrait && widget.isHorizontal;
     return SliverPadding(
       padding: const .only(
-        left: Style.safeSpace,
-        right: Style.safeSpace,
-        top: 10,
+        left: VideoDetailLayoutMetrics.horizontalPadding,
+        right: VideoDetailLayoutMetrics.horizontalPadding,
+        top: VideoDetailLayoutMetrics.introTopPadding,
       ),
       sliver: Obx(
         () {
@@ -128,9 +128,13 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                       videoDetail,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(
+                    height: VideoDetailLayoutMetrics.sectionGap,
+                  ),
                   buildTitle(isLoading, isHorizontal, videoDetail),
-                  const SizedBox(height: 8),
+                  const SizedBox(
+                    height: VideoDetailLayoutMetrics.sectionGap,
+                  ),
                   Stack(
                     clipBehavior: .none,
                     children: [
@@ -179,7 +183,9 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                   ),
                   // 点赞收藏转发 布局样式2
                   if (!isHorizontal) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(
+                      height: VideoDetailLayoutMetrics.sectionGap,
+                    ),
                     actionGrid(
                       context,
                       isLoading,
@@ -471,7 +477,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     VideoStat? stat,
   ) {
     return SizedBox(
-      height: 48,
+      height: VideoDetailLayoutMetrics.actionHeight,
       child: Row(
         crossAxisAlignment: .start,
         children: [
@@ -811,8 +817,8 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
               NetworkImgLayer(
                 type: .avatar,
                 src: item.face,
-                width: 35,
-                height: 35,
+                width: VideoDetailLayoutMetrics.ownerHeight,
+                height: VideoDetailLayoutMetrics.ownerHeight,
                 fadeInDuration: Duration.zero,
                 fadeOutDuration: Duration.zero,
               ),
@@ -927,7 +933,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           children: [
             PendantAvatar(
               userStat.card?.face,
-              size: 35,
+              size: VideoDetailLayoutMetrics.ownerHeight,
               badgeSize: 14,
               vipStatus: userStat.card?.vip?.status,
               officialType: userStat.card?.official?.type,

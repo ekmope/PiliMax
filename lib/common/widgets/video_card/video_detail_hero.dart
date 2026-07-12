@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
+import 'package:PiliMax/utils/grid.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
@@ -133,14 +135,24 @@ class VideoDetailHero extends StatefulWidget {
     required bool isPop,
   }) {
     if (child case final VideoDetailHeroShell shell) {
-      return VideoDetailHeroShell(
-        // Keep the live player/cover visible under every reverse flight. This
-        // also avoids depending on gesture-state timing when predictive back
-        // starts or gets cancelled.
-        playerSurfaceOpacity: isPop ? 0 : shell.playerSurfaceOpacity,
-        bodySurfaceOpacity: shell.bodySurfaceOpacity,
-        recommendationCount: shell.recommendationCount,
-        isVertical: shell.isVertical,
+      return _FixedSizeFlightChild(
+        layoutSize: layoutSize,
+        alignment: Alignment.topCenter,
+        child: VideoDetailHeroShell(
+          // Keep the live player/cover visible under every reverse flight.
+          playerSurfaceOpacity: isPop ? 0 : shell.playerSurfaceOpacity,
+          navigationSurfaceOpacity: shell.navigationSurfaceOpacity,
+          detailSurfaceOpacity: shell.detailSurfaceOpacity,
+          recommendationSurfaceOpacity: shell.recommendationSurfaceOpacity,
+          recommendationCount: shell.recommendationCount,
+          isVertical: shell.isVertical,
+          variant: shell.variant,
+          title: shell.title,
+          expandedIntro: shell.expandedIntro,
+          showRecommendations: shell.showRecommendations,
+          hasSeasonPanel: shell.hasSeasonPanel,
+          hasPagesPanel: shell.hasPagesPanel,
+        ),
       );
     }
     return _FixedSizeFlightChild(layoutSize: layoutSize, child: child);
@@ -265,17 +277,77 @@ class VideoDetailHeroShell extends StatelessWidget {
   const VideoDetailHeroShell({
     super.key,
     this.playerSurfaceOpacity = 1,
-    this.bodySurfaceOpacity = 1,
+    this.navigationSurfaceOpacity = 1,
+    this.detailSurfaceOpacity = 1,
+    this.recommendationSurfaceOpacity = 1,
     this.recommendationCount = 4,
     this.isVertical,
+    this.variant = VideoDetailSkeletonVariant.ugc,
+    this.title,
+    this.expandedIntro = false,
+    this.showRecommendations = true,
+    this.hasSeasonPanel = false,
+    this.hasPagesPanel = false,
   }) : assert(playerSurfaceOpacity >= 0 && playerSurfaceOpacity <= 1),
-       assert(bodySurfaceOpacity >= 0 && bodySurfaceOpacity <= 1),
+       assert(
+         navigationSurfaceOpacity >= 0 && navigationSurfaceOpacity <= 1,
+       ),
+       assert(detailSurfaceOpacity >= 0 && detailSurfaceOpacity <= 1),
+       assert(
+         recommendationSurfaceOpacity >= 0 && recommendationSurfaceOpacity <= 1,
+       ),
        assert(recommendationCount >= 0);
 
+  factory VideoDetailHeroShell.revealing({
+    Key? key,
+    required double progress,
+    int recommendationCount = 4,
+    bool? isVertical,
+    VideoDetailSkeletonVariant variant = VideoDetailSkeletonVariant.ugc,
+    String? title,
+    bool expandedIntro = false,
+    bool showRecommendations = true,
+    bool hasSeasonPanel = false,
+    bool hasPagesPanel = false,
+  }) => VideoDetailHeroShell(
+    key: key,
+    playerSurfaceOpacity: _remaining(progress, 0.04, 0.34),
+    navigationSurfaceOpacity: _remaining(progress, 0.12, 0.44),
+    detailSurfaceOpacity: _remaining(progress, 0.28, 0.76),
+    recommendationSurfaceOpacity: _remaining(progress, 0.56, 1),
+    recommendationCount: recommendationCount,
+    isVertical: isVertical,
+    variant: variant,
+    title: title,
+    expandedIntro: expandedIntro,
+    showRecommendations: showRecommendations,
+    hasSeasonPanel: hasSeasonPanel,
+    hasPagesPanel: hasPagesPanel,
+  );
+
   final double playerSurfaceOpacity;
-  final double bodySurfaceOpacity;
+  final double navigationSurfaceOpacity;
+  final double detailSurfaceOpacity;
+  final double recommendationSurfaceOpacity;
   final int recommendationCount;
   final bool? isVertical;
+  final VideoDetailSkeletonVariant variant;
+  final String? title;
+  final bool expandedIntro;
+  final bool showRecommendations;
+  final bool hasSeasonPanel;
+  final bool hasPagesPanel;
+
+  static double _remaining(double progress, double begin, double end) {
+    if (progress <= begin) {
+      return 1;
+    }
+    if (progress >= end) {
+      return 0;
+    }
+    final normalized = (progress - begin) / (end - begin);
+    return 1 - Curves.easeInOutCubic.transform(normalized);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -296,9 +368,24 @@ class VideoDetailHeroShell extends StatelessWidget {
             painter: _VideoDetailSkeletonPainter(
               colorScheme: colorScheme,
               playerSurfaceOpacity: playerSurfaceOpacity,
-              bodySurfaceOpacity: bodySurfaceOpacity,
+              navigationSurfaceOpacity: navigationSurfaceOpacity,
+              detailSurfaceOpacity: detailSurfaceOpacity,
+              recommendationSurfaceOpacity: recommendationSurfaceOpacity,
               recommendationCount: recommendationCount,
               isVertical: isVertical,
+              topInset: Pref.removeSafeArea
+                  ? 0
+                  : MediaQuery.viewPaddingOf(context).top,
+              variant: variant,
+              title: title,
+              expandedIntro: expandedIntro,
+              showRecommendations: showRecommendations,
+              hasSeasonPanel: hasSeasonPanel,
+              hasPagesPanel: hasPagesPanel,
+              textScaler: MediaQuery.textScalerOf(context),
+              titleStyle: DefaultTextStyle.of(
+                context,
+              ).style.copyWith(fontSize: 16),
             ),
           ),
         );
@@ -323,10 +410,15 @@ class _VideoDetailHeroChild extends StatelessWidget {
 }
 
 class _FixedSizeFlightChild extends StatelessWidget {
-  const _FixedSizeFlightChild({required this.layoutSize, required this.child});
+  const _FixedSizeFlightChild({
+    required this.layoutSize,
+    required this.child,
+    this.alignment = Alignment.center,
+  });
 
   final Size layoutSize;
   final Widget child;
+  final AlignmentGeometry alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -339,7 +431,7 @@ class _FixedSizeFlightChild extends StatelessWidget {
           height: constraints.hasBoundedHeight ? constraints.maxHeight : null,
           child: FittedBox(
             fit: BoxFit.cover,
-            alignment: Alignment.center,
+            alignment: alignment,
             child: SizedBox.fromSize(size: effectiveSize, child: child),
           ),
         );
@@ -352,16 +444,38 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   const _VideoDetailSkeletonPainter({
     required this.colorScheme,
     required this.playerSurfaceOpacity,
-    required this.bodySurfaceOpacity,
+    required this.navigationSurfaceOpacity,
+    required this.detailSurfaceOpacity,
+    required this.recommendationSurfaceOpacity,
     required this.recommendationCount,
     required this.isVertical,
+    required this.topInset,
+    required this.variant,
+    required this.title,
+    required this.expandedIntro,
+    required this.showRecommendations,
+    required this.hasSeasonPanel,
+    required this.hasPagesPanel,
+    required this.textScaler,
+    required this.titleStyle,
   });
 
   final ColorScheme colorScheme;
   final double playerSurfaceOpacity;
-  final double bodySurfaceOpacity;
+  final double navigationSurfaceOpacity;
+  final double detailSurfaceOpacity;
+  final double recommendationSurfaceOpacity;
   final int recommendationCount;
   final bool? isVertical;
+  final double topInset;
+  final VideoDetailSkeletonVariant variant;
+  final String? title;
+  final bool expandedIntro;
+  final bool showRecommendations;
+  final bool hasSeasonPanel;
+  final bool hasPagesPanel;
+  final TextScaler textScaler;
+  final TextStyle titleStyle;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -373,180 +487,660 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
       ..save()
       ..clipRect(Offset.zero & size);
 
-    final playerHeight = switch (isVertical) {
-      true => videoDetailPlayerHeight(size, isVertical: true),
-      false => videoDetailPlayerHeight(size, isVertical: false),
-      null => (size.width / Style.aspectRatio16x9).clamp(
-        size.height * 0.2,
-        size.height * 0.36,
-      ),
-    };
-    final playerRect = Rect.fromLTWH(0, 0, size.width, playerHeight);
+    final playerBottom = VideoDetailLayoutMetrics.entryPlayerBottom(
+      size,
+      isVertical: isVertical,
+      topInset: topInset,
+    );
+    final playerRect = Rect.fromLTRB(0, 0, size.width, playerBottom);
     if (playerSurfaceOpacity > 0) {
       canvas.drawRect(
         playerRect,
-        Paint()
-          ..color = (isVertical == null ? colorScheme.surface : Colors.black)
-              .withValues(alpha: playerSurfaceOpacity),
+        Paint()..color = Colors.black.withValues(alpha: playerSurfaceOpacity),
       );
     }
 
-    final bodyRect = Rect.fromLTRB(
-      0,
-      playerHeight,
-      size.width,
+    final navigationBottom = math.min(
       size.height,
+      playerBottom + VideoDetailLayoutMetrics.tabBarHeight,
     );
-    if (bodySurfaceOpacity > 0) {
-      canvas.drawRect(
-        bodyRect,
-        Paint()
-          ..color = colorScheme.surface.withValues(
-            alpha: bodySurfaceOpacity,
-          ),
-      );
-      _paintBody(canvas, size, playerHeight);
+    _paintNavigation(
+      canvas,
+      Rect.fromLTRB(0, playerBottom, size.width, navigationBottom),
+    );
+
+    switch (variant) {
+      case VideoDetailSkeletonVariant.ugc:
+        _paintUgcBody(canvas, size, navigationBottom);
+        break;
+      case VideoDetailSkeletonVariant.pgc:
+        _paintPgcBody(canvas, size, navigationBottom, showActions: true);
+        break;
+      case VideoDetailSkeletonVariant.pugv:
+        _paintPgcBody(canvas, size, navigationBottom, showActions: false);
+        break;
+      case VideoDetailSkeletonVariant.local:
+        _paintLocalBody(canvas, size, navigationBottom);
+        break;
     }
 
     canvas.restore();
   }
 
-  void _paintBody(Canvas canvas, Size size, double top) {
-    final scale = (size.width / 400).clamp(0.68, 1.15);
-    final padding = 14 * scale;
-    final gap = 10 * scale;
-    final avatarDiameter = 38 * scale;
-    final skeletonPaint = Paint()
-      ..color = colorScheme.onSurfaceVariant.withValues(
-        alpha: 0.17 * bodySurfaceOpacity,
+  void _paintNavigation(Canvas canvas, Rect rect) {
+    _paintSection(canvas, rect, navigationSurfaceOpacity, () {
+      final primaryPaint = _skeletonPaint(navigationSurfaceOpacity);
+      final subtlePaint = _subtlePaint(navigationSurfaceOpacity);
+      final centerY = rect.top + rect.height / 2;
+      _drawBar(
+        canvas,
+        Rect.fromLTWH(12, centerY - 5, 42, 10),
+        primaryPaint,
       );
-    final subtlePaint = Paint()
-      ..color = colorScheme.onSurfaceVariant.withValues(
-        alpha: 0.11 * bodySurfaceOpacity,
+      _drawBar(
+        canvas,
+        Rect.fromLTWH(72, centerY - 5, 48, 10),
+        subtlePaint,
       );
-    final cardPaint = Paint()
-      ..color = colorScheme.surfaceContainerLow.withValues(
-        alpha: 0.9 * bodySurfaceOpacity,
+      _drawBar(
+        canvas,
+        Rect.fromLTWH(math.max(132.0, rect.right - 106), centerY - 4, 52, 8),
+        subtlePaint,
       );
-    final thumbnailPaint = Paint()
-      ..color = colorScheme.surfaceContainerHighest.withValues(
-        alpha: 0.9 * bodySurfaceOpacity,
-      );
+      canvas
+        ..drawCircle(
+          Offset(rect.right - 25, centerY),
+          9,
+          primaryPaint,
+        )
+        ..drawRect(
+          Rect.fromLTWH(12, rect.bottom - 2, 42, 2),
+          Paint()
+            ..color = colorScheme.primary.withValues(
+              alpha: 0.52 * navigationSurfaceOpacity,
+            ),
+        )
+        ..drawRect(
+          Rect.fromLTWH(0, rect.bottom - 1, rect.width, 1),
+          Paint()
+            ..color = colorScheme.outline.withValues(
+              alpha: 0.1 * navigationSurfaceOpacity,
+            ),
+        );
+    });
+  }
 
-    var y = top + padding;
-    canvas.drawCircle(
-      Offset(padding + avatarDiameter / 2, y + avatarDiameter / 2),
-      avatarDiameter / 2,
-      skeletonPaint,
-    );
+  void _paintUgcBody(Canvas canvas, Size size, double top) {
+    const padding = VideoDetailLayoutMetrics.horizontalPadding;
+    const gap = VideoDetailLayoutMetrics.sectionGap;
+    final ownerTop = top + VideoDetailLayoutMetrics.introTopPadding;
+    final ownerBottom = ownerTop + VideoDetailLayoutMetrics.ownerHeight;
+    final titleTop = ownerBottom + gap;
+    final secondTitleTop = titleTop + 20;
+    final titleHeight = _ugcTitleHeight(size);
+    final statsTop = titleTop + titleHeight + gap;
+    final descriptionTop = statsTop + 18 + gap;
+    final actionTop = descriptionTop + (expandedIntro ? 72 : 0);
+    final actionBottom = actionTop + VideoDetailLayoutMetrics.actionHeight;
+    final panelHeight =
+        (hasSeasonPanel ? VideoDetailLayoutMetrics.seasonPanelHeight : 0.0) +
+        (hasPagesPanel ? VideoDetailLayoutMetrics.pagesPanelHeight : 0.0);
+    final recommendationTop =
+        actionBottom +
+        panelHeight +
+        VideoDetailLayoutMetrics.relatedDividerTopPadding;
 
-    final authorLineX = padding + avatarDiameter + gap;
-    final authorLineWidth = math.max(0.0, size.width - authorLineX - padding);
-    _drawBar(
+    _paintSection(
       canvas,
-      Rect.fromLTWH(
-        authorLineX,
-        y + 5 * scale,
-        authorLineWidth * 0.46,
-        11 * scale,
+      _sectionRect(
+        size,
+        top,
+        showRecommendations ? recommendationTop : size.height,
       ),
-      skeletonPaint,
-    );
-    _drawBar(
-      canvas,
-      Rect.fromLTWH(
-        authorLineX,
-        y + 24 * scale,
-        authorLineWidth * 0.3,
-        8 * scale,
-      ),
-      subtlePaint,
+      detailSurfaceOpacity,
+      () {
+        final primaryPaint = _skeletonPaint(detailSurfaceOpacity);
+        final subtlePaint = _subtlePaint(detailSurfaceOpacity);
+        const avatarDiameter = VideoDetailLayoutMetrics.ownerHeight;
+        canvas.drawCircle(
+          Offset(
+            padding + avatarDiameter / 2,
+            ownerTop + avatarDiameter / 2,
+          ),
+          avatarDiameter / 2,
+          primaryPaint,
+        );
+
+        final followWidth = math.min(72.0, size.width * 0.2);
+        final followRect = Rect.fromLTWH(
+          size.width - padding - followWidth,
+          ownerTop + 3,
+          followWidth,
+          29,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(followRect, const Radius.circular(6)),
+          Paint()
+            ..color = colorScheme.secondaryContainer.withValues(
+              alpha: 0.72 * detailSurfaceOpacity,
+            ),
+        );
+
+        const authorX = padding + avatarDiameter + 10;
+        final authorWidth = math.max(0.0, followRect.left - authorX - 10);
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(authorX, ownerTop + 5, authorWidth * 0.58, 10),
+          primaryPaint,
+        );
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(authorX, ownerTop + 23, authorWidth * 0.78, 8),
+          subtlePaint,
+        );
+
+        final contentWidth = math.max(0.0, size.width - 2 * padding);
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(padding, titleTop, contentWidth * 0.92, 14),
+          primaryPaint,
+        );
+        if (titleHeight > 24) {
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(padding, secondTitleTop, contentWidth * 0.64, 10),
+            subtlePaint,
+          );
+        }
+        _paintStats(canvas, padding, statsTop, subtlePaint);
+        if (expandedIntro) {
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(padding, descriptionTop, contentWidth * 0.22, 9),
+            subtlePaint,
+          );
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(
+              padding,
+              descriptionTop + 20,
+              contentWidth * 0.94,
+              9,
+            ),
+            subtlePaint,
+          );
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(
+              padding,
+              descriptionTop + 39,
+              contentWidth * 0.72,
+              9,
+            ),
+            subtlePaint,
+          );
+        }
+        _paintActions(
+          canvas,
+          Rect.fromLTWH(
+            padding,
+            actionTop,
+            contentWidth,
+            VideoDetailLayoutMetrics.actionHeight,
+          ),
+          detailSurfaceOpacity,
+        );
+        _paintUgcPanels(
+          canvas,
+          Rect.fromLTWH(padding, actionBottom, contentWidth, panelHeight),
+          detailSurfaceOpacity,
+        );
+      },
     );
 
-    y += avatarDiameter + 13 * scale;
-    final contentWidth = math.max(0.0, size.width - 2 * padding);
-    _drawBar(
-      canvas,
-      Rect.fromLTWH(padding, y, contentWidth * 0.92, 12 * scale),
-      skeletonPaint,
-    );
-    y += 20 * scale;
-    _drawBar(
-      canvas,
-      Rect.fromLTWH(padding, y, contentWidth * 0.66, 10 * scale),
-      subtlePaint,
-    );
-    y += 28 * scale;
+    if (showRecommendations) {
+      _paintRecommendations(canvas, size, recommendationTop);
+    }
+  }
 
-    final cardRadius = Radius.circular(7 * scale);
-    final cardHeight = 88 * scale;
-    final thumbnailWidth = math.min(contentWidth * 0.36, 126 * scale);
-    final thumbnailHeight = math.min(
-      cardHeight - 12 * scale,
-      thumbnailWidth / Style.aspectRatio,
+  void _paintPgcBody(
+    Canvas canvas,
+    Size size,
+    double top, {
+    required bool showActions,
+  }) {
+    const padding = VideoDetailLayoutMetrics.horizontalPadding;
+    final contentTop = top + padding;
+    final coverHeight = math.min(
+      153.0,
+      math.max(0.0, size.height - contentTop),
+    );
+    final coverWidth = math.min(115.0, math.max(0.0, size.width * 0.32));
+    final actionTop = contentTop + coverHeight + 6;
+    final episodeTop = showActions
+        ? actionTop + VideoDetailLayoutMetrics.actionHeight
+        : actionTop;
+
+    _paintSection(
+      canvas,
+      _sectionRect(size, top, episodeTop),
+      detailSurfaceOpacity,
+      () {
+        final primaryPaint = _skeletonPaint(detailSurfaceOpacity);
+        final subtlePaint = _subtlePaint(detailSurfaceOpacity);
+        final coverRect = Rect.fromLTWH(
+          padding,
+          contentTop,
+          coverWidth,
+          coverHeight,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(coverRect, const Radius.circular(6)),
+          _thumbnailPaint(detailSurfaceOpacity),
+        );
+
+        final infoX = coverRect.right + 10;
+        final infoWidth = math.max(0.0, size.width - padding - infoX);
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(infoX, contentTop + 3, infoWidth * 0.62, 14),
+          primaryPaint,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+              infoX + infoWidth * 0.7,
+              contentTop,
+              infoWidth * 0.3,
+              30,
+            ),
+            const Radius.circular(8),
+          ),
+          Paint()
+            ..color = colorScheme.secondaryContainer.withValues(
+              alpha: 0.72 * detailSurfaceOpacity,
+            ),
+        );
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(infoX, contentTop + 35, infoWidth * 0.7, 8),
+          subtlePaint,
+        );
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(infoX, contentTop + 57, infoWidth * 0.86, 9),
+          subtlePaint,
+        );
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(infoX, contentTop + 77, infoWidth * 0.58, 9),
+          subtlePaint,
+        );
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(infoX, contentTop + 103, infoWidth * 0.94, 8),
+          subtlePaint,
+        );
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(infoX, contentTop + 120, infoWidth * 0.74, 8),
+          subtlePaint,
+        );
+        if (showActions) {
+          _paintActions(
+            canvas,
+            Rect.fromLTWH(
+              padding,
+              actionTop,
+              math.max(0.0, size.width - 2 * padding),
+              VideoDetailLayoutMetrics.actionHeight,
+            ),
+            detailSurfaceOpacity,
+          );
+        }
+      },
     );
 
+    _paintEpisodeRows(canvas, size, episodeTop);
+  }
+
+  void _paintLocalBody(Canvas canvas, Size size, double top) {
+    final bodyRect = _sectionRect(size, top, size.height);
+    _paintSection(canvas, bodyRect, detailSurfaceOpacity, () {
+      const padding = VideoDetailLayoutMetrics.horizontalPadding;
+      final primaryPaint = _skeletonPaint(detailSurfaceOpacity);
+      final subtlePaint = _subtlePaint(detailSurfaceOpacity);
+      var y = top;
+      for (var index = 0; index < recommendationCount; index++) {
+        if (y >= size.height) {
+          break;
+        }
+        final thumbnailRect = Rect.fromLTWH(padding, y + 5, 160, 100);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(thumbnailRect, Style.imgRadius),
+          _thumbnailPaint(detailSurfaceOpacity),
+        );
+        final textX = thumbnailRect.right + 10;
+        final textWidth = math.max(0.0, size.width - padding - textX);
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(textX, y + 12, textWidth * 0.92, 11),
+          primaryPaint,
+        );
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(textX, y + 34, textWidth * 0.72, 9),
+          subtlePaint,
+        );
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(textX, y + 82, textWidth * 0.46, 8),
+          subtlePaint,
+        );
+        y += 112;
+      }
+    });
+  }
+
+  void _paintUgcPanels(Canvas canvas, Rect rect, double opacity) {
+    if (rect.isEmpty) {
+      return;
+    }
+    final primaryPaint = _skeletonPaint(opacity);
+    final subtlePaint = _subtlePaint(opacity);
+    final tilePaint = _thumbnailPaint(opacity);
+    var top = rect.top;
+    if (hasSeasonPanel) {
+      _drawBar(
+        canvas,
+        Rect.fromLTWH(rect.left, top + 8, rect.width * 0.22, 9),
+        primaryPaint,
+      );
+      for (var index = 0; index < 3; index++) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+              rect.left + index * 62,
+              top + 25,
+              54,
+              18,
+            ),
+            const Radius.circular(5),
+          ),
+          tilePaint,
+        );
+      }
+      top += VideoDetailLayoutMetrics.seasonPanelHeight;
+    }
+    if (hasPagesPanel) {
+      _drawBar(
+        canvas,
+        Rect.fromLTWH(rect.left, top + 13, rect.width * 0.18, 9),
+        primaryPaint,
+      );
+      _drawBar(
+        canvas,
+        Rect.fromLTWH(
+          math.max(rect.left, rect.right - 74),
+          top + 14,
+          74,
+          8,
+        ),
+        subtlePaint,
+      );
+      for (var index = 0; index < 4; index++) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(
+              rect.left + index * 74,
+              top + 44,
+              66,
+              30,
+            ),
+            const Radius.circular(5),
+          ),
+          tilePaint,
+        );
+      }
+    }
+  }
+
+  double _ugcTitleHeight(Size size) {
+    final value = title;
+    if (value == null || value.isEmpty) {
+      return 38;
+    }
+    final painter =
+        TextPainter(
+          text: TextSpan(text: value, style: titleStyle),
+          maxLines: 2,
+          textDirection: TextDirection.ltr,
+          textScaler: textScaler,
+        )..layout(
+          maxWidth: math.max(
+            0.0,
+            size.width - 2 * VideoDetailLayoutMetrics.horizontalPadding,
+          ),
+        );
+    final height = painter.height;
+    painter.dispose();
+    return height;
+  }
+
+  void _paintStats(Canvas canvas, double left, double top, Paint paint) {
+    var x = left;
+    for (final width in <double>[42, 48, 58]) {
+      canvas.drawCircle(Offset(x + 5, top + 5), 5, paint);
+      _drawBar(canvas, Rect.fromLTWH(x + 14, top + 2, width, 7), paint);
+      x += width + 30;
+    }
+  }
+
+  void _paintActions(
+    Canvas canvas,
+    Rect rect,
+    double opacity,
+  ) {
+    if (rect.isEmpty) {
+      return;
+    }
+    final iconPaint = _skeletonPaint(opacity);
+    final labelPaint = _subtlePaint(opacity);
+    const count = 6;
+    final itemWidth = rect.width / count;
+    for (var index = 0; index < count; index++) {
+      final centerX = rect.left + itemWidth * (index + 0.5);
+      canvas.drawCircle(Offset(centerX, rect.top + 13), 9, iconPaint);
+      _drawBar(
+        canvas,
+        Rect.fromCenter(
+          center: Offset(centerX, rect.top + 33),
+          width: math.min(24.0, itemWidth * 0.58),
+          height: 6,
+        ),
+        labelPaint,
+      );
+    }
+  }
+
+  void _paintRecommendations(Canvas canvas, Size size, double top) {
+    final sectionRect = _sectionRect(size, top, size.height);
+    _paintSection(canvas, sectionRect, recommendationSurfaceOpacity, () {
+      canvas.drawRect(
+        Rect.fromLTWH(
+          VideoDetailLayoutMetrics.horizontalPadding,
+          top,
+          math.max(
+            0.0,
+            size.width - 2 * VideoDetailLayoutMetrics.horizontalPadding,
+          ),
+          VideoDetailLayoutMetrics.relatedDividerHeight,
+        ),
+        Paint()
+          ..color = colorScheme.outline.withValues(
+            alpha: 0.08 * recommendationSurfaceOpacity,
+          ),
+      );
+      final y =
+          top +
+          VideoDetailLayoutMetrics.relatedDividerHeight +
+          VideoDetailLayoutMetrics.relatedTopPadding;
+      _paintVideoCardRows(canvas, size, y);
+    });
+  }
+
+  void _paintVideoCardRows(Canvas canvas, Size size, double top) {
+    const padding = VideoDetailLayoutMetrics.horizontalPadding;
+    final primaryPaint = _skeletonPaint(recommendationSurfaceOpacity);
+    final subtlePaint = _subtlePaint(recommendationSurfaceOpacity);
+    const cardHeight = Grid.videoCardHMainAxisExtent;
+    final maxCrossAxisExtent = math.max(1.0, Grid.smallCardWidth * 2);
+    final crossAxisCount = math.max(
+      1,
+      (size.width / maxCrossAxisExtent).ceil(),
+    );
+    final tileWidth = size.width / crossAxisCount;
     for (var index = 0; index < recommendationCount; index++) {
+      final row = index ~/ crossAxisCount;
+      final column = index % crossAxisCount;
+      final y = top + row * (cardHeight + Grid.videoCardHMainAxisSpacing);
       if (y >= size.height) {
         break;
       }
-      final cardRect = Rect.fromLTWH(
-        padding,
-        y,
-        contentWidth,
-        cardHeight,
+      final tileLeft = column * tileWidth;
+      final contentWidth = math.max(0.0, tileWidth - 2 * padding);
+      final thumbnailWidth = math.min(
+        160.0,
+        math.max(0.0, contentWidth - 96),
       );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(cardRect, cardRadius),
-        cardPaint,
+      final thumbnailHeight = math.min(
+        cardHeight - 10,
+        thumbnailWidth / Style.aspectRatio,
       );
-
       final thumbnailRect = Rect.fromLTWH(
-        padding + 6 * scale,
+        tileLeft + padding,
         y + (cardHeight - thumbnailHeight) / 2,
         thumbnailWidth,
         thumbnailHeight,
       );
       canvas.drawRRect(
-        RRect.fromRectAndRadius(thumbnailRect, Radius.circular(6 * scale)),
-        thumbnailPaint,
+        RRect.fromRectAndRadius(thumbnailRect, const Radius.circular(6)),
+        _thumbnailPaint(recommendationSurfaceOpacity),
       );
+      final textX = thumbnailRect.right + 10;
+      final textWidth = math.max(
+        0.0,
+        tileLeft + tileWidth - padding - textX,
+      );
+      _drawBar(
+        canvas,
+        Rect.fromLTWH(textX, y + 14, textWidth * 0.94, 10),
+        primaryPaint,
+      );
+      _drawBar(
+        canvas,
+        Rect.fromLTWH(textX, y + 34, textWidth * 0.72, 9),
+        primaryPaint,
+      );
+      _drawBar(
+        canvas,
+        Rect.fromLTWH(textX, y + 82, textWidth * 0.42, 7),
+        subtlePaint,
+      );
+    }
+  }
 
-      final textX = thumbnailRect.right + gap;
-      final textWidth = math.max(0.0, cardRect.right - textX - 8 * scale);
+  void _paintEpisodeRows(Canvas canvas, Size size, double top) {
+    final sectionRect = _sectionRect(size, top, size.height);
+    _paintSection(canvas, sectionRect, recommendationSurfaceOpacity, () {
+      const padding = VideoDetailLayoutMetrics.horizontalPadding;
+      final paint = _thumbnailPaint(recommendationSurfaceOpacity);
+      final subtlePaint = _subtlePaint(recommendationSurfaceOpacity);
       _drawBar(
         canvas,
         Rect.fromLTWH(
-          textX,
-          y + 14 * scale,
-          textWidth * 0.94,
-          10 * scale,
+          padding,
+          top + 15,
+          math.min(86.0, size.width * 0.28),
+          11,
         ),
-        skeletonPaint,
+        _skeletonPaint(recommendationSurfaceOpacity),
       );
       _drawBar(
         canvas,
         Rect.fromLTWH(
-          textX,
-          y + 33 * scale,
-          textWidth * 0.72,
-          9 * scale,
-        ),
-        skeletonPaint,
-      );
-      _drawBar(
-        canvas,
-        Rect.fromLTWH(
-          textX,
-          y + 61 * scale,
-          textWidth * 0.42,
-          7 * scale,
+          math.max(padding, size.width - padding - 92),
+          top + 16,
+          92,
+          9,
         ),
         subtlePaint,
       );
-      y += cardHeight + 10 * scale;
-    }
+      const itemWidth = 140.0;
+      const itemHeight = 60.0;
+      const itemStride = 150.0;
+      final y = top + 42;
+      for (var index = 0; index < recommendationCount; index++) {
+        final rect = Rect.fromLTWH(
+          padding + index * itemStride,
+          y,
+          itemWidth,
+          itemHeight,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, const Radius.circular(6)),
+          paint,
+        );
+        _drawBar(
+          canvas,
+          Rect.fromCenter(
+            center: rect.center,
+            width: rect.width * 0.54,
+            height: 7,
+          ),
+          subtlePaint,
+        );
+      }
+    });
   }
+
+  void _paintSection(
+    Canvas canvas,
+    Rect rect,
+    double opacity,
+    VoidCallback paintContent,
+  ) {
+    if (opacity <= 0 || rect.isEmpty) {
+      return;
+    }
+    canvas
+      ..save()
+      ..clipRect(rect)
+      ..drawRect(
+        rect,
+        Paint()..color = colorScheme.surface.withValues(alpha: opacity),
+      );
+    paintContent();
+    canvas.restore();
+  }
+
+  Rect _sectionRect(Size size, double top, double bottom) {
+    final safeTop = top.clamp(0.0, size.height);
+    final safeBottom = bottom.clamp(safeTop, size.height);
+    return Rect.fromLTRB(0, safeTop, size.width, safeBottom);
+  }
+
+  Paint _skeletonPaint(double opacity) => Paint()
+    ..color = colorScheme.onSurfaceVariant.withValues(alpha: 0.17 * opacity);
+
+  Paint _subtlePaint(double opacity) => Paint()
+    ..color = colorScheme.onSurfaceVariant.withValues(alpha: 0.11 * opacity);
+
+  Paint _thumbnailPaint(double opacity) =>
+      Paint()
+        ..color = colorScheme.surfaceContainerHighest.withValues(
+          alpha: 0.92 * opacity,
+        );
 
   static void _drawBar(Canvas canvas, Rect rect, Paint paint) {
     if (rect.width <= 0 || rect.height <= 0) {
@@ -562,8 +1156,20 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   bool shouldRepaint(covariant _VideoDetailSkeletonPainter oldDelegate) {
     return colorScheme != oldDelegate.colorScheme ||
         playerSurfaceOpacity != oldDelegate.playerSurfaceOpacity ||
-        bodySurfaceOpacity != oldDelegate.bodySurfaceOpacity ||
+        navigationSurfaceOpacity != oldDelegate.navigationSurfaceOpacity ||
+        detailSurfaceOpacity != oldDelegate.detailSurfaceOpacity ||
+        recommendationSurfaceOpacity !=
+            oldDelegate.recommendationSurfaceOpacity ||
         recommendationCount != oldDelegate.recommendationCount ||
-        isVertical != oldDelegate.isVertical;
+        isVertical != oldDelegate.isVertical ||
+        topInset != oldDelegate.topInset ||
+        variant != oldDelegate.variant ||
+        title != oldDelegate.title ||
+        expandedIntro != oldDelegate.expandedIntro ||
+        showRecommendations != oldDelegate.showRecommendations ||
+        hasSeasonPanel != oldDelegate.hasSeasonPanel ||
+        hasPagesPanel != oldDelegate.hasPagesPanel ||
+        textScaler != oldDelegate.textScaler ||
+        titleStyle != oldDelegate.titleStyle;
   }
 }

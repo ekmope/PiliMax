@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
@@ -379,9 +380,14 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   void _setProgress(double value) {
     final next = value.clamp(0.0, 1.0);
     if (_lastProgress == 0 && next > 0) {
+      final prepareForExit =
+          _arguments?[videoDetailPrepareForExitKey]
+              as VideoDetailPrepareForExit?;
+      final preparedForSharedElement = prepareForExit?.call() ?? true;
       final session = _session;
       final token = widget.token;
       final canReturnToSource =
+          preparedForSharedElement &&
           token != null &&
           (session == null ||
               (session.matchesLaunchContent &&
@@ -390,6 +396,9 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
           ? VideoTransitionRegistry.resolveReturn(token)
           : null;
     } else if (next == 0) {
+      final cancelPreparedExit =
+          _arguments?[videoDetailCancelPreparedExitKey] as VoidCallback?;
+      cancelPreparedExit?.call();
       _returnTarget = null;
     }
     _lastProgress = next;
@@ -486,9 +495,10 @@ class VideoPageExitTransition extends StatelessWidget {
   Widget _sharedElementTransition(Size size, VideoReturnTarget target) {
     final screenRect = Offset.zero & size;
     final currentRect = Rect.lerp(screenRect, target.rect, progress)!;
-    final liveOpacity = 1 - _interval(progress, 0.35, 0.65);
+    final snapshotBlend = _snapshotBlend(currentRect, target.rect);
+    final liveOpacity = 1 - snapshotBlend;
     final radius = _maxRadius(target.borderRadius);
-    final cardOpacity = _interval(progress, 0.35, 0.65);
+    final cardOpacity = snapshotBlend;
     final currentRadius = lerpDouble(0, radius, progress)!;
 
     return Stack(
@@ -533,6 +543,40 @@ class VideoPageExitTransition extends StatelessWidget {
     radius.bottomLeft.x,
     radius.bottomRight.x,
   ].reduce((a, b) => a > b ? a : b);
+
+  static double _snapshotBlend(Rect current, Rect target) {
+    if (target.width <= 0 || target.height <= 0) {
+      return 0;
+    }
+    final sizeRatio = math.max(
+      current.width / target.width,
+      current.height / target.height,
+    );
+    final targetDiagonal = math.sqrt(
+      target.width * target.width + target.height * target.height,
+    );
+    final centerDistance = (current.center - target.center).distance;
+    final normalizedCenterDistance = targetDiagonal <= 0
+        ? double.infinity
+        : centerDistance / targetDiagonal;
+    final sizeBlend = _inverseInterval(sizeRatio, 1.14, 1.03);
+    final centerBlend = _inverseInterval(
+      normalizedCenterDistance,
+      0.14,
+      0.025,
+    );
+    return Curves.easeInOutCubic.transform(math.min(sizeBlend, centerBlend));
+  }
+
+  static double _inverseInterval(double value, double begin, double end) {
+    if (value >= begin) {
+      return 0;
+    }
+    if (value <= end) {
+      return 1;
+    }
+    return (begin - value) / (begin - end);
+  }
 
   static double _interval(double value, double begin, double end) {
     if (value <= begin) {

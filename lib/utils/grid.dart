@@ -16,12 +16,14 @@ mixin GridMixin {
 }
 
 abstract final class Grid {
+  static const double videoCardHMainAxisExtent = 110;
+  static const double videoCardHMainAxisSpacing = 2;
   static final double smallCardWidth = Pref.smallCardWidth;
 
   static SliverGridDelegateWithMaxCrossAxisExtent videoCardHDelegate({
-    double mainAxisExtent = 110,
+    double mainAxisExtent = videoCardHMainAxisExtent,
   }) => SliverGridDelegateWithMaxCrossAxisExtent(
-    mainAxisSpacing: 2,
+    mainAxisSpacing: videoCardHMainAxisSpacing,
     mainAxisExtent: mainAxisExtent,
     maxCrossAxisExtent: Grid.smallCardWidth * 2,
   );

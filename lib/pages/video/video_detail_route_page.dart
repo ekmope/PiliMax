@@ -10,6 +10,7 @@ import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/pages/video/view.dart';
 import 'package:PiliMax/services/live_pip_overlay_service.dart';
 import 'package:PiliMax/services/pip_overlay_service.dart';
+import 'package:PiliMax/services/route_restore_service.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 
@@ -273,6 +274,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   void _startSession() {
     final session = VideoDetailSession.start(_arguments);
     _session = session;
+    unawaited(RouteRestoreService.saveVideoRoute(_arguments));
     _arguments[videoDetailSessionKey] = session;
     (_arguments[videoTransitionTokenKey] as VideoTransitionToken?)
         ?.bindLaunchContentKey(session.launchContentKey);

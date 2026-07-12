@@ -27,46 +27,73 @@ abstract final class RouteRestoreService {
     '/dynamics',
   };
 
-  static bool _hasPerformedRestore = false;
-  static bool _isRestoring = false;
+  static _RouteRestorePhase _phase = _RouteRestorePhase.startup;
   static RestorableRoute? _latestRoute;
+  static Future<void> _storageQueue = Future<void>.value();
 
   static bool get _enabled =>
       Platform.isAndroid && Pref.enableAndroidRouteRestore;
 
   static void onRouteChanged(Routing? routing) {
-    if (!_enabled || _isRestoring || routing == null) return;
+    if (!_enabled || _phase == _RouteRestorePhase.restoring || routing == null) {
+      return;
+    }
     if (routing.route is! GetPageRoute) return;
     final route = _normalizeRoute(routing.current);
     if (route.isEmpty || !route.startsWith('/')) return;
     if (route == '/') {
-      unawaited(clear());
+      if (_phase == _RouteRestorePhase.ready) {
+        unawaited(clear());
+      }
       return;
     }
     if (!_restorableRoutes.contains(route)) return;
 
     final restorable = _buildRoute(route);
-    if (restorable == null) return;
+    if (restorable == null) {
+      unawaited(clear());
+      return;
+    }
     _latestRoute = restorable;
     unawaited(_save(restorable));
   }
 
   static Future<void> saveLatestRoute() async {
-    if (!_enabled || _latestRoute == null) return;
-    await _save(_latestRoute!);
+    final latestRoute = _latestRoute;
+    if (!_enabled || latestRoute == null) return;
+    await _save(latestRoute);
   }
 
-  static Future<void> clear() async {
-    await Future.wait([
-      GStorage.localCache.delete(LocalCacheKey.lastAndroidRouteRestoreState),
-      GStorage.localCache.delete(LocalCacheKey.lastAndroidRouteRestoreTime),
-    ]);
+  static Future<void> clear() {
     _latestRoute = null;
+    return _enqueueStorage(
+      () => GStorage.localCache.deleteAll([
+        LocalCacheKey.lastAndroidRouteRestoreState,
+        LocalCacheKey.lastAndroidRouteRestoreTime,
+      ]),
+    );
+  }
+
+  static Future<void> saveVideoRoute(Map<dynamic, dynamic> arguments) {
+    if (!_enabled || !_isCurrentVideoRoute(arguments)) {
+      return Future<void>.value();
+    }
+    final storableArguments = _videoArguments(arguments);
+    if (storableArguments == null) {
+      return Future<void>.value();
+    }
+    final route = RestorableRoute(
+      route: '/videoV',
+      arguments: storableArguments,
+    );
+    _latestRoute = route;
+    return _save(route);
   }
 
   static Future<void> restoreIfNeeded() async {
-    if (!_enabled || _hasPerformedRestore) return;
-    _hasPerformedRestore = true;
+    if (_phase != _RouteRestorePhase.startup) return;
+    _phase = _RouteRestorePhase.ready;
+    if (!_enabled) return;
 
     try {
       if (Get.currentRoute != '/') return;
@@ -80,13 +107,13 @@ abstract final class RouteRestoreService {
 
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
-        await clear();
+        await _ignoreStorageErrors(clear());
         return;
       }
 
       final state = Map<String, dynamic>.from(decoded);
       if (state['version'] != _version) {
-        await clear();
+        await _ignoreStorageErrors(clear());
         return;
       }
 
@@ -94,7 +121,7 @@ abstract final class RouteRestoreService {
       if (savedAt == null ||
           DateTime.now().millisecondsSinceEpoch - savedAt >
               _validDuration.inMilliseconds) {
-        await clear();
+        await _ignoreStorageErrors(clear());
         return;
       }
 
@@ -102,7 +129,7 @@ abstract final class RouteRestoreService {
       final params = state['parameters'];
       final args = state['arguments'];
       if (route is! String || !_restorableRoutes.contains(route)) {
-        await clear();
+        await _ignoreStorageErrors(clear());
         return;
       }
 
@@ -116,28 +143,37 @@ abstract final class RouteRestoreService {
         parameters: parameters,
       );
       if (!_isValid(restorable)) {
-        await clear();
+        await _ignoreStorageErrors(clear());
         return;
       }
 
-      _isRestoring = true;
+      final storedRoute = RestorableRoute(
+        route: restorable.route,
+        arguments: _storableArguments(restorable.route, restorable.arguments),
+        parameters: restorable.parameters,
+      );
+      _latestRoute = storedRoute;
+      _phase = _RouteRestorePhase.restoring;
+      Future<void>? navigation;
       try {
-        await Get.toNamed(
+        navigation = Get.toNamed<void>(
           restorable.route,
           arguments: restorable.arguments,
           parameters: restorable.parameters,
           preventDuplicates: false,
         );
-        _latestRoute = RestorableRoute(
-          route: restorable.route,
-          arguments: _storableArguments(restorable.route, args),
-          parameters: restorable.parameters,
-        );
       } finally {
-        _isRestoring = false;
+        _phase = _RouteRestorePhase.ready;
       }
+      if (navigation == null) {
+        await _ignoreStorageErrors(clear());
+        return;
+      }
+      unawaited(navigation);
+      await _ignoreStorageErrors(_save(storedRoute));
     } catch (_) {
-      await clear();
+      _phase = _RouteRestorePhase.ready;
+      await _ignoreStorageErrors(clear());
     }
   }
 
@@ -163,23 +199,33 @@ abstract final class RouteRestoreService {
     return args;
   }
 
-  static Future<void> _save(RestorableRoute route) async {
+  static Future<void> _save(RestorableRoute route) => _enqueueStorage(() {
     final now = DateTime.now().millisecondsSinceEpoch;
-    await GStorage.localCache.put(
-      LocalCacheKey.lastAndroidRouteRestoreState,
-      jsonEncode({
+    return GStorage.localCache.putAll({
+      LocalCacheKey.lastAndroidRouteRestoreState: jsonEncode({
         'version': _version,
         'time': now,
         'route': route.route,
         if (route.arguments != null) 'arguments': route.arguments,
         if (route.parameters != null) 'parameters': route.parameters,
       }),
+      LocalCacheKey.lastAndroidRouteRestoreTime: now,
+    });
+  });
+
+  static Future<void> _enqueueStorage(
+    Future<void> Function() operation,
+  ) {
+    final next = _storageQueue.then((_) => operation());
+    _storageQueue = next.then<void>(
+      (_) {},
+      onError: (_, _) {},
     );
-    await GStorage.localCache.put(
-      LocalCacheKey.lastAndroidRouteRestoreTime,
-      now,
-    );
+    return next;
   }
+
+  static Future<void> _ignoreStorageErrors(Future<void> operation) =>
+      operation.then<void>((_) {}, onError: (_, _) {});
 
   static RestorableRoute? _buildRoute(String route) {
     final args = Get.arguments;
@@ -262,6 +308,11 @@ abstract final class RouteRestoreService {
       'isVertical': _asBool(args['isVertical']),
       'heroTag': Utils.makeHeroTag(cid),
     };
+  }
+
+  static bool _isCurrentVideoRoute(Map<dynamic, dynamic> arguments) {
+    return _normalizeRoute(Get.currentRoute) == '/videoV' &&
+        identical(Get.arguments, arguments);
   }
 
   static Map<String, dynamic>? _videoArgumentsForRestore(dynamic args) {
@@ -363,6 +414,8 @@ abstract final class RouteRestoreService {
         orElse: () => SourceType.normal,
       );
 }
+
+enum _RouteRestorePhase { startup, restoring, ready }
 
 class RestorableRoute {
   const RestorableRoute({

@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/pages/video/video_page_transitions_builder.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/cupertino.dart' show CupertinoThemeData;
@@ -154,8 +155,8 @@ abstract final class ThemeUtils {
       pageTransitionsTheme: PageTransitionsTheme(
         builders: {
           TargetPlatform.android: Pref.enablePredictiveBack
-              ? const PredictiveBackPageTransitionsBuilder()
-              : const ZoomPageTransitionsBuilder(),
+              ? const AppPredictiveBackPageTransitionsBuilder()
+              : const AppZoomPageTransitionsBuilder(),
         },
       ),
     );

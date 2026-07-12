@@ -5,14 +5,19 @@ extension DimensionExt on Dimension {
 }
 
 extension StringExt on String {
-  bool get isVerticalFromUri {
+  bool? get verticalFromUri {
     try {
       final params = Uri.parse(this).queryParameters;
       final width = int.parse(params['player_width']!);
       final height = int.parse(params['player_height']!);
+      if (width <= 0 || height <= 0) {
+        return null;
+      }
       return params['player_rotate'] == '1' ? width > height : height > width;
     } catch (_) {
-      return false;
+      return null;
     }
   }
+
+  bool get isVerticalFromUri => verticalFromUri ?? false;
 }

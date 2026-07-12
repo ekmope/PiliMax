@@ -13,6 +13,7 @@ import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/download_dialog_utils.dart';
+import 'package:PiliMax/utils/extension/dimension_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
@@ -114,6 +115,7 @@ class HistoryItem extends StatelessWidget {
                     cover: cover,
                     title: item.title,
                     part: item.history.page,
+                    isVertical: item.uri?.verticalFromUri,
                     heroTag: _heroTag,
                   );
                 }

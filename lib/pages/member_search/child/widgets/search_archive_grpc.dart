@@ -77,7 +77,10 @@ class SearchArchiveGrpc extends StatelessWidget {
                   cid: arc.firstCid.toInt(),
                   cover: arc.pic,
                   title: titleStr,
-                  isVertical: arc.dimension.isVertical,
+                  isVertical:
+                      arc.dimension.width > 0 && arc.dimension.height > 0
+                      ? arc.dimension.isVertical
+                      : null,
                   heroTag: heroTag,
                 );
               },

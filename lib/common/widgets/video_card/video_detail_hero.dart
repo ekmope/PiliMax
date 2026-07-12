@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
+import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 
 /// Expands a complete video card into the lightweight detail-page shell.
@@ -9,7 +12,7 @@ import 'package:flutter/material.dart';
 /// Both ends opt in to user-gesture transitions so Android predictive back can
 /// drive the same flight. Keep the target child lightweight; the default
 /// [VideoDetailHeroShell] intentionally contains no player or scrolling state.
-class VideoDetailHero extends StatelessWidget {
+class VideoDetailHero extends StatefulWidget {
   const VideoDetailHero.source({
     super.key,
     required this.tag,
@@ -28,6 +31,9 @@ class VideoDetailHero extends StatelessWidget {
   final Widget child;
   final BorderRadiusGeometry borderRadius;
   final bool _isDetailTarget;
+
+  @override
+  State<VideoDetailHero> createState() => _VideoDetailHeroState();
 
   static Tween<Rect?> _createRectTween(Rect? begin, Rect? end) =>
       RectTween(begin: begin, end: end);
@@ -85,12 +91,25 @@ class VideoDetailHero extends StatelessWidget {
                     flightProgress,
                   )) ??
             detailChild.borderRadius;
+        final isUnknownEntry =
+            !isPop &&
+            detailChild.child is VideoDetailHeroShell &&
+            (detailChild.child as VideoDetailHeroShell).isVertical == null;
         final sourceOpacity = isPop
             ? _interval(flightProgress, 0.28, 0.88)
-            : 1 - _interval(flightProgress, 0.08, 0.52);
+            : 1 -
+                  _interval(
+                    flightProgress,
+                    isUnknownEntry ? 0.28 : 0.08,
+                    isUnknownEntry ? 0.78 : 0.52,
+                  );
         final detailOpacity = isPop
             ? 1 - _interval(flightProgress, 0.14, 0.78)
-            : _interval(flightProgress, 0.16, 0.82);
+            : _interval(
+                flightProgress,
+                isUnknownEntry ? 0.55 : 0.16,
+                isUnknownEntry ? 0.96 : 0.82,
+              );
 
         return RepaintBoundary(
           child: ClipRRect(
@@ -121,6 +140,7 @@ class VideoDetailHero extends StatelessWidget {
         playerSurfaceOpacity: isPop ? 0 : shell.playerSurfaceOpacity,
         bodySurfaceOpacity: shell.bodySurfaceOpacity,
         recommendationCount: shell.recommendationCount,
+        isVertical: shell.isVertical,
       );
     }
     return _FixedSizeFlightChild(layoutSize: layoutSize, child: child);
@@ -158,22 +178,80 @@ class VideoDetailHero extends StatelessWidget {
   Widget _buildPlaceholder(BuildContext context, Size heroSize, Widget child) {
     return SizedBox.fromSize(size: heroSize);
   }
+}
+
+class _VideoDetailHeroState extends State<VideoDetailHero> {
+  final GlobalKey _sourceBoundaryKey = GlobalKey();
+  VideoTransitionRegistration? _registration;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _registration ??= _registerSource();
+  }
+
+  @override
+  void didUpdateWidget(VideoDetailHero oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tag != widget.tag ||
+        oldWidget._isDetailTarget != widget._isDetailTarget ||
+        oldWidget.borderRadius != widget.borderRadius) {
+      _syncRegistration();
+    }
+  }
+
+  void _syncRegistration() {
+    _registration?.dispose();
+    _registration = _registerSource();
+  }
+
+  VideoTransitionRegistration? _registerSource() {
+    if (widget._isDetailTarget) {
+      return null;
+    }
+    return VideoTransitionRegistry.register(
+      tag: widget.tag,
+      boundaryKey: _sourceBoundaryKey,
+      context: context,
+      borderRadius: widget.borderRadius,
+    );
+  }
+
+  @override
+  void dispose() {
+    _registration?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Hero(
-      tag: tag,
+    final child = widget._isDetailTarget
+        ? widget.child
+        : RepaintBoundary(key: _sourceBoundaryKey, child: widget.child);
+    final hero = Hero(
+      tag: widget.tag,
       curve: Curves.linear,
       reverseCurve: Curves.linear,
-      createRectTween: _createRectTween,
-      flightShuttleBuilder: _flightShuttleBuilder,
+      createRectTween: VideoDetailHero._createRectTween,
+      flightShuttleBuilder: VideoDetailHero._flightShuttleBuilder,
       transitionOnUserGestures: true,
-      placeholderBuilder: _buildPlaceholder,
+      placeholderBuilder: widget._buildPlaceholder,
       child: _VideoDetailHeroChild(
-        borderRadius: borderRadius,
-        isDetailTarget: _isDetailTarget,
+        borderRadius: widget.borderRadius,
+        isDetailTarget: widget._isDetailTarget,
         child: child,
       ),
+    );
+    if (widget._isDetailTarget) {
+      return hero;
+    }
+    return Listener(
+      onPointerDown: (event) {
+        if (event.buttons & kPrimaryButton != 0) {
+          _registration?.prepare();
+        }
+      },
+      child: hero,
     );
   }
 }
@@ -189,6 +267,7 @@ class VideoDetailHeroShell extends StatelessWidget {
     this.playerSurfaceOpacity = 1,
     this.bodySurfaceOpacity = 1,
     this.recommendationCount = 4,
+    this.isVertical,
   }) : assert(playerSurfaceOpacity >= 0 && playerSurfaceOpacity <= 1),
        assert(bodySurfaceOpacity >= 0 && bodySurfaceOpacity <= 1),
        assert(recommendationCount >= 0);
@@ -196,6 +275,7 @@ class VideoDetailHeroShell extends StatelessWidget {
   final double playerSurfaceOpacity;
   final double bodySurfaceOpacity;
   final int recommendationCount;
+  final bool? isVertical;
 
   @override
   Widget build(BuildContext context) {
@@ -218,6 +298,7 @@ class VideoDetailHeroShell extends StatelessWidget {
               playerSurfaceOpacity: playerSurfaceOpacity,
               bodySurfaceOpacity: bodySurfaceOpacity,
               recommendationCount: recommendationCount,
+              isVertical: isVertical,
             ),
           ),
         );
@@ -257,8 +338,8 @@ class _FixedSizeFlightChild extends StatelessWidget {
           width: constraints.hasBoundedWidth ? constraints.maxWidth : null,
           height: constraints.hasBoundedHeight ? constraints.maxHeight : null,
           child: FittedBox(
-            fit: BoxFit.fill,
-            alignment: Alignment.topLeft,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
             child: SizedBox.fromSize(size: effectiveSize, child: child),
           ),
         );
@@ -273,12 +354,14 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     required this.playerSurfaceOpacity,
     required this.bodySurfaceOpacity,
     required this.recommendationCount,
+    required this.isVertical,
   });
 
   final ColorScheme colorScheme;
   final double playerSurfaceOpacity;
   final double bodySurfaceOpacity;
   final int recommendationCount;
+  final bool? isVertical;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -290,15 +373,21 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
       ..save()
       ..clipRect(Offset.zero & size);
 
-    final playerHeight = (size.width / Style.aspectRatio).clamp(
-      size.height * 0.26,
-      size.height * 0.46,
-    );
+    final playerHeight = switch (isVertical) {
+      true => videoDetailPlayerHeight(size, isVertical: true),
+      false => videoDetailPlayerHeight(size, isVertical: false),
+      null => (size.width / Style.aspectRatio16x9).clamp(
+        size.height * 0.2,
+        size.height * 0.36,
+      ),
+    };
     final playerRect = Rect.fromLTWH(0, 0, size.width, playerHeight);
     if (playerSurfaceOpacity > 0) {
       canvas.drawRect(
         playerRect,
-        Paint()..color = Colors.black.withValues(alpha: playerSurfaceOpacity),
+        Paint()
+          ..color = (isVertical == null ? colorScheme.surface : Colors.black)
+              .withValues(alpha: playerSurfaceOpacity),
       );
     }
 
@@ -474,6 +563,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     return colorScheme != oldDelegate.colorScheme ||
         playerSurfaceOpacity != oldDelegate.playerSurfaceOpacity ||
         bodySurfaceOpacity != oldDelegate.bodySurfaceOpacity ||
-        recommendationCount != oldDelegate.recommendationCount;
+        recommendationCount != oldDelegate.recommendationCount ||
+        isVertical != oldDelegate.isVertical;
   }
 }

@@ -115,7 +115,12 @@ class DetailItem extends StatelessWidget {
                       cid: cid!,
                       cover: entry.cover,
                       title: entry.showTitle,
-                      isVertical: entry.pageData?.isVertical ?? false,
+                      isVertical: switch (entry.pageData) {
+                        final pageData?
+                            when pageData.width > 0 && pageData.height > 0 =>
+                          pageData.isVertical,
+                        _ => null,
+                      },
                       heroTag: _heroTag,
                       extraArguments: {
                         'sourceType': SourceType.file,

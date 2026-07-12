@@ -16,7 +16,6 @@ import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_dynamic_header.dart';
 import 'package:PiliMax/common/widgets/sliver/video_header.dart';
 import 'package:PiliMax/common/widgets/svg/play_icon.dart';
-import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
 import 'package:PiliMax/models/common/list_order.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
@@ -42,10 +41,13 @@ import 'package:PiliMax/pages/video/introduction/ugc/widgets/page.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/season.dart';
 import 'package:PiliMax/pages/video/member/controller.dart';
 import 'package:PiliMax/pages/video/member/view.dart';
+import 'package:PiliMax/pages/video/related/controller.dart';
 import 'package:PiliMax/pages/video/related/view.dart';
 import 'package:PiliMax/pages/video/reply/controller.dart';
 import 'package:PiliMax/pages/video/reply/view.dart';
 import 'package:PiliMax/pages/video/video_detail_args.dart';
+import 'package:PiliMax/pages/video/video_detail_session.dart';
+import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/pages/video/view_point/view.dart';
 import 'package:PiliMax/pages/video/widgets/header_control.dart';
 import 'package:PiliMax/pages/video/widgets/player_focus.dart';
@@ -89,7 +91,9 @@ import 'package:get/get.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
 class VideoDetailPageV extends StatefulWidget {
-  const VideoDetailPageV({super.key});
+  const VideoDetailPageV({super.key, this.session});
+
+  final VideoDetailSession? session;
 
   @override
   State<VideoDetailPageV> createState() => _VideoDetailPageVState();
@@ -98,8 +102,37 @@ class VideoDetailPageV extends StatefulWidget {
 class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     with RouteAware, RouteAwareMixin, WidgetsBindingObserver {
   final Map _videoArgs = VideoDetailArgs.normalize(Get.arguments);
-  late final String heroTag = _videoArgs['heroTag'] as String;
+  late final String heroTag = _resolveControllerTag();
   late final bool _fromPip = _videoArgs['fromPip'] ?? false;
+
+  String _resolveControllerTag() {
+    final requestedTag = _videoArgs['heroTag'] as String;
+    if (_videoArgs['fromPip'] == true ||
+        !_isControllerTagOccupied(requestedTag)) {
+      return requestedTag;
+    }
+
+    var suffix = 0;
+    late String candidate;
+    do {
+      candidate = '$requestedTag-route-${identityHashCode(this)}-${suffix++}';
+    } while (_isControllerTagOccupied(candidate));
+    try {
+      _videoArgs['heroTag'] = candidate;
+      return candidate;
+    } catch (_) {
+      return requestedTag;
+    }
+  }
+
+  bool _isControllerTagOccupied(String tag) =>
+      Get.isRegistered<VideoDetailController>(tag: tag) ||
+      Get.isRegistered<VideoReplyController>(tag: tag) ||
+      Get.isRegistered<UgcIntroController>(tag: tag) ||
+      Get.isRegistered<PgcIntroController>(tag: tag) ||
+      Get.isRegistered<LocalIntroController>(tag: tag) ||
+      Get.isRegistered<RelatedController>(tag: tag) ||
+      Get.isRegistered<AiChatController>(tag: tag);
 
   late final VideoDetailController videoDetailController;
   late final VideoReplyController _videoReplyController;
@@ -392,6 +425,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       if (savedReplyController != null) {
         _videoReplyController = savedReplyController;
         _videoReplyController.isEnteringPip = false; // 重置标志
+        _videoReplyController.$reopenLifeCycle();
         Get.put(savedReplyController, tag: heroTag);
         _logSponsorBlock('Restored VideoReplyController from PiP');
       } else {
@@ -417,6 +451,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           savedIntroController is LocalIntroController) {
         localIntroController = savedIntroController;
         localIntroController.isEnteringPip = false; // 重置标志
+        localIntroController.$reopenLifeCycle();
         Get.put(localIntroController, tag: heroTag);
         _logSponsorBlock('Restored LocalIntroController from PiP');
       } else {
@@ -427,23 +462,44 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           savedIntroController is UgcIntroController) {
         ugcIntroController = savedIntroController;
         ugcIntroController.isEnteringPip = false; // 重置标志
+        ugcIntroController.$reopenLifeCycle();
         Get.put(ugcIntroController, tag: heroTag);
+        ugcIntroController.resumeAfterPip();
         _logSponsorBlock(
           'Restored UgcIntroController from PiP, videoDetail.bvid: ${ugcIntroController.videoDetail.value.bvid}',
         );
       } else {
-        ugcIntroController = Get.put(UgcIntroController(), tag: heroTag);
+        ugcIntroController = Get.put(
+          UgcIntroController(
+            initialVideoIntro: widget.session?.takeInitialIntro(),
+          ),
+          tag: heroTag,
+        );
       }
     } else {
       if (savedIntroController != null &&
           savedIntroController is PgcIntroController) {
         pgcIntroController = savedIntroController;
         pgcIntroController.isEnteringPip = false; // 重置标志
+        pgcIntroController.$reopenLifeCycle();
+        pgcIntroController.startTimer();
         Get.put(pgcIntroController, tag: heroTag);
         _logSponsorBlock('Restored PgcIntroController from PiP');
       } else {
         pgcIntroController = Get.put(PgcIntroController(), tag: heroTag);
       }
+    }
+
+    if (videoDetailController.isUgc &&
+        videoDetailController.showRelatedVideo &&
+        !Get.isRegistered<RelatedController>(tag: heroTag)) {
+      Get.put(
+        RelatedController(
+          bvid: videoDetailController.bvid,
+          initialRelated: widget.session?.takeInitialRelated(),
+        ),
+        tag: heroTag,
+      );
     }
 
     // AI chat controller - create if not already registered (PiP reuse)
@@ -1344,9 +1400,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     );
     videoDetailController.plPlayerController.screenRatio = maxHeight / maxWidth;
 
-    final shortestSide = size.shortestSide;
-    final minVideoHeight = shortestSide / Style.aspectRatio16x9;
-    final maxVideoHeight = max(size.longestSide * 0.65, shortestSide);
+    final minVideoHeight = videoDetailPlayerHeight(
+      size,
+      isVertical: false,
+    );
+    final maxVideoHeight = videoDetailPlayerHeight(
+      size,
+      isVertical: true,
+    );
     videoDetailController
       ..isPortrait = isPortrait = maxHeight >= maxWidth
       ..minVideoHeight = minVideoHeight
@@ -1368,18 +1429,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       (isWindowMode && isFullScreen && !isPortrait);
 
   Widget _routeFadeTransition({required Widget child}) {
-    final animation = ModalRoute.of(context)?.animation;
-    if (animation == null) {
-      return child;
-    }
-    return FadeTransition(
-      opacity: CurvedAnimation(
-        parent: animation,
-        curve: const Interval(0.32, 1, curve: Curves.easeOutCubic),
-        reverseCurve: Curves.linear,
-      ),
-      child: child,
-    );
+    return child;
   }
 
   Widget get childWhenDisabled {
@@ -2359,6 +2409,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   @override
   Widget build(BuildContext context) {
     _syncAndroidPredictiveBack();
+    widget.session?.updateCurrentContent(
+      videoType: videoDetailController.videoType,
+      aid: videoDetailController.aid,
+      bvid: videoDetailController.bvid,
+      cid: videoDetailController.cid.value,
+      seasonId: videoDetailController.seasonId,
+      epId: videoDetailController.epId,
+    );
     Widget child;
     if (videoDetailController.plPlayerController.isPipMode) {
       child = plPlayer(width: maxWidth, height: maxHeight, isPipMode: true);
@@ -2385,21 +2443,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         },
         onSkipSegment: videoDetailController.onSkipSegment,
         child: child,
-      );
-    }
-    if (!videoDetailController.plPlayerController.isPipMode) {
-      child = Stack(
-        children: [
-          Positioned.fill(
-            child: IgnorePointer(
-              child: VideoDetailHero.target(
-                tag: heroTag,
-                child: const VideoDetailHeroShell(),
-              ),
-            ),
-          ),
-          child,
-        ],
       );
     }
     return videoDetailController.plPlayerController.darkVideoPage

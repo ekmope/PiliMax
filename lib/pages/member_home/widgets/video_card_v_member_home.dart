@@ -8,6 +8,7 @@ import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/space/space_archive/item.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
+import 'package:PiliMax/utils/extension/dimension_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
@@ -60,6 +61,7 @@ class VideoCardVMemberHome extends StatelessWidget {
           cid: videoItem.cid,
           cover: videoItem.cover,
           title: videoItem.title,
+          isVertical: videoItem.uri?.verticalFromUri,
           heroTag: _heroTag,
         );
         break;

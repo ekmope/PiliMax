@@ -193,9 +193,9 @@ class MemberVideoCtr
                   (isVideo ? order == .click : sort == .asc)
               ? !desc
               : desc;
-          bool isVertical = false;
+          bool? isVertical;
           if (element.uri case final uri?) {
-            isVertical = uri.isVerticalFromUri;
+            isVertical = uri.verticalFromUri;
           }
           PageUtils.toVideoPage(
             bvid: element.bvid,

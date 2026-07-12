@@ -84,9 +84,9 @@ class VideoCardHMemberVideo extends StatelessWidget {
                     if (videoItem.bvid == null) {
                       return;
                     }
-                    bool isVertical = false;
+                    bool? isVertical;
                     if (videoItem.uri case final uri?) {
-                      isVertical = uri.isVerticalFromUri;
+                      isVertical = uri.verticalFromUri;
                     }
                     PageUtils.toVideoPage(
                       bvid: videoItem.bvid,

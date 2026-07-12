@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:PiliMax/common/widgets/fractionally_sized_box.dart';
 import 'package:PiliMax/common/widgets/image_viewer/gallery_viewer.dart';
 import 'package:PiliMax/common/widgets/image_viewer/hero_dialog_route.dart';
+import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/grpc/im.dart';
 import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -18,6 +19,7 @@ import 'package:PiliMax/pages/common/publish/publish_route.dart';
 import 'package:PiliMax/pages/contact/view.dart';
 import 'package:PiliMax/pages/fav_panel/view.dart';
 import 'package:PiliMax/pages/share/view.dart';
+import 'package:PiliMax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
@@ -631,12 +633,13 @@ abstract final class PageUtils {
     int? progress, // milliseconds
     Map? extraArguments,
     bool off = false,
-    bool isVertical = false,
+    bool? isVertical,
     Dimension? dimension,
     String? heroTag,
     int? part,
     VideoPendingLaunchType? pendingLaunchType,
   }) {
+    final hasValidDimension = _hasValidDimension(dimension);
     final effectivePendingType =
         pendingLaunchType ??
         (cid == null
@@ -658,7 +661,10 @@ abstract final class PageUtils {
       title: title,
       progress: progress,
       extraArguments: extraArguments,
-      isVertical: dimension?.isVertical ?? isVertical,
+      isVertical: hasValidDimension
+          ? dimension!.isVertical
+          : isVertical ?? false,
+      videoOrientationKnown: hasValidDimension || isVertical != null,
       heroTag: heroTag,
       part: part,
       pendingLaunchType: effectivePendingType,
@@ -679,6 +685,7 @@ abstract final class PageUtils {
     int? progress,
     Map? extraArguments,
     bool isVertical = false,
+    bool videoOrientationKnown = false,
     String? heroTag,
     int? part,
     VideoPendingLaunchType? pendingLaunchType,
@@ -706,6 +713,7 @@ abstract final class PageUtils {
       'progress': ?progress,
       'videoType': videoType,
       'isVertical': isVertical,
+      'videoOrientationKnown': videoOrientationKnown,
       'heroTag': heroTag ?? Utils.makeHeroTag(fallbackHeroKey),
       ...?extraArguments,
       videoPendingLaunchKey: ?pendingLaunchType,
@@ -717,6 +725,21 @@ abstract final class PageUtils {
     Map<dynamic, dynamic> arguments, {
     required bool off,
   }) {
+    if (!off && arguments[videoTransitionTokenKey] == null) {
+      final heroTag = arguments['heroTag'];
+      if (heroTag is String && heroTag.isNotEmpty) {
+        final token = VideoTransitionRegistry.claim(
+          tag: heroTag,
+          contentKey: VideoDetailSession.contentKeyFor(arguments),
+          coverUrl: arguments['cover'] is String
+              ? arguments['cover'] as String
+              : null,
+        );
+        if (token != null) {
+          arguments[videoTransitionTokenKey] = token;
+        }
+      }
+    }
     if (off) {
       return Get.offNamed(
         '/videoV',
@@ -778,8 +801,12 @@ abstract final class PageUtils {
     _setVideoIdentity(args, aid: aid as int?, bvid: bvid as String?);
     args['cid'] = cid;
     args['videoType'] = VideoType.ugc;
-    args['isVertical'] =
-        result?.dimension?.isVertical ?? args['isVertical'] ?? false;
+    final hasValidDimension = _hasValidDimension(result?.dimension);
+    args['isVertical'] = hasValidDimension
+        ? result!.dimension!.isVertical
+        : args['isVertical'] ?? false;
+    args['videoOrientationKnown'] =
+        hasValidDimension || args['videoOrientationKnown'] == true;
   }
 
   static Future<void> _resolvePendingPgc(Map<dynamic, dynamic> args) async {
@@ -909,7 +936,19 @@ abstract final class PageUtils {
     if (episode.cover != null) {
       args['cover'] = episode.cover;
     }
+    if (episode.dimension case final dimension?
+        when _hasValidDimension(dimension)) {
+      args
+        ..['isVertical'] = dimension.isVertical
+        ..['videoOrientationKnown'] = true;
+    }
   }
+
+  static bool _hasValidDimension(Dimension? dimension) =>
+      dimension?.width != null &&
+      dimension!.width! > 0 &&
+      dimension.height != null &&
+      dimension.height! > 0;
 
   static void _setVideoIdentity(
     Map<dynamic, dynamic> args, {

@@ -17,6 +17,7 @@ import 'package:PiliMax/models_new/member_card_info/data.dart';
 import 'package:PiliMax/models_new/relation/data.dart';
 import 'package:PiliMax/models_new/video/video_ai_conclusion/model_result.dart';
 import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
+import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart';
 import 'package:PiliMax/models_new/video/video_detail/page.dart';
 import 'package:PiliMax/models_new/video/video_detail/section.dart';
@@ -49,6 +50,14 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 class UgcIntroController extends CommonIntroController with ReloadMixin {
+  UgcIntroController({
+    Future<LoadingState<VideoDetailData>>? initialVideoIntro,
+  }) : _initialVideoIntro = initialVideoIntro;
+
+  Future<LoadingState<VideoDetailData>>? _initialVideoIntro;
+  int _introRequestsInFlight = 0;
+  Future<void>? _pendingRelatedContinuation;
+  String? _pendingRelatedBvid;
   late final RxBool expand;
   final RxBool status = true.obs;
 
@@ -96,13 +105,27 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   }
 
   Future<void> _queryVideoIntro({bool Function()? isCurrent}) async {
-    bool isCurrentIntro() => isCurrent?.call() ?? true;
+    bool isCurrentIntro() => !isClosed && (isCurrent?.call() ?? true);
     if (!isCurrentIntro()) {
       return;
     }
     final requestBvid = bvid;
     queryVideoTags(isCurrent: isCurrentIntro);
-    final res = await VideoHttp.videoIntro(bvid: requestBvid);
+    final initialVideoIntro = _initialVideoIntro;
+    _initialVideoIntro = null;
+    late final LoadingState<VideoDetailData> res;
+    _introRequestsInFlight++;
+    try {
+      res =
+          await (initialVideoIntro ?? VideoHttp.videoIntro(bvid: requestBvid));
+    } catch (_) {
+      if (isCurrentIntro()) {
+        status.value = false;
+      }
+      return;
+    } finally {
+      _introRequestsInFlight--;
+    }
     if (!isCurrentIntro() || bvid != requestBvid) {
       return;
     }
@@ -679,8 +702,24 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         '[UgcIntroController] onClose() called, isEnteringPip: $isEnteringPip',
       );
     }
-    if (isEnteringPip) return;
+    if (isEnteringPip) {
+      cancelTimer();
+      return;
+    }
+    _pendingRelatedContinuation = null;
+    _pendingRelatedBvid = null;
     super.onClose();
+  }
+
+  void resumeAfterPip() {
+    startTimer();
+    if (videoTags.value == null) {
+      unawaited(queryVideoTags());
+    }
+    if (_introRequestsInFlight == 0 && videoDetail.value.bvid != bvid) {
+      status.value = true;
+      unawaited(queryVideoIntro());
+    }
   }
 
   bool _isShuffleMode(bool isPart) {
@@ -885,12 +924,21 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   }
 
   bool playRelated() {
+    if (isClosed) {
+      return false;
+    }
     RelatedController relatedCtr;
     if (Get.isRegistered<RelatedController>(tag: heroTag)) {
       relatedCtr = Get.find<RelatedController>(tag: heroTag);
     } else {
       relatedCtr = Get.put(RelatedController(autoQuery: false), tag: heroTag)
-        ..queryData().whenComplete(playRelated);
+        ..queryData().ignore();
+      _continuePlayRelatedAfter(relatedCtr.ensureLoaded());
+      return false;
+    }
+
+    if (relatedCtr.loadingState.value is Loading) {
+      _continuePlayRelatedAfter(relatedCtr.ensureLoaded());
       return false;
     }
 
@@ -912,6 +960,29 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     }
 
     return false;
+  }
+
+  void _continuePlayRelatedAfter(Future<void> loading) {
+    final expectedBvid = bvid;
+    if (_pendingRelatedContinuation != null &&
+        _pendingRelatedBvid == expectedBvid) {
+      return;
+    }
+    _pendingRelatedContinuation = null;
+    _pendingRelatedBvid = expectedBvid;
+    late final Future<void> continuation;
+    continuation = loading.whenComplete(() {
+      if (!identical(_pendingRelatedContinuation, continuation)) {
+        return;
+      }
+      _pendingRelatedContinuation = null;
+      _pendingRelatedBvid = null;
+      if (!isClosed && bvid == expectedBvid) {
+        playRelated();
+      }
+    });
+    _pendingRelatedContinuation = continuation;
+    unawaited(continuation);
   }
 
   // ai总结

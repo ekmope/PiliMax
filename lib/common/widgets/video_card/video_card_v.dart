@@ -103,10 +103,10 @@ class _VideoCardVState extends State<VideoCardV> {
         break;
       case 'av':
         final bvid = videoItem.bvid ?? IdUtils.av2bv(videoItem.aid!);
-        bool isVertical = false;
+        bool? isVertical;
         if (videoItem is RcmdVideoItemAppModel) {
           if (videoItem.uri case final uri?) {
-            isVertical = uri.isVerticalFromUri;
+            isVertical = uri.verticalFromUri;
           }
         }
         PageUtils.toVideoPage(

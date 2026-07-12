@@ -106,7 +106,12 @@ class BiliDownloadEntryInfo with MultiSelectData {
                     epId: ep?.episodeId,
                     title: title,
                     cover: cover,
-                    isVertical: pageData?.isVertical ?? false,
+                    isVertical: switch (pageData) {
+                      final pageData?
+                          when pageData.width > 0 && pageData.height > 0 =>
+                        pageData.isVertical,
+                      _ => null,
+                    },
                     heroTag: heroTag,
                   );
                 },

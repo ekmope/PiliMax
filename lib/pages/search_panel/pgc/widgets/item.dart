@@ -2,7 +2,8 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -21,9 +22,11 @@ class SearchPgcItem extends StatelessWidget {
   final String heroTagPrefix;
   final int? index;
 
-  String get _heroTag =>
-      '$heroTagPrefix-${item.seasonId ?? item.mediaId ?? item.cover}'
-      '${index == null ? '' : '-$index'}';
+  String get _heroTag => VideoHeroTag.forItem(
+    scope: heroTagPrefix,
+    item: item,
+    contentId: item.seasonId ?? item.mediaId ?? item.cover ?? 'unknown',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -35,94 +38,94 @@ class SearchPgcItem extends StatelessWidget {
     );
     return Material(
       type: MaterialType.transparency,
-      child: InkWell(
-        onTap: () => PageUtils.viewPgc(
-          seasonId: item.seasonId,
-          heroTag: _heroTag,
-        ),
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Style.safeSpace,
-            vertical: Style.cardSpace,
+      child: VideoDetailHero.source(
+        tag: _heroTag,
+        child: InkWell(
+          onTap: () => PageUtils.viewPgc(
+            seasonId: item.seasonId,
+            heroTag: _heroTag,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  VideoCoverHero(
-                    tag: _heroTag,
-                    child: NetworkImgLayer(
+          onLongPress: onLongPress,
+          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Style.safeSpace,
+              vertical: Style.cardSpace,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    NetworkImgLayer(
                       clip: false,
                       width: 111,
                       height: 148,
                       src: item.cover,
                     ),
-                  ),
-                  PBadge(
-                    text: item.seasonTypeName,
-                    top: 6.0,
-                    right: 4.0,
-                    bottom: null,
-                    left: null,
-                  ),
-                ],
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 4),
-                    Text.rich(
-                      TextSpan(
-                        children: item.title
-                            .map(
-                              (e) => TextSpan(
-                                text: e.text,
-                                style: TextStyle(
-                                  color: e.isEm
-                                      ? theme.colorScheme.primary
-                                      : theme.colorScheme.onSurface,
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text('评分:${item.mediaScore?['score']}', style: style),
-                    Row(
-                      children: [
-                        if (item.areas?.isNotEmpty == true)
-                          Text(item.areas!, style: style),
-                        const SizedBox(width: 3),
-                        const Text('·'),
-                        const SizedBox(width: 3),
-                        Text(
-                          DateFormatUtils.dateFormat(item.pubtime),
-                          style: style,
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        if (item.styles?.isNotEmpty == true)
-                          Text(item.styles!, style: style),
-                        const SizedBox(width: 3),
-                        const Text('·'),
-                        const SizedBox(width: 3),
-                        if (item.indexShow?.isNotEmpty == true)
-                          Text(item.indexShow!, style: style),
-                      ],
+                    PBadge(
+                      text: item.seasonTypeName,
+                      top: 6.0,
+                      right: 4.0,
+                      bottom: null,
+                      left: null,
                     ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text.rich(
+                        TextSpan(
+                          children: item.title
+                              .map(
+                                (e) => TextSpan(
+                                  text: e.text,
+                                  style: TextStyle(
+                                    color: e.isEm
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text('评分:${item.mediaScore?['score']}', style: style),
+                      Row(
+                        children: [
+                          if (item.areas?.isNotEmpty == true)
+                            Text(item.areas!, style: style),
+                          const SizedBox(width: 3),
+                          const Text('·'),
+                          const SizedBox(width: 3),
+                          Text(
+                            DateFormatUtils.dateFormat(item.pubtime),
+                            style: style,
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          if (item.styles?.isNotEmpty == true)
+                            Text(item.styles!, style: style),
+                          const SizedBox(width: 3),
+                          const Text('·'),
+                          const SizedBox(width: 3),
+                          if (item.indexShow?.isNotEmpty == true)
+                            Text(item.indexShow!, style: style),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

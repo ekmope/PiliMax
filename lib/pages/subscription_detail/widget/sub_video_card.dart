@@ -3,8 +3,8 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
-import 'package:PiliMax/http/search.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/stat_type.dart';
 import 'package:PiliMax/models_new/sub/sub_detail/media.dart';
@@ -27,7 +27,11 @@ class SubVideoCardH extends StatelessWidget {
     this.searchType,
   });
 
-  String get _heroTag => 'sub-video-${videoItem.bvid}-$index';
+  String get _heroTag => VideoHeroTag.forItem(
+    scope: 'subscription-detail-video',
+    item: videoItem,
+    contentId: videoItem.bvid ?? videoItem.id ?? index,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -39,67 +43,62 @@ class SubVideoCardH extends StatelessWidget {
       view: videoItem.cntInfo?.play,
       danmaku: videoItem.cntInfo?.danmaku,
     );
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: () async {
-          final res = await SearchHttp.ab2cWithDimension(bvid: videoItem.bvid);
-          final cid = res?.cid;
-          if (cid != null) {
-            PageUtils.toVideoPage(
-              bvid: videoItem.bvid,
-              cid: cid,
-              cover: videoItem.cover,
-              title: videoItem.title,
-              dimension: res!.dimension,
-              heroTag: _heroTag,
-            );
-          }
-        },
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Style.safeSpace,
-            vertical: 5,
+    final heroTag = _heroTag;
+    return VideoDetailHero.source(
+      tag: heroTag,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: () => PageUtils.toVideoPage(
+            aid: videoItem.bvid == null ? videoItem.id : null,
+            bvid: videoItem.bvid,
+            cid: null,
+            cover: videoItem.cover,
+            title: videoItem.title,
+            heroTag: heroTag,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AspectRatio(
-                aspectRatio: Style.aspectRatio,
-                child: LayoutBuilder(
-                  builder: (context, boxConstraints) {
-                    double maxWidth = boxConstraints.maxWidth;
-                    double maxHeight = boxConstraints.maxHeight;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        VideoCoverHero(
-                          tag: _heroTag,
-                          child: NetworkImgLayer(
+          onLongPress: onLongPress,
+          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Style.safeSpace,
+              vertical: 5,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AspectRatio(
+                  aspectRatio: Style.aspectRatio,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      double maxWidth = boxConstraints.maxWidth;
+                      double maxHeight = boxConstraints.maxHeight;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          NetworkImgLayer(
                             clip: false,
                             src: videoItem.cover,
                             width: maxWidth,
                             height: maxHeight,
                           ),
-                        ),
-                        PBadge(
-                          text: DurationUtils.formatDuration(
-                            videoItem.duration,
+                          PBadge(
+                            text: DurationUtils.formatDuration(
+                              videoItem.duration,
+                            ),
+                            right: 6.0,
+                            bottom: 6.0,
+                            type: PBadgeType.gray,
                           ),
-                          right: 6.0,
-                          bottom: 6.0,
-                          type: PBadgeType.gray,
-                        ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              content(context),
-            ],
+                const SizedBox(width: 10),
+                content(context),
+              ],
+            ),
           ),
         ),
       ),

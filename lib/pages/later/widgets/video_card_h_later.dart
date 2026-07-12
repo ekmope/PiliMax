@@ -5,8 +5,8 @@ import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliMax/common/widgets/select_mask.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
-import 'package:PiliMax/http/search.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/stat_type.dart';
 import 'package:PiliMax/models_new/later/list.dart';
@@ -15,7 +15,6 @@ import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 // 视频卡片 - 水平布局
@@ -31,11 +30,14 @@ class VideoCardHLater extends StatelessWidget {
   final int index;
   final BaseLaterController ctr;
   final LaterItemModel videoItem;
-  final void Function(int cid, String heroTag) onViewLater;
+  final void Function(int? cid, String heroTag) onViewLater;
   final String heroScope;
 
-  String get _heroTag =>
-      '$heroScope-${videoItem.bvid ?? videoItem.aid}-${videoItem.cid}-$index';
+  String get _heroTag => VideoHeroTag.forItem(
+    scope: heroScope,
+    item: videoItem,
+    contentId: videoItem.bvid ?? videoItem.aid ?? 'unknown',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -50,133 +52,125 @@ class VideoCardHLater extends StatelessWidget {
 
     return Material(
       type: MaterialType.transparency,
-      child: InkWell(
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-        onTap: enableMultiSelect
-            ? () => ctr.onSelect(videoItem)
-            : () async {
-                if (videoItem.isPugv ?? false) {
-                  PageUtils.viewPugv(
-                    seasonId: videoItem.aid,
-                    heroTag: _heroTag,
-                  );
-                  return;
-                }
-                if (videoItem.isPgc ?? false) {
-                  if (videoItem.bangumi?.epId != null) {
-                    PageUtils.viewPgc(
-                      epId: videoItem.bangumi!.epId,
+      child: VideoDetailHero.source(
+        tag: _heroTag,
+        child: InkWell(
+          onLongPress: onLongPress,
+          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+          onTap: enableMultiSelect
+              ? () => ctr.onSelect(videoItem)
+              : () {
+                  if (videoItem.isPugv ?? false) {
+                    PageUtils.viewPugv(
+                      seasonId: videoItem.aid,
                       heroTag: _heroTag,
                     );
-                  } else if (videoItem.redirectUrl?.isNotEmpty == true) {
-                    PageUtils.viewPgcFromUri(
-                      videoItem.redirectUrl!,
-                      heroTag: _heroTag,
-                    );
+                    return;
                   }
-                  return;
-                }
-                try {
-                  final cid =
-                      videoItem.cid ??
-                      await SearchHttp.ab2c(
-                        aid: videoItem.aid,
-                        bvid: videoItem.bvid,
+                  if (videoItem.isPgc ?? false) {
+                    if (videoItem.bangumi?.epId != null) {
+                      PageUtils.viewPgc(
+                        epId: videoItem.bangumi!.epId,
+                        heroTag: _heroTag,
                       );
-                  if (cid != null) {
-                    onViewLater(cid, _heroTag);
+                    } else if (videoItem.redirectUrl?.isNotEmpty == true) {
+                      PageUtils.viewPgcFromUri(
+                        videoItem.redirectUrl!,
+                        heroTag: _heroTag,
+                      );
+                    }
+                    return;
                   }
-                } catch (err) {
-                  SmartDialog.showToast(err.toString());
-                }
-              },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Style.safeSpace,
-            vertical: 5,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              AspectRatio(
-                aspectRatio: Style.aspectRatio,
-                child: LayoutBuilder(
-                  builder: (context, boxConstraints) {
-                    final double maxWidth = boxConstraints.maxWidth;
-                    final double maxHeight = boxConstraints.maxHeight;
-                    num? progress = videoItem.progress;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        VideoCoverHero(
-                          tag: _heroTag,
-                          child: NetworkImgLayer(
+                  onViewLater(videoItem.cid, _heroTag);
+                },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Style.safeSpace,
+              vertical: 5,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                AspectRatio(
+                  aspectRatio: Style.aspectRatio,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      final double maxWidth = boxConstraints.maxWidth;
+                      final double maxHeight = boxConstraints.maxHeight;
+                      num? progress = videoItem.progress;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          NetworkImgLayer(
                             clip: false,
                             src: videoItem.pic,
                             width: maxWidth,
                             height: maxHeight,
                             cacheWidth: videoItem.dimension?.cacheWidth,
                           ),
-                        ),
-                        if (videoItem.isCharging == true)
-                          const PBadge(
-                            text: '充电专属',
-                            top: 6.0,
-                            right: 6.0,
-                            type: PBadgeType.error,
-                          )
-                        else if (videoItem.rights?.isCooperation == 1)
-                          const PBadge(text: '合作', top: 6.0, right: 6.0)
-                        else if (videoItem.pgcLabel != null)
-                          PBadge(text: videoItem.pgcLabel, top: 6.0, right: 6.0)
-                        else if (videoItem.isPugv ?? false)
-                          const PBadge(text: '课堂', top: 6.0, right: 6.0),
-                        if (progress != null && progress != 0) ...[
-                          PBadge(
-                            text: progress == -1
-                                ? '已看完'
-                                : '${DurationUtils.formatDuration(progress)}/${DurationUtils.formatDuration(videoItem.duration)}',
-                            right: 6,
-                            bottom: 8,
-                            type: PBadgeType.gray,
-                          ),
-                          Positioned(
-                            left: 0,
-                            bottom: 0,
-                            right: 0,
-                            child: VideoProgressIndicator(
-                              color: theme.colorScheme.primary,
-                              backgroundColor:
-                                  theme.colorScheme.secondaryContainer,
-                              progress: progress == -1
-                                  ? 1
-                                  : progress / videoItem.duration!,
+                          if (videoItem.isCharging == true)
+                            const PBadge(
+                              text: '充电专属',
+                              top: 6.0,
+                              right: 6.0,
+                              type: PBadgeType.error,
+                            )
+                          else if (videoItem.rights?.isCooperation == 1)
+                            const PBadge(text: '合作', top: 6.0, right: 6.0)
+                          else if (videoItem.pgcLabel != null)
+                            PBadge(
+                              text: videoItem.pgcLabel,
+                              top: 6.0,
+                              right: 6.0,
+                            )
+                          else if (videoItem.isPugv ?? false)
+                            const PBadge(text: '课堂', top: 6.0, right: 6.0),
+                          if (progress != null && progress != 0) ...[
+                            PBadge(
+                              text: progress == -1
+                                  ? '已看完'
+                                  : '${DurationUtils.formatDuration(progress)}/${DurationUtils.formatDuration(videoItem.duration)}',
+                              right: 6,
+                              bottom: 8,
+                              type: PBadgeType.gray,
+                            ),
+                            Positioned(
+                              left: 0,
+                              bottom: 0,
+                              right: 0,
+                              child: VideoProgressIndicator(
+                                color: theme.colorScheme.primary,
+                                backgroundColor:
+                                    theme.colorScheme.secondaryContainer,
+                                progress: progress == -1
+                                    ? 1
+                                    : progress / videoItem.duration!,
+                              ),
+                            ),
+                          ] else if (videoItem.duration! > 0)
+                            PBadge(
+                              text: DurationUtils.formatDuration(
+                                videoItem.duration,
+                              ),
+                              right: 6.0,
+                              bottom: 6.0,
+                              type: PBadgeType.gray,
+                            ),
+                          Positioned.fill(
+                            child: selectMask(
+                              theme.colorScheme,
+                              videoItem.checked,
                             ),
                           ),
-                        ] else if (videoItem.duration! > 0)
-                          PBadge(
-                            text: DurationUtils.formatDuration(
-                              videoItem.duration,
-                            ),
-                            right: 6.0,
-                            bottom: 6.0,
-                            type: PBadgeType.gray,
-                          ),
-                        Positioned.fill(
-                          child: selectMask(
-                            theme.colorScheme,
-                            videoItem.checked,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              content(context, theme),
-            ],
+                const SizedBox(width: 10),
+                content(context, theme),
+              ],
+            ),
           ),
         ),
       ),

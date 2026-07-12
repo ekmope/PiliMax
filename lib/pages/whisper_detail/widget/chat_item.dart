@@ -7,11 +7,10 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/grpc/bilibili/im/interfaces/v1.pb.dart'
     show EmotionInfo;
 import 'package:PiliMax/grpc/bilibili/im/type.pb.dart' show Msg, MsgType;
-import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/models/common/image_type.dart';
@@ -347,98 +346,97 @@ class ChatItem extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            for (final (subCardIndex, i) in
-                (content['sub_cards'] as Iterable).indexed)
-              GestureDetector(
-                onTap: () async {
-                  String? bvid = IdUtils.bvRegex
-                      .firstMatch(i['jump_url'])
-                      ?.group(0);
-                  if (bvid != null) {
-                    try {
-                      SmartDialog.showLoading();
-                      final res = await SearchHttp.ab2cWithDimension(
-                        bvid: bvid,
-                      );
-                      final cid = res?.cid;
-                      SmartDialog.dismiss();
-                      if (cid != null) {
-                        PageUtils.toVideoPage(
-                          bvid: bvid,
-                          cid: cid,
-                          cover: i['cover_url'],
-                          dimension: res!.dimension,
-                          heroTag: _videoHeroTag(
-                            i['jump_url'] ?? i['cover_url'],
-                            subCardIndex,
-                          ),
-                        );
-                      }
-                    } catch (err) {
-                      SmartDialog.dismiss();
-                      SmartDialog.showToast(err.toString());
-                    }
-                  } else {
-                    SmartDialog.showToast('未匹配到 BV 号');
-                    PageUtils.handleWebview(i['jump_url']);
-                  }
-                },
-                child: Row(
-                  spacing: 6,
-                  children: [
-                    VideoCoverHero(
-                      tag: _videoHeroTag(
-                        i['jump_url'] ?? i['cover_url'],
-                        subCardIndex,
-                      ),
-                      child: NetworkImgLayer(
-                        clip: false,
-                        width: 130,
-                        height: 73.125,
-                        src: i['cover_url'],
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            i['field1'],
-                            maxLines: 2,
-                            style: TextStyle(
-                              letterSpacing: 0.6,
-                              height: 1.5,
-                              color: textColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            i['field2'],
-                            style: TextStyle(
-                              letterSpacing: 0.6,
-                              height: 1.5,
-                              color: textColor.withValues(alpha: 0.6),
-                              fontSize: 12,
-                            ),
-                          ),
-                          Text(
-                            i['field3'],
-                            style: TextStyle(
-                              letterSpacing: 0.6,
-                              height: 1.5,
-                              color: textColor.withValues(alpha: 0.6),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            for (final (subCardIndex, i)
+                in (content['sub_cards'] as Iterable).indexed)
+              _msgType16SubCard(theme, i, subCardIndex, textColor),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _msgType16SubCard(
+    ThemeData theme,
+    dynamic content,
+    int subCardIndex,
+    Color textColor,
+  ) {
+    final jumpUrl = content['jump_url'];
+    final bvid = jumpUrl is String
+        ? IdUtils.bvRegex.firstMatch(jumpUrl)?.group(0)
+        : null;
+    final heroTag = _videoHeroTag(
+      jumpUrl ?? content['cover_url'],
+      subCardIndex,
+    );
+    final card = ColoredBox(
+      color: theme.colorScheme.onInverseSurface,
+      child: Row(
+        spacing: 6,
+        children: [
+          NetworkImgLayer(
+            clip: false,
+            width: 130,
+            height: 73.125,
+            src: content['cover_url'],
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  content['field1'],
+                  maxLines: 2,
+                  style: TextStyle(
+                    letterSpacing: 0.6,
+                    height: 1.5,
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  content['field2'],
+                  style: TextStyle(
+                    letterSpacing: 0.6,
+                    height: 1.5,
+                    color: textColor.withValues(alpha: 0.6),
+                    fontSize: 12,
+                  ),
+                ),
+                Text(
+                  content['field3'],
+                  style: TextStyle(
+                    letterSpacing: 0.6,
+                    height: 1.5,
+                    color: textColor.withValues(alpha: 0.6),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    return GestureDetector(
+      onTap: () {
+        if (bvid != null) {
+          PageUtils.toVideoPage(
+            bvid: bvid,
+            cid: null,
+            cover: content['cover_url'],
+            heroTag: heroTag,
+          );
+          return;
+        }
+        SmartDialog.showToast('未匹配到 BV 号');
+        if (jumpUrl is String) {
+          PageUtils.handleWebview(jumpUrl);
+        }
+      },
+      child: bvid == null
+          ? card
+          : VideoDetailHero.source(tag: heroTag, child: card),
     );
   }
 
@@ -450,98 +448,91 @@ class ChatItem extends StatelessWidget {
     final heroTag = _videoHeroTag(content['bvid'] ?? content['cover'], 'card');
 
     return Center(
-      child: Container(
-        clipBehavior: Clip.hardEdge,
-        constraints: const BoxConstraints(maxWidth: 400.0),
-        decoration: BoxDecoration(
-          borderRadius: Style.mdRadius,
-          color: theme.colorScheme.onInverseSurface,
-        ),
-        child: LayoutBuilder(
-          builder: (_, constrains) {
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () async {
-                try {
-                  SmartDialog.showLoading();
-                  final bvid = content["bvid"];
-                  final res = await SearchHttp.ab2cWithDimension(
-                    bvid: bvid,
-                  );
-                  final cid = res?.cid;
-                  SmartDialog.dismiss();
-                  if (cid != null) {
-                    PageUtils.toVideoPage(
-                      bvid: bvid,
-                      cid: cid,
-                      cover: content['cover'],
-                      dimension: res!.dimension,
-                      heroTag: heroTag,
-                    );
+      child: VideoDetailHero.source(
+        tag: heroTag,
+        child: Container(
+          clipBehavior: Clip.hardEdge,
+          constraints: const BoxConstraints(maxWidth: 400.0),
+          decoration: BoxDecoration(
+            borderRadius: Style.mdRadius,
+            color: theme.colorScheme.onInverseSurface,
+          ),
+          child: LayoutBuilder(
+            builder: (_, constrains) {
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  final bvid = content['bvid'];
+                  if (bvid is! String || bvid.isEmpty) {
+                    SmartDialog.showToast('未匹配到 BV 号');
+                    return;
                   }
-                } catch (err) {
-                  SmartDialog.dismiss();
-                  SmartDialog.showToast(err.toString());
-                }
-              },
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      VideoCoverHero(
-                        tag: heroTag,
-                        child: NetworkImgLayer(
+                  PageUtils.toVideoPage(
+                    bvid: bvid,
+                    cid: null,
+                    cover: content['cover'],
+                    heroTag: heroTag,
+                  );
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        NetworkImgLayer(
                           clip: false,
                           width: constrains.maxWidth,
                           height: constrains.maxWidth / Style.aspectRatio16x9,
                           src: content['cover'],
                         ),
-                      ),
-                      PBadge(
-                        left: 6,
-                        bottom: 6,
-                        type: PBadgeType.gray,
-                        text: content['times'] == 0
-                            ? '--:--'
-                            : DurationUtils.formatDuration(content['times']),
-                      ),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                        PBadge(
+                          left: 6,
+                          bottom: 6,
+                          type: PBadgeType.gray,
+                          text: content['times'] == 0
+                              ? '--:--'
+                              : DurationUtils.formatDuration(content['times']),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      content['times'] == 0 ? '内容已失效' : content['title'],
-                      style: TextStyle(
-                        letterSpacing: 0.6,
-                        height: 1.5,
-                        color: textColor,
-                        fontWeight: FontWeight.bold,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                    ),
-                  ),
-                  if (attachMsg?.isNotEmpty ?? false)
-                    Container(
-                      margin: const .fromLTRB(12, 0, 12, 8),
-                      padding: const .symmetric(horizontal: 11, vertical: 3.5),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: const .all(.circular(6)),
-                      ),
-                      child: msgTypeText_1(
-                        theme,
-                        content: content['attach_msg'],
-                        textColor: textColor,
+                      child: Text(
+                        content['times'] == 0 ? '内容已失效' : content['title'],
+                        style: TextStyle(
+                          letterSpacing: 0.6,
+                          height: 1.5,
+                          color: textColor,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                ],
-              ),
-            );
-          },
+                    if (attachMsg?.isNotEmpty ?? false)
+                      Container(
+                        margin: const .fromLTRB(12, 0, 12, 8),
+                        padding: const .symmetric(
+                          horizontal: 11,
+                          vertical: 3.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: const .all(.circular(6)),
+                        ),
+                        child: msgTypeText_1(
+                          theme,
+                          content: content['attach_msg'],
+                          textColor: textColor,
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -565,32 +556,22 @@ class ChatItem extends StatelessWidget {
           'share',
         );
         type = '视频';
-        onTap = () async {
-          dynamic aid = content['id'];
-          if (aid is String) {
-            aid = int.tryParse(aid);
-          }
-          dynamic bvid = content["bvid"];
+        onTap = () {
+          final rawAid = content['id'];
+          final aid = rawAid is int ? rawAid : int.tryParse('$rawAid');
+          final rawBvid = content['bvid'];
+          final bvid = rawBvid is String && rawBvid.isNotEmpty ? rawBvid : null;
           if (aid == null && bvid == null) {
             SmartDialog.showToast('null');
+            return;
           }
-          bvid ??= IdUtils.av2bv(aid);
-          SmartDialog.showLoading();
-          final res = await SearchHttp.ab2cWithDimension(
+          PageUtils.toVideoPage(
+            aid: aid,
             bvid: bvid,
+            cid: null,
+            cover: content['thumb'],
+            heroTag: heroTag,
           );
-          final cid = res?.cid;
-          SmartDialog.dismiss();
-          if (cid != null) {
-            PageUtils.toVideoPage(
-              aid: aid,
-              bvid: bvid,
-              cid: cid,
-              cover: content['thumb'],
-              dimension: res!.dimension,
-              heroTag: heroTag,
-            );
-          }
         };
         break;
 
@@ -629,31 +610,30 @@ class ChatItem extends StatelessWidget {
           'unsupported source type: ${content['source']}',
         );
     }
-    return GestureDetector(
-      onTap: onTap,
-      behavior: .opaque,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (heroTag case final activeHeroTag?)
-            VideoCoverHero(
-              tag: activeHeroTag,
-              child: NetworkImgLayer(
-                clip: false,
-                width: 220,
-                height: 123.75,
-                src: content['thumb'],
-              ),
-            )
-          else
-            NetworkImgLayer(
-              width: 220,
-              height: 123.75,
-              src: content['thumb'],
-            ),
-          const SizedBox(height: 6),
+    final card = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        NetworkImgLayer(
+          clip: false,
+          width: 220,
+          height: 123.75,
+          src: content['thumb'],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          content['title'] ?? "",
+          style: TextStyle(
+            letterSpacing: 0.6,
+            height: 1.5,
+            color: textColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        if (content['source'] == 6 &&
+            (content['headline'] as String?)?.isNotEmpty == true) ...[
+          const SizedBox(height: 1),
           Text(
-            content['title'] ?? "",
+            content['headline'],
             style: TextStyle(
               letterSpacing: 0.6,
               height: 1.5,
@@ -661,33 +641,28 @@ class ChatItem extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          if (content['source'] == 6 &&
-              (content['headline'] as String?)?.isNotEmpty == true) ...[
-            const SizedBox(height: 1),
-            Text(
-              content['headline'],
-              style: TextStyle(
-                letterSpacing: 0.6,
-                height: 1.5,
-                color: textColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-          if (content['author'] != null) ...[
-            const SizedBox(height: 1),
-            Text(
-              '${content['author']}${type != null ? ' · $type' : ''}',
-              style: TextStyle(
-                letterSpacing: 0.6,
-                height: 1.5,
-                color: textColor.withValues(alpha: 0.6),
-                fontSize: 12,
-              ),
-            ),
-          ],
         ],
-      ),
+        if (content['author'] != null) ...[
+          const SizedBox(height: 1),
+          Text(
+            '${content['author']}${type != null ? ' · $type' : ''}',
+            style: TextStyle(
+              letterSpacing: 0.6,
+              height: 1.5,
+              color: textColor.withValues(alpha: 0.6),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ],
+    );
+    final activeHeroTag = heroTag;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: .opaque,
+      child: activeHeroTag == null
+          ? card
+          : VideoDetailHero.source(tag: activeHeroTag, child: card),
     );
   }
 

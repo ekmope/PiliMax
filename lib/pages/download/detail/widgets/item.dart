@@ -7,7 +7,8 @@ import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliMax/common/widgets/select_mask.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
@@ -73,7 +74,11 @@ class DetailItem extends StatelessWidget {
   final bool? checked;
   final ValueChanged<BiliDownloadEntryInfo>? onSelect;
 
-  String get _heroTag => entry.heroTag;
+  String get _heroTag => VideoHeroTag.forItem(
+    scope: 'download-detail',
+    item: entry,
+    contentId: entry.heroTag,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -91,81 +96,81 @@ class DetailItem extends StatelessWidget {
 
     return Material(
       type: MaterialType.transparency,
-      child: InkWell(
-        onTap: enableTap
-            ? () async {
-                if (!canDel) {
-                  Get.to(const DownloadingPage());
-                  return;
-                }
-                if (enableMultiSelect) {
-                  (onSelect ?? controller.onSelect).call(entry);
-                  return;
-                }
-                if (entry.isCompleted) {
-                  await PageUtils.toVideoPage(
-                    aid: entry.avid,
-                    cid: cid!,
-                    cover: entry.cover,
-                    title: entry.showTitle,
-                    isVertical: entry.pageData?.isVertical ?? false,
-                    heroTag: _heroTag,
-                    extraArguments: {
-                      'sourceType': SourceType.file,
-                      'entry': entry,
-                      'dirPath': entry.entryDirPath,
-                      ...?playContext?.toArguments(),
-                    },
-                  );
-                  if (context.mounted) {
-                    Future.delayed(const Duration(milliseconds: 400), () {
-                      if (context.mounted) {
-                        // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
-                        progress?.notifyListeners();
-                      }
-                    });
+      child: VideoDetailHero.source(
+        tag: _heroTag,
+        child: InkWell(
+          onTap: enableTap
+              ? () async {
+                  if (!canDel) {
+                    Get.to(const DownloadingPage());
+                    return;
                   }
-                } else {
-                  downloadService.toggleDownload(entry);
-                }
-              }
-            : null,
-        onLongPress: enableTap && customOnLongPress != null
-            ? onLongPress
-            : null,
-        onSecondaryTap:
-            !enableTap || PlatformUtils.isMobile || customOnLongPress == null
-            ? null
-            : onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Style.safeSpace,
-            vertical: 5,
-          ),
-          child: Row(
-            spacing: 10,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  AspectRatio(
-                    aspectRatio: Style.aspectRatio,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final cover = File(
-                          path.join(entry.entryDirPath, PathUtils.coverName),
-                        );
-                        final maxWidth = constraints.maxWidth;
-                        final maxHeight = constraints.maxHeight;
-                        int? cacheWidth, cacheHeight;
-                        if (entry.pageData?.cacheWidth ?? false) {
-                          cacheWidth = maxWidth.cacheSize(context);
-                        } else {
-                          cacheHeight = maxHeight.cacheSize(context);
+                  if (enableMultiSelect) {
+                    (onSelect ?? controller.onSelect).call(entry);
+                    return;
+                  }
+                  if (entry.isCompleted) {
+                    await PageUtils.toVideoPage(
+                      aid: entry.avid,
+                      cid: cid!,
+                      cover: entry.cover,
+                      title: entry.showTitle,
+                      isVertical: entry.pageData?.isVertical ?? false,
+                      heroTag: _heroTag,
+                      extraArguments: {
+                        'sourceType': SourceType.file,
+                        'entry': entry,
+                        'dirPath': entry.entryDirPath,
+                        ...?playContext?.toArguments(),
+                      },
+                    );
+                    if (context.mounted) {
+                      Future.delayed(const Duration(milliseconds: 400), () {
+                        if (context.mounted) {
+                          // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+                          progress?.notifyListeners();
                         }
-                        return VideoCoverHero(
-                          tag: _heroTag,
-                          child: cover.existsSync()
+                      });
+                    }
+                  } else {
+                    downloadService.toggleDownload(entry);
+                  }
+                }
+              : null,
+          onLongPress: enableTap && customOnLongPress != null
+              ? onLongPress
+              : null,
+          onSecondaryTap:
+              !enableTap || PlatformUtils.isMobile || customOnLongPress == null
+              ? null
+              : onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Style.safeSpace,
+              vertical: 5,
+            ),
+            child: Row(
+              spacing: 10,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: Style.aspectRatio,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cover = File(
+                            path.join(entry.entryDirPath, PathUtils.coverName),
+                          );
+                          final maxWidth = constraints.maxWidth;
+                          final maxHeight = constraints.maxHeight;
+                          int? cacheWidth, cacheHeight;
+                          if (entry.pageData?.cacheWidth ?? false) {
+                            cacheWidth = maxWidth.cacheSize(context);
+                          } else {
+                            cacheHeight = maxHeight.cacheSize(context);
+                          }
+                          return cover.existsSync()
                               ? Image.file(
                                   cover,
                                   width: maxWidth,
@@ -186,159 +191,159 @@ class DetailItem extends StatelessWidget {
                                   width: maxWidth,
                                   height: maxHeight,
                                   cacheWidth: entry.pageData?.cacheWidth,
-                                ),
-                        );
-                      },
-                    ),
-                  ),
-                  if (entry.videoQuality case final videoQuality?)
-                    PBadge(
-                      text: VideoQuality.fromCode(videoQuality).shortDesc,
-                      right: 6.0,
-                      top: 6.0,
-                      type: PBadgeType.gray,
-                    ),
-                  if (progress != null)
-                    ListenableBuilder(
-                      listenable: progress!,
-                      builder: (_, _) {
-                        final progress = GStorage.watchProgress.get(
-                          cid.toString(),
-                        );
-                        if (progress != null) {
-                          return Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                VideoProgressIndicator(
-                                  color: theme.colorScheme.primary,
-                                  backgroundColor:
-                                      theme.colorScheme.secondaryContainer,
-                                  progress: progress / entry.totalTimeMilli,
-                                ),
-                                PBadge(
-                                  text: progress >= entry.totalTimeMilli - 400
-                                      ? '已看完'
-                                      : '${DurationUtils.formatDuration(progress ~/ 1000)}/'
-                                            '${DurationUtils.formatDuration(entry.totalTimeMilli ~/ 1000)}',
-                                  right: 6,
-                                  bottom: 7,
-                                  type: PBadgeType.gray,
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        return PBadge(
-                          text: DurationUtils.formatDuration(
-                            entry.totalTimeMilli ~/ 1000,
-                          ),
-                          right: 6.0,
-                          bottom: 7.0,
-                          type: PBadgeType.gray,
-                        );
-                      },
-                    )
-                  else if (entry.totalTimeMilli != 0)
-                    PBadge(
-                      text: DurationUtils.formatDuration(
-                        entry.totalTimeMilli ~/ 1000,
+                                );
+                        },
                       ),
-                      right: 6,
-                      bottom: 7,
-                      type: PBadgeType.gray,
                     ),
-                  Positioned.fill(
-                    child: selectMask(
-                      theme.colorScheme,
-                      checked ?? entry.checked,
-                    ),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Column(
-                      spacing: 5,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          showTitle ? entry.title : entry.showTitle,
-                          textAlign: TextAlign.start,
-                          style: TextStyle(
-                            fontSize: theme.textTheme.bodyMedium!.fontSize,
-                            height: 1.42,
-                            letterSpacing: 0.3,
-                          ),
-                          maxLines: showTitle
-                              ? entry.ep != null
-                                    ? 1
-                                    : 2
-                              : 2,
-                          overflow: TextOverflow.ellipsis,
+                    if (entry.videoQuality case final videoQuality?)
+                      PBadge(
+                        text: VideoQuality.fromCode(videoQuality).shortDesc,
+                        right: 6.0,
+                        top: 6.0,
+                        type: PBadgeType.gray,
+                      ),
+                    if (progress != null)
+                      ListenableBuilder(
+                        listenable: progress!,
+                        builder: (_, _) {
+                          final progress = GStorage.watchProgress.get(
+                            cid.toString(),
+                          );
+                          if (progress != null) {
+                            return Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  VideoProgressIndicator(
+                                    color: theme.colorScheme.primary,
+                                    backgroundColor:
+                                        theme.colorScheme.secondaryContainer,
+                                    progress: progress / entry.totalTimeMilli,
+                                  ),
+                                  PBadge(
+                                    text: progress >= entry.totalTimeMilli - 400
+                                        ? '已看完'
+                                        : '${DurationUtils.formatDuration(progress ~/ 1000)}/'
+                                              '${DurationUtils.formatDuration(entry.totalTimeMilli ~/ 1000)}',
+                                    right: 6,
+                                    bottom: 7,
+                                    type: PBadgeType.gray,
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          return PBadge(
+                            text: DurationUtils.formatDuration(
+                              entry.totalTimeMilli ~/ 1000,
+                            ),
+                            right: 6.0,
+                            bottom: 7.0,
+                            type: PBadgeType.gray,
+                          );
+                        },
+                      )
+                    else if (entry.totalTimeMilli != 0)
+                      PBadge(
+                        text: DurationUtils.formatDuration(
+                          entry.totalTimeMilli ~/ 1000,
                         ),
-                        if (showTitle) ...[
-                          if (entry.pageData?.part case final part?)
-                            if (part != entry.title)
+                        right: 6,
+                        bottom: 7,
+                        type: PBadgeType.gray,
+                      ),
+                    Positioned.fill(
+                      child: selectMask(
+                        theme.colorScheme,
+                        checked ?? entry.checked,
+                      ),
+                    ),
+                  ],
+                ),
+                Expanded(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Column(
+                        spacing: 5,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            showTitle ? entry.title : entry.showTitle,
+                            textAlign: TextAlign.start,
+                            style: TextStyle(
+                              fontSize: theme.textTheme.bodyMedium!.fontSize,
+                              height: 1.42,
+                              letterSpacing: 0.3,
+                            ),
+                            maxLines: showTitle
+                                ? entry.ep != null
+                                      ? 1
+                                      : 2
+                                : 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (showTitle) ...[
+                            if (entry.pageData?.part case final part?)
+                              if (part != entry.title)
+                                Text(
+                                  part,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                            if (entry.ep?.showTitle case final showTitle?)
                               Text(
-                                part,
-                                maxLines: 1,
+                                showTitle,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
-                          if (entry.ep?.showTitle case final showTitle?)
-                            Text(
-                              showTitle,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                    if (entry.isCompleted) ...[
-                      Positioned(
-                        left: 0,
-                        bottom: 0,
-                        child: Text(
-                          '${CacheManager.formatSize(entry.totalBytes)}${entry.ownerName != null ? '  ${entry.ownerName}' : ''}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.6,
-                            color: outline,
+                      ),
+                      if (entry.isCompleted) ...[
+                        Positioned(
+                          left: 0,
+                          bottom: 0,
+                          child: Text(
+                            '${CacheManager.formatSize(entry.totalBytes)}${entry.ownerName != null ? '  ${entry.ownerName}' : ''}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.6,
+                              color: outline,
+                            ),
                           ),
                         ),
-                      ),
-                      if (showMoreButton)
+                        if (showMoreButton)
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: _buildMoreBtn(context, theme),
+                          ),
+                      ] else
                         Positioned(
+                          left: 0,
                           right: 0,
                           bottom: 0,
-                          child: _buildMoreBtn(context, theme),
+                          child: isCurr
+                              ? activeProgress(theme)
+                              : entryProgress(theme),
                         ),
-                    ] else
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: isCurr
-                            ? activeProgress(theme)
-                            : entryProgress(theme),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

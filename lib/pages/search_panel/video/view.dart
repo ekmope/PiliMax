@@ -1,5 +1,6 @@
 import 'package:PiliMax/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliMax/common/widgets/video_card/video_card_h.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/common/search/video_search_type.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
@@ -118,9 +119,11 @@ class _SearchVideoPanelState
           controller.onLoadMore();
         }
         final item = list[index];
-        final heroTag =
-            'search-video-${widget.searchType.name}-${widget.tag}-'
-            '${item.bvid ?? item.aid ?? item.cid}-$index';
+        final heroTag = VideoHeroTag.forItem(
+          scope: 'search-video-${widget.searchType.name}-${widget.tag}',
+          item: item,
+          contentId: item.bvid ?? item.aid ?? item.cid ?? 'unknown',
+        );
         return VideoCardH(
           key: ValueKey(heroTag),
           videoItem: item,

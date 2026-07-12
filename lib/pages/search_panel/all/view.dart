@@ -1,6 +1,7 @@
 import 'package:PiliMax/common/skeleton/video_card_h.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/video_card/video_card_h.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pages/search_panel/all/controller.dart';
 import 'package:PiliMax/pages/search_panel/all/widgets/pgc_card_v_search.dart';
@@ -58,9 +59,11 @@ class _SearchAllPanelState
           }
           return switch (list[index]) {
             SearchVideoItemModel e => () {
-              final heroTag =
-                  'search-all-video-${widget.tag}-'
-                  '${e.bvid ?? e.aid ?? e.cid}-$index';
+              final heroTag = VideoHeroTag.forItem(
+                scope: 'search-all-video-${widget.tag}',
+                item: e,
+                contentId: e.bvid ?? e.aid ?? e.cid ?? 'unknown',
+              );
               return SizedBox(
                 height: 120,
                 child: VideoCardH(

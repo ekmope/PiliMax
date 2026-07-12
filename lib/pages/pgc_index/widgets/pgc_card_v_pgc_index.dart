@@ -2,7 +2,8 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_index_result/list.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -22,8 +23,11 @@ class PgcCardVPgcIndex extends StatelessWidget {
   final int index;
   final String heroScope;
 
-  String get _heroTag =>
-      '$heroScope-${item.seasonId ?? item.cover}-$index';
+  String get _heroTag => VideoHeroTag.forItem(
+    scope: heroScope,
+    item: item,
+    contentId: item.seasonId ?? item.cover ?? 'unknown',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -31,59 +35,59 @@ class PgcCardVPgcIndex extends StatelessWidget {
       title: item.title,
       cover: item.cover,
     );
-    return Card(
-      shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
-      child: InkWell(
-        borderRadius: Style.mdRadius,
-        onTap: () => PageUtils.viewPgc(
-          seasonId: item.seasonId,
-          heroTag: _heroTag,
-        ),
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(
-              aspectRatio: 0.75,
-              child: LayoutBuilder(
-                builder: (context, boxConstraints) {
-                  final double maxWidth = boxConstraints.maxWidth;
-                  final double maxHeight = boxConstraints.maxHeight;
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      VideoCoverHero(
-                        tag: _heroTag,
-                        child: NetworkImgLayer(
+    return VideoDetailHero.source(
+      tag: _heroTag,
+      child: Card(
+        shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
+        child: InkWell(
+          borderRadius: Style.mdRadius,
+          onTap: () => PageUtils.viewPgc(
+            seasonId: item.seasonId,
+            heroTag: _heroTag,
+          ),
+          onLongPress: onLongPress,
+          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(
+                aspectRatio: 0.75,
+                child: LayoutBuilder(
+                  builder: (context, boxConstraints) {
+                    final double maxWidth = boxConstraints.maxWidth;
+                    final double maxHeight = boxConstraints.maxHeight;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        NetworkImgLayer(
                           clip: false,
                           src: item.cover,
                           width: maxWidth,
                           height: maxHeight,
                         ),
-                      ),
-                      PBadge(
-                        text: item.badge,
-                        top: 6,
-                        right: 6,
-                        bottom: null,
-                        left: null,
-                      ),
-                      PBadge(
-                        text: item.order,
-                        top: null,
-                        right: null,
-                        bottom: 6,
-                        left: 6,
-                        type: PBadgeType.gray,
-                      ),
-                    ],
-                  );
-                },
+                        PBadge(
+                          text: item.badge,
+                          top: 6,
+                          right: 6,
+                          bottom: null,
+                          left: null,
+                        ),
+                        PBadge(
+                          text: item.order,
+                          top: null,
+                          right: null,
+                          bottom: 6,
+                          left: 6,
+                          type: PBadgeType.gray,
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
-            content(context),
-          ],
+              content(context),
+            ],
+          ),
         ),
       ),
     );

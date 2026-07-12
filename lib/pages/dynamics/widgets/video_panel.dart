@@ -3,7 +3,7 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/svg/play_icon.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/watch_later_button.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
@@ -78,7 +78,7 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
     final padding = floor == 1
         ? const EdgeInsets.symmetric(horizontal: 12)
         : EdgeInsets.zero;
-    return Padding(
+    final card = Padding(
       padding: padding,
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovering = true),
@@ -93,19 +93,12 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
                 children: [
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final coverWidget = NetworkImgLayer(
+                      return NetworkImgLayer(
                         clip: false,
                         width: constraints.maxWidth,
                         height: constraints.maxWidth / Style.aspectRatio,
                         src: cover,
                         quality: 40,
-                      );
-                      if (heroTag == null) {
-                        return coverWidget;
-                      }
-                      return VideoCoverHero(
-                        tag: heroTag,
-                        child: coverWidget,
                       );
                     },
                   ),
@@ -197,6 +190,10 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
         ),
       ),
     );
+    if (heroTag == null) {
+      return card;
+    }
+    return VideoDetailHero.source(tag: heroTag, child: card);
   }
 
   bool _showQuickWatchLater(DynamicArchiveModel video, DynamicItemModel item) {

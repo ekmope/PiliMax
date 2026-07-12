@@ -2,6 +2,7 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:PiliMax/models/dynamics/result.dart';
@@ -12,6 +13,7 @@ import 'package:PiliMax/pages/dynamics/widgets/live_panel_sub.dart';
 import 'package:PiliMax/pages/dynamics/widgets/live_rcmd_panel.dart';
 import 'package:PiliMax/pages/dynamics/widgets/video_panel.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
@@ -114,7 +116,11 @@ Widget module(
       if (common == null) return const SizedBox.shrink();
       final commonHeroTag =
           'dynamic-common-${item.idStr ?? common.jumpUrl ?? common.cover}';
-      return Material(
+      final commonUrl = common.jumpUrl;
+      final isPgcVideo = commonUrl?.contains('bangumi/play') == true;
+      final videoId = IdUtils.matchAvorBv(input: commonUrl);
+      final isCommonVideo = isPgcVideo || videoId.isNotEmpty;
+      final card = Material(
         color: floor == 1
             ? theme.dividerColor.withValues(alpha: 0.08)
             : theme.colorScheme.surface,
@@ -125,9 +131,20 @@ Widget module(
           borderRadius: floor == 1 ? null : Style.mdRadius,
           onTap: () {
             try {
-              String url = common.jumpUrl!;
-              if (url.contains('bangumi/play') &&
+              final url = commonUrl!;
+              if (isPgcVideo &&
                   PageUtils.viewPgcFromUri(url, heroTag: commonHeroTag)) {
+                return;
+              }
+              if (videoId.isNotEmpty) {
+                PageUtils.toVideoPage(
+                  aid: videoId.av,
+                  bvid: videoId.bv,
+                  cid: null,
+                  cover: common.cover,
+                  title: common.title,
+                  heroTag: commonHeroTag,
+                );
                 return;
               }
               PageUtils.handleWebview(url, inApp: true);
@@ -144,17 +161,29 @@ Widget module(
               spacing: 10,
               children: [
                 if (common.cover?.isNotEmpty ?? false)
-                  VideoCoverHero(
-                    tag: commonHeroTag,
-                    borderRadius: const BorderRadius.all(Radius.circular(6)),
-                    child: CachedNetworkImage(
-                      width: 45,
-                      height: 45,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 45.cacheSize(context),
-                      imageUrl: ImageUtils.safeThumbnailUrl(common.cover),
+                  if (isCommonVideo)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.all(Radius.circular(6)),
+                      child: CachedNetworkImage(
+                        width: 45,
+                        height: 45,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 45.cacheSize(context),
+                        imageUrl: ImageUtils.safeThumbnailUrl(common.cover),
+                      ),
+                    )
+                  else
+                    VideoCoverHero(
+                      tag: commonHeroTag,
+                      borderRadius: const BorderRadius.all(Radius.circular(6)),
+                      child: CachedNetworkImage(
+                        width: 45,
+                        height: 45,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 45.cacheSize(context),
+                        imageUrl: ImageUtils.safeThumbnailUrl(common.cover),
+                      ),
                     ),
-                  ),
                 Expanded(
                   child: Column(
                     spacing: 2,
@@ -183,6 +212,14 @@ Widget module(
             ),
           ),
         ),
+      );
+      if (!isCommonVideo) {
+        return card;
+      }
+      return VideoDetailHero.source(
+        tag: commonHeroTag,
+        borderRadius: floor == 1 ? BorderRadius.zero : Style.mdRadius,
+        child: card,
       );
     case 'DYNAMIC_TYPE_MUSIC':
       final music = major!.music!;

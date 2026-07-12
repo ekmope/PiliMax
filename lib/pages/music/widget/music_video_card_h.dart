@@ -4,12 +4,11 @@ import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/marquee.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
-import 'package:PiliMax/http/search.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/stat_type.dart';
 import 'package:PiliMax/models_new/music/bgm_recommend_list.dart';
-import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
@@ -25,8 +24,11 @@ class MusicVideoCardH extends StatelessWidget {
     required this.index,
   });
 
-  String get _heroTag =>
-      'music-video-${videoItem.bvid}-${videoItem.cid}-$index';
+  String get _heroTag => VideoHeroTag.forItem(
+    scope: 'music-video',
+    item: videoItem,
+    contentId: videoItem.bvid ?? 'unknown',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -37,72 +39,60 @@ class MusicVideoCardH extends StatelessWidget {
     );
     return Material(
       type: MaterialType.transparency,
-      child: InkWell(
-        onTap: () async {
-          int? cid = videoItem.cid;
-          Dimension? dimension;
-          if (cid == null) {
-            if (await SearchHttp.ab2cWithDimension(bvid: videoItem.bvid)
-                case final res?) {
-              cid = res.cid;
-              dimension = res.dimension;
-            }
-          }
-          if (cid != null) {
+      child: VideoDetailHero.source(
+        tag: _heroTag,
+        child: InkWell(
+          onTap: () {
             PageUtils.toVideoPage(
               bvid: videoItem.bvid,
-              cid: cid,
+              cid: videoItem.cid,
               cover: videoItem.cover,
               title: videoItem.title,
-              dimension: dimension,
               heroTag: _heroTag,
             );
-          }
-        },
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Style.safeSpace,
-            vertical: 5,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AspectRatio(
-                aspectRatio: Style.aspectRatio,
-                child: LayoutBuilder(
-                  builder: (context, boxConstraints) {
-                    double maxWidth = boxConstraints.maxWidth;
-                    double maxHeight = boxConstraints.maxHeight;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        VideoCoverHero(
-                          tag: _heroTag,
-                          child: NetworkImgLayer(
+          },
+          onLongPress: onLongPress,
+          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Style.safeSpace,
+              vertical: 5,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AspectRatio(
+                  aspectRatio: Style.aspectRatio,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      double maxWidth = boxConstraints.maxWidth;
+                      double maxHeight = boxConstraints.maxHeight;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          NetworkImgLayer(
                             clip: false,
                             src: videoItem.cover,
                             width: maxWidth,
                             height: maxHeight,
                           ),
-                        ),
-                        PBadge(
-                          text: DurationUtils.formatDuration(
-                            videoItem.duration,
+                          PBadge(
+                            text: DurationUtils.formatDuration(
+                              videoItem.duration,
+                            ),
+                            right: 6.0,
+                            bottom: 6.0,
+                            type: PBadgeType.gray,
                           ),
-                          right: 6.0,
-                          bottom: 6.0,
-                          type: PBadgeType.gray,
-                        ),
-                      ],
-                    );
-                  },
+                        ],
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              content(context),
-            ],
+                const SizedBox(width: 10),
+                content(context),
+              ],
+            ),
           ),
         ),
       ),

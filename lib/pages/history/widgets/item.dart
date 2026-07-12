@@ -4,12 +4,11 @@ import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliMax/common/widgets/select_mask.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
-import 'package:PiliMax/http/search.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/history/list.dart';
-import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
@@ -30,9 +29,13 @@ class HistoryItem extends StatelessWidget {
   final String heroScope;
   final int index;
 
-  String get _heroTag =>
-      '$heroScope-${item.history.business}-${item.history.oid}-'
-      '${item.history.cid}-${item.history.page}-${item.kid ?? 'idx-$index'}';
+  String get _heroTag => VideoHeroTag.forItem(
+    scope: heroScope,
+    item: item,
+    contentId:
+        '${item.history.business}-${item.history.oid}-${item.history.cid}-'
+        '${item.history.page}-${item.kid}',
+  );
 
   const HistoryItem({
     super.key,
@@ -72,7 +75,7 @@ class HistoryItem extends StatelessWidget {
       child: InkWell(
         onTap: enableMultiSelect
             ? () => ctr.onSelect(item)
-            : () async {
+            : () {
                 if (business?.contains('article') == true) {
                   PageUtils.toDupNamed(
                     '/articlePage',
@@ -104,31 +107,15 @@ class HistoryItem extends StatelessWidget {
                     );
                   }
                 } else {
-                  int? cid = item.history.cid;
-                  Dimension? dimension;
-                  if (cid == null) {
-                    if (await SearchHttp.ab2cWithDimension(
-                          aid: aid,
-                          bvid: bvid,
-                          part: item.history.page,
-                        )
-                        case final res?) {
-                      cid = res.cid;
-                      dimension = res.dimension;
-                    }
-                  }
-                  if (cid != null) {
-                    // TODO: dimension
-                    PageUtils.toVideoPage(
-                      aid: aid,
-                      bvid: bvid,
-                      cid: cid,
-                      cover: cover,
-                      title: item.title,
-                      dimension: dimension,
-                      heroTag: _heroTag,
-                    );
-                  }
+                  PageUtils.toVideoPage(
+                    aid: aid,
+                    bvid: bvid,
+                    cid: item.history.cid,
+                    cover: cover,
+                    title: item.title,
+                    part: item.history.page,
+                    heroTag: _heroTag,
+                  );
                 }
               },
         onLongPress: onLongPress,
@@ -136,87 +123,88 @@ class HistoryItem extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Style.safeSpace,
-                vertical: 5,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AspectRatio(
-                    aspectRatio: Style.aspectRatio,
-                    child: LayoutBuilder(
-                      builder: (context, boxConstraints) {
-                        double maxWidth = boxConstraints.maxWidth;
-                        double maxHeight = boxConstraints.maxHeight;
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            VideoCoverHero(
-                              tag: _heroTag,
-                              child: NetworkImgLayer(
+            VideoDetailHero.source(
+              tag: _heroTag,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Style.safeSpace,
+                  vertical: 5,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: Style.aspectRatio,
+                      child: LayoutBuilder(
+                        builder: (context, boxConstraints) {
+                          double maxWidth = boxConstraints.maxWidth;
+                          double maxHeight = boxConstraints.maxHeight;
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              NetworkImgLayer(
                                 clip: false,
                                 src: cover,
                                 width: maxWidth,
                                 height: maxHeight,
                               ),
-                            ),
-                            if (hasDuration)
-                              PBadge(
-                                text: item.progress == -1
-                                    ? '已看完'
-                                    : '${DurationUtils.formatDuration(item.progress)}/${DurationUtils.formatDuration(item.duration)}',
-                                right: 6.0,
-                                bottom: 8.0,
-                                type: PBadgeType.gray,
-                              ),
-                            if (item.isFav == 1)
-                              const PBadge(
-                                text: '已收藏',
-                                top: 6.0,
-                                right: 6.0,
-                                type: PBadgeType.gray,
-                              )
-                            else if (item.badge?.isNotEmpty == true)
-                              PBadge(
-                                text: item.badge,
-                                top: 6.0,
-                                right: 6.0,
-                                type: business == 'live' && item.liveStatus != 1
-                                    ? PBadgeType.gray
-                                    : PBadgeType.primary,
-                              ),
-                            if (hasDuration &&
-                                item.progress != null &&
-                                item.progress != 0)
-                              Positioned(
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                child: VideoProgressIndicator(
-                                  color: theme.colorScheme.primary,
-                                  backgroundColor:
-                                      theme.colorScheme.secondaryContainer,
-                                  progress: item.progress == -1
-                                      ? 1
-                                      : item.progress! / item.duration!,
+                              if (hasDuration)
+                                PBadge(
+                                  text: item.progress == -1
+                                      ? '已看完'
+                                      : '${DurationUtils.formatDuration(item.progress)}/${DurationUtils.formatDuration(item.duration)}',
+                                  right: 6.0,
+                                  bottom: 8.0,
+                                  type: PBadgeType.gray,
+                                ),
+                              if (item.isFav == 1)
+                                const PBadge(
+                                  text: '已收藏',
+                                  top: 6.0,
+                                  right: 6.0,
+                                  type: PBadgeType.gray,
+                                )
+                              else if (item.badge?.isNotEmpty == true)
+                                PBadge(
+                                  text: item.badge,
+                                  top: 6.0,
+                                  right: 6.0,
+                                  type:
+                                      business == 'live' && item.liveStatus != 1
+                                      ? PBadgeType.gray
+                                      : PBadgeType.primary,
+                                ),
+                              if (hasDuration &&
+                                  item.progress != null &&
+                                  item.progress != 0)
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  child: VideoProgressIndicator(
+                                    color: theme.colorScheme.primary,
+                                    backgroundColor:
+                                        theme.colorScheme.secondaryContainer,
+                                    progress: item.progress == -1
+                                        ? 1
+                                        : item.progress! / item.duration!,
+                                  ),
+                                ),
+                              Positioned.fill(
+                                child: selectMask(
+                                  theme.colorScheme,
+                                  item.checked,
                                 ),
                               ),
-                            Positioned.fill(
-                              child: selectMask(
-                                theme.colorScheme,
-                                item.checked,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
+                            ],
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  content(theme),
-                ],
+                    const SizedBox(width: 10),
+                    content(theme),
+                  ],
+                ),
               ),
             ),
             Positioned(

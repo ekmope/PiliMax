@@ -5,7 +5,8 @@ import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/select_mask.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:PiliMax/models/common/badge_type.dart';
@@ -30,9 +31,11 @@ class FavVideoCardH extends StatelessWidget {
     : assert(ctr == null || index != null);
 
   bool get isSort => ctr == null;
-  String get _heroTag =>
-      'fav-video-${item.bvid ?? item.id}-${item.ugc?.firstCid}-'
-      '${index ?? item.favTime ?? item.id ?? item.cover}';
+  String get _heroTag => VideoHeroTag.forItem(
+    scope: 'fav-video',
+    item: item,
+    contentId: item.bvid ?? item.id ?? item.cover ?? 'unknown',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -59,98 +62,98 @@ class FavVideoCardH extends StatelessWidget {
 
     return Material(
       type: MaterialType.transparency,
-      child: InkWell(
-        onTap: isSort
-            ? null
-            : enableMultiSelect
-            ? () => ctr!.onSelect(item)
-            : () {
-                if (!const [0, 16].contains(item.attr)) {
-                  Get.toNamed('/member?mid=${item.upper?.mid}');
-                  return;
-                }
+      child: VideoDetailHero.source(
+        tag: _heroTag,
+        child: InkWell(
+          onTap: isSort
+              ? null
+              : enableMultiSelect
+              ? () => ctr!.onSelect(item)
+              : () {
+                  if (!const [0, 16].contains(item.attr)) {
+                    Get.toNamed('/member?mid=${item.upper?.mid}');
+                    return;
+                  }
 
-                switch (item.type) {
-                  case 12:
-                    AudioPage.toAudioPage(
-                      oid: item.id!,
-                      itemType: 3,
-                      from: PlaylistSource.AUDIO_CARD,
-                    );
-                    break;
-                  case 24:
-                    PageUtils.viewPgc(
-                      seasonId: item.ogv!.seasonId,
-                      epId: item.id,
-                      heroTag: _heroTag,
-                    );
-                    break;
-                  default:
-                    ctr!.onViewFav(item, index, heroTag: _heroTag);
-                    break;
-                }
-              },
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Style.safeSpace,
-            vertical: 5,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AspectRatio(
-                aspectRatio: Style.aspectRatio,
-                child: LayoutBuilder(
-                  builder: (context, boxConstraints) {
-                    double maxWidth = boxConstraints.maxWidth;
-                    double maxHeight = boxConstraints.maxHeight;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        VideoCoverHero(
-                          tag: _heroTag,
-                          child: NetworkImgLayer(
+                  switch (item.type) {
+                    case 12:
+                      AudioPage.toAudioPage(
+                        oid: item.id!,
+                        itemType: 3,
+                        from: PlaylistSource.AUDIO_CARD,
+                      );
+                      break;
+                    case 24:
+                      PageUtils.viewPgc(
+                        seasonId: item.ogv!.seasonId,
+                        epId: item.id,
+                        heroTag: _heroTag,
+                      );
+                      break;
+                    default:
+                      ctr!.onViewFav(item, index, heroTag: _heroTag);
+                      break;
+                  }
+                },
+          onLongPress: onLongPress,
+          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Style.safeSpace,
+              vertical: 5,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AspectRatio(
+                  aspectRatio: Style.aspectRatio,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      double maxWidth = boxConstraints.maxWidth;
+                      double maxHeight = boxConstraints.maxHeight;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          NetworkImgLayer(
                             clip: false,
                             src: item.cover,
                             width: maxWidth,
                             height: maxHeight,
                           ),
-                        ),
-                        PBadge(
-                          text: DurationUtils.formatDuration(item.duration),
-                          right: 6.0,
-                          bottom: 6.0,
-                          type: PBadgeType.gray,
-                        ),
-                        if (item.type == 12)
-                          const PBadge(
-                            text: '音频',
-                            top: 6.0,
-                            right: 6.0,
-                            type: PBadgeType.gray,
-                          )
-                        else
                           PBadge(
-                            text: item.ogv?.typeName,
-                            top: 6.0,
+                            text: DurationUtils.formatDuration(item.duration),
                             right: 6.0,
-                            bottom: null,
-                            left: null,
+                            bottom: 6.0,
+                            type: PBadgeType.gray,
                           ),
-                        if (!isSort)
-                          Positioned.fill(
-                            child: selectMask(colorScheme, item.checked),
-                          ),
-                      ],
-                    );
-                  },
+                          if (item.type == 12)
+                            const PBadge(
+                              text: '音频',
+                              top: 6.0,
+                              right: 6.0,
+                              type: PBadgeType.gray,
+                            )
+                          else
+                            PBadge(
+                              text: item.ogv?.typeName,
+                              top: 6.0,
+                              right: 6.0,
+                              bottom: null,
+                              left: null,
+                            ),
+                          if (!isSort)
+                            Positioned.fill(
+                              child: selectMask(colorScheme, item.checked),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              content(context, colorScheme, isOwner),
-            ],
+                const SizedBox(width: 10),
+                content(context, colorScheme, isOwner),
+              ],
+            ),
           ),
         ),
       ),

@@ -3,6 +3,7 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/video_card/video_card_v.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/rcmd/controller.dart';
 import 'package:PiliMax/utils/grid.dart';
@@ -98,8 +99,11 @@ class _RcmdPageState extends State<RcmdPage>
                         ? index - 1
                         : index;
                     final item = response[actualIndex];
-                    final heroTag =
-                        'rcmd-${item.bvid ?? item.aid ?? item.cid}-$actualIndex';
+                    final heroTag = VideoHeroTag.forItem(
+                      scope: 'rcmd',
+                      item: item,
+                      contentId: item.bvid ?? item.aid ?? item.cid ?? 'unknown',
+                    );
                     return VideoCardV(
                       key: ValueKey(heroTag),
                       videoItem: item,
@@ -117,8 +121,11 @@ class _RcmdPageState extends State<RcmdPage>
                     );
                   } else {
                     final item = response[index];
-                    final heroTag =
-                        'rcmd-${item.bvid ?? item.aid ?? item.cid}-$index';
+                    final heroTag = VideoHeroTag.forItem(
+                      scope: 'rcmd',
+                      item: item,
+                      contentId: item.bvid ?? item.aid ?? item.cid ?? 'unknown',
+                    );
                     return VideoCardV(
                       key: ValueKey(heroTag),
                       videoItem: item,

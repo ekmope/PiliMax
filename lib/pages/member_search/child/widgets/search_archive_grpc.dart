@@ -5,7 +5,8 @@ import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/grpc/bilibili/app/interfaces/v1.pb.dart' show Arc;
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
@@ -36,7 +37,11 @@ class SearchArchiveGrpc extends StatelessWidget {
   Widget build(BuildContext context) {
     final arc = item.archive;
     final bvid = IdUtils.av2bv(arc.aid.toInt());
-    final heroTag = 'member-search-$bvid-${arc.firstCid}-$index';
+    final heroTag = VideoHeroTag.forItem(
+      scope: 'member-search',
+      item: item,
+      contentId: bvid,
+    );
     final regTitle = Em.regTitle(arc.title);
     final titleStr = regTitle.map((e) => e.text).join();
     void onLongPress() => imageSaveDialog(
@@ -49,80 +54,80 @@ class SearchArchiveGrpc extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          InkWell(
-            onLongPress: onLongPress,
-            onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-            onTap: () {
-              if (item.isPugv) {
-                PageUtils.viewPgcFromUri(
-                  item.uri,
-                  isPgc: false,
+          VideoDetailHero.source(
+            tag: heroTag,
+            child: InkWell(
+              onLongPress: onLongPress,
+              onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+              onTap: () {
+                if (item.isPugv) {
+                  PageUtils.viewPgcFromUri(
+                    item.uri,
+                    isPgc: false,
+                    heroTag: heroTag,
+                  );
+                  return;
+                }
+                if (arc.hasRedirectUrl()) {
+                  PageUtils.viewPgcFromUri(arc.redirectUrl, heroTag: heroTag);
+                  return;
+                }
+                PageUtils.toVideoPage(
+                  bvid: bvid,
+                  cid: arc.firstCid.toInt(),
+                  cover: arc.pic,
+                  title: titleStr,
+                  isVertical: arc.dimension.isVertical,
                   heroTag: heroTag,
                 );
-                return;
-              }
-              if (arc.hasRedirectUrl()) {
-                PageUtils.viewPgcFromUri(arc.redirectUrl, heroTag: heroTag);
-                return;
-              }
-              PageUtils.toVideoPage(
-                bvid: bvid,
-                cid: arc.firstCid.toInt(),
-                cover: arc.pic,
-                title: titleStr,
-                isVertical: arc.dimension.isVertical,
-                heroTag: heroTag,
-              );
-            },
-            child: Padding(
-              padding: const .symmetric(
-                horizontal: Style.safeSpace,
-                vertical: 5,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  AspectRatio(
-                    aspectRatio: Style.aspectRatio,
-                    child: LayoutBuilder(
-                      builder: (context, boxConstraints) {
-                        final double maxWidth = boxConstraints.maxWidth;
-                        final double maxHeight = boxConstraints.maxHeight;
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            VideoCoverHero(
-                              tag: heroTag,
-                              child: NetworkImgLayer(
+              },
+              child: Padding(
+                padding: const .symmetric(
+                  horizontal: Style.safeSpace,
+                  vertical: 5,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    AspectRatio(
+                      aspectRatio: Style.aspectRatio,
+                      child: LayoutBuilder(
+                        builder: (context, boxConstraints) {
+                          final double maxWidth = boxConstraints.maxWidth;
+                          final double maxHeight = boxConstraints.maxHeight;
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              NetworkImgLayer(
                                 clip: false,
                                 src: arc.pic,
                                 width: maxWidth,
                                 height: maxHeight,
                               ),
-                            ),
-                            if (item.isPugv)
-                              const PBadge(
-                                text: '课堂',
-                                top: 6.0,
-                                right: 6.0,
-                              ),
-                            if (arc.duration > Int64.ZERO)
-                              PBadge(
-                                text: DurationUtils.formatDuration(
-                                  arc.duration.toInt(),
+                              if (item.isPugv)
+                                const PBadge(
+                                  text: '课堂',
+                                  top: 6.0,
+                                  right: 6.0,
                                 ),
-                                right: 6.0,
-                                bottom: 6.0,
-                                type: PBadgeType.gray,
-                              ),
-                          ],
-                        );
-                      },
+                              if (arc.duration > Int64.ZERO)
+                                PBadge(
+                                  text: DurationUtils.formatDuration(
+                                    arc.duration.toInt(),
+                                  ),
+                                  right: 6.0,
+                                  bottom: 6.0,
+                                  type: PBadgeType.gray,
+                                ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  content(context, regTitle),
-                ],
+                    const SizedBox(width: 10),
+                    content(context, regTitle),
+                  ],
+                ),
               ),
             ),
           ),

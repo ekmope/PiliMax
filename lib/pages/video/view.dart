@@ -16,7 +16,7 @@ import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_dynamic_header.dart';
 import 'package:PiliMax/common/widgets/sliver/video_header.dart';
 import 'package:PiliMax/common/widgets/svg/play_icon.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
 import 'package:PiliMax/models/common/list_order.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
@@ -107,8 +107,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   PlPlayerController? _playerListenersController;
   PlPlayerController? _predictiveBackController;
   final List<Worker> _predictiveBackWorkers = <Worker>[];
-  final Set<TabController> _pendingTabControllerDisposals =
-      <TabController>{};
+  final Set<TabController> _pendingTabControllerDisposals = <TabController>{};
   bool _layoutReadyForRoutePop = false;
   Animation<double>? _initialRouteAnimation;
   bool _initialHeroTransitionCompleted = false;
@@ -122,6 +121,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   // 标志位：_onPopInvokedWithResult 触发了 didPop=true 但 PiP 被其他视频/直播抢占，
   // 需要在 didPopNext 关闭其他 PiP 后重试启动
   bool _pipRetryPending = false;
+  Animation<double>? _pendingPipRouteAnimation;
+  AnimationStatusListener? _pendingPipRouteListener;
+  VoidCallback? _pendingPipStart;
 
   // 标志位：是否刚从 PiP 返回（用于触发 UI 重建）
   bool _justReturnedFromPip = false;
@@ -1008,6 +1010,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   @override
   void dispose() {
     VideoStackManager.decrement(); // 减少视频页面层级追踪
+    _runPendingPipStart();
     final isInAppPip = PipOverlayService.isInPipMode;
     // 如果 _pipRetryPending=true 但用户没有继续 pop（_onPopInvokedWithResult 未触发），
     // 说明用户通过其他方式离开（点导航栏、Get.offAll 等），需要主动暂停播放器。
@@ -1991,49 +1994,52 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           offstage: isFullScreen,
           child: _routeFadeTransition(
             child: SizedBox(
-            width: maxWidth - width - padding.horizontal,
-            height: maxHeight - padding.top,
-            child: Scaffold(
-              key: videoDetailController.childKey,
-              resizeToAvoidBottomInset: false,
-              backgroundColor: Colors.transparent,
-              body: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  buildTabBar(
-                    introText: '相关视频',
-                    showIntro: videoDetailController.isFileSource
-                        ? true
-                        : showIntro,
-                  ),
-                  Expanded(
-                    child: tabBarView(
-                      controller: videoDetailController.tabCtr,
-                      children: [
-                        if (videoDetailController.isFileSource)
-                          localIntroPanel()
-                        else if (showIntro)
-                          KeepAliveWrapper(
-                            child: CustomScrollView(
-                              key: const PageStorageKey(CommonIntroController),
-                              controller:
-                                  videoDetailController.effectiveIntroScrollCtr,
-                              slivers: [
-                                RelatedVideoPanel(
-                                  key: videoRelatedKey,
-                                  heroTag: heroTag,
-                                ),
-                              ],
-                            ),
-                          ),
-                        if (videoDetailController.showReply) videoReplyPanel(),
-                        if (_shouldShowSeasonPanel) seasonPanel,
-                      ],
+              width: maxWidth - width - padding.horizontal,
+              height: maxHeight - padding.top,
+              child: Scaffold(
+                key: videoDetailController.childKey,
+                resizeToAvoidBottomInset: false,
+                backgroundColor: Colors.transparent,
+                body: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    buildTabBar(
+                      introText: '相关视频',
+                      showIntro: videoDetailController.isFileSource
+                          ? true
+                          : showIntro,
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: tabBarView(
+                        controller: videoDetailController.tabCtr,
+                        children: [
+                          if (videoDetailController.isFileSource)
+                            localIntroPanel()
+                          else if (showIntro)
+                            KeepAliveWrapper(
+                              child: CustomScrollView(
+                                key: const PageStorageKey(
+                                  CommonIntroController,
+                                ),
+                                controller: videoDetailController
+                                    .effectiveIntroScrollCtr,
+                                slivers: [
+                                  RelatedVideoPanel(
+                                    key: videoRelatedKey,
+                                    heroTag: heroTag,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (videoDetailController.showReply)
+                            videoReplyPanel(),
+                          if (_shouldShowSeasonPanel) seasonPanel,
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
             ),
           ),
         ),
@@ -2091,40 +2097,41 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           offstage: isFullScreen,
           child: _routeFadeTransition(
             child: SizedBox(
-            width: maxWidth - padding.horizontal,
-            height: bottomHeight,
-            child: Scaffold(
-              key: videoDetailController.childKey,
-              resizeToAvoidBottomInset: false,
-              backgroundColor: Colors.transparent,
-              body: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  buildTabBar(needIndicator: false),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: videoIntro(
-                            width: () {
-                              double flex = 1;
-                              if (videoDetailController.showReply) flex++;
-                              if (shouldShowSeasonPanel) flex++;
-                              return maxWidth / flex;
-                            }(),
-                            height: bottomHeight,
+              width: maxWidth - padding.horizontal,
+              height: bottomHeight,
+              child: Scaffold(
+                key: videoDetailController.childKey,
+                resizeToAvoidBottomInset: false,
+                backgroundColor: Colors.transparent,
+                body: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    buildTabBar(needIndicator: false),
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: videoIntro(
+                              width: () {
+                                double flex = 1;
+                                if (videoDetailController.showReply) flex++;
+                                if (shouldShowSeasonPanel) flex++;
+                                return maxWidth / flex;
+                              }(),
+                              height: bottomHeight,
+                            ),
                           ),
-                        ),
-                        if (videoDetailController.showReply)
-                          Expanded(child: videoReplyPanel()),
-                        if (shouldShowSeasonPanel) Expanded(child: seasonPanel),
-                      ],
+                          if (videoDetailController.showReply)
+                            Expanded(child: videoReplyPanel()),
+                          if (shouldShowSeasonPanel)
+                            Expanded(child: seasonPanel),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             ),
           ),
         ),
@@ -2380,6 +2387,21 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         child: child,
       );
     }
+    if (!videoDetailController.plPlayerController.isPipMode) {
+      child = Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: VideoDetailHero.target(
+                tag: heroTag,
+                child: const VideoDetailHeroShell(),
+              ),
+            ),
+          ),
+          child,
+        ],
+      );
+    }
     return videoDetailController.plPlayerController.darkVideoPage
         ? Theme(data: themeData, child: child)
         : child;
@@ -2541,24 +2563,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   Widget videoPlayer({required double width, required double height}) {
     final isFullScreen = this.isFullScreen;
-    Widget coverHero() => Obx(
-      () => VideoCoverHero(
-        tag: heroTag,
-        borderRadius: BorderRadius.zero,
-        transitionOnUserGestures:
-            !_fromPip &&
-            isPortrait &&
-            !videoDetailController.plPlayerController.isPipMode &&
-            !videoDetailController.plPlayerController.isDesktopPip,
-        popFlightFadeIn: true,
-        child: NetworkImgLayer(
-          clip: false,
-          src: videoDetailController.cover.value,
-          width: width,
-          height: height,
-          cacheWidth: true,
-          getPlaceHolder: () => Center(child: Image.asset(Assets.loading)),
-        ),
+    Widget cover() => Obx(
+      () => NetworkImgLayer(
+        clip: false,
+        src: videoDetailController.cover.value,
+        width: width,
+        height: height,
+        cacheWidth: true,
+        getPlaceHolder: () => Center(child: Image.asset(Assets.loading)),
       ),
     );
     return Stack(
@@ -2566,11 +2578,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       children: [
         const Positioned.fill(child: ColoredBox(color: Colors.black)),
 
-        Positioned.fill(child: ClipRect(child: coverHero())),
+        Positioned.fill(child: ClipRect(child: cover())),
 
-        _routeFadeTransition(
-          child: plPlayer(width: width, height: height),
-        ),
+        plPlayer(width: width, height: height),
 
         Obx(() {
           if (!videoDetailController.autoPlay) {
@@ -3240,6 +3250,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         _pipRetryPending = false;
         if (needDeferredRetry) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) {
+              return;
+            }
             _startInAppPipIfNeeded(fromPop: true);
           });
         }
@@ -3321,6 +3334,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   }
 
   void _startInAppPipIfNeeded({bool fromPop = false}) {
+    if (_isEnteringPipMode || _pendingPipStart != null) {
+      return;
+    }
     if (!_shouldStartInAppPip(fromPop: fromPop)) {
       return;
     }
@@ -3366,50 +3382,100 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       'Saved ${additionalControllers.length} additional controllers',
     );
 
-    PipOverlayService.startPip(
-      plPlayerController: plPlayerController!,
-      controller: videoDetailController,
-      additionalControllers: additionalControllers,
-      context: context,
-      videoPlayerBuilder: (isNative, w, h) =>
-          plPlayer(width: w, height: h, isPipMode: true),
-      onClose: () {
-        _isEnteringPipMode = false;
-        _logSponsorBlock('PiP closed by user');
+    void handleStartFailure() {
+      _logSponsorBlock('PiP overlay failed to start');
+      _resetEnteringPipFlags();
+      if (!mounted) {
         _handleInAppPipCloseCleanup();
-      },
-      onTapToReturn: () {
-        // 不取消 position subscription，让它在新页面继续工作
+      }
+    }
+
+    void startPip() {
+      final started = PipOverlayService.startPip(
+        plPlayerController: plPlayerController!,
+        controller: videoDetailController,
+        additionalControllers: additionalControllers,
+        context: context,
+        videoPlayerBuilder: (isNative, w, h) =>
+            plPlayer(width: w, height: h, isPipMode: true),
+        onClose: () {
+          _isEnteringPipMode = false;
+          _logSponsorBlock('PiP closed by user');
+          _handleInAppPipCloseCleanup();
+        },
+        onTapToReturn: () {
+          // 不取消 position subscription，让它在新页面继续工作
+          _logSponsorBlock(
+            'Returning from PiP, positionSubscription will be preserved',
+          );
+          final currentPosition = plPlayerController?.position.value;
+          final args = Map<String, dynamic>.from(videoDetailController.args);
+          final progress = currentPosition == null
+              ? videoDetailController.playedTime?.inMilliseconds
+              : currentPosition * 1000;
+          if (progress != null) {
+            args['progress'] = progress;
+          }
+          args['fromPip'] = true;
+
+          // 重置标志
+          _isEnteringPipMode = false;
+          _logSponsorBlock(
+            'Tap to return from PiP, args contains: bvid=${args['bvid']}, cid=${args['cid']}, heroTag=${args['heroTag']}, title=${args['title']}, segmentList.length: ${videoDetailController.segmentList.length}',
+          );
+
+          Get.toNamed(
+            '/videoV',
+            arguments: args,
+            preventDuplicates: false,
+          );
+        },
+        onStartFailed: handleStartFailure,
+      );
+
+      if (!started) {
+        handleStartFailure();
+        return;
+      }
+
+      // 不需要重新初始化 SponsorBlock，因为 positionSubscription 已经存在并在工作
+      // 重新调用 initSkip() 会取消并重新创建 subscription，可能导致失效
+      _logSponsorBlock('PiP started, positionSubscription preserved');
+    }
+
+    if (fromPop) {
+      final routeAnimation = ModalRoute.of(context)?.animation;
+      if (routeAnimation != null && !routeAnimation.isDismissed) {
+        _pendingPipStart = startPip;
+        _pendingPipRouteAnimation = routeAnimation;
+        late final AnimationStatusListener listener;
+        listener = (status) {
+          if (status == AnimationStatus.dismissed) {
+            _runPendingPipStart();
+          }
+        };
+        _pendingPipRouteListener = listener;
+        routeAnimation.addStatusListener(listener);
         _logSponsorBlock(
-          'Returning from PiP, positionSubscription will be preserved',
+          'Deferring PiP overlay until the pop flight completes',
         );
-        final currentPosition = plPlayerController?.position.value;
-        final args = Map<String, dynamic>.from(videoDetailController.args);
-        final progress = currentPosition == null
-            ? videoDetailController.playedTime?.inMilliseconds
-            : currentPosition * 1000;
-        if (progress != null) {
-          args['progress'] = progress;
-        }
-        args['fromPip'] = true;
+        return;
+      }
+    }
+    startPip();
+  }
 
-        // 重置标志
-        _isEnteringPipMode = false;
-        _logSponsorBlock(
-          'Tap to return from PiP, args contains: bvid=${args['bvid']}, cid=${args['cid']}, heroTag=${args['heroTag']}, title=${args['title']}, segmentList.length: ${videoDetailController.segmentList.length}',
-        );
-
-        Get.toNamed(
-          '/videoV',
-          arguments: args,
-          preventDuplicates: false,
-        );
-      },
-    );
-
-    // 不需要重新初始化 SponsorBlock，因为 positionSubscription 已经存在并在工作
-    // 重新调用 initSkip() 会取消并重新创建 subscription，可能导致失效
-    _logSponsorBlock('PiP started, positionSubscription preserved');
+  void _runPendingPipStart() {
+    final animation = _pendingPipRouteAnimation;
+    final listener = _pendingPipRouteListener;
+    if (animation != null && listener != null) {
+      animation.removeStatusListener(listener);
+    }
+    _pendingPipRouteAnimation = null;
+    _pendingPipRouteListener = null;
+    final start = _pendingPipStart;
+    _pendingPipStart = null;
+    start?.call();
   }
 
   void _handleInAppPipCloseCleanup() {

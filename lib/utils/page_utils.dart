@@ -37,7 +37,21 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+enum VideoPendingLaunchType { ugc, pgc, pugv }
+
+final class VideoLaunchException implements Exception {
+  const VideoLaunchException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 abstract final class PageUtils {
+  static const videoPendingLaunchKey = '_videoPendingLaunch';
+  static const _videoPendingPartKey = '_videoPendingPart';
+
   static RelativeRect menuPosition(Offset offset) {
     return .fromLTRB(offset.dx, offset.dy, offset.dx, 0);
   }
@@ -264,6 +278,15 @@ abstract final class PageUtils {
         final archive = item.modules.moduleDynamic!.major!.archive!;
         // pgc
         if (archive.type == 2) {
+          if (heroTag != null &&
+              (archive.epid != null || archive.seasonId != null)) {
+            viewPgc(
+              seasonId: archive.seasonId,
+              epId: archive.epid,
+              heroTag: heroTag,
+            );
+            return;
+          }
           // jumpUrl
           if (archive.jumpUrl case final jumpUrl?) {
             if (viewPgcFromUri(jumpUrl, heroTag: heroTag)) {
@@ -284,6 +307,18 @@ abstract final class PageUtils {
               return;
             }
           }
+        }
+
+        if (heroTag != null && (archive.bvid != null || archive.aid != null)) {
+          toVideoPage(
+            aid: archive.aid,
+            bvid: archive.bvid,
+            cid: null,
+            cover: archive.cover,
+            title: archive.title,
+            heroTag: heroTag,
+          );
+          return;
         }
 
         try {
@@ -317,8 +352,24 @@ abstract final class PageUtils {
         break;
 
       case 'DYNAMIC_TYPE_PGC':
-        // if (kDebugMode) debugPrint('鐣墽');
-        SmartDialog.showToast('暂未支持的类型，请联系开发者');
+        final pgc = item.modules.moduleDynamic?.major?.pgc;
+        if (pgc == null) {
+          SmartDialog.showToast('暂未支持的类型，请联系开发者');
+          break;
+        }
+        if (pgc.epid != null || pgc.seasonId != null) {
+          viewPgc(
+            seasonId: pgc.seasonId,
+            epId: pgc.epid,
+            heroTag: heroTag,
+          );
+        } else if (pgc.jumpUrl case final jumpUrl?) {
+          if (!viewPgcFromUri(jumpUrl, heroTag: heroTag)) {
+            handleWebview(jumpUrl.http2https);
+          }
+        } else {
+          SmartDialog.showToast('暂未支持的类型，请联系开发者');
+        }
         break;
 
       case 'DYNAMIC_TYPE_LIVE':
@@ -351,6 +402,17 @@ abstract final class PageUtils {
         int aid = ugcSeason.aid!;
         String bvid = IdUtils.av2bv(aid);
         String cover = ugcSeason.cover!;
+        if (heroTag != null) {
+          toVideoPage(
+            aid: aid,
+            bvid: bvid,
+            cid: null,
+            cover: cover,
+            title: ugcSeason.title,
+            heroTag: heroTag,
+          );
+          return;
+        }
         final res = await SearchHttp.ab2cWithDimension(bvid: bvid);
         final cid = res?.cid;
         if (cid != null) {
@@ -560,7 +622,7 @@ abstract final class PageUtils {
     VideoType videoType = VideoType.ugc,
     int? aid,
     String? bvid,
-    required int cid,
+    required int? cid,
     int? seasonId,
     int? epId,
     int? pgcType,
@@ -572,10 +634,69 @@ abstract final class PageUtils {
     bool isVertical = false,
     Dimension? dimension,
     String? heroTag,
+    int? part,
+    VideoPendingLaunchType? pendingLaunchType,
   }) {
-    final arguments = {
-      'aid': aid ?? IdUtils.bv2av(bvid!),
-      'bvid': bvid ?? IdUtils.av2bv(aid!),
+    final effectivePendingType =
+        pendingLaunchType ??
+        (cid == null
+            ? switch (videoType) {
+                VideoType.ugc => VideoPendingLaunchType.ugc,
+                VideoType.pgc => VideoPendingLaunchType.pgc,
+                VideoType.pugv => VideoPendingLaunchType.pugv,
+              }
+            : null);
+    final arguments = _buildVideoPageArguments(
+      videoType: videoType,
+      aid: aid,
+      bvid: bvid,
+      cid: cid,
+      seasonId: seasonId,
+      epId: epId,
+      pgcType: pgcType,
+      cover: cover,
+      title: title,
+      progress: progress,
+      extraArguments: extraArguments,
+      isVertical: dimension?.isVertical ?? isVertical,
+      heroTag: heroTag,
+      part: part,
+      pendingLaunchType: effectivePendingType,
+    );
+    return _openVideoPage(arguments, off: off);
+  }
+
+  static Map<dynamic, dynamic> _buildVideoPageArguments({
+    required VideoType videoType,
+    required int? aid,
+    required String? bvid,
+    required int? cid,
+    int? seasonId,
+    int? epId,
+    int? pgcType,
+    String? cover,
+    String? title,
+    int? progress,
+    Map? extraArguments,
+    bool isVertical = false,
+    String? heroTag,
+    int? part,
+    VideoPendingLaunchType? pendingLaunchType,
+  }) {
+    final resolveIdentityNow = pendingLaunchType == null;
+    final resolvedAid =
+        aid ??
+        (resolveIdentityNow && bvid != null ? IdUtils.bv2av(bvid) : null);
+    final resolvedBvid =
+        bvid ?? (resolveIdentityNow && aid != null ? IdUtils.av2bv(aid) : null);
+    final fallbackHeroKey =
+        cid ??
+        resolvedBvid ??
+        resolvedAid ??
+        '${pendingLaunchType?.name}-$seasonId-$epId';
+    return <dynamic, dynamic>{
+      'aid': resolvedAid,
+      'bvid': resolvedBvid,
       'cid': cid,
       'seasonId': ?seasonId,
       'epId': ?epId,
@@ -584,10 +705,18 @@ abstract final class PageUtils {
       'title': ?title,
       'progress': ?progress,
       'videoType': videoType,
-      'isVertical': dimension?.isVertical ?? isVertical,
-      'heroTag': heroTag ?? Utils.makeHeroTag(cid),
+      'isVertical': isVertical,
+      'heroTag': heroTag ?? Utils.makeHeroTag(fallbackHeroKey),
       ...?extraArguments,
+      videoPendingLaunchKey: ?pendingLaunchType,
+      _videoPendingPartKey: ?part,
     };
+  }
+
+  static Future<void>? _openVideoPage(
+    Map<dynamic, dynamic> arguments, {
+    required bool off,
+  }) {
     if (off) {
       return Get.offNamed(
         '/videoV',
@@ -600,6 +729,223 @@ abstract final class PageUtils {
         arguments: arguments,
         preventDuplicates: false,
       );
+    }
+  }
+
+  static Future<void> resolvePendingVideoLaunch(
+    Map<dynamic, dynamic> arguments,
+  ) async {
+    final pendingType = arguments[videoPendingLaunchKey];
+    if (pendingType is! VideoPendingLaunchType) {
+      return;
+    }
+
+    final resolved = Map<dynamic, dynamic>.from(arguments);
+    switch (pendingType) {
+      case VideoPendingLaunchType.ugc:
+        await _resolvePendingUgc(resolved);
+        break;
+      case VideoPendingLaunchType.pgc:
+        await _resolvePendingPgc(resolved);
+        break;
+      case VideoPendingLaunchType.pugv:
+        await _resolvePendingPugv(resolved);
+        break;
+    }
+    resolved
+      ..remove(videoPendingLaunchKey)
+      ..remove(_videoPendingPartKey);
+    arguments
+      ..clear()
+      ..addAll(resolved);
+  }
+
+  static Future<void> _resolvePendingUgc(Map<dynamic, dynamic> args) async {
+    final aid = args['aid'];
+    final bvid = args['bvid'];
+    if (aid == null && bvid == null) {
+      throw const VideoLaunchException('缺少视频标识');
+    }
+    final result = await SearchHttp.ab2cWithDimension(
+      aid: aid,
+      bvid: bvid,
+      part: args[_videoPendingPartKey] as int?,
+    );
+    final cid = result?.cid;
+    if (cid == null) {
+      throw const VideoLaunchException('视频资源加载失败');
+    }
+    _setVideoIdentity(args, aid: aid as int?, bvid: bvid as String?);
+    args['cid'] = cid;
+    args['videoType'] = VideoType.ugc;
+    args['isVertical'] =
+        result?.dimension?.isVertical ?? args['isVertical'] ?? false;
+  }
+
+  static Future<void> _resolvePendingPgc(Map<dynamic, dynamic> args) async {
+    final result = await SearchHttp.pgcInfo(
+      seasonId: args['seasonId'],
+      epId: args['epId'],
+    );
+    final response = result.dataOrNull;
+    if (response == null) {
+      throw VideoLaunchException(_loadingError(result));
+    }
+
+    final episodes = response.episodes;
+    final hasEpisode = episodes != null && episodes.isNotEmpty;
+    final requestedEpId = args['epId']?.toString();
+    EpisodeItem? episode;
+    var viewAsSection = false;
+
+    if (requestedEpId != null) {
+      if (hasEpisode) {
+        episode = episodes.firstWhereOrNull(
+          (item) => item.epId.toString() == requestedEpId,
+        );
+      }
+      if (episode == null) {
+        for (final section in response.section ?? const []) {
+          for (final sectionEpisode in section.episodes ?? const []) {
+            if (sectionEpisode.epId.toString() == requestedEpId) {
+              episode = sectionEpisode;
+              viewAsSection = true;
+              break;
+            }
+          }
+          if (episode != null) {
+            break;
+          }
+        }
+      }
+    }
+
+    if (episode == null && hasEpisode) {
+      episode = findEpisode(
+        episodes,
+        epId: response.userStatus?.progress?.lastEpId,
+      );
+    } else if (episode == null) {
+      episode = response.section?.firstOrNull?.episodes?.firstOrNull;
+      viewAsSection = episode != null;
+    }
+    if (episode == null) {
+      throw const VideoLaunchException('视频资源加载失败');
+    }
+
+    _applyEpisode(
+      args,
+      episode: episode,
+      videoType: viewAsSection ? VideoType.ugc : VideoType.pgc,
+      seasonId: response.seasonId,
+      epId: episode.epId,
+    );
+    args['pgcItem'] = response;
+    if (viewAsSection) {
+      args
+        ..['pgcApi'] = true
+        ..remove('pgcType');
+    } else {
+      args
+        ..['pgcType'] = response.type
+        ..remove('pgcApi');
+    }
+  }
+
+  static Future<void> _resolvePendingPugv(Map<dynamic, dynamic> args) async {
+    final result = await SearchHttp.pugvInfo(
+      seasonId: args['seasonId'],
+      epId: args['epId'],
+    );
+    final response = result.dataOrNull;
+    if (response == null) {
+      throw VideoLaunchException(_loadingError(result));
+    }
+    final episodes = response.episodes;
+    if (episodes == null || episodes.isEmpty) {
+      throw const VideoLaunchException('视频资源加载失败');
+    }
+
+    EpisodeItem? episode;
+    final aid = args['aid'];
+    if (aid != null) {
+      episode = episodes.firstWhereOrNull((item) => item.aid == aid);
+    }
+    episode ??= findEpisode(
+      episodes,
+      epId: args['epId'] ?? response.userStatus?.progress?.lastEpId,
+      isPgc: false,
+    );
+    _applyEpisode(
+      args,
+      episode: episode,
+      videoType: VideoType.pugv,
+      seasonId: response.seasonId,
+      epId: episode.id,
+    );
+    args
+      ..['pgcItem'] = response
+      ..remove('pgcApi')
+      ..remove('pgcType');
+  }
+
+  static void _applyEpisode(
+    Map<dynamic, dynamic> args, {
+    required EpisodeItem episode,
+    required VideoType videoType,
+    required int? seasonId,
+    required int? epId,
+  }) {
+    final cid = episode.cid;
+    if (cid == null) {
+      throw const VideoLaunchException('视频资源缺少 cid');
+    }
+    _setVideoIdentity(args, aid: episode.aid, bvid: episode.bvid);
+    args
+      ..['cid'] = cid
+      ..['videoType'] = videoType
+      ..['seasonId'] = seasonId
+      ..['epId'] = epId;
+    if (episode.cover != null) {
+      args['cover'] = episode.cover;
+    }
+  }
+
+  static void _setVideoIdentity(
+    Map<dynamic, dynamic> args, {
+    required int? aid,
+    required String? bvid,
+  }) {
+    final resolvedAid = aid ?? (bvid == null ? null : IdUtils.bv2av(bvid));
+    final resolvedBvid = bvid ?? (aid == null ? null : IdUtils.av2bv(aid));
+    if (resolvedAid == null || resolvedBvid == null) {
+      throw const VideoLaunchException('视频资源缺少 aid 或 bvid');
+    }
+    args
+      ..['aid'] = resolvedAid
+      ..['bvid'] = resolvedBvid;
+  }
+
+  static String _loadingError(LoadingState result) {
+    final message = result.toString().trim();
+    return message.isEmpty ? '视频资源加载失败' : message;
+  }
+
+  static Future<void> _resolveAndOpenVideoPage(
+    Map<dynamic, dynamic> arguments, {
+    required bool off,
+  }) async {
+    try {
+      SmartDialog.showLoading(msg: '资源获取中');
+      await resolvePendingVideoLaunch(arguments);
+      SmartDialog.dismiss();
+      _openVideoPage(arguments, off: off);
+    } catch (error) {
+      SmartDialog.dismiss();
+      SmartDialog.showToast(error.toString());
+      if (kDebugMode) {
+        debugPrint(error.toString());
+      }
     }
   }
 
@@ -661,100 +1007,22 @@ abstract final class PageUtils {
     bool off = false,
     String? heroTag,
   }) async {
-    try {
-      SmartDialog.showLoading(msg: '资源获取中');
-      final res = await SearchHttp.pgcInfo(seasonId: seasonId, epId: epId);
-      SmartDialog.dismiss();
-      if (res case Success(:final response)) {
-        final episodes = response.episodes;
-        final hasEpisode = episodes != null && episodes.isNotEmpty;
-
-        EpisodeItem? episode;
-
-        void viewSection(EpisodeItem episode) {
-          toVideoPage(
-            videoType: VideoType.ugc,
-            bvid: episode.bvid!,
-            cid: episode.cid!,
-            seasonId: response.seasonId,
-            epId: episode.epId,
-            cover: episode.cover,
-            progress: progress,
-            extraArguments: {
-              'pgcApi': true,
-              'pgcItem': response,
-            },
-            off: off,
-            heroTag: heroTag,
-          );
-        }
-
-        if (epId != null) {
-          epId = epId.toString();
-          if (hasEpisode) {
-            episode = episodes.firstWhereOrNull(
-              (item) => item.epId.toString() == epId,
-            );
-          }
-
-          // find section
-          if (episode == null) {
-            final sections = response.section;
-            if (sections != null && sections.isNotEmpty) {
-              for (final section in sections) {
-                final episodes = section.episodes;
-                if (episodes != null && episodes.isNotEmpty) {
-                  for (final episode in episodes) {
-                    if (episode.epId.toString() == epId) {
-                      // view as ugc
-                      viewSection(episode);
-                      return;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        if (hasEpisode) {
-          episode ??= findEpisode(
-            episodes,
-            epId: response.userStatus?.progress?.lastEpId,
-          );
-          toVideoPage(
-            videoType: VideoType.pgc,
-            bvid: episode.bvid!,
-            cid: episode.cid!,
-            seasonId: response.seasonId,
-            epId: episode.epId,
-            pgcType: response.type,
-            cover: episode.cover,
-            progress: progress,
-            extraArguments: {
-              'pgcItem': response,
-            },
-            off: off,
-            heroTag: heroTag,
-          );
-          return;
-        } else {
-          episode ??= response.section?.firstOrNull?.episodes?.firstOrNull;
-          if (episode != null) {
-            viewSection(episode);
-            return;
-          }
-        }
-
-      SmartDialog.showToast('资源加载失败');
-      } else {
-        res.toast();
-      }
-    } catch (e) {
-      SmartDialog.dismiss();
-      SmartDialog.showToast('$e');
-      if (kDebugMode) debugPrint('$e');
+    final arguments = _buildVideoPageArguments(
+      videoType: VideoType.pgc,
+      aid: null,
+      bvid: null,
+      cid: null,
+      seasonId: seasonId is int ? seasonId : int.tryParse('$seasonId'),
+      epId: epId is int ? epId : int.tryParse('$epId'),
+      progress: progress,
+      heroTag: heroTag,
+      pendingLaunchType: VideoPendingLaunchType.pgc,
+    );
+    if (heroTag != null && !off) {
+      _openVideoPage(arguments, off: false);
+      return;
     }
+    await _resolveAndOpenVideoPage(arguments, off: off);
   }
 
   static Future<void> viewPugv({
@@ -764,45 +1032,21 @@ abstract final class PageUtils {
     bool off = false,
     String? heroTag,
   }) async {
-    try {
-      SmartDialog.showLoading(msg: '资源获取中');
-      final res = await SearchHttp.pugvInfo(seasonId: seasonId, epId: epId);
-      SmartDialog.dismiss();
-      if (res case Success(:final response)) {
-        final episodes = response.episodes;
-        if (episodes != null && episodes.isNotEmpty) {
-          EpisodeItem? episode;
-          if (aid != null) {
-            episode = episodes.firstWhereOrNull((e) => e.aid == aid);
-          }
-          episode ??= findEpisode(
-            episodes,
-            epId: epId ?? response.userStatus?.progress?.lastEpId,
-            isPgc: false,
-          );
-          toVideoPage(
-            videoType: VideoType.pugv,
-            aid: episode.aid!,
-            cid: episode.cid!,
-            seasonId: response.seasonId,
-            epId: episode.id,
-            cover: episode.cover,
-            extraArguments: {
-              'pgcItem': response,
-            },
-            off: off,
-            heroTag: heroTag,
-          );
-        } else {
-      SmartDialog.showToast('资源加载失败');
-        }
-      } else {
-        res.toast();
-      }
-    } catch (e) {
-      SmartDialog.dismiss();
-      SmartDialog.showToast(e.toString());
+    final arguments = _buildVideoPageArguments(
+      videoType: VideoType.pugv,
+      aid: aid,
+      bvid: null,
+      cid: null,
+      seasonId: seasonId is int ? seasonId : int.tryParse('$seasonId'),
+      epId: epId is int ? epId : int.tryParse('$epId'),
+      heroTag: heroTag,
+      pendingLaunchType: VideoPendingLaunchType.pugv,
+    );
+    if (heroTag != null && !off) {
+      _openVideoPage(arguments, off: false);
+      return;
     }
+    await _resolveAndOpenVideoPage(arguments, off: off);
   }
 
   static void toDupNamed(

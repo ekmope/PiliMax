@@ -2,7 +2,8 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/fav/fav_pgc/list.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -22,8 +23,11 @@ class PgcCardV extends StatelessWidget {
   final int index;
   final String heroScope;
 
-  String get _heroTag =>
-      '$heroScope-${item.seasonId ?? item.cover}-$index';
+  String get _heroTag => VideoHeroTag.forItem(
+    scope: heroScope,
+    item: item,
+    contentId: item.seasonId ?? item.cover ?? 'unknown',
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -31,59 +35,59 @@ class PgcCardV extends StatelessWidget {
       title: item.title,
       cover: item.cover,
     );
-    return Card(
-      shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
-      child: InkWell(
-        borderRadius: Style.mdRadius,
-        onLongPress: onLongPress,
-        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-        onTap: () => PageUtils.viewPgc(
-          seasonId: item.seasonId,
-          heroTag: _heroTag,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(
-              aspectRatio: 0.75,
-              child: LayoutBuilder(
-                builder: (context, boxConstraints) {
-                  final double maxWidth = boxConstraints.maxWidth;
-                  final double maxHeight = boxConstraints.maxHeight;
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      VideoCoverHero(
-                        tag: _heroTag,
-                        child: NetworkImgLayer(
+    return VideoDetailHero.source(
+      tag: _heroTag,
+      child: Card(
+        shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
+        child: InkWell(
+          borderRadius: Style.mdRadius,
+          onLongPress: onLongPress,
+          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+          onTap: () => PageUtils.viewPgc(
+            seasonId: item.seasonId,
+            heroTag: _heroTag,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AspectRatio(
+                aspectRatio: 0.75,
+                child: LayoutBuilder(
+                  builder: (context, boxConstraints) {
+                    final double maxWidth = boxConstraints.maxWidth;
+                    final double maxHeight = boxConstraints.maxHeight;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        NetworkImgLayer(
                           clip: false,
                           src: item.cover,
                           width: maxWidth,
                           height: maxHeight,
                         ),
-                      ),
-                      PBadge(
-                        text: item.badge,
-                        top: 6,
-                        right: 6,
-                        bottom: null,
-                        left: null,
-                      ),
-                      if (item.isFinish == 0 &&
-                          item.renewalTime?.isNotEmpty == true)
                         PBadge(
-                          text: item.renewalTime,
-                          bottom: 6,
-                          left: 6,
-                          type: PBadgeType.gray,
+                          text: item.badge,
+                          top: 6,
+                          right: 6,
+                          bottom: null,
+                          left: null,
                         ),
-                    ],
-                  );
-                },
+                        if (item.isFinish == 0 &&
+                            item.renewalTime?.isNotEmpty == true)
+                          PBadge(
+                            text: item.renewalTime,
+                            bottom: 6,
+                            left: 6,
+                            type: PBadgeType.gray,
+                          ),
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
-            content(context),
-          ],
+              content(context),
+            ],
+          ),
         ),
       ),
     );

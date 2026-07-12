@@ -4,12 +4,10 @@ import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/watch_later_button.dart';
 import 'package:PiliMax/common/widgets/video_popup_menu.dart';
-import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/horizontal_video_model.dart';
-import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -64,6 +62,7 @@ class _VideoCardHState extends State<VideoCardH> {
     return _cachedHeroTag ??=
         'video-card-h-$_heroKey-${_widgetHeroKey ?? identityHashCode(this)}';
   }
+
   VoidCallback? get onTap => widget.onTap;
   ValueChanged<String>? get onTapWithHeroTag => widget.onTapWithHeroTag;
   VoidCallback? get onRemove => widget.onRemove;
@@ -95,7 +94,7 @@ class _VideoCardHState extends State<VideoCardH> {
     );
     final theme = Theme.of(context);
 
-    Future<void> onPushDetail() async {
+    void onPushDetail() {
       if (videoItem.isPugv ?? false) {
         PageUtils.viewPugv(
           seasonId: videoItem.seasonId,
@@ -119,31 +118,18 @@ class _VideoCardHState extends State<VideoCardH> {
         return;
       }
 
-      int? cid = videoItem.cid;
-      Dimension? dimension = videoItem.dimension;
-      if (cid == null) {
-        if (await SearchHttp.ab2cWithDimension(
-              aid: videoItem.aid,
-              bvid: videoItem.bvid,
-            )
-            case final res?) {
-          cid = res.cid;
-          dimension = res.dimension;
-        }
-      }
-      if (cid != null) {
-        PageUtils.toVideoPage(
-          bvid: videoItem.bvid,
-          cid: cid,
-          cover: videoItem.cover,
-          title: videoItem.title,
-          dimension: dimension,
-          heroTag: _heroTag,
-        );
-        final String? key = videoItem.bvid ?? videoItem.aid?.toString();
-        if (key != null && key.isNotEmpty) {
-          VideoCardH.clickedBvids.add(key);
-        }
+      PageUtils.toVideoPage(
+        aid: videoItem.aid,
+        bvid: videoItem.bvid,
+        cid: videoItem.cid,
+        cover: videoItem.cover,
+        title: videoItem.title,
+        dimension: videoItem.dimension,
+        heroTag: _heroTag,
+      );
+      final String? key = videoItem.bvid ?? videoItem.aid?.toString();
+      if (key != null && key.isNotEmpty) {
+        VideoCardH.clickedBvids.add(key);
       }
     }
 
@@ -159,107 +145,107 @@ class _VideoCardHState extends State<VideoCardH> {
         child: Stack(
           clipBehavior: .none,
           children: [
-            InkWell(
-              onLongPress: onLongPress,
-              onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-              onTap: onTapWithHeroTag != null
-                  ? () => onTapWithHeroTag!(_heroTag)
-                  : onTap ?? onPushDetail,
-              child: Padding(
-                padding: const .symmetric(
-                  horizontal: Style.safeSpace,
-                  vertical: 5,
-                ),
-                child: Row(
-                  crossAxisAlignment: .start,
-                  children: [
-                    AspectRatio(
-                      aspectRatio: Style.aspectRatio,
-                      child: LayoutBuilder(
-                        builder: (context, boxConstraints) {
-                          final double maxWidth = boxConstraints.maxWidth;
-                          final double maxHeight = boxConstraints.maxHeight;
+            VideoDetailHero.source(
+              tag: _heroTag,
+              child: InkWell(
+                onLongPress: onLongPress,
+                onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+                onTap: onTapWithHeroTag != null
+                    ? () => onTapWithHeroTag!(_heroTag)
+                    : onTap ?? onPushDetail,
+                child: Padding(
+                  padding: const .symmetric(
+                    horizontal: Style.safeSpace,
+                    vertical: 5,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: .start,
+                    children: [
+                      AspectRatio(
+                        aspectRatio: Style.aspectRatio,
+                        child: LayoutBuilder(
+                          builder: (context, boxConstraints) {
+                            final double maxWidth = boxConstraints.maxWidth;
+                            final double maxHeight = boxConstraints.maxHeight;
 
-                          final progress = videoItem.progress;
+                            final progress = videoItem.progress;
 
-                          return Stack(
-                            clipBehavior: .none,
-                            children: [
-                              VideoCoverHero(
-                                tag: _heroTag,
-                                child: NetworkImgLayer(
+                            return Stack(
+                              clipBehavior: .none,
+                              children: [
+                                NetworkImgLayer(
                                   clip: false,
                                   src: videoItem.cover,
                                   width: maxWidth,
                                   height: maxHeight,
                                 ),
-                              ),
-                              if (videoItem.badge case final badge?)
-                                PBadge(
-                                  text: badge,
-                                  top: 6.0,
-                                  right: 6.0,
-                                  type: switch (badge) {
-                                    '充电专属' => .error,
-                                    _ => .primary,
-                                  },
-                                ),
-                              if (progress != null && progress != 0) ...[
-                                PBadge(
-                                  text: progress == -1
-                                      ? '已看完'
-                                      : '${DurationUtils.formatDuration(progress)}/${DurationUtils.formatDuration(videoItem.duration)}',
-                                  right: 6,
-                                  bottom: 8,
-                                  type: .gray,
-                                ),
-                                Positioned(
-                                  left: 0,
-                                  bottom: 0,
-                                  right: 0,
-                                  child: VideoProgressIndicator(
-                                    color: theme.colorScheme.primary,
-                                    backgroundColor:
-                                        theme.colorScheme.secondaryContainer,
-                                    progress: progress == -1
-                                        ? 1
-                                        : progress / videoItem.duration,
+                                if (videoItem.badge case final badge?)
+                                  PBadge(
+                                    text: badge,
+                                    top: 6.0,
+                                    right: 6.0,
+                                    type: switch (badge) {
+                                      '充电专属' => .error,
+                                      _ => .primary,
+                                    },
                                   ),
-                                ),
-                              ] else if (videoItem.duration > 0)
-                                PBadge(
-                                  text: DurationUtils.formatDuration(
-                                    videoItem.duration,
+                                if (progress != null && progress != 0) ...[
+                                  PBadge(
+                                    text: progress == -1
+                                        ? '已看完'
+                                        : '${DurationUtils.formatDuration(progress)}/${DurationUtils.formatDuration(videoItem.duration)}',
+                                    right: 6,
+                                    bottom: 8,
+                                    type: .gray,
                                   ),
-                                  right: 6.0,
-                                  bottom: 6.0,
-                                  type: .gray,
-                                ),
-                              if (!PlatformUtils.isMobile &&
-                                  videoItem.bvid != null)
-                                Positioned(
-                                  top: 4,
-                                  right: 4,
-                                  child: Visibility(
-                                    visible: _isHovering,
-                                    maintainState: true,
-                                    child: QuickWatchLaterButton(
-                                      target: WatchLaterTarget.from(
-                                        bvid: videoItem.bvid,
-                                        aid: videoItem.aid,
-                                        fallback: videoItem,
+                                  Positioned(
+                                    left: 0,
+                                    bottom: 0,
+                                    right: 0,
+                                    child: VideoProgressIndicator(
+                                      color: theme.colorScheme.primary,
+                                      backgroundColor:
+                                          theme.colorScheme.secondaryContainer,
+                                      progress: progress == -1
+                                          ? 1
+                                          : progress / videoItem.duration,
+                                    ),
+                                  ),
+                                ] else if (videoItem.duration > 0)
+                                  PBadge(
+                                    text: DurationUtils.formatDuration(
+                                      videoItem.duration,
+                                    ),
+                                    right: 6.0,
+                                    bottom: 6.0,
+                                    type: .gray,
+                                  ),
+                                if (!PlatformUtils.isMobile &&
+                                    videoItem.bvid != null)
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: Visibility(
+                                      visible: _isHovering,
+                                      maintainState: true,
+                                      child: QuickWatchLaterButton(
+                                        target: WatchLaterTarget.from(
+                                          bvid: videoItem.bvid,
+                                          aid: videoItem.aid,
+                                          fallback: videoItem,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                            ],
-                          );
-                        },
+                              ],
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    content(theme),
-                  ],
+                      const SizedBox(width: 10),
+                      content(theme),
+                    ],
+                  ),
                 ),
               ),
             ),

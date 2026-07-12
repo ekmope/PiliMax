@@ -3,14 +3,12 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/watch_later_button.dart';
 import 'package:PiliMax/common/widgets/video_popup_menu.dart';
-import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/stat_type.dart';
 import 'package:PiliMax/models/home/rcmd/result.dart';
 import 'package:PiliMax/models/model_rec_video_item.dart';
-import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
@@ -68,6 +66,7 @@ class _VideoCardVState extends State<VideoCardV> {
     return _cachedHeroTag ??=
         'video-card-v-$_heroKey-${_widgetHeroKey ?? identityHashCode(this)}';
   }
+
   VoidCallback? get onRemove => widget.onRemove;
 
   @override
@@ -97,40 +96,28 @@ class _VideoCardVState extends State<VideoCardV> {
     return text;
   }
 
-  Future<void> onPushDetail() async {
+  void onPushDetail() {
     switch (videoItem.goto) {
       case 'bangumi':
         PageUtils.viewPgc(epId: videoItem.param!, heroTag: _heroTag);
         break;
       case 'av':
-        var bvid = videoItem.bvid ?? IdUtils.av2bv(videoItem.aid!);
-        var cid = videoItem.cid;
+        final bvid = videoItem.bvid ?? IdUtils.av2bv(videoItem.aid!);
         bool isVertical = false;
-        Dimension? dimension;
         if (videoItem is RcmdVideoItemAppModel) {
           if (videoItem.uri case final uri?) {
             isVertical = uri.isVerticalFromUri;
           }
         }
-        if (cid == null) {
-          if (await SearchHttp.ab2cWithDimension(aid: videoItem.aid, bvid: bvid)
-              case final res?) {
-            cid = res.cid;
-            dimension = res.dimension;
-          }
-        }
-        if (cid != null) {
-          PageUtils.toVideoPage(
-            aid: videoItem.aid,
-            bvid: bvid,
-            cid: cid,
-            cover: videoItem.cover,
-            title: videoItem.title,
-            isVertical: isVertical,
-            dimension: dimension,
-            heroTag: _heroTag,
-          );
-        }
+        PageUtils.toVideoPage(
+          aid: videoItem.aid,
+          bvid: bvid,
+          cid: videoItem.cid,
+          cover: videoItem.cover,
+          title: videoItem.title,
+          isVertical: isVertical,
+          heroTag: _heroTag,
+        );
         break;
       // 动态
       case 'picture':
@@ -164,86 +151,86 @@ class _VideoCardVState extends State<VideoCardV> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Card(
-          clipBehavior: Clip.hardEdge,
-          child: MouseRegion(
-            onEnter: PlatformUtils.isMobile
-                ? null
-                : (_) => setState(() => _isHovering = true),
-            onExit: PlatformUtils.isMobile
-                ? null
-                : (_) => setState(() => _isHovering = false),
-            child: InkWell(
-              onTap: onPushDetail,
-              onLongPress: onLongPress,
-              onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AspectRatio(
-                    aspectRatio: Style.aspectRatio,
-                    child: LayoutBuilder(
-                      builder: (context, boxConstraints) {
-                        double maxWidth = boxConstraints.maxWidth;
-                        double maxHeight = boxConstraints.maxHeight;
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            VideoCoverHero(
-                              tag: _heroTag,
-                              child: NetworkImgLayer(
+        VideoDetailHero.source(
+          tag: _heroTag,
+          child: Card(
+            clipBehavior: Clip.hardEdge,
+            child: MouseRegion(
+              onEnter: PlatformUtils.isMobile
+                  ? null
+                  : (_) => setState(() => _isHovering = true),
+              onExit: PlatformUtils.isMobile
+                  ? null
+                  : (_) => setState(() => _isHovering = false),
+              child: InkWell(
+                onTap: onPushDetail,
+                onLongPress: onLongPress,
+                onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: Style.aspectRatio,
+                      child: LayoutBuilder(
+                        builder: (context, boxConstraints) {
+                          double maxWidth = boxConstraints.maxWidth;
+                          double maxHeight = boxConstraints.maxHeight;
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              NetworkImgLayer(
                                 clip: false,
                                 src: videoItem.cover,
                                 width: maxWidth,
                                 height: maxHeight,
                               ),
-                            ),
-                            if (videoItem.duration > 0)
-                              PBadge(
-                                bottom: 6,
-                                right: 7,
-                                size: .small,
-                                type: .gray,
-                                text: DurationUtils.formatDuration(
-                                  videoItem.duration,
+                              if (videoItem.duration > 0)
+                                PBadge(
+                                  bottom: 6,
+                                  right: 7,
+                                  size: .small,
+                                  type: .gray,
+                                  text: DurationUtils.formatDuration(
+                                    videoItem.duration,
+                                  ),
                                 ),
-                              ),
-                            if (videoItem case RcmdVideoItemAppModel(
-                              :final canPlay,
-                            ) when canPlay != 1)
-                              const PBadge(
-                                text: '充电专属',
-                                top: 6,
-                                right: 6,
-                                size: .small,
-                                type: .error,
-                                fontSize: 10,
-                              ),
-                            if (!PlatformUtils.isMobile &&
-                                videoItem.goto == 'av' &&
-                                videoItem.bvid != null)
-                              Positioned(
-                                top: 4,
-                                right: 4,
-                                child: Visibility(
-                                  visible: _isHovering,
-                                  maintainState: true,
-                                  child: QuickWatchLaterButton(
-                                    target: WatchLaterTarget.from(
-                                      bvid: videoItem.bvid,
-                                      aid: videoItem.aid,
-                                      fallback: videoItem,
+                              if (videoItem case RcmdVideoItemAppModel(
+                                :final canPlay,
+                              ) when canPlay != 1)
+                                const PBadge(
+                                  text: '充电专属',
+                                  top: 6,
+                                  right: 6,
+                                  size: .small,
+                                  type: .error,
+                                  fontSize: 10,
+                                ),
+                              if (!PlatformUtils.isMobile &&
+                                  videoItem.goto == 'av' &&
+                                  videoItem.bvid != null)
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: Visibility(
+                                    visible: _isHovering,
+                                    maintainState: true,
+                                    child: QuickWatchLaterButton(
+                                      target: WatchLaterTarget.from(
+                                        bvid: videoItem.bvid,
+                                        aid: videoItem.aid,
+                                        fallback: videoItem,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        );
-                      },
+                            ],
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  content(context),
-                ],
+                    content(context),
+                  ],
+                ),
               ),
             ),
           ),

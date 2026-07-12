@@ -181,18 +181,19 @@ class PipOverlayService {
     );
   }
 
-  static void startPip({
+  static bool startPip({
     required BuildContext context,
     required PlPlayerController plPlayerController,
     required Widget Function(bool isNative, double width, double height)
     videoPlayerBuilder,
     VoidCallback? onClose,
     VoidCallback? onTapToReturn,
+    VoidCallback? onStartFailed,
     dynamic controller,
     Map<String, dynamic>? additionalControllers,
   }) {
     if (isInPipMode) {
-      return;
+      return false;
     }
 
     isInPipMode = true;
@@ -246,8 +247,10 @@ class PipOverlayService {
         _savedPlayerController = null;
         _savedVideoContextKey = null;
         _savedControllers.clear();
+        onStartFailed?.call();
       }
     });
+    return true;
   }
 
   static T? getSavedController<T>() => _savedController as T?;
@@ -307,8 +310,7 @@ class PipOverlayService {
       final ctrl = _savedController as VideoDetailController;
       ctrl.isEnteringPip = false;
       ctrl.cancelBlockListener();
-      if (ctrl.isClosed) {
-      }
+      if (ctrl.isClosed) {}
       for (final controller in _savedControllers.values) {
         _setEnteringPipFlag(controller, false);
       }

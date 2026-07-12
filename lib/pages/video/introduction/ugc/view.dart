@@ -8,30 +8,32 @@ import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
 import 'package:PiliMax/common/widgets/pendant_avatar.dart';
-import 'package:PiliMax/common/widgets/scroll_physics.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart'
+    show ReloadScrollPhysics;
 import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
+import 'package:PiliMax/common/widgets/translucent_column.dart';
 import 'package:PiliMax/http/sponsor_block.dart';
-import 'package:PiliMax/models/common/image_type.dart';
-import 'package:PiliMax/models/common/stat_type.dart';
 import 'package:PiliMax/models_new/video/video_ai_conclusion/model_result.dart';
 import 'package:PiliMax/models_new/video/video_detail/data.dart';
+import 'package:PiliMax/models_new/video/video_detail/desc_v2.dart';
 import 'package:PiliMax/models_new/video/video_detail/staff.dart';
+import 'package:PiliMax/models_new/video/video_detail/stat.dart';
 import 'package:PiliMax/models_new/video/video_tag/data.dart';
-import 'package:PiliMax/pages/mine/controller.dart';
-import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/pages/common/common_intro_controller.dart'
     show IntroAction;
+import 'package:PiliMax/pages/mine/controller.dart';
+import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/page.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/season.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
+import 'package:PiliMax/utils/bili_colors.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
-import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
@@ -74,6 +76,7 @@ class UgcIntroPanel extends StatefulWidget {
 }
 
 class _UgcIntroPanelState extends State<UgcIntroPanel> {
+  late ColorScheme colorScheme;
   late final UgcIntroController introController;
   late final VideoDetailController videoDetailCtr =
       Get.find<VideoDetailController>(tag: widget.heroTag);
@@ -88,222 +91,186 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    colorScheme = ColorScheme.of(context);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
     final isPortrait = widget.isPortrait;
     final isHorizontal = !isPortrait && widget.isHorizontal;
     return SliverPadding(
-      padding: const EdgeInsets.only(
+      padding: const .only(
         left: Style.safeSpace,
         right: Style.safeSpace,
         top: 10,
       ),
-      sliver: Obx(() {
-        VideoDetailData videoDetail = introController.videoDetail.value;
-        bool isLoading = videoDetail.bvid == null;
-        int? mid = videoDetail.owner?.mid;
-        return SliverToBoxAdapter(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              if (isLoading) {
-                return;
-              }
-              feedBack();
-              introController.expand.toggle();
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {},
-                  child: Row(
+      sliver: Obx(
+        () {
+          final videoDetail = introController.videoDetail.value;
+          final isLoading = videoDetail.bvid == null;
+          return SliverToBoxAdapter(
+            child: GestureDetector(
+              onTap: () {
+                if (isLoading) return;
+                feedBack();
+                introController.expand.toggle();
+              },
+              child: TranslucentColumn(
+                crossAxisAlignment: .start,
+                children: [
+                  NoTranslucentArea(
+                    child: _buildOwnerInfo(
+                      isLoading,
+                      isPortrait,
+                      isHorizontal,
+                      videoDetail,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  buildTitle(isLoading, isHorizontal, videoDetail),
+                  const SizedBox(height: 8),
+                  Stack(
+                    clipBehavior: .none,
                     children: [
-                      if (videoDetail.staff.isNullOrEmpty) ...[
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: _buildAvatar(theme, () {
-                              if (mid != null) {
-                                feedBack();
-                                if (!isPortrait &&
-                                    introController.horizontalMemberPage) {
-                                  widget.onShowMemberPage(mid);
-                                } else {
-                                  Get.toNamed(
-                                    '/member?mid=$mid&from_view_aid=${videoDetailCtr.aid}',
-                                  );
-                                }
-                              }
-                            }),
-                          ),
-                        ),
-                        followButton(context, theme),
-                      ] else
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            physics: ReloadScrollPhysics(
-                              controller: introController,
-                            ),
-                            child: Row(
-                              spacing: 25,
-                              children: videoDetail.staff!
-                                  .map(
-                                    (e) =>
-                                        _buildStaff(theme, isPortrait, mid, e),
-                                  )
-                                  .toList(),
-                            ),
-                          ),
-                        ),
-                      if (isHorizontal) ...[
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: actionGrid(
-                            context,
-                            isLoading,
-                            videoDetail,
-                            introController,
-                          ),
-                        ),
-                      ],
+                      _buildInfo(videoDetail.stat, videoDetail.pubdate),
+                      if (introController.enableAi) _aiBtn,
                     ],
                   ),
-                ),
-                const SizedBox(height: 8),
-                if (isLoading)
-                  _buildVideoTitle(theme, videoDetail)
-                else if (isHorizontal && PlatformUtils.isDesktop)
-                  SelectionArea(
-                    child: _buildVideoTitle(theme, videoDetail, isExpand: true),
-                  )
-                else
-                  Obx(
-                    () => ExpandablePanel(
-                      expand: introController.expand.value,
-                      collapsed: _buildTitle(theme, videoDetail),
-                      expanded: _buildTitle(
-                        theme,
-                        videoDetail,
-                        isExpand: true,
+                  if (introController.showArgueMsg)
+                    if (videoDetail.argueInfo?.argueMsg case final argueMsg?
+                        when argueMsg.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      _buildArgueInfo(argueMsg),
+                    ],
+                  if (isHorizontal && PlatformUtils.isDesktop)
+                    ..._infos(videoDetail)
+                  else
+                    Obx(
+                      () => AnimatedHeight(
+                        expand: introController.expand.value,
+                        duration: const Duration(milliseconds: 300),
+                        child: TranslucentColumn(
+                          mainAxisSize: .min,
+                          crossAxisAlignment: .start,
+                          children: _infos(videoDetail),
+                        ),
                       ),
                     ),
-                  ),
-                const SizedBox(height: 8),
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    _buildInfo(theme, videoDetail),
-                    if (introController.enableAi) _aiBtn,
-                  ],
-                ),
-                if (introController.showArgueMsg &&
-                    videoDetail.argueInfo?.argueMsg?.isNotEmpty == true) ...[
-                  const SizedBox(height: 2),
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        WidgetSpan(
-                          alignment: PlaceholderAlignment.middle,
-                          child: Padding(
-                            padding: const .only(right: 2),
-                            child: Icon(
-                              size: 13,
-                              Icons.error_outline,
-                              color: theme.colorScheme.outline,
+                  Obx(
+                    () => introController.status.value
+                        ? const SizedBox.shrink()
+                        : Center(
+                            child: TextButton.icon(
+                              icon: const Icon(Icons.refresh),
+                              onPressed: () {
+                                introController
+                                  ..status.value = true
+                                  ..queryVideoIntro();
+                                if (videoDetailCtr.videoUrl.isNullOrEmpty &&
+                                    !videoDetailCtr.isQuerying) {
+                                  videoDetailCtr.queryVideoUrl();
+                                }
+                              },
+                              label: const Text("点此重新加载"),
                             ),
                           ),
-                        ),
-                        TextSpan(text: '${videoDetail.argueInfo!.argueMsg}'),
-                      ],
-                    ),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.colorScheme.outline,
-                    ),
                   ),
-                ],
-                if (isHorizontal && PlatformUtils.isDesktop)
-                  ..._infos(theme, videoDetail)
-                else
-                  Obx(
-                    () => AnimatedHeight(
-                      expand: introController.expand.value,
-                      duration: const Duration(milliseconds: 300),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: _infos(theme, videoDetail),
+                  // 点赞收藏转发 布局样式2
+                  if (!isHorizontal) ...[
+                    const SizedBox(height: 8),
+                    actionGrid(
+                      context,
+                      isLoading,
+                      introController,
+                      videoDetail.stat,
+                    ),
+                  ],
+                  // 合集
+                  if (!isLoading &&
+                      videoDetail.ugcSeason != null &&
+                      (isPortrait ||
+                          !videoDetailCtr
+                              .plPlayerController
+                              .horizontalSeasonPanel))
+                    Obx(
+                      () => SeasonPanel(
+                        key: ValueKey(introController.videoDetail.value),
+                        heroTag: widget.heroTag,
+                        showEpisodes: widget.showEpisodes,
+                        ugcIntroController: introController,
                       ),
                     ),
-                  ),
-                Obx(
-                  () => introController.status.value
-                      ? const SizedBox.shrink()
-                      : Center(
-                          child: TextButton.icon(
-                            icon: const Icon(Icons.refresh),
-                            onPressed: () {
-                              introController
-                                ..status.value = true
-                                ..queryVideoIntro();
-                              if (videoDetailCtr.videoUrl.isNullOrEmpty &&
-                                  !videoDetailCtr.isQuerying) {
-                                videoDetailCtr.queryVideoUrl();
-                              }
-                            },
-                            label: const Text("点此重新加载"),
-                          ),
-                        ),
-                ),
-                // 点赞收藏转发 布局样式2
-                if (!isHorizontal) ...[
-                  const SizedBox(height: 8),
-                  actionGrid(context, isLoading, videoDetail, introController),
+                  if (!isLoading &&
+                      videoDetail.pages != null &&
+                      videoDetail.pages!.length > 1 &&
+                      (isPortrait ||
+                          !videoDetailCtr
+                              .plPlayerController
+                              .horizontalSeasonPanel))
+                    Obx(
+                      () => PagesPanel(
+                        key: ValueKey(introController.videoDetail.value),
+                        heroTag: widget.heroTag,
+                        ugcIntroController: introController,
+                        bvid: introController.bvid,
+                        showEpisodes: widget.showEpisodes,
+                      ),
+                    ),
                 ],
-                // 合集
-                if (!isLoading &&
-                    videoDetail.ugcSeason != null &&
-                    (isPortrait ||
-                        !videoDetailCtr
-                            .plPlayerController
-                            .horizontalSeasonPanel))
-                  Obx(
-                    () => SeasonPanel(
-                      key: ValueKey(introController.videoDetail.value),
-                      heroTag: widget.heroTag,
-                      showEpisodes: widget.showEpisodes,
-                      ugcIntroController: introController,
-                    ),
-                  ),
-                if (!isLoading &&
-                    videoDetail.pages != null &&
-                    videoDetail.pages!.length > 1 &&
-                    (isPortrait ||
-                        !videoDetailCtr
-                            .plPlayerController
-                            .horizontalSeasonPanel))
-                  Obx(
-                    () => PagesPanel(
-                      key: ValueKey(introController.videoDetail.value),
-                      heroTag: widget.heroTag,
-                      ugcIntroController: introController,
-                      bvid: introController.bvid,
-                      showEpisodes: widget.showEpisodes,
-                    ),
-                  ),
-              ],
+              ),
             ),
-          ),
-        );
-      }),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildTitle(
-    ThemeData theme,
+  Widget _buildArgueInfo(String argueMsg) {
+    return Text.rich(
+      TextSpan(
+        children: [
+          WidgetSpan(
+            alignment: .middle,
+            child: Padding(
+              padding: const .only(right: 2),
+              child: Icon(
+                size: 13,
+                Icons.error_outline,
+                color: colorScheme.outline,
+              ),
+            ),
+          ),
+          TextSpan(text: argueMsg),
+        ],
+      ),
+      style: TextStyle(fontSize: 12, color: colorScheme.outline),
+    );
+  }
+
+  Widget buildTitle(
+    bool isLoading,
+    bool isHorizontal,
+    VideoDetailData videoDetail,
+  ) {
+    if (isLoading) {
+      return _buildVideoTitle(videoDetail);
+    } else if (isHorizontal && PlatformUtils.isDesktop) {
+      return SelectionArea(
+        child: _buildVideoTitle(videoDetail, isExpand: true),
+      );
+    }
+    return Obx(
+      () => ExpandablePanel(
+        collapsed: _expandableTitle(videoDetail),
+        expanded: _expandableTitle(videoDetail, isExpand: true),
+        expand: introController.expand.value,
+      ),
+    );
+  }
+
+  Widget _expandableTitle(
     VideoDetailData videoDetail, {
     bool isExpand = false,
   }) => GestureDetector(
@@ -311,39 +278,41 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
       Feedback.forLongPress(context);
       Utils.copyText(videoDetail.title ?? '');
     },
-    child: _buildVideoTitle(theme, videoDetail, isExpand: isExpand),
+    child: _buildVideoTitle(videoDetail, isExpand: isExpand),
   );
 
-  List<Widget> _infos(ThemeData theme, VideoDetailData videoDetail) => [
-    const SizedBox(height: 8),
+  List<Widget> _infos(VideoDetailData videoDetail) => [
+    const SizedBox(height: 8, width: .infinity),
     GestureDetector(
       onTap: () => Utils.copyText('${videoDetail.bvid}'),
       child: Text(
         videoDetail.bvid ?? '',
-        style: TextStyle(fontSize: 14, color: theme.colorScheme.secondary),
+        style: TextStyle(fontSize: 14, color: colorScheme.secondary),
       ),
     ),
-    if (videoDetail.descV2?.isNotEmpty == true) ...[
+    if (videoDetail.descV2 case final descV2? when descV2.isNotEmpty) ...[
       const SizedBox(height: 8),
       selectableRichText(
         style: const TextStyle(height: 1.4),
-        buildContent(theme, videoDetail),
+        buildContent(descV2),
       ),
     ],
-    Obx(() {
-      final videoTags = introController.videoTags.value;
-      if (videoTags == null || videoTags.isEmpty) {
-        return const SizedBox.shrink();
-      }
-      return _buildTags(videoTags);
-    }),
+    NoTranslucentArea(
+      child: Obx(() {
+        final videoTags = introController.videoTags.value;
+        if (videoTags == null || videoTags.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return _buildTags(videoTags);
+      }),
+    ),
   ];
 
   WidgetSpan _labelWidget(String text, Color bgColor, Color textColor) {
     return WidgetSpan(
-      alignment: PlaceholderAlignment.middle,
+      alignment: .middle,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+        padding: const .symmetric(horizontal: 4, vertical: 3),
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: const BorderRadius.all(Radius.circular(4)),
@@ -351,7 +320,11 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
         child: Text(
           text,
           textScaler: TextScaler.noScaling,
-          strutStyle: const StrutStyle(leading: 0, height: 1, fontSize: 12),
+          strutStyle: const StrutStyle(
+            leading: 0,
+            height: 1,
+            fontSize: 12,
+          ),
           style: TextStyle(
             height: 1,
             fontSize: 12,
@@ -364,11 +337,10 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
   }
 
   Widget _buildVideoTitle(
-    ThemeData theme,
     VideoDetailData videoDetail, {
     bool isExpand = false,
   }) {
-    late final isDark = theme.brightness == Brightness.dark;
+    late final isDark = colorScheme.isDark;
     Widget child() {
       final videoLabel = videoDetailCtr.videoLabel.value;
       return Text.rich(
@@ -376,32 +348,29 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           children: [
             if (videoLabel.isNotEmpty) ...[
               WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
+                alignment: .middle,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 2,
-                  ),
+                  padding: const .symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.secondaryContainer,
+                    color: colorScheme.secondaryContainer,
                     borderRadius: const BorderRadius.all(Radius.circular(4)),
                   ),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize: .min,
                     children: [
                       Stack(
-                        clipBehavior: Clip.none,
-                        alignment: Alignment.center,
+                        clipBehavior: .none,
+                        alignment: .center,
                         children: [
                           Icon(
                             Icons.shield_outlined,
                             size: 16,
-                            color: theme.colorScheme.onSecondaryContainer,
+                            color: colorScheme.onSecondaryContainer,
                           ),
                           Icon(
                             Icons.play_arrow_rounded,
                             size: 12,
-                            color: theme.colorScheme.onSecondaryContainer,
+                            color: colorScheme.onSecondaryContainer,
                           ),
                         ],
                       ),
@@ -416,7 +385,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                         style: TextStyle(
                           height: 1,
                           fontSize: 13,
-                          color: theme.colorScheme.onSecondaryContainer,
+                          color: colorScheme.onSecondaryContainer,
                         ),
                       ),
                     ],
@@ -428,19 +397,15 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
             if (videoDetail.isUpowerExclusive == true) ...[
               _labelWidget(
                 '充电专属',
-                isDark
-                    ? theme.colorScheme.error
-                    : theme.colorScheme.errorContainer,
-                isDark
-                    ? theme.colorScheme.onError
-                    : theme.colorScheme.onErrorContainer,
+                isDark ? colorScheme.error : colorScheme.errorContainer,
+                isDark ? colorScheme.onError : colorScheme.onErrorContainer,
               ),
               const TextSpan(text: ' '),
             ] else if (videoDetail.rights?.isSteinGate == 1) ...[
               _labelWidget(
                 '互动视频',
-                theme.colorScheme.secondaryContainer,
-                theme.colorScheme.onSecondaryContainer,
+                colorScheme.secondaryContainer,
+                colorScheme.onSecondaryContainer,
               ),
               const TextSpan(text: ' '),
             ],
@@ -448,7 +413,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           ],
         ),
         maxLines: isExpand ? null : 2,
-        overflow: isExpand ? null : TextOverflow.ellipsis,
+        overflow: isExpand ? null : .ellipsis,
         style: const TextStyle(fontSize: 16),
       );
     }
@@ -459,49 +424,56 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     return child();
   }
 
-  Widget followButton(BuildContext context, ThemeData t) {
-    return Obx(() {
-      int attr = introController.followStatus.value.attribute ?? 0;
-      final isLoading = introController.isActionLoading(IntroAction.relation);
-      return TextButton(
-        onPressed: isLoading
-            ? null
-            : () => introController.actionRelationMod(context),
-        style: TextButton.styleFrom(
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: const VisualDensity(vertical: -2.8),
-          foregroundColor: attr != 0
-              ? t.colorScheme.outline
-              : t.colorScheme.onSecondaryContainer,
-          backgroundColor: attr != 0
-              ? t.colorScheme.onInverseSurface
-              : t.colorScheme.secondaryContainer,
-        ),
-        child: LoadingButtonChild(
-          isLoading: isLoading,
-          child: Text(switch (attr) {
-            1 => '悄悄关注',
-            2 => '已关注',
-            4 || 6 => '已互关',
-            128 => '已拉黑',
-            -10 => '特别关注',
-            _ => ' 关注 ',
-          }, style: const TextStyle(fontSize: 13)),
-        ),
-      );
-    });
+  Widget followButton(BuildContext context) {
+    return Obx(
+      () {
+        int attr = introController.followStatus.value.attribute ?? 0;
+        final isLoading = introController.isActionLoading(
+          IntroAction.relation,
+        );
+        return TextButton(
+          onPressed: isLoading
+              ? null
+              : () => introController.actionRelationMod(context),
+          style: TextButton.styleFrom(
+            tapTargetSize: .shrinkWrap,
+            visualDensity: const VisualDensity(vertical: -2.8),
+            foregroundColor: attr != 0
+                ? colorScheme.outline
+                : colorScheme.onSecondaryContainer,
+            backgroundColor: attr != 0
+                ? colorScheme.onInverseSurface
+                : colorScheme.secondaryContainer,
+          ),
+          child: LoadingButtonChild(
+            isLoading: isLoading,
+            child: Text(
+              switch (attr) {
+                1 => '悄悄关注',
+                2 => '已关注',
+                4 || 6 => '已互关',
+                128 => '已拉黑',
+                -10 => '特别关注',
+                _ => ' 关注 ',
+              },
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget actionGrid(
     BuildContext context,
     bool isLoading,
-    VideoDetailData videoDetail,
     UgcIntroController introController,
+    VideoStat? stat,
   ) {
     return SizedBox(
       height: 48,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: .start,
         children: [
           Obx(
             () => ActionItem(
@@ -513,9 +485,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
               isLoading:
                   introController.isActionLoading(IntroAction.like) ||
                   introController.isActionLoading(IntroAction.triple),
-              text: !isLoading
-                  ? NumUtils.numFormat(videoDetail.stat!.like)
-                  : null,
+              text: !isLoading ? NumUtils.numFormat(stat!.like) : null,
               onStartTriple: introController.onStartTriple,
               onCancelTriple: introController.onCancelTriple,
             ),
@@ -542,9 +512,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
               isLoading:
                   introController.isActionLoading(IntroAction.coin) ||
                   introController.isActionLoading(IntroAction.triple),
-              text: !isLoading
-                  ? NumUtils.numFormat(videoDetail.stat!.coin)
-                  : null,
+              text: !isLoading ? NumUtils.numFormat(stat!.coin) : null,
             ),
           ),
           Obx(
@@ -559,10 +527,10 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
               ),
               selectStatus: introController.hasFav.value,
               semanticsLabel: '收藏',
-              isLoading: introController.isActionLoading(IntroAction.triple),
-              text: !isLoading
-                  ? NumUtils.numFormat(videoDetail.stat!.favorite)
-                  : null,
+              isLoading:
+                  introController.isActionLoading(IntroAction.favorite) ||
+                  introController.isActionLoading(IntroAction.triple),
+              text: !isLoading ? NumUtils.numFormat(stat!.favorite) : null,
             ),
           ),
           Obx(
@@ -583,9 +551,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
             onTap: () => introController.actionShareVideo(context),
             selectStatus: false,
             semanticsLabel: '分享',
-            text: !isLoading
-                ? NumUtils.numFormat(videoDetail.stat!.share!)
-                : null,
+            text: !isLoading ? NumUtils.numFormat(stat!.share!) : null,
           ),
           if (Pref.enableAiChat)
             ActionItem(
@@ -610,14 +576,10 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     caseSensitive: false,
   );
 
-  TextSpan buildContent(ThemeData theme, VideoDetailData content) {
-    if (content.descV2.isNullOrEmpty) {
-      return const TextSpan();
-    }
-    // type
+  TextSpan buildContent(List<DescV2> descV2) {
     // 1 普通文本
     // 2 @用户
-    final List<TextSpan> spanChildren = content.descV2!.map((currentDesc) {
+    final List<TextSpan> spanChildren = descV2.map((currentDesc) {
       switch (currentDesc.type) {
         case 1:
           final List<InlineSpan> spanChildren = <InlineSpan>[];
@@ -630,7 +592,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                 spanChildren.add(
                   TextSpan(
                     text: matchStr,
-                    style: TextStyle(color: theme.colorScheme.primary),
+                    style: TextStyle(color: colorScheme.primary),
                     recognizer: NoDeadlineTapGestureRecognizer()
                       ..onTap = () async {
                         if (videoDetailCtr
@@ -692,7 +654,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                   spanChildren.add(
                     TextSpan(
                       text: matchStr,
-                      style: TextStyle(color: theme.colorScheme.primary),
+                      style: TextStyle(color: colorScheme.primary),
                       recognizer: NoDeadlineTapGestureRecognizer()
                         ..onTap = () => PiliScheme.videoPush(aid, null),
                     ),
@@ -706,7 +668,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                   spanChildren.add(
                     TextSpan(
                       text: matchStr,
-                      style: TextStyle(color: theme.colorScheme.primary),
+                      style: TextStyle(color: colorScheme.primary),
                       recognizer: NoDeadlineTapGestureRecognizer()
                         ..onTap = () => PiliScheme.videoPush(null, matchStr),
                     ),
@@ -718,7 +680,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                 spanChildren.add(
                   TextSpan(
                     text: matchStr,
-                    style: TextStyle(color: theme.colorScheme.primary),
+                    style: TextStyle(color: colorScheme.primary),
                     recognizer: NoDeadlineTapGestureRecognizer()
                       ..onTap = () {
                         try {
@@ -744,7 +706,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           );
           return TextSpan(children: spanChildren);
         case 2:
-          final Color colorSchemePrimary = theme.colorScheme.primary;
+          final Color colorSchemePrimary = colorScheme.primary;
           return TextSpan(
             text: '@${currentDesc.rawText}',
             style: TextStyle(color: colorSchemePrimary),
@@ -758,8 +720,67 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     return TextSpan(children: spanChildren);
   }
 
+  Widget _buildOwnerInfo(
+    bool isLoading,
+    bool isPortrait,
+    bool isHorizontal,
+    VideoDetailData videoDetail,
+  ) {
+    final mid = videoDetail.owner?.mid;
+    return Row(
+      children: [
+        if (videoDetail.staff case final staff? when staff.isNotEmpty)
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: .horizontal,
+              hitTestBehavior: .deferToChild,
+              physics: ReloadScrollPhysics(controller: introController),
+              child: Row(
+                spacing: 25,
+                children: staff
+                    .map((e) => _buildStaff(isPortrait, mid, e))
+                    .toList(),
+              ),
+            ),
+          )
+        else ...[
+          Expanded(
+            child: Align(
+              alignment: .centerLeft,
+              child: _buildAvatar(
+                () {
+                  if (mid != null) {
+                    feedBack();
+                    if (!isPortrait && introController.horizontalMemberPage) {
+                      widget.onShowMemberPage(mid);
+                    } else {
+                      Get.toNamed(
+                        '/member?mid=$mid&from_view_aid=${videoDetailCtr.aid}',
+                      );
+                    }
+                  }
+                },
+              ),
+            ),
+          ),
+          followButton(context),
+        ],
+        if (isHorizontal) ...[
+          const SizedBox(width: 10),
+          Expanded(
+            child: actionGrid(
+              context,
+              isLoading,
+              introController,
+              videoDetail.stat,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildStaff(
-    ThemeData theme,
     bool isPortrait,
     int? ownerMid,
     Staff item,
@@ -768,7 +789,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
       '/member?mid=${item.mid}&from_view_aid=${videoDetailCtr.aid}',
     );
     return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+      behavior: .opaque,
       onTap: () {
         if (item.mid == ownerMid &&
             !isPortrait &&
@@ -785,96 +806,98 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
       child: Row(
         children: [
           Stack(
-            clipBehavior: Clip.none,
+            clipBehavior: .none,
             children: [
               NetworkImgLayer(
-                type: ImageType.avatar,
+                type: .avatar,
                 src: item.face,
                 width: 35,
                 height: 35,
                 fadeInDuration: Duration.zero,
                 fadeOutDuration: Duration.zero,
               ),
-              if ((item.official?.type ?? -1) != -1)
+              if (item.official?.type case final type? when type != -1)
                 Positioned(
                   right: -2,
                   bottom: -2,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: theme.colorScheme.surface,
+                      shape: .circle,
+                      color: colorScheme.surface,
                     ),
-                    child: Icon(
-                      Icons.offline_bolt,
-                      color: item.official?.type == 0
-                          ? const Color(0xFFFFCC00)
-                          : Colors.lightBlueAccent,
-                      size: 14,
-                    ),
+                    child: item.official?.type == 0
+                        ? const Icon(
+                            Icons.offline_bolt,
+                            color: BiliColors.yellow,
+                            size: 14,
+                          )
+                        : const Icon(
+                            Icons.offline_bolt,
+                            color: Colors.lightBlueAccent,
+                            size: 14,
+                          ),
                   ),
                 ),
               Positioned(
                 top: 0,
                 right: -6,
                 child: Obx(
-                  () =>
-                      introController.staffRelations['status'] == true &&
-                          introController.staffRelations['${item.mid}'] == null
-                      ? Material(
-                          type: MaterialType.transparency,
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () => RequestUtils.actionRelationMod(
-                              context: context,
-                              mid: item.mid,
-                              isFollow: false,
-                              afterMod: (val) {
+                  () {
+                    if (introController.staffRelations['status'] == true &&
+                        introController.staffRelations['${item.mid}'] == null) {
+                      return Material(
+                        type: .transparency,
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => RequestUtils.actionRelationMod(
+                            context: context,
+                            mid: item.mid,
+                            isFollow: false,
+                            afterMod: (val) =>
                                 introController.staffRelations['${item.mid}'] =
-                                    true;
-                              },
+                                    true,
+                          ),
+                          child: Ink(
+                            padding: const .all(2),
+                            decoration: BoxDecoration(
+                              color: colorScheme.secondaryContainer,
+                              shape: .circle,
                             ),
-                            child: Ink(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.secondaryContainer,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                MdiIcons.plus,
-                                size: 16,
-                                color: theme.colorScheme.onSecondaryContainer,
-                              ),
+                            child: Icon(
+                              MdiIcons.plus,
+                              size: 16,
+                              color: colorScheme.onSecondaryContainer,
                             ),
                           ),
-                        )
-                      : const SizedBox.shrink(),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
                 ),
               ),
             ],
           ),
           const SizedBox(width: 8),
           Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: .min,
+            crossAxisAlignment: .start,
             children: [
               Text(
                 item.name!,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                overflow: .ellipsis,
                 style: TextStyle(
                   fontSize: 13,
                   color: (item.vip?.status ?? 0) > 0 && item.vip?.type == 2
-                      ? theme.colorScheme.vipColor
+                      ? colorScheme.vipColor
                       : null,
                 ),
               ),
               Text(
                 item.title!,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.colorScheme.outline,
-                ),
+                style: TextStyle(fontSize: 12, color: colorScheme.outline),
               ),
             ],
           ),
@@ -884,118 +907,123 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
   }
 
   Widget _buildAvatar(
-    ThemeData theme,
     VoidCallback onPushMember,
   ) => GestureDetector(
     onTap: onPushMember,
-    behavior: HitTestBehavior.opaque,
+    behavior: .opaque,
     onSecondaryTap:
         PlatformUtils.isDesktop && introController.horizontalMemberPage
         ? () => Get.toNamed(
             '/member?mid=${introController.userStat.value.card?.mid}&from_view_aid=${videoDetailCtr.aid}',
           )
         : null,
-    child: Obx(() {
-      final userStat = introController.userStat.value;
-      final isVip = (userStat.card?.vip?.status ?? 0) > 0;
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PendantAvatar(
-            userStat.card?.face,
-            size: 35,
-            badgeSize: 14,
-            vipStatus: userStat.card?.vip?.status,
-            officialType: userStat.card?.official?.type,
-          ),
-          const SizedBox(width: 10),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text.rich(
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: userStat.card?.name ?? "",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isVip && userStat.card?.vip?.type == 2
-                              ? theme.colorScheme.vipColor
-                              : null,
-                        ),
-                      ),
-                      if (GlobalData().remarkMids[int.tryParse(
-                            userStat.card?.mid ?? '',
-                          )]
-                          case final String remark when remark.isNotEmpty)
+    child: Obx(
+      () {
+        final userStat = introController.userStat.value;
+        final isVip = (userStat.card?.vip?.status ?? 0) > 0;
+        return Row(
+          spacing: 10,
+          mainAxisSize: .min,
+          children: [
+            PendantAvatar(
+              userStat.card?.face,
+              size: 35,
+              badgeSize: 14,
+              vipStatus: userStat.card?.vip?.status,
+              officialType: userStat.card?.official?.type,
+            ),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: .start,
+                children: [
+                  Text.rich(
+                    TextSpan(
+                      children: [
                         TextSpan(
-                          text: '（$remark）',
+                          text: userStat.card?.name ?? "",
                           style: TextStyle(
-                            fontSize: 12,
-                            color: theme.colorScheme.primary,
+                            fontSize: 13,
+                            color: isVip && userStat.card?.vip?.type == 2
+                                ? colorScheme.vipColor
+                                : null,
                           ),
                         ),
-                    ],
+                        if (GlobalData().remarkMids[int.tryParse(
+                              userStat.card?.mid ?? '',
+                            )]
+                            case final String remark when remark.isNotEmpty)
+                          TextSpan(
+                            text: '（$remark）',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: .ellipsis,
                   ),
-                ),
-                const SizedBox(height: 0),
-                Text(
-                  '${NumUtils.numFormat(userStat.follower)}粉丝    ${'${NumUtils.numFormat(userStat.archiveCount)}视频'}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.outline,
+                  Text(
+                    '${NumUtils.numFormat(userStat.follower)}粉丝    ${'${NumUtils.numFormat(userStat.archiveCount)}视频'}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.outline,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
-      );
-    }),
+          ],
+        );
+      },
+    ),
   );
 
-  Widget _buildInfo(ThemeData theme, VideoDetailData videoDetail) => Row(
-    spacing: 10,
-    children: [
-      StatWidget(
-        type: StatType.play,
-        value: videoDetail.stat?.view,
-        color: theme.colorScheme.outline,
-      ),
-      StatWidget(
-        type: StatType.danmaku,
-        value: videoDetail.stat?.danmaku,
-        color: theme.colorScheme.outline,
-      ),
-      Text(
-        DateFormatUtils.format(videoDetail.pubdate),
-        style: TextStyle(fontSize: 12, color: theme.colorScheme.outline),
-      ),
-      if (MineController.anonymity.value)
-        Icon(
-          MdiIcons.incognito,
-          size: 15,
-          color: theme.colorScheme.outline,
-          semanticLabel: '无痕',
+  Widget _buildInfo(VideoStat? stat, int? pubdate) {
+    return Row(
+      spacing: 10,
+      children: [
+        StatWidget(
+          type: .play,
+          value: stat?.view,
+          color: colorScheme.outline,
         ),
-      if (introController.isShowOnlineTotal)
-        Obx(
-          () => Text(
-            '${introController.total.value}人在看',
-            style: TextStyle(fontSize: 12, color: theme.colorScheme.outline),
+        StatWidget(
+          type: .danmaku,
+          value: stat?.danmaku,
+          color: colorScheme.outline,
+        ),
+        Text(
+          DateFormatUtils.format(pubdate),
+          style: TextStyle(
+            fontSize: 12,
+            color: colorScheme.outline,
           ),
         ),
-    ],
-  );
+        if (MineController.anonymity.value)
+          Icon(
+            MdiIcons.incognito,
+            size: 15,
+            color: colorScheme.outline,
+            semanticLabel: '无痕',
+          ),
+        if (introController.isShowOnlineTotal)
+          Obx(
+            () => Text(
+              '${introController.total.value}人在看',
+              style: TextStyle(fontSize: 12, color: colorScheme.outline),
+            ),
+          ),
+      ],
+    );
+  }
 
   Widget get _aiBtn => Positioned(
     right: 8,
     child: Center(
       child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+        behavior: .opaque,
         onTap: () async {
           if (introController.aiConclusionResult == null) {
             await introController.aiConclusion();
@@ -1023,43 +1051,38 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
   );
 
   Widget _buildTags(List<VideoTagItem> tags) {
-    return GestureDetector(
-      onTap: () {},
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.only(top: 8),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: tags
-              .map(
-                (item) => SearchText(
-                  fontSize: 13,
-                  text: switch (item.tagType) {
-                    'bgm' => item.tagName!.replaceFirst('发现', '♫ BGM：'),
-                    'topic' => '#${item.tagName}',
-                    _ => item.tagName!,
-                  },
-                  onTap: switch (item.tagType) {
-                    'bgm' => (_) => Get.toNamed(
-                      '/musicDetail',
-                      parameters: {'musicId': item.musicId!},
-                    ),
-                    'topic' => (_) => Get.toNamed(
-                      '/dynTopic',
-                      parameters: {'id': item.tagId!.toString()},
-                    ),
-                    _ => (tagName) => Get.toNamed(
-                      '/searchResult',
-                      parameters: {'keyword': tagName},
-                    ),
-                  },
-                  onLongPress: Utils.copyText,
-                ),
-              )
-              .toList(),
-        ),
+    return Padding(
+      padding: const .only(top: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: tags
+            .map(
+              (item) => SearchText(
+                fontSize: 13,
+                text: switch (item.tagType) {
+                  'bgm' => item.tagName!.replaceFirst('发现', '♫ BGM：'),
+                  'topic' => '#${item.tagName}',
+                  _ => item.tagName!,
+                },
+                onTap: switch (item.tagType) {
+                  'bgm' => (_) => Get.toNamed(
+                    '/musicDetail',
+                    parameters: {'musicId': item.musicId!},
+                  ),
+                  'topic' => (_) => Get.toNamed(
+                    '/dynTopic',
+                    parameters: {'id': item.tagId!.toString()},
+                  ),
+                  _ => (tagName) => Get.toNamed(
+                    '/searchResult',
+                    parameters: {'keyword': tagName},
+                  ),
+                },
+                onLongPress: Utils.copyText,
+              ),
+            )
+            .toList(),
       ),
     );
   }

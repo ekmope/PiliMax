@@ -180,15 +180,17 @@ class RenderAnimatedHeight extends RenderProxyBox {
 
   @override
   void performLayout() {
+    final BoxConstraints constraints = this.constraints;
+
     if (_isInvisible) {
       _heights = const (from: 0, to: 0);
-      size = .zero;
+      child!.layout(constraints);
+      size = constraints.constrain(.zero);
       return;
     }
 
     _lastValue = _controller.value;
 
-    final BoxConstraints constraints = this.constraints;
     final childSize = (child!..layout(constraints, parentUsesSize: true)).size;
 
     final Size animatedSize;

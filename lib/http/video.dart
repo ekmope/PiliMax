@@ -33,12 +33,13 @@ import 'package:PiliMax/utils/app_sign.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/id_utils.dart';
+import 'package:PiliMax/utils/parse_int.dart';
 import 'package:PiliMax/utils/recommend_filter.dart';
 import 'package:PiliMax/utils/request_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/subtitle_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:PiliMax/utils/parse_int.dart';
 import 'package:PiliMax/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show compute;
@@ -203,7 +204,8 @@ abstract final class VideoHttp {
         }
         if (applyFullFilter) {
           // 开关开启：全局黑名单 + 完整过滤（时长、播放量、点赞率、标题关键词、推荐屏蔽用户）
-          if (!isWhitelisted && GlobalData().blackMids.contains(i['owner']['mid'])) {
+          if (!isWhitelisted &&
+              GlobalData().blackMids.contains(i['owner']['mid'])) {
             continue;
           }
           final item = HotVideoItemModel.fromJson(i);
@@ -884,33 +886,20 @@ abstract final class VideoHttp {
     }
   }
 
-  static String _subtitleTimecode(num seconds) {
-    int h = seconds ~/ 3600;
-    seconds %= 3600;
-    int m = seconds ~/ 60;
-    seconds %= 60;
-    String sms = seconds.toStringAsFixed(3).padLeft(6, '0');
-    return h == 0
-        ? "${m.toString().padLeft(2, '0')}:$sms"
-        : "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:$sms";
-  }
-
-  static String processList(List list) {
-    final sb = StringBuffer('WEBVTT\n\n')
-      ..writeAll(
-        list.map(
-          (item) =>
-              '${_subtitleTimecode(item['from'])} --> ${_subtitleTimecode(item['to'])}\n${item['content'].trim()}',
-        ),
-        '\n\n',
-      );
-    return sb.toString();
-  }
-
-  static Future<String?> vttSubtitles(String subtitleUrl) async {
+  static Future<String?> vttSubtitles(
+    String subtitleUrl, {
+    SubtitleFormat format = .vtt,
+  }) async {
     final res = await Request().get("https:$subtitleUrl");
     if (res.data?['body'] case List list) {
-      return compute<List, String>(processList, list);
+      switch (format) {
+        case .json:
+          throw UnimplementedError();
+        case .vtt:
+          return compute<List, String>(SubtitleUtils.json2Vtt, list);
+        case .srt:
+          return compute<List, String>(SubtitleUtils.json2Srt, list);
+      }
     }
     return null;
   }
@@ -985,7 +974,8 @@ abstract final class VideoHttp {
         );
         if (applyFullFilter) {
           // 开关开启：全局黑名单 + 完整过滤（时长、播放量、点赞率、标题关键词、推荐屏蔽用户）
-          if (!isWhitelisted && GlobalData().blackMids.contains(i['owner']['mid'])) {
+          if (!isWhitelisted &&
+              GlobalData().blackMids.contains(i['owner']['mid'])) {
             continue;
           }
           final item = HotVideoItemModel.fromJson(i);

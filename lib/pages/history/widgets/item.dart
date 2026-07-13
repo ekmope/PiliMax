@@ -129,7 +129,7 @@ class HistoryItem extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            VideoDetailHero.source(
+            VideoDetailTransitionSource(
               tag: _heroTag,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -139,72 +139,75 @@ class HistoryItem extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AspectRatio(
-                      aspectRatio: Style.aspectRatio,
-                      child: LayoutBuilder(
-                        builder: (context, boxConstraints) {
-                          double maxWidth = boxConstraints.maxWidth;
-                          double maxHeight = boxConstraints.maxHeight;
-                          return Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              NetworkImgLayer(
-                                clip: false,
-                                src: cover,
-                                width: maxWidth,
-                                height: maxHeight,
-                              ),
-                              if (hasDuration)
-                                PBadge(
-                                  text: item.progress == -1
-                                      ? '已看完'
-                                      : '${DurationUtils.formatDuration(item.progress)}/${DurationUtils.formatDuration(item.duration)}',
-                                  right: 6.0,
-                                  bottom: 8.0,
-                                  type: PBadgeType.gray,
+                    VideoDetailHero.source(
+                      child: AspectRatio(
+                        aspectRatio: Style.aspectRatio,
+                        child: LayoutBuilder(
+                          builder: (context, boxConstraints) {
+                            double maxWidth = boxConstraints.maxWidth;
+                            double maxHeight = boxConstraints.maxHeight;
+                            return Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                NetworkImgLayer(
+                                  clip: false,
+                                  src: cover,
+                                  width: maxWidth,
+                                  height: maxHeight,
                                 ),
-                              if (item.isFav == 1)
-                                const PBadge(
-                                  text: '已收藏',
-                                  top: 6.0,
-                                  right: 6.0,
-                                  type: PBadgeType.gray,
-                                )
-                              else if (item.badge?.isNotEmpty == true)
-                                PBadge(
-                                  text: item.badge,
-                                  top: 6.0,
-                                  right: 6.0,
-                                  type:
-                                      business == 'live' && item.liveStatus != 1
-                                      ? PBadgeType.gray
-                                      : PBadgeType.primary,
-                                ),
-                              if (hasDuration &&
-                                  item.progress != null &&
-                                  item.progress != 0)
-                                Positioned(
-                                  left: 0,
-                                  right: 0,
-                                  bottom: 0,
-                                  child: VideoProgressIndicator(
-                                    color: theme.colorScheme.primary,
-                                    backgroundColor:
-                                        theme.colorScheme.secondaryContainer,
-                                    progress: item.progress == -1
-                                        ? 1
-                                        : item.progress! / item.duration!,
+                                if (hasDuration)
+                                  PBadge(
+                                    text: item.progress == -1
+                                        ? '已看完'
+                                        : '${DurationUtils.formatDuration(item.progress)}/${DurationUtils.formatDuration(item.duration)}',
+                                    right: 6.0,
+                                    bottom: 8.0,
+                                    type: PBadgeType.gray,
+                                  ),
+                                if (item.isFav == 1)
+                                  const PBadge(
+                                    text: '已收藏',
+                                    top: 6.0,
+                                    right: 6.0,
+                                    type: PBadgeType.gray,
+                                  )
+                                else if (item.badge?.isNotEmpty == true)
+                                  PBadge(
+                                    text: item.badge,
+                                    top: 6.0,
+                                    right: 6.0,
+                                    type:
+                                        business == 'live' &&
+                                            item.liveStatus != 1
+                                        ? PBadgeType.gray
+                                        : PBadgeType.primary,
+                                  ),
+                                if (hasDuration &&
+                                    item.progress != null &&
+                                    item.progress != 0)
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    child: VideoProgressIndicator(
+                                      color: theme.colorScheme.primary,
+                                      backgroundColor:
+                                          theme.colorScheme.secondaryContainer,
+                                      progress: item.progress == -1
+                                          ? 1
+                                          : item.progress! / item.duration!,
+                                    ),
+                                  ),
+                                Positioned.fill(
+                                  child: selectMask(
+                                    theme.colorScheme,
+                                    item.checked,
                                   ),
                                 ),
-                              Positioned.fill(
-                                child: selectMask(
-                                  theme.colorScheme,
-                                  item.checked,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),

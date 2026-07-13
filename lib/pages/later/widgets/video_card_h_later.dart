@@ -52,7 +52,7 @@ class VideoCardHLater extends StatelessWidget {
 
     return Material(
       type: MaterialType.transparency,
-      child: VideoDetailHero.source(
+      child: VideoDetailTransitionSource(
         tag: _heroTag,
         child: InkWell(
           onLongPress: onLongPress,
@@ -97,80 +97,82 @@ class VideoCardHLater extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                AspectRatio(
-                  aspectRatio: Style.aspectRatio,
-                  child: LayoutBuilder(
-                    builder: (context, boxConstraints) {
-                      final double maxWidth = boxConstraints.maxWidth;
-                      final double maxHeight = boxConstraints.maxHeight;
-                      num? progress = videoItem.progress;
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          NetworkImgLayer(
-                            clip: false,
-                            src: videoItem.pic,
-                            width: maxWidth,
-                            height: maxHeight,
-                            cacheWidth: videoItem.dimension?.cacheWidth,
-                          ),
-                          if (videoItem.isCharging == true)
-                            const PBadge(
-                              text: '充电专属',
-                              top: 6.0,
-                              right: 6.0,
-                              type: PBadgeType.error,
-                            )
-                          else if (videoItem.rights?.isCooperation == 1)
-                            const PBadge(text: '合作', top: 6.0, right: 6.0)
-                          else if (videoItem.pgcLabel != null)
-                            PBadge(
-                              text: videoItem.pgcLabel,
-                              top: 6.0,
-                              right: 6.0,
-                            )
-                          else if (videoItem.isPugv ?? false)
-                            const PBadge(text: '课堂', top: 6.0, right: 6.0),
-                          if (progress != null && progress != 0) ...[
-                            PBadge(
-                              text: progress == -1
-                                  ? '已看完'
-                                  : '${DurationUtils.formatDuration(progress)}/${DurationUtils.formatDuration(videoItem.duration)}',
-                              right: 6,
-                              bottom: 8,
-                              type: PBadgeType.gray,
+                VideoDetailHero.source(
+                  child: AspectRatio(
+                    aspectRatio: Style.aspectRatio,
+                    child: LayoutBuilder(
+                      builder: (context, boxConstraints) {
+                        final double maxWidth = boxConstraints.maxWidth;
+                        final double maxHeight = boxConstraints.maxHeight;
+                        num? progress = videoItem.progress;
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            NetworkImgLayer(
+                              clip: false,
+                              src: videoItem.pic,
+                              width: maxWidth,
+                              height: maxHeight,
+                              cacheWidth: videoItem.dimension?.cacheWidth,
                             ),
-                            Positioned(
-                              left: 0,
-                              bottom: 0,
-                              right: 0,
-                              child: VideoProgressIndicator(
-                                color: theme.colorScheme.primary,
-                                backgroundColor:
-                                    theme.colorScheme.secondaryContainer,
-                                progress: progress == -1
-                                    ? 1
-                                    : progress / videoItem.duration!,
+                            if (videoItem.isCharging == true)
+                              const PBadge(
+                                text: '充电专属',
+                                top: 6.0,
+                                right: 6.0,
+                                type: PBadgeType.error,
+                              )
+                            else if (videoItem.rights?.isCooperation == 1)
+                              const PBadge(text: '合作', top: 6.0, right: 6.0)
+                            else if (videoItem.pgcLabel != null)
+                              PBadge(
+                                text: videoItem.pgcLabel,
+                                top: 6.0,
+                                right: 6.0,
+                              )
+                            else if (videoItem.isPugv ?? false)
+                              const PBadge(text: '课堂', top: 6.0, right: 6.0),
+                            if (progress != null && progress != 0) ...[
+                              PBadge(
+                                text: progress == -1
+                                    ? '已看完'
+                                    : '${DurationUtils.formatDuration(progress)}/${DurationUtils.formatDuration(videoItem.duration)}',
+                                right: 6,
+                                bottom: 8,
+                                type: PBadgeType.gray,
+                              ),
+                              Positioned(
+                                left: 0,
+                                bottom: 0,
+                                right: 0,
+                                child: VideoProgressIndicator(
+                                  color: theme.colorScheme.primary,
+                                  backgroundColor:
+                                      theme.colorScheme.secondaryContainer,
+                                  progress: progress == -1
+                                      ? 1
+                                      : progress / videoItem.duration!,
+                                ),
+                              ),
+                            ] else if (videoItem.duration! > 0)
+                              PBadge(
+                                text: DurationUtils.formatDuration(
+                                  videoItem.duration,
+                                ),
+                                right: 6.0,
+                                bottom: 6.0,
+                                type: PBadgeType.gray,
+                              ),
+                            Positioned.fill(
+                              child: selectMask(
+                                theme.colorScheme,
+                                videoItem.checked,
                               ),
                             ),
-                          ] else if (videoItem.duration! > 0)
-                            PBadge(
-                              text: DurationUtils.formatDuration(
-                                videoItem.duration,
-                              ),
-                              right: 6.0,
-                              bottom: 6.0,
-                              type: PBadgeType.gray,
-                            ),
-                          Positioned.fill(
-                            child: selectMask(
-                              theme.colorScheme,
-                              videoItem.checked,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),

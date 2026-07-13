@@ -20,6 +20,7 @@ import 'package:PiliMax/pages/common/publish/publish_route.dart';
 import 'package:PiliMax/pages/contact/view.dart';
 import 'package:PiliMax/pages/fav_panel/view.dart';
 import 'package:PiliMax/pages/share/view.dart';
+import 'package:PiliMax/pages/video/video_detail_page_route.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
@@ -848,16 +849,28 @@ abstract final class PageUtils {
         }
       }
       _videoRouteNavigationInstalling = true;
-      navigation = off
-          ? Get.offNamed<void>(
-              '/videoV',
-              arguments: arguments,
-              preventDuplicates: false,
-            )
-          : Get.toNamed<void>(
-              '/videoV',
-              arguments: arguments,
-              preventDuplicates: false,
+      final useAdvancedRoute =
+          !off && arguments[videoTransitionTokenKey] is VideoTransitionToken;
+      final videoPage = useAdvancedRoute
+          ? Get.routeTree.matchRoute('/videoV').route
+          : null;
+      navigation = videoPage == null
+          ? off
+                ? Get.offNamed<void>(
+                    '/videoV',
+                    arguments: arguments,
+                    preventDuplicates: false,
+                  )
+                : Get.toNamed<void>(
+                    '/videoV',
+                    arguments: arguments,
+                    preventDuplicates: false,
+                  )
+          : Get.key.currentState?.push<void>(
+              VideoDetailPageRoute<void>(
+                definition: videoPage,
+                arguments: arguments,
+              ),
             );
       if (navigation == null) {
         entryOverlay?.abort();

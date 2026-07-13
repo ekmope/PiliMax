@@ -95,7 +95,7 @@ class VideoCardVMemberHome extends StatelessWidget {
       danmaku: videoItem.stat.danmu,
       ownerName: videoItem.owner.name,
     );
-    return VideoDetailHero.source(
+    return VideoDetailTransitionSource(
       tag: _heroTag,
       child: Card(
         clipBehavior: Clip.hardEdge,
@@ -106,57 +106,59 @@ class VideoCardVMemberHome extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AspectRatio(
-                aspectRatio: Style.aspectRatio,
-                child: LayoutBuilder(
-                  builder: (context, boxConstraints) {
-                    double maxWidth = boxConstraints.maxWidth;
-                    double maxHeight = boxConstraints.maxHeight;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        NetworkImgLayer(
-                          clip: false,
-                          src: videoItem.cover,
-                          width: maxWidth,
-                          height: maxHeight,
-                        ),
-                        if (videoItem.duration > 0)
-                          PBadge(
-                            bottom: 6,
-                            right: 7,
-                            size: PBadgeSize.small,
-                            type: PBadgeType.gray,
-                            text: DurationUtils.formatDuration(
-                              videoItem.duration,
+              VideoDetailHero.source(
+                child: AspectRatio(
+                  aspectRatio: Style.aspectRatio,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      double maxWidth = boxConstraints.maxWidth;
+                      double maxHeight = boxConstraints.maxHeight;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          NetworkImgLayer(
+                            clip: false,
+                            src: videoItem.cover,
+                            width: maxWidth,
+                            height: maxHeight,
+                          ),
+                          if (videoItem.duration > 0)
+                            PBadge(
+                              bottom: 6,
+                              right: 7,
+                              size: PBadgeSize.small,
+                              type: PBadgeType.gray,
+                              text: DurationUtils.formatDuration(
+                                videoItem.duration,
+                              ),
                             ),
-                          ),
-                        if (videoItem.badges?.isNotEmpty == true)
-                          PBadge(
-                            text: videoItem.badges!
-                                .map((e) => e.text ?? '')
-                                .join('|'),
-                            top: 6,
-                            right: 6,
-                            type: videoItem.badges!.first.text == '充电专属'
-                                ? PBadgeType.error
-                                : PBadgeType.primary,
-                          )
-                        else if (videoItem.isCooperation == true)
-                          const PBadge(
-                            text: '合作',
-                            top: 6,
-                            right: 6,
-                          )
-                        else if (videoItem.isSteins == true)
-                          const PBadge(
-                            text: '互动',
-                            top: 6,
-                            right: 6,
-                          ),
-                      ],
-                    );
-                  },
+                          if (videoItem.badges?.isNotEmpty == true)
+                            PBadge(
+                              text: videoItem.badges!
+                                  .map((e) => e.text ?? '')
+                                  .join('|'),
+                              top: 6,
+                              right: 6,
+                              type: videoItem.badges!.first.text == '充电专属'
+                                  ? PBadgeType.error
+                                  : PBadgeType.primary,
+                            )
+                          else if (videoItem.isCooperation == true)
+                            const PBadge(
+                              text: '合作',
+                              top: 6,
+                              right: 6,
+                            )
+                          else if (videoItem.isSteins == true)
+                            const PBadge(
+                              text: '互动',
+                              top: 6,
+                              right: 6,
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
               content(context),

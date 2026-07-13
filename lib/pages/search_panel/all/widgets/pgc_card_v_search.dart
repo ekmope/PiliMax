@@ -34,7 +34,7 @@ class PgcCardVSearch extends StatelessWidget {
       title: item.title.map((e) => e.text).join(),
       cover: item.cover,
     );
-    return VideoDetailHero.source(
+    return VideoDetailTransitionSource(
       tag: _heroTag,
       child: Card(
         shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
@@ -51,29 +51,31 @@ class PgcCardVSearch extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AspectRatio(
-                aspectRatio: 0.75,
-                child: LayoutBuilder(
-                  builder: (context, boxConstraints) {
-                    final double maxWidth = boxConstraints.maxWidth;
-                    final double maxHeight = boxConstraints.maxHeight;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        NetworkImgLayer(
-                          clip: false,
-                          src: item.cover,
-                          width: maxWidth,
-                          height: maxHeight,
-                        ),
-                        PBadge(
-                          text: item.seasonTypeName,
-                          right: 6,
-                          top: 6,
-                        ),
-                      ],
-                    );
-                  },
+              VideoDetailHero.source(
+                child: AspectRatio(
+                  aspectRatio: 0.75,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      final double maxWidth = boxConstraints.maxWidth;
+                      final double maxHeight = boxConstraints.maxHeight;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          NetworkImgLayer(
+                            clip: false,
+                            src: item.cover,
+                            width: maxWidth,
+                            height: maxHeight,
+                          ),
+                          PBadge(
+                            text: item.seasonTypeName,
+                            right: 6,
+                            top: 6,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
               Padding(

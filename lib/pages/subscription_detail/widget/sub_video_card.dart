@@ -44,7 +44,7 @@ class SubVideoCardH extends StatelessWidget {
       danmaku: videoItem.cntInfo?.danmaku,
     );
     final heroTag = _heroTag;
-    return VideoDetailHero.source(
+    return VideoDetailTransitionSource(
       tag: heroTag,
       child: Material(
         type: MaterialType.transparency,
@@ -67,32 +67,34 @@ class SubVideoCardH extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AspectRatio(
-                  aspectRatio: Style.aspectRatio,
-                  child: LayoutBuilder(
-                    builder: (context, boxConstraints) {
-                      double maxWidth = boxConstraints.maxWidth;
-                      double maxHeight = boxConstraints.maxHeight;
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          NetworkImgLayer(
-                            clip: false,
-                            src: videoItem.cover,
-                            width: maxWidth,
-                            height: maxHeight,
-                          ),
-                          PBadge(
-                            text: DurationUtils.formatDuration(
-                              videoItem.duration,
+                VideoDetailHero.source(
+                  child: AspectRatio(
+                    aspectRatio: Style.aspectRatio,
+                    child: LayoutBuilder(
+                      builder: (context, boxConstraints) {
+                        double maxWidth = boxConstraints.maxWidth;
+                        double maxHeight = boxConstraints.maxHeight;
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            NetworkImgLayer(
+                              clip: false,
+                              src: videoItem.cover,
+                              width: maxWidth,
+                              height: maxHeight,
                             ),
-                            right: 6.0,
-                            bottom: 6.0,
-                            type: PBadgeType.gray,
-                          ),
-                        ],
-                      );
-                    },
+                            PBadge(
+                              text: DurationUtils.formatDuration(
+                                videoItem.duration,
+                              ),
+                              right: 6.0,
+                              bottom: 6.0,
+                              type: PBadgeType.gray,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),

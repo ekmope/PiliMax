@@ -54,7 +54,7 @@ class SearchArchiveGrpc extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          VideoDetailHero.source(
+          VideoDetailTransitionSource(
             tag: heroTag,
             child: InkWell(
               onLongPress: onLongPress,
@@ -99,39 +99,41 @@ class SearchArchiveGrpc extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    AspectRatio(
-                      aspectRatio: Style.aspectRatio,
-                      child: LayoutBuilder(
-                        builder: (context, boxConstraints) {
-                          final double maxWidth = boxConstraints.maxWidth;
-                          final double maxHeight = boxConstraints.maxHeight;
-                          return Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              NetworkImgLayer(
-                                clip: false,
-                                src: arc.pic,
-                                width: maxWidth,
-                                height: maxHeight,
-                              ),
-                              if (item.isPugv)
-                                const PBadge(
-                                  text: '课堂',
-                                  top: 6.0,
-                                  right: 6.0,
+                    VideoDetailHero.source(
+                      child: AspectRatio(
+                        aspectRatio: Style.aspectRatio,
+                        child: LayoutBuilder(
+                          builder: (context, boxConstraints) {
+                            final double maxWidth = boxConstraints.maxWidth;
+                            final double maxHeight = boxConstraints.maxHeight;
+                            return Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                NetworkImgLayer(
+                                  clip: false,
+                                  src: arc.pic,
+                                  width: maxWidth,
+                                  height: maxHeight,
                                 ),
-                              if (arc.duration > Int64.ZERO)
-                                PBadge(
-                                  text: DurationUtils.formatDuration(
-                                    arc.duration.toInt(),
+                                if (item.isPugv)
+                                  const PBadge(
+                                    text: '课堂',
+                                    top: 6.0,
+                                    right: 6.0,
                                   ),
-                                  right: 6.0,
-                                  bottom: 6.0,
-                                  type: PBadgeType.gray,
-                                ),
-                            ],
-                          );
-                        },
+                                if (arc.duration > Int64.ZERO)
+                                  PBadge(
+                                    text: DurationUtils.formatDuration(
+                                      arc.duration.toInt(),
+                                    ),
+                                    right: 6.0,
+                                    bottom: 6.0,
+                                    type: PBadgeType.gray,
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),

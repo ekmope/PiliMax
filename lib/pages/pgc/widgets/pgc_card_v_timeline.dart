@@ -35,7 +35,7 @@ class PgcCardVTimeline extends StatelessWidget {
       title: item.title,
       cover: item.cover,
     );
-    return VideoDetailHero.source(
+    return VideoDetailTransitionSource(
       tag: _heroTag,
       child: Card(
         shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
@@ -53,36 +53,38 @@ class PgcCardVTimeline extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AspectRatio(
-                aspectRatio: 0.75,
-                child: LayoutBuilder(
-                  builder: (context, boxConstraints) {
-                    final double maxWidth = boxConstraints.maxWidth;
-                    final double maxHeight = boxConstraints.maxHeight;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        NetworkImgLayer(
-                          clip: false,
-                          src: item.cover,
-                          width: maxWidth,
-                          height: maxHeight,
-                        ),
-                        if (item.follow == 1)
-                          const PBadge(
-                            text: '已追番',
-                            right: 6,
-                            top: 6,
+              VideoDetailHero.source(
+                child: AspectRatio(
+                  aspectRatio: 0.75,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      final double maxWidth = boxConstraints.maxWidth;
+                      final double maxHeight = boxConstraints.maxHeight;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          NetworkImgLayer(
+                            clip: false,
+                            src: item.cover,
+                            width: maxWidth,
+                            height: maxHeight,
                           ),
-                        PBadge(
-                          text: '${item.pubTime}',
-                          left: 6,
-                          bottom: 6,
-                          type: PBadgeType.gray,
-                        ),
-                      ],
-                    );
-                  },
+                          if (item.follow == 1)
+                            const PBadge(
+                              text: '已追番',
+                              right: 6,
+                              top: 6,
+                            ),
+                          PBadge(
+                            text: '${item.pubTime}',
+                            left: 6,
+                            bottom: 6,
+                            type: PBadgeType.gray,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
               content(context),

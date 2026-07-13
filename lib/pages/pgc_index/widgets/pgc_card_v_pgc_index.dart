@@ -35,7 +35,7 @@ class PgcCardVPgcIndex extends StatelessWidget {
       title: item.title,
       cover: item.cover,
     );
-    return VideoDetailHero.source(
+    return VideoDetailTransitionSource(
       tag: _heroTag,
       child: Card(
         shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
@@ -52,39 +52,41 @@ class PgcCardVPgcIndex extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AspectRatio(
-                aspectRatio: 0.75,
-                child: LayoutBuilder(
-                  builder: (context, boxConstraints) {
-                    final double maxWidth = boxConstraints.maxWidth;
-                    final double maxHeight = boxConstraints.maxHeight;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        NetworkImgLayer(
-                          clip: false,
-                          src: item.cover,
-                          width: maxWidth,
-                          height: maxHeight,
-                        ),
-                        PBadge(
-                          text: item.badge,
-                          top: 6,
-                          right: 6,
-                          bottom: null,
-                          left: null,
-                        ),
-                        PBadge(
-                          text: item.order,
-                          top: null,
-                          right: null,
-                          bottom: 6,
-                          left: 6,
-                          type: PBadgeType.gray,
-                        ),
-                      ],
-                    );
-                  },
+              VideoDetailHero.source(
+                child: AspectRatio(
+                  aspectRatio: 0.75,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      final double maxWidth = boxConstraints.maxWidth;
+                      final double maxHeight = boxConstraints.maxHeight;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          NetworkImgLayer(
+                            clip: false,
+                            src: item.cover,
+                            width: maxWidth,
+                            height: maxHeight,
+                          ),
+                          PBadge(
+                            text: item.badge,
+                            top: 6,
+                            right: 6,
+                            bottom: null,
+                            left: null,
+                          ),
+                          PBadge(
+                            text: item.order,
+                            top: null,
+                            right: null,
+                            bottom: 6,
+                            left: 6,
+                            type: PBadgeType.gray,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
               content(context),

@@ -106,76 +106,79 @@ class HistoryCardItem extends StatelessWidget {
     return GestureDetector(
       onTap: _onTap,
       behavior: HitTestBehavior.opaque,
-      child: VideoDetailHero.source(
+      child: VideoDetailTransitionSource(
         tag: _heroTag,
         borderRadius: _cardRadius,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 封面区域
-            DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: _cardRadius,
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.colorScheme.onInverseSurface.withValues(
-                      alpha: 0.4,
-                    ),
-                    offset: const Offset(6, -8),
-                    blurRadius: 0.0,
-                    spreadRadius: 0.0,
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: _cardRadius,
-                child: SizedBox(
-                  width: _cardWidth,
-                  height: _cardHeight,
-                  child: Stack(
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      NetworkImgLayer(
-                        clip: false,
-                        src: coverSrc,
-                        width: _cardWidth,
-                        height: _cardHeight,
+            VideoDetailHero.source(
+              borderRadius: _cardRadius,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: _cardRadius,
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.onInverseSurface.withValues(
+                        alpha: 0.4,
                       ),
-                      // 右上角：直播状态 / 专栏标记 / pgc badge
-                      if (_isLive)
-                        PBadge(
-                          text: item.liveStatus == 1 ? '直播中' : '未开播',
-                          top: 6.0,
-                          right: 6.0,
-                          type: item.liveStatus == 1
-                              ? PBadgeType.primary
-                              : PBadgeType.gray,
-                        )
-                      else if (_isArticle)
-                        const PBadge(
-                          text: '专栏',
-                          top: 6.0,
-                          right: 6.0,
-                          type: PBadgeType.secondary,
-                        )
-                      else if (item.badge?.isNotEmpty == true)
-                        PBadge(
-                          text: item.badge,
-                          top: 6.0,
-                          right: 6.0,
-                          type: PBadgeType.primary,
+                      offset: const Offset(6, -8),
+                      blurRadius: 0.0,
+                      spreadRadius: 0.0,
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: _cardRadius,
+                  child: SizedBox(
+                    width: _cardWidth,
+                    height: _cardHeight,
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        NetworkImgLayer(
+                          clip: false,
+                          src: coverSrc,
+                          width: _cardWidth,
+                          height: _cardHeight,
                         ),
-                      // 右下角：视频进度（只显示角标文字，无进度条）
-                      if (_isVideo && hasDuration)
-                        PBadge(
-                          text: item.progress == -1
-                              ? '已看完'
-                              : DurationUtils.formatDuration(item.progress),
-                          right: 6.0,
-                          bottom: 6.0,
-                          type: PBadgeType.gray,
-                        ),
-                    ],
+                        // 右上角：直播状态 / 专栏标记 / pgc badge
+                        if (_isLive)
+                          PBadge(
+                            text: item.liveStatus == 1 ? '直播中' : '未开播',
+                            top: 6.0,
+                            right: 6.0,
+                            type: item.liveStatus == 1
+                                ? PBadgeType.primary
+                                : PBadgeType.gray,
+                          )
+                        else if (_isArticle)
+                          const PBadge(
+                            text: '专栏',
+                            top: 6.0,
+                            right: 6.0,
+                            type: PBadgeType.secondary,
+                          )
+                        else if (item.badge?.isNotEmpty == true)
+                          PBadge(
+                            text: item.badge,
+                            top: 6.0,
+                            right: 6.0,
+                            type: PBadgeType.primary,
+                          ),
+                        // 右下角：视频进度（只显示角标文字，无进度条）
+                        if (_isVideo && hasDuration)
+                          PBadge(
+                            text: item.progress == -1
+                                ? '已看完'
+                                : DurationUtils.formatDuration(item.progress),
+                            right: 6.0,
+                            bottom: 6.0,
+                            type: PBadgeType.gray,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),

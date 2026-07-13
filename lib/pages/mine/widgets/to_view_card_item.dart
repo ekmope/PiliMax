@@ -71,57 +71,60 @@ class ToViewCardItem extends StatelessWidget {
     return GestureDetector(
       onTap: _onTap,
       behavior: HitTestBehavior.opaque,
-      child: VideoDetailHero.source(
+      child: VideoDetailTransitionSource(
         tag: _heroTag,
         borderRadius: _cardRadius,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: _cardRadius,
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.colorScheme.onInverseSurface.withValues(
-                      alpha: 0.4,
-                    ),
-                    offset: const Offset(6, -8),
-                    blurRadius: 0.0,
-                    spreadRadius: 0.0,
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: _cardRadius,
-                child: SizedBox(
-                  width: _cardWidth,
-                  height: _cardHeight,
-                  child: Stack(
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      NetworkImgLayer(
-                        clip: false,
-                        src: item.pic,
-                        width: _cardWidth,
-                        height: _cardHeight,
+            VideoDetailHero.source(
+              borderRadius: _cardRadius,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: _cardRadius,
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.onInverseSurface.withValues(
+                        alpha: 0.4,
                       ),
-                      if (item.pgcLabel?.isNotEmpty == true)
-                        PBadge(
-                          text: item.pgcLabel,
-                          top: 6.0,
-                          right: 6.0,
-                          type: PBadgeType.primary,
+                      offset: const Offset(6, -8),
+                      blurRadius: 0.0,
+                      spreadRadius: 0.0,
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: _cardRadius,
+                  child: SizedBox(
+                    width: _cardWidth,
+                    height: _cardHeight,
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        NetworkImgLayer(
+                          clip: false,
+                          src: item.pic,
+                          width: _cardWidth,
+                          height: _cardHeight,
                         ),
-                      if (hasDuration)
-                        PBadge(
-                          text: item.progress == -1
-                              ? '已看完'
-                              : DurationUtils.formatDuration(item.progress),
-                          right: 6.0,
-                          bottom: 6.0,
-                          type: PBadgeType.gray,
-                        ),
-                    ],
+                        if (item.pgcLabel?.isNotEmpty == true)
+                          PBadge(
+                            text: item.pgcLabel,
+                            top: 6.0,
+                            right: 6.0,
+                            type: PBadgeType.primary,
+                          ),
+                        if (hasDuration)
+                          PBadge(
+                            text: item.progress == -1
+                                ? '已看完'
+                                : DurationUtils.formatDuration(item.progress),
+                            right: 6.0,
+                            bottom: 6.0,
+                            type: PBadgeType.gray,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),

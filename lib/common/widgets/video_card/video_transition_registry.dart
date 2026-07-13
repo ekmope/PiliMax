@@ -94,6 +94,26 @@ final class VideoTransitionRegistration {
     }
   }
 
+  void attachMedia(GlobalKey boundaryKey) {
+    if (!_disposed) {
+      VideoTransitionRegistry._attachMedia(
+        _tag,
+        _generation,
+        boundaryKey,
+      );
+    }
+  }
+
+  void detachMedia(GlobalKey boundaryKey) {
+    if (!_disposed) {
+      VideoTransitionRegistry._detachMedia(
+        _tag,
+        _generation,
+        boundaryKey,
+      );
+    }
+  }
+
   void dispose() {
     if (_disposed) {
       return;
@@ -115,14 +135,25 @@ final class _VideoTransitionSource {
   final GlobalKey boundaryKey;
   final Route<dynamic>? route;
   final BorderRadiusGeometry borderRadius;
+  GlobalKey? _mediaBoundaryKey;
   Future<ui.Image?>? _preparedSnapshot;
   Timer? _preparedSnapshotExpiry;
 
   BuildContext? get context => boundaryKey.currentContext;
 
+  BuildContext? get mediaContext => _mediaBoundaryKey?.currentContext;
+
   bool get hasPreparedSnapshot => _preparedSnapshot != null;
 
   Rect? currentRect() {
+    return _rectFor(context);
+  }
+
+  Rect? currentMediaRect() {
+    return _rectFor(mediaContext);
+  }
+
+  static Rect? _rectFor(BuildContext? context) {
     final renderObject = context?.findRenderObject();
     if (renderObject is! RenderBox ||
         !renderObject.attached ||
@@ -131,6 +162,23 @@ final class _VideoTransitionSource {
       return null;
     }
     return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+  }
+
+  void attachMedia(GlobalKey boundaryKey) {
+    if (identical(_mediaBoundaryKey, boundaryKey)) {
+      return;
+    }
+    assert(
+      _mediaBoundaryKey == null,
+      'A video transition source can only have one media Hero.',
+    );
+    _mediaBoundaryKey = boundaryKey;
+  }
+
+  void detachMedia(GlobalKey boundaryKey) {
+    if (identical(_mediaBoundaryKey, boundaryKey)) {
+      _mediaBoundaryKey = null;
+    }
   }
 
   BorderRadius resolvedBorderRadius() {
@@ -202,6 +250,7 @@ final class _VideoTransitionSource {
   }
 
   void dispose() {
+    _mediaBoundaryKey = null;
     discardPreparedSnapshot();
   }
 }
@@ -254,10 +303,13 @@ abstract final class VideoTransitionRegistry {
   }) {
     final source = _findLaunchSource(tag);
     final rect = source?.currentRect();
+    final mediaRect = source?.currentMediaRect();
     if (source == null ||
         rect == null ||
+        mediaRect == null ||
         source.route?.isCurrent != true ||
-        !_isVisible(source.context, rect)) {
+        !_isVisible(source.context, rect) ||
+        !_isVisible(source.mediaContext, mediaRect)) {
       return null;
     }
     final snapshot = source.takeSnapshot();
@@ -379,10 +431,13 @@ abstract final class VideoTransitionRegistry {
     for (final requirePrepared in [true, false]) {
       for (final source in sources.reversed) {
         final rect = source.currentRect();
+        final mediaRect = source.currentMediaRect();
         if (source.route?.isCurrent == true &&
             (!requirePrepared || source.hasPreparedSnapshot) &&
             rect != null &&
-            _isVisible(source.context, rect)) {
+            mediaRect != null &&
+            _isVisible(source.context, rect) &&
+            _isVisible(source.mediaContext, mediaRect)) {
           return source;
         }
       }
@@ -415,6 +470,22 @@ abstract final class VideoTransitionRegistry {
     while (_preparedSources.length > _maximumPreparedSnapshots) {
       _preparedSources.removeAt(0).discardPreparedSnapshot();
     }
+  }
+
+  static void _attachMedia(
+    Object tag,
+    int generation,
+    GlobalKey boundaryKey,
+  ) {
+    _sourceByGeneration(tag, generation)?.attachMedia(boundaryKey);
+  }
+
+  static void _detachMedia(
+    Object tag,
+    int generation,
+    GlobalKey boundaryKey,
+  ) {
+    _sourceByGeneration(tag, generation)?.detachMedia(boundaryKey);
   }
 
   static void _retainTokenSnapshot(

@@ -62,7 +62,7 @@ class FavVideoCardH extends StatelessWidget {
 
     return Material(
       type: MaterialType.transparency,
-      child: VideoDetailHero.source(
+      child: VideoDetailTransitionSource(
         tag: _heroTag,
         child: InkWell(
           onTap: isSort
@@ -107,49 +107,51 @@ class FavVideoCardH extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AspectRatio(
-                  aspectRatio: Style.aspectRatio,
-                  child: LayoutBuilder(
-                    builder: (context, boxConstraints) {
-                      double maxWidth = boxConstraints.maxWidth;
-                      double maxHeight = boxConstraints.maxHeight;
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          NetworkImgLayer(
-                            clip: false,
-                            src: item.cover,
-                            width: maxWidth,
-                            height: maxHeight,
-                          ),
-                          PBadge(
-                            text: DurationUtils.formatDuration(item.duration),
-                            right: 6.0,
-                            bottom: 6.0,
-                            type: PBadgeType.gray,
-                          ),
-                          if (item.type == 12)
-                            const PBadge(
-                              text: '音频',
-                              top: 6.0,
-                              right: 6.0,
-                              type: PBadgeType.gray,
-                            )
-                          else
+                VideoDetailHero.source(
+                  child: AspectRatio(
+                    aspectRatio: Style.aspectRatio,
+                    child: LayoutBuilder(
+                      builder: (context, boxConstraints) {
+                        double maxWidth = boxConstraints.maxWidth;
+                        double maxHeight = boxConstraints.maxHeight;
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            NetworkImgLayer(
+                              clip: false,
+                              src: item.cover,
+                              width: maxWidth,
+                              height: maxHeight,
+                            ),
                             PBadge(
-                              text: item.ogv?.typeName,
-                              top: 6.0,
+                              text: DurationUtils.formatDuration(item.duration),
                               right: 6.0,
-                              bottom: null,
-                              left: null,
+                              bottom: 6.0,
+                              type: PBadgeType.gray,
                             ),
-                          if (!isSort)
-                            Positioned.fill(
-                              child: selectMask(colorScheme, item.checked),
-                            ),
-                        ],
-                      );
-                    },
+                            if (item.type == 12)
+                              const PBadge(
+                                text: '音频',
+                                top: 6.0,
+                                right: 6.0,
+                                type: PBadgeType.gray,
+                              )
+                            else
+                              PBadge(
+                                text: item.ogv?.typeName,
+                                top: 6.0,
+                                right: 6.0,
+                                bottom: null,
+                                left: null,
+                              ),
+                            if (!isSort)
+                              Positioned.fill(
+                                child: selectMask(colorScheme, item.checked),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),

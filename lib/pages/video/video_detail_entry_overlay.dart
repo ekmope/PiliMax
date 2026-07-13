@@ -354,11 +354,7 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
       final routeProgress = Curves.easeOutCubic.transform(
         widget.controller._routeProgress,
       );
-      final routeOpacity = const Interval(
-        0,
-        0.72,
-        curve: Curves.easeOutCubic,
-      ).transform(widget.controller._routeProgress);
+      final routeOpacity = routeProgress;
       final revealOpacity =
           1 -
           Curves.easeInOutCubic.transform(

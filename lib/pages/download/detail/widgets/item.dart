@@ -96,7 +96,7 @@ class DetailItem extends StatelessWidget {
 
     return Material(
       type: MaterialType.transparency,
-      child: VideoDetailHero.source(
+      child: VideoDetailTransitionSource(
         tag: _heroTag,
         child: InkWell(
           onTap: enableTap
@@ -157,116 +157,122 @@ class DetailItem extends StatelessWidget {
             child: Row(
               spacing: 10,
               children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    AspectRatio(
-                      aspectRatio: Style.aspectRatio,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final cover = File(
-                            path.join(entry.entryDirPath, PathUtils.coverName),
-                          );
-                          final maxWidth = constraints.maxWidth;
-                          final maxHeight = constraints.maxHeight;
-                          int? cacheWidth, cacheHeight;
-                          if (entry.pageData?.cacheWidth ?? false) {
-                            cacheWidth = maxWidth.cacheSize(context);
-                          } else {
-                            cacheHeight = maxHeight.cacheSize(context);
-                          }
-                          return cover.existsSync()
-                              ? Image.file(
-                                  cover,
-                                  width: maxWidth,
-                                  height: maxHeight,
-                                  fit: BoxFit.cover,
-                                  cacheWidth: cacheWidth,
-                                  cacheHeight: cacheHeight,
-                                  colorBlendMode: NetworkImgLayer.reduce
-                                      ? BlendMode.modulate
-                                      : null,
-                                  color: NetworkImgLayer.reduce
-                                      ? NetworkImgLayer.reduceLuxColor
-                                      : null,
-                                )
-                              : NetworkImgLayer(
-                                  clip: false,
-                                  src: entry.cover,
-                                  width: maxWidth,
-                                  height: maxHeight,
-                                  cacheWidth: entry.pageData?.cacheWidth,
-                                );
-                        },
-                      ),
-                    ),
-                    if (entry.videoQuality case final videoQuality?)
-                      PBadge(
-                        text: VideoQuality.fromCode(videoQuality).shortDesc,
-                        right: 6.0,
-                        top: 6.0,
-                        type: PBadgeType.gray,
-                      ),
-                    if (progress != null)
-                      ListenableBuilder(
-                        listenable: progress!,
-                        builder: (_, _) {
-                          final progress = GStorage.watchProgress.get(
-                            cid.toString(),
-                          );
-                          if (progress != null) {
-                            return Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  VideoProgressIndicator(
-                                    color: theme.colorScheme.primary,
-                                    backgroundColor:
-                                        theme.colorScheme.secondaryContainer,
-                                    progress: progress / entry.totalTimeMilli,
-                                  ),
-                                  PBadge(
-                                    text: progress >= entry.totalTimeMilli - 400
-                                        ? '已看完'
-                                        : '${DurationUtils.formatDuration(progress ~/ 1000)}/'
-                                              '${DurationUtils.formatDuration(entry.totalTimeMilli ~/ 1000)}',
-                                    right: 6,
-                                    bottom: 7,
-                                    type: PBadgeType.gray,
-                                  ),
-                                ],
+                VideoDetailHero.source(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      AspectRatio(
+                        aspectRatio: Style.aspectRatio,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final cover = File(
+                              path.join(
+                                entry.entryDirPath,
+                                PathUtils.coverName,
                               ),
                             );
-                          }
-                          return PBadge(
-                            text: DurationUtils.formatDuration(
-                              entry.totalTimeMilli ~/ 1000,
-                            ),
-                            right: 6.0,
-                            bottom: 7.0,
-                            type: PBadgeType.gray,
-                          );
-                        },
-                      )
-                    else if (entry.totalTimeMilli != 0)
-                      PBadge(
-                        text: DurationUtils.formatDuration(
-                          entry.totalTimeMilli ~/ 1000,
+                            final maxWidth = constraints.maxWidth;
+                            final maxHeight = constraints.maxHeight;
+                            int? cacheWidth, cacheHeight;
+                            if (entry.pageData?.cacheWidth ?? false) {
+                              cacheWidth = maxWidth.cacheSize(context);
+                            } else {
+                              cacheHeight = maxHeight.cacheSize(context);
+                            }
+                            return cover.existsSync()
+                                ? Image.file(
+                                    cover,
+                                    width: maxWidth,
+                                    height: maxHeight,
+                                    fit: BoxFit.cover,
+                                    cacheWidth: cacheWidth,
+                                    cacheHeight: cacheHeight,
+                                    colorBlendMode: NetworkImgLayer.reduce
+                                        ? BlendMode.modulate
+                                        : null,
+                                    color: NetworkImgLayer.reduce
+                                        ? NetworkImgLayer.reduceLuxColor
+                                        : null,
+                                  )
+                                : NetworkImgLayer(
+                                    clip: false,
+                                    src: entry.cover,
+                                    width: maxWidth,
+                                    height: maxHeight,
+                                    cacheWidth: entry.pageData?.cacheWidth,
+                                  );
+                          },
                         ),
-                        right: 6,
-                        bottom: 7,
-                        type: PBadgeType.gray,
                       ),
-                    Positioned.fill(
-                      child: selectMask(
-                        theme.colorScheme,
-                        checked ?? entry.checked,
+                      if (entry.videoQuality case final videoQuality?)
+                        PBadge(
+                          text: VideoQuality.fromCode(videoQuality).shortDesc,
+                          right: 6.0,
+                          top: 6.0,
+                          type: PBadgeType.gray,
+                        ),
+                      if (progress != null)
+                        ListenableBuilder(
+                          listenable: progress!,
+                          builder: (_, _) {
+                            final progress = GStorage.watchProgress.get(
+                              cid.toString(),
+                            );
+                            if (progress != null) {
+                              return Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    VideoProgressIndicator(
+                                      color: theme.colorScheme.primary,
+                                      backgroundColor:
+                                          theme.colorScheme.secondaryContainer,
+                                      progress: progress / entry.totalTimeMilli,
+                                    ),
+                                    PBadge(
+                                      text:
+                                          progress >= entry.totalTimeMilli - 400
+                                          ? '已看完'
+                                          : '${DurationUtils.formatDuration(progress ~/ 1000)}/'
+                                                '${DurationUtils.formatDuration(entry.totalTimeMilli ~/ 1000)}',
+                                      right: 6,
+                                      bottom: 7,
+                                      type: PBadgeType.gray,
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                            return PBadge(
+                              text: DurationUtils.formatDuration(
+                                entry.totalTimeMilli ~/ 1000,
+                              ),
+                              right: 6.0,
+                              bottom: 7.0,
+                              type: PBadgeType.gray,
+                            );
+                          },
+                        )
+                      else if (entry.totalTimeMilli != 0)
+                        PBadge(
+                          text: DurationUtils.formatDuration(
+                            entry.totalTimeMilli ~/ 1000,
+                          ),
+                          right: 6,
+                          bottom: 7,
+                          type: PBadgeType.gray,
+                        ),
+                      Positioned.fill(
+                        child: selectMask(
+                          theme.colorScheme,
+                          checked ?? entry.checked,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 Expanded(
                   child: Stack(

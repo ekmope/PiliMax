@@ -149,7 +149,7 @@ class _VideoCardHState extends State<VideoCardH> {
         child: Stack(
           clipBehavior: .none,
           children: [
-            VideoDetailHero.source(
+            VideoDetailTransitionSource(
               tag: _heroTag,
               child: InkWell(
                 onLongPress: onLongPress,
@@ -165,85 +165,88 @@ class _VideoCardHState extends State<VideoCardH> {
                   child: Row(
                     crossAxisAlignment: .start,
                     children: [
-                      AspectRatio(
-                        aspectRatio: Style.aspectRatio,
-                        child: LayoutBuilder(
-                          builder: (context, boxConstraints) {
-                            final double maxWidth = boxConstraints.maxWidth;
-                            final double maxHeight = boxConstraints.maxHeight;
+                      VideoDetailHero.source(
+                        child: AspectRatio(
+                          aspectRatio: Style.aspectRatio,
+                          child: LayoutBuilder(
+                            builder: (context, boxConstraints) {
+                              final double maxWidth = boxConstraints.maxWidth;
+                              final double maxHeight = boxConstraints.maxHeight;
 
-                            final progress = videoItem.progress;
+                              final progress = videoItem.progress;
 
-                            return Stack(
-                              clipBehavior: .none,
-                              children: [
-                                NetworkImgLayer(
-                                  clip: false,
-                                  src: videoItem.cover,
-                                  width: maxWidth,
-                                  height: maxHeight,
-                                ),
-                                if (videoItem.badge case final badge?)
-                                  PBadge(
-                                    text: badge,
-                                    top: 6.0,
-                                    right: 6.0,
-                                    type: switch (badge) {
-                                      '充电专属' => .error,
-                                      _ => .primary,
-                                    },
+                              return Stack(
+                                clipBehavior: .none,
+                                children: [
+                                  NetworkImgLayer(
+                                    clip: false,
+                                    src: videoItem.cover,
+                                    width: maxWidth,
+                                    height: maxHeight,
                                   ),
-                                if (progress != null && progress != 0) ...[
-                                  PBadge(
-                                    text: progress == -1
-                                        ? '已看完'
-                                        : '${DurationUtils.formatDuration(progress)}/${DurationUtils.formatDuration(videoItem.duration)}',
-                                    right: 6,
-                                    bottom: 8,
-                                    type: .gray,
-                                  ),
-                                  Positioned(
-                                    left: 0,
-                                    bottom: 0,
-                                    right: 0,
-                                    child: VideoProgressIndicator(
-                                      color: theme.colorScheme.primary,
-                                      backgroundColor:
-                                          theme.colorScheme.secondaryContainer,
-                                      progress: progress == -1
-                                          ? 1
-                                          : progress / videoItem.duration,
+                                  if (videoItem.badge case final badge?)
+                                    PBadge(
+                                      text: badge,
+                                      top: 6.0,
+                                      right: 6.0,
+                                      type: switch (badge) {
+                                        '充电专属' => .error,
+                                        _ => .primary,
+                                      },
                                     ),
-                                  ),
-                                ] else if (videoItem.duration > 0)
-                                  PBadge(
-                                    text: DurationUtils.formatDuration(
-                                      videoItem.duration,
+                                  if (progress != null && progress != 0) ...[
+                                    PBadge(
+                                      text: progress == -1
+                                          ? '已看完'
+                                          : '${DurationUtils.formatDuration(progress)}/${DurationUtils.formatDuration(videoItem.duration)}',
+                                      right: 6,
+                                      bottom: 8,
+                                      type: .gray,
                                     ),
-                                    right: 6.0,
-                                    bottom: 6.0,
-                                    type: .gray,
-                                  ),
-                                if (!PlatformUtils.isMobile &&
-                                    videoItem.bvid != null)
-                                  Positioned(
-                                    top: 4,
-                                    right: 4,
-                                    child: Visibility(
-                                      visible: _isHovering,
-                                      maintainState: true,
-                                      child: QuickWatchLaterButton(
-                                        target: WatchLaterTarget.from(
-                                          bvid: videoItem.bvid,
-                                          aid: videoItem.aid,
-                                          fallback: videoItem,
+                                    Positioned(
+                                      left: 0,
+                                      bottom: 0,
+                                      right: 0,
+                                      child: VideoProgressIndicator(
+                                        color: theme.colorScheme.primary,
+                                        backgroundColor: theme
+                                            .colorScheme
+                                            .secondaryContainer,
+                                        progress: progress == -1
+                                            ? 1
+                                            : progress / videoItem.duration,
+                                      ),
+                                    ),
+                                  ] else if (videoItem.duration > 0)
+                                    PBadge(
+                                      text: DurationUtils.formatDuration(
+                                        videoItem.duration,
+                                      ),
+                                      right: 6.0,
+                                      bottom: 6.0,
+                                      type: .gray,
+                                    ),
+                                  if (!PlatformUtils.isMobile &&
+                                      videoItem.bvid != null)
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: Visibility(
+                                        visible: _isHovering,
+                                        maintainState: true,
+                                        child: QuickWatchLaterButton(
+                                          target: WatchLaterTarget.from(
+                                            bvid: videoItem.bvid,
+                                            aid: videoItem.aid,
+                                            fallback: videoItem,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                              ],
-                            );
-                          },
+                                ],
+                              );
+                            },
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),

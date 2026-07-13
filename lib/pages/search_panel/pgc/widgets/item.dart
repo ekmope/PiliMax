@@ -38,7 +38,7 @@ class SearchPgcItem extends StatelessWidget {
     );
     return Material(
       type: MaterialType.transparency,
-      child: VideoDetailHero.source(
+      child: VideoDetailTransitionSource(
         tag: _heroTag,
         child: InkWell(
           onTap: () => PageUtils.viewPgc(
@@ -57,23 +57,25 @@ class SearchPgcItem extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    NetworkImgLayer(
-                      clip: false,
-                      width: 111,
-                      height: 148,
-                      src: item.cover,
-                    ),
-                    PBadge(
-                      text: item.seasonTypeName,
-                      top: 6.0,
-                      right: 4.0,
-                      bottom: null,
-                      left: null,
-                    ),
-                  ],
+                VideoDetailHero.source(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      NetworkImgLayer(
+                        clip: false,
+                        width: 111,
+                        height: 148,
+                        src: item.cover,
+                      ),
+                      PBadge(
+                        text: item.seasonTypeName,
+                        top: 6.0,
+                        right: 4.0,
+                        bottom: null,
+                        left: null,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(

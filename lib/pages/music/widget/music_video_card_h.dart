@@ -39,7 +39,7 @@ class MusicVideoCardH extends StatelessWidget {
     );
     return Material(
       type: MaterialType.transparency,
-      child: VideoDetailHero.source(
+      child: VideoDetailTransitionSource(
         tag: _heroTag,
         child: InkWell(
           onTap: () {
@@ -61,32 +61,34 @@ class MusicVideoCardH extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AspectRatio(
-                  aspectRatio: Style.aspectRatio,
-                  child: LayoutBuilder(
-                    builder: (context, boxConstraints) {
-                      double maxWidth = boxConstraints.maxWidth;
-                      double maxHeight = boxConstraints.maxHeight;
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          NetworkImgLayer(
-                            clip: false,
-                            src: videoItem.cover,
-                            width: maxWidth,
-                            height: maxHeight,
-                          ),
-                          PBadge(
-                            text: DurationUtils.formatDuration(
-                              videoItem.duration,
+                VideoDetailHero.source(
+                  child: AspectRatio(
+                    aspectRatio: Style.aspectRatio,
+                    child: LayoutBuilder(
+                      builder: (context, boxConstraints) {
+                        double maxWidth = boxConstraints.maxWidth;
+                        double maxHeight = boxConstraints.maxHeight;
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            NetworkImgLayer(
+                              clip: false,
+                              src: videoItem.cover,
+                              width: maxWidth,
+                              height: maxHeight,
                             ),
-                            right: 6.0,
-                            bottom: 6.0,
-                            type: PBadgeType.gray,
-                          ),
-                        ],
-                      );
-                    },
+                            PBadge(
+                              text: DurationUtils.formatDuration(
+                                videoItem.duration,
+                              ),
+                              right: 6.0,
+                              bottom: 6.0,
+                              type: PBadgeType.gray,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),

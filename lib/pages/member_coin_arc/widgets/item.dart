@@ -47,7 +47,7 @@ class _MemberCoinLikeItemState extends State<MemberCoinLikeItem> {
       cover: item.cover,
       aid: item.param,
     );
-    return VideoDetailHero.source(
+    return VideoDetailTransitionSource(
       tag: _heroTag,
       child: Card(
         clipBehavior: Clip.hardEdge,
@@ -80,43 +80,45 @@ class _MemberCoinLikeItemState extends State<MemberCoinLikeItem> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AspectRatio(
-                aspectRatio: Style.aspectRatio,
-                child: LayoutBuilder(
-                  builder: (context, boxConstraints) {
-                    double maxWidth = boxConstraints.maxWidth;
-                    double maxHeight = boxConstraints.maxHeight;
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        NetworkImgLayer(
-                          clip: false,
-                          src: item.cover,
-                          width: maxWidth,
-                          height: maxHeight,
-                        ),
-                        if (item.isCooperation == true)
-                          const PBadge(
-                            text: '合作',
-                            top: 6,
-                            right: 6,
-                          )
-                        else if (item.isSteins == true)
-                          const PBadge(
-                            text: '互动',
-                            top: 6,
-                            right: 6,
+              VideoDetailHero.source(
+                child: AspectRatio(
+                  aspectRatio: Style.aspectRatio,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      double maxWidth = boxConstraints.maxWidth;
+                      double maxHeight = boxConstraints.maxHeight;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          NetworkImgLayer(
+                            clip: false,
+                            src: item.cover,
+                            width: maxWidth,
+                            height: maxHeight,
                           ),
-                        if (item.duration != null && item.duration! > 0)
-                          PBadge(
-                            bottom: 6,
-                            right: 6,
-                            type: PBadgeType.gray,
-                            text: DurationUtils.formatDuration(item.duration),
-                          ),
-                      ],
-                    );
-                  },
+                          if (item.isCooperation == true)
+                            const PBadge(
+                              text: '合作',
+                              top: 6,
+                              right: 6,
+                            )
+                          else if (item.isSteins == true)
+                            const PBadge(
+                              text: '互动',
+                              top: 6,
+                              right: 6,
+                            ),
+                          if (item.duration != null && item.duration! > 0)
+                            PBadge(
+                              bottom: 6,
+                              right: 6,
+                              type: PBadgeType.gray,
+                              text: DurationUtils.formatDuration(item.duration),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
               Padding(

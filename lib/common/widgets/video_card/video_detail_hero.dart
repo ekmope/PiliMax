@@ -9,18 +9,117 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 
-/// Moves a frozen video card surface into the detail player's rectangle.
+/// Registers the whole card as the predictive-back return target.
 ///
-/// Both ends opt in to user-gesture transitions so Android predictive back can
-/// drive the same flight. Keep the target child lightweight; the default
-/// The flight never carries a live player or scrolling state.
-class VideoDetailHero extends StatefulWidget {
-  const VideoDetailHero.source({
+/// A descendant [VideoDetailHero.source] owns the independent media Hero.
+class VideoDetailTransitionSource extends StatefulWidget {
+  const VideoDetailTransitionSource({
     super.key,
     required this.tag,
     required this.child,
     this.borderRadius = Style.mdRadius,
-  }) : _isDetailTarget = false;
+  });
+
+  final Object tag;
+  final Widget child;
+  final BorderRadiusGeometry borderRadius;
+
+  @override
+  State<VideoDetailTransitionSource> createState() =>
+      _VideoDetailTransitionSourceState();
+}
+
+class _VideoDetailTransitionSourceState
+    extends State<VideoDetailTransitionSource> {
+  final GlobalKey _sourceBoundaryKey = GlobalKey();
+  VideoTransitionRegistration? _registration;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _registration ??= _registerSource();
+  }
+
+  @override
+  void didUpdateWidget(VideoDetailTransitionSource oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tag != widget.tag ||
+        oldWidget.borderRadius != widget.borderRadius) {
+      _registration?.dispose();
+      _registration = _registerSource();
+    }
+  }
+
+  VideoTransitionRegistration _registerSource() {
+    return VideoTransitionRegistry.register(
+      tag: widget.tag,
+      boundaryKey: _sourceBoundaryKey,
+      context: context,
+      borderRadius: widget.borderRadius,
+    );
+  }
+
+  @override
+  void dispose() {
+    _registration?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final registration = _registration;
+    final child = RepaintBoundary(
+      key: _sourceBoundaryKey,
+      child: widget.child,
+    );
+    if (registration == null) {
+      return child;
+    }
+    return _VideoDetailTransitionScope(
+      tag: widget.tag,
+      registration: registration,
+      child: Listener(
+        onPointerDown: (event) {
+          if (event.buttons & kPrimaryButton != 0) {
+            registration.prepare();
+          }
+        },
+        child: child,
+      ),
+    );
+  }
+}
+
+class _VideoDetailTransitionScope extends InheritedWidget {
+  const _VideoDetailTransitionScope({
+    required this.tag,
+    required this.registration,
+    required super.child,
+  });
+
+  final Object tag;
+  final VideoTransitionRegistration registration;
+
+  static _VideoDetailTransitionScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_VideoDetailTransitionScope>();
+
+  @override
+  bool updateShouldNotify(_VideoDetailTransitionScope oldWidget) =>
+      tag != oldWidget.tag || !identical(registration, oldWidget.registration);
+}
+
+/// Moves a frozen video media surface into the detail player's rectangle.
+///
+/// Both ends opt in to user-gesture transitions so Android predictive back can
+/// drive the same flight. Keep the target child lightweight; the default
+/// The flight never carries a live player or scrolling state.
+class VideoDetailHero extends StatelessWidget {
+  const VideoDetailHero.source({
+    super.key,
+    required this.child,
+    this.borderRadius = Style.mdRadius,
+  }) : tag = null,
+       _isDetailTarget = false;
 
   const VideoDetailHero.target({
     super.key,
@@ -29,13 +128,10 @@ class VideoDetailHero extends StatefulWidget {
     this.borderRadius = BorderRadius.zero,
   }) : _isDetailTarget = true;
 
-  final Object tag;
+  final Object? tag;
   final Widget child;
   final BorderRadiusGeometry borderRadius;
   final bool _isDetailTarget;
-
-  @override
-  State<VideoDetailHero> createState() => _VideoDetailHeroState();
 
   static Tween<Rect?> _createRectTween(Rect? begin, Rect? end) =>
       RectTween(begin: begin, end: end);
@@ -187,85 +283,124 @@ class VideoDetailHero extends StatefulWidget {
     return Curves.easeInOutCubic.transform((value - begin) / (end - begin));
   }
 
-  Widget _buildPlaceholder(BuildContext context, Size heroSize, Widget child) {
+  static Widget _buildPlaceholder(
+    BuildContext context,
+    Size heroSize,
+    Widget child,
+  ) {
     return SizedBox.fromSize(size: heroSize);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isDetailTarget) {
+      return _VideoDetailMediaHeroSource(
+        borderRadius: borderRadius,
+        child: child,
+      );
+    }
+    return _buildHero(
+      rawTag: tag!,
+      borderRadius: borderRadius,
+      isDetailTarget: true,
+      child: child,
+    );
+  }
+
+  static Widget _buildHero({
+    Key? key,
+    required Object rawTag,
+    required BorderRadiusGeometry borderRadius,
+    required bool isDetailTarget,
+    required Widget child,
+  }) {
+    return Hero(
+      key: key,
+      tag: _VideoDetailMediaHeroTag(rawTag),
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeOutCubic,
+      createRectTween: VideoDetailHero._createRectTween,
+      flightShuttleBuilder: VideoDetailHero._flightShuttleBuilder,
+      transitionOnUserGestures: true,
+      placeholderBuilder: VideoDetailHero._buildPlaceholder,
+      child: _VideoDetailHeroChild(
+        borderRadius: borderRadius,
+        isDetailTarget: isDetailTarget,
+        child: child,
+      ),
+    );
   }
 }
 
-class _VideoDetailHeroState extends State<VideoDetailHero> {
-  final GlobalKey _sourceBoundaryKey = GlobalKey();
-  VideoTransitionRegistration? _registration;
+class _VideoDetailMediaHeroSource extends StatefulWidget {
+  const _VideoDetailMediaHeroSource({
+    required this.borderRadius,
+    required this.child,
+  });
+
+  final BorderRadiusGeometry borderRadius;
+  final Widget child;
+
+  @override
+  State<_VideoDetailMediaHeroSource> createState() =>
+      _VideoDetailMediaHeroSourceState();
+}
+
+class _VideoDetailMediaHeroSourceState
+    extends State<_VideoDetailMediaHeroSource> {
+  final GlobalKey _mediaBoundaryKey = GlobalKey();
+  _VideoDetailTransitionScope? _scope;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _registration ??= _registerSource();
-  }
-
-  @override
-  void didUpdateWidget(VideoDetailHero oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.tag != widget.tag ||
-        oldWidget._isDetailTarget != widget._isDetailTarget ||
-        oldWidget.borderRadius != widget.borderRadius) {
-      _syncRegistration();
-    }
-  }
-
-  void _syncRegistration() {
-    _registration?.dispose();
-    _registration = _registerSource();
-  }
-
-  VideoTransitionRegistration? _registerSource() {
-    if (widget._isDetailTarget) {
-      return null;
-    }
-    return VideoTransitionRegistry.register(
-      tag: widget.tag,
-      boundaryKey: _sourceBoundaryKey,
-      context: context,
-      borderRadius: widget.borderRadius,
+    final scope = _VideoDetailTransitionScope.maybeOf(context);
+    assert(
+      scope != null,
+      'VideoDetailHero.source must be inside VideoDetailTransitionSource.',
     );
+    if (identical(scope?.registration, _scope?.registration)) {
+      _scope = scope;
+      return;
+    }
+    _scope?.registration.detachMedia(_mediaBoundaryKey);
+    _scope = scope;
+    scope?.registration.attachMedia(_mediaBoundaryKey);
   }
 
   @override
   void dispose() {
-    _registration?.dispose();
+    _scope?.registration.detachMedia(_mediaBoundaryKey);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final child = widget._isDetailTarget
-        ? widget.child
-        : RepaintBoundary(key: _sourceBoundaryKey, child: widget.child);
-    final hero = Hero(
-      tag: widget.tag,
-      curve: Curves.linear,
-      reverseCurve: Curves.linear,
-      createRectTween: VideoDetailHero._createRectTween,
-      flightShuttleBuilder: VideoDetailHero._flightShuttleBuilder,
-      transitionOnUserGestures: true,
-      placeholderBuilder: widget._buildPlaceholder,
-      child: _VideoDetailHeroChild(
-        borderRadius: widget.borderRadius,
-        isDetailTarget: widget._isDetailTarget,
-        child: child,
-      ),
-    );
-    if (widget._isDetailTarget) {
-      return hero;
+    final scope = _scope;
+    if (scope == null) {
+      return widget.child;
     }
-    return Listener(
-      onPointerDown: (event) {
-        if (event.buttons & kPrimaryButton != 0) {
-          _registration?.prepare();
-        }
-      },
-      child: hero,
+    return VideoDetailHero._buildHero(
+      key: _mediaBoundaryKey,
+      rawTag: scope.tag,
+      borderRadius: widget.borderRadius,
+      isDetailTarget: false,
+      child: widget.child,
     );
   }
+}
+
+final class _VideoDetailMediaHeroTag {
+  const _VideoDetailMediaHeroTag(this.rawTag);
+
+  final Object rawTag;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _VideoDetailMediaHeroTag && other.rawTag == rawTag;
+
+  @override
+  int get hashCode => Object.hash(_VideoDetailMediaHeroTag, rawTag);
 }
 
 /// A paint-only placeholder for the video detail page during a Hero flight.

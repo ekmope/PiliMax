@@ -167,14 +167,19 @@ Widget module(
               children: [
                 if (common.cover?.isNotEmpty ?? false)
                   if (isCommonVideo)
-                    ClipRRect(
+                    VideoDetailHero.source(
                       borderRadius: const BorderRadius.all(Radius.circular(6)),
-                      child: CachedNetworkImage(
-                        width: 45,
-                        height: 45,
-                        fit: BoxFit.cover,
-                        memCacheWidth: 45.cacheSize(context),
-                        imageUrl: ImageUtils.safeThumbnailUrl(common.cover),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(6),
+                        ),
+                        child: CachedNetworkImage(
+                          width: 45,
+                          height: 45,
+                          fit: BoxFit.cover,
+                          memCacheWidth: 45.cacheSize(context),
+                          imageUrl: ImageUtils.safeThumbnailUrl(common.cover),
+                        ),
                       ),
                     )
                   else
@@ -221,7 +226,7 @@ Widget module(
       if (!isCommonVideo) {
         return card;
       }
-      return VideoDetailHero.source(
+      return VideoDetailTransitionSource(
         tag: commonHeroTag,
         borderRadius: floor == 1 ? BorderRadius.zero : Style.mdRadius,
         child: card,

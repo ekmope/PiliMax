@@ -86,7 +86,7 @@ class MemberCheeseItem extends StatelessWidget {
     void onLongPress() => imageSaveDialog(title: item.title, cover: item.cover);
     return Material(
       type: MaterialType.transparency,
-      child: VideoDetailHero.source(
+      child: VideoDetailTransitionSource(
         tag: _heroTag,
         child: InkWell(
           onTap: () => PageUtils.viewPugv(
@@ -105,34 +105,36 @@ class MemberCheeseItem extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AspectRatio(
-                  aspectRatio: Style.aspectRatio,
-                  child: LayoutBuilder(
-                    builder: (context, boxConstraints) {
-                      Widget child = NetworkImgLayer(
-                        clip: false,
-                        src: item.cover,
-                        width: boxConstraints.maxWidth,
-                        height: boxConstraints.maxHeight,
-                        borderRadius: const BorderRadius.all(
-                          Radius.circular(4),
-                        ),
-                      );
-                      if (item.marks?.isNotEmpty == true) {
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            child,
-                            PBadge(
-                              right: 6,
-                              top: 6,
-                              text: item.marks!.join('|'),
-                            ),
-                          ],
+                VideoDetailHero.source(
+                  child: AspectRatio(
+                    aspectRatio: Style.aspectRatio,
+                    child: LayoutBuilder(
+                      builder: (context, boxConstraints) {
+                        Widget child = NetworkImgLayer(
+                          clip: false,
+                          src: item.cover,
+                          width: boxConstraints.maxWidth,
+                          height: boxConstraints.maxHeight,
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(4),
+                          ),
                         );
-                      }
-                      return child;
-                    },
+                        if (item.marks?.isNotEmpty == true) {
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              child,
+                              PBadge(
+                                right: 6,
+                                top: 6,
+                                text: item.marks!.join('|'),
+                              ),
+                            ],
+                          );
+                        }
+                        return child;
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),

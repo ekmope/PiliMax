@@ -369,17 +369,23 @@ class ChatItem extends StatelessWidget {
       jumpUrl ?? content['cover_url'],
       subCardIndex,
     );
+    final cover = NetworkImgLayer(
+      clip: false,
+      width: 130,
+      height: 73.125,
+      src: content['cover_url'],
+    );
     final card = ColoredBox(
       color: theme.colorScheme.onInverseSurface,
       child: Row(
         spacing: 6,
         children: [
-          NetworkImgLayer(
-            clip: false,
-            width: 130,
-            height: 73.125,
-            src: content['cover_url'],
-          ),
+          bvid == null
+              ? cover
+              : VideoDetailHero.source(
+                  borderRadius: BorderRadius.zero,
+                  child: cover,
+                ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -418,7 +424,7 @@ class ChatItem extends StatelessWidget {
         ],
       ),
     );
-    return GestureDetector(
+    final tappable = GestureDetector(
       onTap: () {
         if (bvid != null) {
           PageUtils.toVideoPage(
@@ -434,10 +440,15 @@ class ChatItem extends StatelessWidget {
           PageUtils.handleWebview(jumpUrl);
         }
       },
-      child: bvid == null
-          ? card
-          : VideoDetailHero.source(tag: heroTag, child: card),
+      child: card,
     );
+    return bvid == null
+        ? tappable
+        : VideoDetailTransitionSource(
+            tag: heroTag,
+            borderRadius: BorderRadius.zero,
+            child: tappable,
+          );
   }
 
   Widget msgTypeVideoCard_11(ThemeData theme, content, Color textColor) {
@@ -448,7 +459,7 @@ class ChatItem extends StatelessWidget {
     final heroTag = _videoHeroTag(content['bvid'] ?? content['cover'], 'card');
 
     return Center(
-      child: VideoDetailHero.source(
+      child: VideoDetailTransitionSource(
         tag: heroTag,
         child: Container(
           clipBehavior: Clip.hardEdge,
@@ -477,24 +488,28 @@ class ChatItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        NetworkImgLayer(
-                          clip: false,
-                          width: constrains.maxWidth,
-                          height: constrains.maxWidth / Style.aspectRatio16x9,
-                          src: content['cover'],
-                        ),
-                        PBadge(
-                          left: 6,
-                          bottom: 6,
-                          type: PBadgeType.gray,
-                          text: content['times'] == 0
-                              ? '--:--'
-                              : DurationUtils.formatDuration(content['times']),
-                        ),
-                      ],
+                    VideoDetailHero.source(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          NetworkImgLayer(
+                            clip: false,
+                            width: constrains.maxWidth,
+                            height: constrains.maxWidth / Style.aspectRatio16x9,
+                            src: content['cover'],
+                          ),
+                          PBadge(
+                            left: 6,
+                            bottom: 6,
+                            type: PBadgeType.gray,
+                            text: content['times'] == 0
+                                ? '--:--'
+                                : DurationUtils.formatDuration(
+                                    content['times'],
+                                  ),
+                          ),
+                        ],
+                      ),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(
@@ -612,15 +627,17 @@ class ChatItem extends StatelessWidget {
           'unsupported source type: ${content['source']}',
         );
     }
+    final activeHeroTag = heroTag;
+    final cover = NetworkImgLayer(
+      clip: false,
+      width: 220,
+      height: 123.75,
+      src: content['thumb'],
+    );
     final card = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        NetworkImgLayer(
-          clip: false,
-          width: 220,
-          height: 123.75,
-          src: content['thumb'],
-        ),
+        activeHeroTag == null ? cover : VideoDetailHero.source(child: cover),
         const SizedBox(height: 6),
         Text(
           content['title'] ?? "",
@@ -658,13 +675,12 @@ class ChatItem extends StatelessWidget {
         ],
       ],
     );
-    final activeHeroTag = heroTag;
     return GestureDetector(
       onTap: onTap,
       behavior: .opaque,
       child: activeHeroTag == null
           ? card
-          : VideoDetailHero.source(tag: activeHeroTag, child: card),
+          : VideoDetailTransitionSource(tag: activeHeroTag, child: card),
     );
   }
 

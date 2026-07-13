@@ -51,7 +51,7 @@ class FavPgcItem extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          VideoDetailHero.source(
+          VideoDetailTransitionSource(
             tag: _heroTag,
             child: InkWell(
               onTap: () {
@@ -76,45 +76,47 @@ class FavPgcItem extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AspectRatio(
-                      aspectRatio: 3 / 4,
-                      child: LayoutBuilder(
-                        builder: (context, boxConstraints) {
-                          return Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              NetworkImgLayer(
-                                clip: false,
-                                src: item.cover,
-                                width: boxConstraints.maxWidth,
-                                height: boxConstraints.maxHeight,
-                                borderRadius: const BorderRadius.all(
-                                  Radius.circular(4),
-                                ),
-                              ),
-                              PBadge(
-                                right: 4,
-                                top: 4,
-                                text: item.badge,
-                                size: PBadgeSize.small,
-                                fontSize: 10,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 2,
-                                  vertical: 1,
-                                ),
-                              ),
-                              Positioned.fill(
-                                child: selectMask(
-                                  colorScheme,
-                                  item.checked,
+                    VideoDetailHero.source(
+                      child: AspectRatio(
+                        aspectRatio: 3 / 4,
+                        child: LayoutBuilder(
+                          builder: (context, boxConstraints) {
+                            return Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                NetworkImgLayer(
+                                  clip: false,
+                                  src: item.cover,
+                                  width: boxConstraints.maxWidth,
+                                  height: boxConstraints.maxHeight,
                                   borderRadius: const BorderRadius.all(
                                     Radius.circular(4),
                                   ),
                                 ),
-                              ),
-                            ],
-                          );
-                        },
+                                PBadge(
+                                  right: 4,
+                                  top: 4,
+                                  text: item.badge,
+                                  size: PBadgeSize.small,
+                                  fontSize: 10,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                    vertical: 1,
+                                  ),
+                                ),
+                                Positioned.fill(
+                                  child: selectMask(
+                                    colorScheme,
+                                    item.checked,
+                                    borderRadius: const BorderRadius.all(
+                                      Radius.circular(4),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),

@@ -33,7 +33,7 @@ class PgcCardVMemberPgc extends StatelessWidget {
       title: item.title,
       cover: item.cover,
     );
-    return VideoDetailHero.source(
+    return VideoDetailTransitionSource(
       tag: _heroTag,
       child: Card(
         shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
@@ -50,17 +50,19 @@ class PgcCardVMemberPgc extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AspectRatio(
-                aspectRatio: 0.75,
-                child: LayoutBuilder(
-                  builder: (context, boxConstraints) {
-                    return NetworkImgLayer(
-                      clip: false,
-                      src: item.cover,
-                      width: boxConstraints.maxWidth,
-                      height: boxConstraints.maxHeight,
-                    );
-                  },
+              VideoDetailHero.source(
+                child: AspectRatio(
+                  aspectRatio: 0.75,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      return NetworkImgLayer(
+                        clip: false,
+                        src: item.cover,
+                        width: boxConstraints.maxWidth,
+                        height: boxConstraints.maxHeight,
+                      );
+                    },
+                  ),
                 ),
               ),
               Padding(

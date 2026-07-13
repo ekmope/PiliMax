@@ -36,6 +36,7 @@ class DynamicsController extends GetxController
   Set<UpItem>? _cacheUpList;
   late final _showAllUp = Pref.dynamicsShowAllFollowedUp;
   late bool showLiveUp = Pref.expandDynLivePanel;
+  bool _clearUpUpdatesOnNextResponse = false;
 
   final upPanelPosition = Pref.upPanelPosition;
 
@@ -133,6 +134,11 @@ class DynamicsController extends GetxController
     }
   }
 
+  void _markAllUpAsReadAndClearNextResponse() {
+    _markAllUpAsRead();
+    _clearUpUpdatesOnNextResponse = true;
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -141,7 +147,9 @@ class DynamicsController extends GetxController
       vsync: this,
       initialIndex: DynamicsTabType.all.index,
     );
-    upPageController = PageController(initialPage: indexOfMid(currentMid.value));
+    upPageController = PageController(
+      initialPage: indexOfMid(currentMid.value),
+    );
     queryFollowUp();
   }
 
@@ -204,7 +212,7 @@ class DynamicsController extends GetxController
   }
 
   late bool isQuerying = false;
-  Future<void> queryFollowUp({bool clearUpdates = false}) async {
+  Future<void> queryFollowUp() async {
     if (isQuerying) return;
     isQuerying = true;
 
@@ -250,8 +258,9 @@ class DynamicsController extends GetxController
           _upEnd = true;
         }
       }
-      if (clearUpdates) {
+      if (_clearUpUpdatesOnNextResponse) {
         _clearFollowUpUpdates(data);
+        _clearUpUpdatesOnNextResponse = false;
       }
       upState.value = Success(data);
     } else {
@@ -267,8 +276,8 @@ class DynamicsController extends GetxController
       currentMid.value = mid;
       tabController.index = DynamicsTabType.all.index;
       if (mid == -1) {
-        _markAllUpAsRead();
-        unawaited(queryFollowUp(clearUpdates: true));
+        _markAllUpAsReadAndClearNextResponse();
+        unawaited(queryFollowUp());
       } else {
         _markUpAsRead(mid);
       }
@@ -310,6 +319,11 @@ class DynamicsController extends GetxController
     return controller?.showRefresh() ?? Future.value();
   }
 
+  Future<void> onNavigationRefresh() {
+    _markAllUpAsReadAndClearNextResponse();
+    return onRefresh();
+  }
+
   void _refreshFollowUp() {
     if (_showAllUp) {
       _upPage = 1;
@@ -340,6 +354,11 @@ class DynamicsController extends GetxController
     } else {
       super.toTopOrRefresh();
     }
+  }
+
+  void navigationToTopOrRefresh() {
+    _markAllUpAsReadAndClearNextResponse();
+    toTopOrRefresh();
   }
 
   @override

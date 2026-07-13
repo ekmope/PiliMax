@@ -313,7 +313,7 @@ class MainController extends GetxController
             if (currentNav == NavigationBarType.home) {
               homeController.onRefresh();
             } else if (currentNav == NavigationBarType.dynamics) {
-              dynamicController.onRefresh();
+              dynamicController.onNavigationRefresh();
             }
           },
         );
@@ -321,7 +321,7 @@ class MainController extends GetxController
         if (currentNav == NavigationBarType.home) {
           homeController.toTopOrRefresh();
         } else if (currentNav == NavigationBarType.dynamics) {
-          dynamicController.toTopOrRefresh();
+          dynamicController.navigationToTopOrRefresh();
         }
       }
       _lastSelectTime = now;

@@ -5,6 +5,7 @@ import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/history/list.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
+import 'package:PiliMax/utils/extension/dimension_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:flutter/material.dart';
@@ -92,6 +93,7 @@ class HistoryCardItem extends StatelessWidget {
         cover: _cover,
         title: item.title,
         part: item.history.page,
+        isVertical: item.uri?.verticalFromUri,
         heroTag: _heroTag,
       );
     }
@@ -108,6 +110,7 @@ class HistoryCardItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: VideoDetailTransitionSource(
         tag: _heroTag,
+        layout: VideoTransitionSourceLayout.verticalCard,
         borderRadius: _cardRadius,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

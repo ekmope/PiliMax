@@ -5,6 +5,7 @@ import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/theme_utils.dart';
 
 import 'package:flutter/material.dart';
 
@@ -26,6 +27,9 @@ final class VideoDetailEntryOverlayController {
     bool showRecommendations = true,
     bool hasSeasonPanel = false,
     bool hasPagesPanel = false,
+    int tabCount = VideoDetailLayoutMetrics.defaultTabCount,
+    int actionCount = VideoDetailLayoutMetrics.ugcActionCount,
+    bool hasEpisodePanel = false,
     Duration revealDuration = const Duration(milliseconds: 320),
   }) => VideoDetailEntryOverlayController._(
     overlay: overlay,
@@ -37,6 +41,9 @@ final class VideoDetailEntryOverlayController {
     showRecommendations: showRecommendations,
     hasSeasonPanel: hasSeasonPanel,
     hasPagesPanel: hasPagesPanel,
+    tabCount: tabCount,
+    actionCount: actionCount,
+    hasEpisodePanel: hasEpisodePanel,
     revealDuration: revealDuration,
   );
 
@@ -50,6 +57,9 @@ final class VideoDetailEntryOverlayController {
     required this.showRecommendations,
     required this._hasSeasonPanel,
     required this._hasPagesPanel,
+    required this._tabCount,
+    required this._actionCount,
+    required this._hasEpisodePanel,
     required this.revealDuration,
   }) {
     _activeController?.abort();
@@ -69,7 +79,11 @@ final class VideoDetailEntryOverlayController {
   final bool showRecommendations;
   bool _hasSeasonPanel;
   bool _hasPagesPanel;
+  int _tabCount;
+  int _actionCount;
+  bool _hasEpisodePanel;
   final Duration revealDuration;
+  final ValueNotifier<double> _routeProgressNotifier = ValueNotifier(0);
 
   OverlayEntry? _entry;
   Animation<double>? _routeAnimation;
@@ -116,6 +130,9 @@ final class VideoDetailEntryOverlayController {
     String? title,
     bool? hasSeasonPanel,
     bool? hasPagesPanel,
+    int? tabCount,
+    int? actionCount,
+    bool? hasEpisodePanel,
   }) {
     if (!isActive || _revealRequested) {
       return;
@@ -129,7 +146,10 @@ final class VideoDetailEntryOverlayController {
     _title = title ?? _title;
     _hasSeasonPanel = hasSeasonPanel ?? _hasSeasonPanel;
     _hasPagesPanel = hasPagesPanel ?? _hasPagesPanel;
-    _entry?.markNeedsBuild();
+    _tabCount = tabCount ?? _tabCount;
+    _actionCount = actionCount ?? _actionCount;
+    _hasEpisodePanel = hasEpisodePanel ?? _hasEpisodePanel;
+    _presentation?._profileUpdated();
   }
 
   /// Makes the entry follow the exact progress used by the route and Hero.
@@ -143,7 +163,7 @@ final class VideoDetailEntryOverlayController {
     _detachRouteAnimation();
     _routeAnimation = animation;
     if (animation == null) {
-      _entry?.markNeedsBuild();
+      _routeProgressNotifier.value = 0;
       return;
     }
     animation
@@ -155,7 +175,7 @@ final class VideoDetailEntryOverlayController {
       abort();
       return;
     }
-    _entry?.markNeedsBuild();
+    _routeProgressNotifier.value = animation.value;
   }
 
   /// Fades the skeleton away while the real detail content becomes visible.
@@ -191,11 +211,16 @@ final class VideoDetailEntryOverlayController {
     _remove();
   }
 
-  double get _routeProgress => (_routeAnimation?.value ?? 0).clamp(0.0, 1.0);
+  double get _routeProgress => _routeProgressNotifier.value.clamp(0.0, 1.0);
 
   bool get _hasRouteAnimation => _routeAnimation != null;
 
-  void _onRouteAnimationTick() => _entry?.markNeedsBuild();
+  void _onRouteAnimationTick() {
+    final animation = _routeAnimation;
+    if (animation != null) {
+      _routeProgressNotifier.value = animation.value;
+    }
+  }
 
   void _onRouteAnimationStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
@@ -282,9 +307,16 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     vsync: this,
     duration: const Duration(milliseconds: 180),
   );
+  late final Listenable _animation = Listenable.merge([
+    widget.controller._routeProgressNotifier,
+    _revealController,
+    _profileController,
+  ]);
 
   bool _revealStarted = false;
   double? _profileFromPlayerBottom;
+  Object? _ugcTitleHeightSignature;
+  double _ugcTitleHeight = 38;
 
   @override
   void initState() {
@@ -317,11 +349,22 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     _profileController.forward(from: 0);
   }
 
+  void _profileUpdated() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
   double _targetPlayerBottom(Size viewport) {
+    return _targetPlayerRect(viewport).bottom;
+  }
+
+  Rect _targetPlayerRect(Size viewport) {
     final topInset = Pref.removeSafeArea
         ? 0.0
         : MediaQuery.viewPaddingOf(context).top;
-    return VideoDetailLayoutMetrics.entryPlayerBottom(
+    return VideoDetailLayoutMetrics.entryPlayerRect(
       viewport,
       isVertical: widget.controller._isVertical,
       topInset: topInset,
@@ -367,11 +410,41 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     };
   }
 
+  double _cachedUgcTitleHeight(BuildContext context, Size viewport) {
+    final title = widget.controller._title;
+    if (title == null || title.isEmpty) {
+      return 38;
+    }
+    final style = DefaultTextStyle.of(context).style.copyWith(fontSize: 16);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final signature = (title, style, textScaler, viewport.width);
+    if (signature == _ugcTitleHeightSignature) {
+      return _ugcTitleHeight;
+    }
+    _ugcTitleHeightSignature = signature;
+    final painter =
+        TextPainter(
+          text: TextSpan(text: title, style: style),
+          maxLines: 2,
+          textDirection: Directionality.of(context),
+          textScaler: textScaler,
+        )..layout(
+          maxWidth:
+              (viewport.width - 2 * VideoDetailLayoutMetrics.horizontalPadding)
+                  .clamp(0.0, viewport.width)
+                  .toDouble(),
+        );
+    _ugcTitleHeight = painter.height;
+    painter.dispose();
+    return _ugcTitleHeight;
+  }
+
   Widget _buildMorphingTitle({
     required Rect morphRect,
     required Size viewport,
     required double playerBottom,
     required double progress,
+    required double revealOpacity,
   }) {
     final title = widget.controller.transitionToken.title;
     if (title == null || title.text.isEmpty) {
@@ -381,17 +454,26 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     final rect = Rect.lerp(title.rect, targetRect ?? title.rect, progress)!;
     final sourceFontSize = title.style.fontSize ?? 14;
     final fontSize = lerpDouble(sourceFontSize, 16, progress)!;
+    final fontScale = fontSize / sourceFontSize;
     final handoffBegin = targetRect == null ? 0.20 : 0.52;
     final handoffEnd = targetRect == null ? 0.56 : 0.90;
     final handoffProgress =
         ((progress - handoffBegin) / (handoffEnd - handoffBegin))
             .clamp(0.0, 1.0)
             .toDouble();
+    final titleEntryOpacity =
+        widget.controller.transitionToken.sourceLayout ==
+            VideoTransitionSourceLayout.horizontalRow
+        ? 1.0
+        : progress;
     final titleOpacity =
-        progress * (1 - Curves.easeInOutCubic.transform(handoffProgress));
+        titleEntryOpacity *
+        revealOpacity *
+        (1 - Curves.easeInOutCubic.transform(handoffProgress));
     if (titleOpacity <= 0) {
       return const SizedBox.shrink();
     }
+    final textSpan = title.textSpan;
     return Positioned(
       left: rect.left - morphRect.left,
       top: rect.top - morphRect.top,
@@ -399,16 +481,51 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
       height: rect.height,
       child: Opacity(
         opacity: titleOpacity,
-        child: Text(
-          title.text,
-          style: title.style.copyWith(fontSize: fontSize),
-          maxLines: title.maxLines,
-          textAlign: title.textAlign,
-          overflow: title.overflow,
-          textDirection: title.textDirection,
-          textScaler: title.textScaler,
-        ),
+        child: textSpan != null
+            ? Text.rich(
+                _scaleInlineSpan(textSpan, fontScale),
+                style: title.style.copyWith(fontSize: fontSize),
+                maxLines: title.maxLines,
+                textAlign: title.textAlign,
+                overflow: title.overflow,
+                textDirection: title.textDirection,
+                textScaler: title.textScaler,
+              )
+            : Text(
+                title.text,
+                style: title.style.copyWith(fontSize: fontSize),
+                maxLines: title.maxLines,
+                textAlign: title.textAlign,
+                overflow: title.overflow,
+                textDirection: title.textDirection,
+                textScaler: title.textScaler,
+              ),
       ),
+    );
+  }
+
+  static InlineSpan _scaleInlineSpan(InlineSpan span, double scale) {
+    if (scale == 1 || span is! TextSpan) {
+      return span;
+    }
+    final style = span.style;
+    final fontSize = style?.fontSize;
+    return TextSpan(
+      text: span.text,
+      children: span.children
+          ?.map((child) => _scaleInlineSpan(child, scale))
+          .toList(growable: false),
+      style: fontSize == null
+          ? style
+          : style?.copyWith(fontSize: fontSize * scale),
+      recognizer: span.recognizer,
+      mouseCursor: span.mouseCursor,
+      onEnter: span.onEnter,
+      onExit: span.onExit,
+      semanticsLabel: span.semanticsLabel,
+      semanticsIdentifier: span.semanticsIdentifier,
+      locale: span.locale,
+      spellOut: span.spellOut,
     );
   }
 
@@ -430,10 +547,11 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: Listenable.merge([_revealController, _profileController]),
+    animation: _animation,
     builder: (context, _) {
       final viewport = MediaQuery.sizeOf(context);
-      final targetPlayerBottom = _targetPlayerBottom(viewport);
+      final targetPlayerRect = _targetPlayerRect(viewport);
+      final targetPlayerBottom = targetPlayerRect.bottom;
       final profileFrom = _profileFromPlayerBottom;
       final playerBottom = profileFrom == null
           ? targetPlayerBottom
@@ -463,7 +581,12 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
       )!;
       final mediaRect = Rect.lerp(
         widget.controller.transitionToken.mediaLaunchRect,
-        Rect.fromLTWH(0, 0, viewport.width, playerBottom),
+        Rect.fromLTRB(
+          0,
+          targetPlayerRect.top,
+          viewport.width,
+          playerBottom,
+        ),
         progress,
       )!;
       final localMediaRect = mediaRect.shift(-morphRect.topLeft);
@@ -472,49 +595,75 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
         BorderRadius.zero,
         progress,
       )!;
-      final surfaceColor = Theme.of(context).colorScheme.surface;
+      final targetColorScheme = Pref.darkVideoPage
+          ? ThemeUtils.darkTheme.colorScheme
+          : Theme.of(context).colorScheme;
+      final surfaceColor = targetColorScheme.surface;
+      final token = widget.controller.transitionToken;
+      final sourceSurfaceOpacity =
+          token.sourceLayout == VideoTransitionSourceLayout.horizontalRow
+          ? 1.0
+          : progress;
+      final skeletonOpacity = progress * revealOpacity;
+      final transitionSurfaceColor = Color.lerp(
+        token.sourceSurfaceColor,
+        surfaceColor,
+        progress,
+      )!.withValues(alpha: sourceSurfaceOpacity * revealOpacity);
+      final sceneClipRect = Rect.lerp(
+        token.sourceVisibleRect,
+        Offset.zero & viewport,
+        progress,
+      )!;
 
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          if (widget.controller._hasRouteAnimation)
-            Positioned.fromRect(
-              rect: morphRect,
-              child: IgnorePointer(
-                child: Opacity(
-                  opacity: revealOpacity,
+      return ClipRect(
+        clipper: _AbsoluteRectClipper(sceneClipRect),
+        clipBehavior: Clip.hardEdge,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (widget.controller._hasRouteAnimation)
+              Positioned.fromRect(
+                rect: morphRect,
+                child: IgnorePointer(
                   child: ClipRRect(
                     borderRadius: borderRadius,
                     child: CustomPaint(
                       painter: _VideoDetailMorphSurfacePainter(
-                        color: surfaceColor.withValues(alpha: progress),
+                        color: transitionSurfaceColor,
                         mediaRect: localMediaRect,
                         mediaBorderRadius: mediaBorderRadius,
+                        playerTopSurfaceOpacity: skeletonOpacity,
                       ),
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Opacity(
-                            opacity: progress,
-                            child: Transform.translate(
-                              offset: Offset(0, profileOffset),
-                              child: VideoDetailHeroShell(
-                                playerSurfaceOpacity: 0,
-                                navigationSurfaceOpacity: 1,
-                                detailSurfaceOpacity: 1,
-                                recommendationSurfaceOpacity: 1,
-                                isVertical: widget.controller._isVertical,
-                                playerBottomOverride:
-                                    localMediaRect.bottom - profileOffset,
-                                variant: widget.controller._variant,
-                                title: widget.controller._title,
-                                expandedIntro: widget.controller.expandedIntro,
-                                showRecommendations:
-                                    widget.controller.showRecommendations,
-                                hasSeasonPanel:
-                                    widget.controller._hasSeasonPanel,
-                                hasPagesPanel: widget.controller._hasPagesPanel,
-                              ),
+                          Transform.translate(
+                            offset: Offset(0, profileOffset),
+                            child: VideoDetailHeroShell(
+                              playerSurfaceOpacity: 0,
+                              navigationSurfaceOpacity: skeletonOpacity,
+                              detailSurfaceOpacity: skeletonOpacity,
+                              recommendationSurfaceOpacity: skeletonOpacity,
+                              isVertical: widget.controller._isVertical,
+                              playerBottomOverride:
+                                  localMediaRect.bottom - profileOffset,
+                              variant: widget.controller._variant,
+                              title: widget.controller._title,
+                              expandedIntro: widget.controller.expandedIntro,
+                              showRecommendations:
+                                  widget.controller.showRecommendations,
+                              hasSeasonPanel: widget.controller._hasSeasonPanel,
+                              hasPagesPanel: widget.controller._hasPagesPanel,
+                              tabCount: widget.controller._tabCount,
+                              actionCount: widget.controller._actionCount,
+                              hasEpisodePanel:
+                                  widget.controller._hasEpisodePanel,
+                              ugcTitleHeightOverride:
+                                  widget.controller._variant ==
+                                      VideoDetailSkeletonVariant.ugc
+                                  ? _cachedUgcTitleHeight(context, viewport)
+                                  : null,
                             ),
                           ),
                           _buildMorphingTitle(
@@ -522,6 +671,7 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
                             viewport: viewport,
                             playerBottom: playerBottom,
                             progress: progress,
+                            revealOpacity: revealOpacity,
                           ),
                         ],
                       ),
@@ -529,18 +679,31 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
                   ),
                 ),
               ),
+            Positioned(
+              top: playerBottom,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: const AbsorbPointer(child: SizedBox.expand()),
             ),
-          Positioned(
-            top: playerBottom,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: const AbsorbPointer(child: SizedBox.expand()),
-          ),
-        ],
+          ],
+        ),
       );
     },
   );
+}
+
+class _AbsoluteRectClipper extends CustomClipper<Rect> {
+  const _AbsoluteRectClipper(this.rect);
+
+  final Rect rect;
+
+  @override
+  Rect getClip(Size size) => rect.intersect(Offset.zero & size);
+
+  @override
+  bool shouldReclip(covariant _AbsoluteRectClipper oldClipper) =>
+      rect != oldClipper.rect;
 }
 
 class _VideoDetailMorphSurfacePainter extends CustomPainter {
@@ -548,11 +711,13 @@ class _VideoDetailMorphSurfacePainter extends CustomPainter {
     required this.color,
     required this.mediaRect,
     required this.mediaBorderRadius,
+    required this.playerTopSurfaceOpacity,
   });
 
   final Color color;
   final Rect mediaRect;
   final BorderRadius mediaBorderRadius;
+  final double playerTopSurfaceOpacity;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -561,11 +726,20 @@ class _VideoDetailMorphSurfacePainter extends CustomPainter {
       ..addRect(Offset.zero & size)
       ..addRRect(mediaBorderRadius.toRRect(mediaRect));
     canvas.drawPath(surfacePath, Paint()..color = color);
+    final playerTop = mediaRect.top.clamp(0.0, size.height).toDouble();
+    if (playerTopSurfaceOpacity > 0 && playerTop > 0) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.width, playerTop),
+        Paint()
+          ..color = Colors.black.withValues(alpha: playerTopSurfaceOpacity),
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant _VideoDetailMorphSurfacePainter oldDelegate) =>
       color != oldDelegate.color ||
       mediaRect != oldDelegate.mediaRect ||
-      mediaBorderRadius != oldDelegate.mediaBorderRadius;
+      mediaBorderRadius != oldDelegate.mediaBorderRadius ||
+      playerTopSurfaceOpacity != oldDelegate.playerTopSurfaceOpacity;
 }

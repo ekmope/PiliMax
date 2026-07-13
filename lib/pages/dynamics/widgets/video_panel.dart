@@ -211,7 +211,11 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
     if (heroTag == null) {
       return card;
     }
-    return VideoDetailTransitionSource(tag: heroTag, child: card);
+    return VideoDetailTransitionSource(
+      tag: heroTag,
+      layout: VideoTransitionSourceLayout.embedded,
+      child: card,
+    );
   }
 
   bool _showQuickWatchLater(DynamicArchiveModel video, DynamicItemModel item) {

@@ -1,15 +1,16 @@
-import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 const videoTransitionTokenKey = '_videoTransitionToken';
 
+enum VideoTransitionSourceLayout { verticalCard, horizontalRow, embedded }
+
 final class VideoTransitionTitleDescriptor {
   const VideoTransitionTitleDescriptor({
     required this.text,
+    this.textSpan,
     this.style,
     this.maxLines,
     this.textAlign,
@@ -17,6 +18,7 @@ final class VideoTransitionTitleDescriptor {
   });
 
   final String text;
+  final InlineSpan? textSpan;
   final TextStyle? style;
   final int? maxLines;
   final TextAlign? textAlign;
@@ -27,6 +29,7 @@ final class VideoTransitionTitleSnapshot {
   const VideoTransitionTitleSnapshot({
     required this.rect,
     required this.text,
+    required this.textSpan,
     required this.style,
     required this.maxLines,
     required this.textAlign,
@@ -37,6 +40,7 @@ final class VideoTransitionTitleSnapshot {
 
   final Rect rect;
   final String text;
+  final InlineSpan? textSpan;
   final TextStyle style;
   final int? maxLines;
   final TextAlign? textAlign;
@@ -51,42 +55,29 @@ final class VideoTransitionToken {
     required this.sourceGeneration,
     required this.sourceRoute,
     required this.launchRect,
+    required this.sourceVisibleRect,
     required this.mediaLaunchRect,
     required this.mediaLaunchBorderRadius,
     required this.launchBorderRadius,
+    required this.sourceLayout,
+    required this.sourceSurfaceColor,
     required this.title,
     required this.contentKey,
-    required this.coverUrl,
-    required Future<ui.Image?> snapshot,
-  }) : _snapshotFuture = snapshot {
-    _snapshotFuture.then((image) {
-      if (_disposed) {
-        image?.dispose();
-      } else {
-        _snapshot = image;
-        if (image != null) {
-          VideoTransitionRegistry._retainTokenSnapshot(this, image);
-        }
-      }
-    });
-  }
+  });
 
   final Object tag;
   final int sourceGeneration;
   final Route<dynamic>? sourceRoute;
   final Rect launchRect;
+  final Rect sourceVisibleRect;
   final Rect mediaLaunchRect;
   final BorderRadius mediaLaunchBorderRadius;
   final BorderRadius launchBorderRadius;
+  final VideoTransitionSourceLayout sourceLayout;
+  final Color sourceSurfaceColor;
   final VideoTransitionTitleSnapshot? title;
   String contentKey;
-  final String? coverUrl;
-  final Future<ui.Image?> _snapshotFuture;
-
-  ui.Image? _snapshot;
   bool _disposed = false;
-
-  ui.Image? get snapshot => _snapshot;
 
   void bindLaunchContentKey(String contentKey) {
     if (!_disposed) {
@@ -95,36 +86,20 @@ final class VideoTransitionToken {
   }
 
   void dispose() {
-    if (_disposed) {
-      return;
-    }
     _disposed = true;
-    _discardSnapshot();
-  }
-
-  void _discardSnapshot() {
-    final image = _snapshot;
-    if (image == null) {
-      return;
-    }
-    _snapshot = null;
-    VideoTransitionRegistry._forgetTokenSnapshot(this, image);
-    image.dispose();
   }
 }
 
 final class VideoReturnTarget {
   const VideoReturnTarget({
     required this.rect,
+    required this.visibleRect,
     required this.borderRadius,
-    required this.snapshot,
-    required this.coverUrl,
   });
 
   final Rect rect;
+  final Rect visibleRect;
   final BorderRadius borderRadius;
-  final ui.Image? snapshot;
-  final String? coverUrl;
 }
 
 final class VideoTransitionRegistration {
@@ -134,9 +109,17 @@ final class VideoTransitionRegistration {
   final int _generation;
   bool _disposed = false;
 
-  void prepare() {
+  Rect? currentVisibleRect() => _disposed
+      ? null
+      : VideoTransitionRegistry._currentVisibleRect(_tag, _generation);
+
+  void notePointerDown(Offset position) {
     if (!_disposed) {
-      VideoTransitionRegistry._prepare(_tag, _generation);
+      VideoTransitionRegistry._notePointerDown(
+        _tag,
+        _generation,
+        position,
+      );
     }
   }
 
@@ -203,18 +186,20 @@ final class _VideoTransitionSource {
     required this.boundaryKey,
     required this.route,
     required this.borderRadius,
+    required this.layout,
   });
 
   final int generation;
   final GlobalKey boundaryKey;
   final Route<dynamic>? route;
   final BorderRadiusGeometry borderRadius;
+  final VideoTransitionSourceLayout layout;
   GlobalKey? _mediaBoundaryKey;
   BorderRadiusGeometry? _mediaBorderRadius;
   GlobalKey? _titleBoundaryKey;
   VideoTransitionTitleDescriptor? _titleDescriptor;
-  Future<ui.Image?>? _preparedSnapshot;
-  Timer? _preparedSnapshotExpiry;
+  Offset? _lastPointerPosition;
+  Rect? _launchVisibleFraction;
 
   BuildContext? get context => boundaryKey.currentContext;
 
@@ -222,14 +207,68 @@ final class _VideoTransitionSource {
 
   BuildContext? get titleContext => _titleBoundaryKey?.currentContext;
 
-  bool get hasPreparedSnapshot => _preparedSnapshot != null;
-
   Rect? currentRect() {
     return _rectFor(context);
   }
 
   Rect? currentMediaRect() {
     return _rectFor(mediaContext);
+  }
+
+  Rect? currentVisibleRect() {
+    final rect = currentRect();
+    final currentContext = context;
+    if (rect == null || currentContext == null) {
+      return null;
+    }
+    final visible = VideoTransitionRegistry._visiblePortion(
+      currentContext,
+      rect,
+    );
+    final fraction = _launchVisibleFraction;
+    if (visible == null || fraction == null) {
+      return visible;
+    }
+    final launchVisible = Rect.fromLTRB(
+      rect.left + rect.width * fraction.left,
+      rect.top + rect.height * fraction.top,
+      rect.left + rect.width * fraction.right,
+      rect.top + rect.height * fraction.bottom,
+    );
+    return visible.intersect(launchVisible);
+  }
+
+  Rect? currentLaunchVisibleRect() {
+    final rect = currentRect();
+    final currentContext = context;
+    if (rect == null || currentContext == null) {
+      return null;
+    }
+    final ancestorVisible = VideoTransitionRegistry._visiblePortion(
+      currentContext,
+      rect,
+    );
+    if (ancestorVisible == null) {
+      return null;
+    }
+    final visible = VideoTransitionRegistry._trimSiblingOcclusion(
+      currentContext,
+      rect,
+      ancestorVisible,
+      _lastPointerPosition,
+    );
+    _launchVisibleFraction = Rect.fromLTRB(
+      ((visible.left - rect.left) / rect.width).clamp(0.0, 1.0),
+      ((visible.top - rect.top) / rect.height).clamp(0.0, 1.0),
+      ((visible.right - rect.left) / rect.width).clamp(0.0, 1.0),
+      ((visible.bottom - rect.top) / rect.height).clamp(0.0, 1.0),
+    );
+    return visible;
+  }
+
+  void notePointerDown(Offset position) {
+    _lastPointerPosition = position;
+    _launchVisibleFraction = null;
   }
 
   static Rect? _rectFor(BuildContext? context) {
@@ -296,6 +335,7 @@ final class _VideoTransitionSource {
     return VideoTransitionTitleSnapshot(
       rect: rect,
       text: descriptor.text,
+      textSpan: descriptor.textSpan,
       style: defaultTextStyle.style.merge(descriptor.style),
       maxLines: descriptor.maxLines ?? defaultTextStyle.maxLines,
       textAlign: descriptor.textAlign ?? defaultTextStyle.textAlign,
@@ -321,65 +361,11 @@ final class _VideoTransitionSource {
     return (_mediaBorderRadius ?? BorderRadius.zero).resolve(direction);
   }
 
-  void prepareSnapshot() {
-    if (_preparedSnapshot != null) {
-      return;
-    }
-    final snapshot = _capture();
-    _preparedSnapshot = snapshot;
-    _preparedSnapshotExpiry = Timer(const Duration(seconds: 4), () {
-      if (!identical(_preparedSnapshot, snapshot)) {
-        return;
-      }
-      _preparedSnapshot = null;
-      snapshot.then((image) => image?.dispose());
-    });
-  }
-
-  Future<ui.Image?> takeSnapshot() {
-    _preparedSnapshotExpiry?.cancel();
-    _preparedSnapshotExpiry = null;
-    final snapshot = _preparedSnapshot;
-    _preparedSnapshot = null;
-    return snapshot ?? _capture();
-  }
-
-  void discardPreparedSnapshot() {
-    _preparedSnapshotExpiry?.cancel();
-    _preparedSnapshotExpiry = null;
-    final snapshot = _preparedSnapshot;
-    _preparedSnapshot = null;
-    snapshot?.then((image) => image?.dispose());
-  }
-
-  Future<ui.Image?> _capture() async {
-    var renderObject = context?.findRenderObject();
-    if (renderObject is RenderRepaintBoundary &&
-        renderObject.attached &&
-        renderObject.debugNeedsPaint) {
-      await WidgetsBinding.instance.endOfFrame;
-      renderObject = context?.findRenderObject();
-    }
-    if (renderObject is! RenderRepaintBoundary ||
-        !renderObject.attached ||
-        renderObject.debugNeedsPaint) {
-      return null;
-    }
-    final requestedPixelRatio = context == null
-        ? 1.0
-        : MediaQuery.devicePixelRatioOf(context!).clamp(1.0, 1.5);
-    final logicalPixels = renderObject.size.width * renderObject.size.height;
-    final areaLimitedRatio = logicalPixels <= 0
-        ? 1.0
-        : math.sqrt(1500000 / logicalPixels);
-    final devicePixelRatio = math
-        .min(requestedPixelRatio, areaLimitedRatio)
-        .clamp(0.5, 1.5);
-    try {
-      return await renderObject.toImage(pixelRatio: devicePixelRatio);
-    } catch (_) {
-      return null;
-    }
+  Color resolvedSurfaceColor() {
+    final currentContext = context;
+    return currentContext == null
+        ? Colors.transparent
+        : Theme.of(currentContext).colorScheme.surface;
   }
 
   void dispose() {
@@ -387,25 +373,21 @@ final class _VideoTransitionSource {
     _mediaBorderRadius = null;
     _titleBoundaryKey = null;
     _titleDescriptor = null;
-    discardPreparedSnapshot();
+    _lastPointerPosition = null;
+    _launchVisibleFraction = null;
   }
 }
 
 abstract final class VideoTransitionRegistry {
-  static const _maximumPreparedSnapshots = 3;
-  static const _maximumRetainedSnapshotPixels = 4500000;
-
   static final Map<Object, List<_VideoTransitionSource>> _sources = {};
-  static final List<_VideoTransitionSource> _preparedSources = [];
-  static final List<VideoTransitionToken> _tokensWithSnapshots = [];
   static int _nextGeneration = 0;
-  static int _retainedSnapshotPixels = 0;
 
   static VideoTransitionRegistration register({
     required Object tag,
     required GlobalKey boundaryKey,
     required BuildContext context,
     required BorderRadiusGeometry borderRadius,
+    required VideoTransitionSourceLayout layout,
   }) {
     final generation = _nextGeneration++;
     final source = _VideoTransitionSource(
@@ -413,58 +395,45 @@ abstract final class VideoTransitionRegistry {
       boundaryKey: boundaryKey,
       route: ModalRoute.of(context),
       borderRadius: borderRadius,
+      layout: layout,
     );
     (_sources[tag] ??= []).add(source);
     return VideoTransitionRegistration._(tag, generation);
   }
 
-  static void prepare(Object tag) {
-    final source = _findLaunchSource(tag);
-    if (source != null) {
-      _prepareSource(source);
-    }
-  }
-
-  static void _prepare(Object tag, int generation) {
-    final source = _sourceByGeneration(tag, generation);
-    if (source != null) {
-      _prepareSource(source);
-    }
-  }
-
   static VideoTransitionToken? claim({
     required Object tag,
     required String contentKey,
-    required String? coverUrl,
   }) {
     final source = _findLaunchSource(tag);
     final rect = source?.currentRect();
     final mediaRect = source?.currentMediaRect();
+    final sourceVisibleRect = source?.currentLaunchVisibleRect();
     if (source == null ||
         rect == null ||
         mediaRect == null ||
+        sourceVisibleRect == null ||
         source.route?.isCurrent != true ||
-        !_isVisible(source.context, rect) ||
-        !_isVisible(source.mediaContext, mediaRect)) {
+        !_isVisibleRect(rect, sourceVisibleRect) ||
+        !_isValidMediaRect(rect, mediaRect)) {
       return null;
     }
-    final snapshot = source.takeSnapshot();
     final mediaLaunchBorderRadius = source.resolvedMediaBorderRadius();
     final launchBorderRadius = source.resolvedBorderRadius();
     final title = source.currentTitleSnapshot();
-    _preparedSources.remove(source);
     return VideoTransitionToken(
       tag: tag,
       sourceGeneration: source.generation,
       sourceRoute: source.route,
       launchRect: rect,
+      sourceVisibleRect: sourceVisibleRect,
       mediaLaunchRect: mediaRect,
       mediaLaunchBorderRadius: mediaLaunchBorderRadius,
       launchBorderRadius: launchBorderRadius,
+      sourceLayout: source.layout,
+      sourceSurfaceColor: source.resolvedSurfaceColor(),
       title: title,
       contentKey: contentKey,
-      coverUrl: coverUrl,
-      snapshot: snapshot,
     );
   }
 
@@ -474,7 +443,7 @@ abstract final class VideoTransitionRegistry {
       token.sourceGeneration,
     );
     final rect = source?.currentRect();
-    final snapshot = token.snapshot;
+    final visibleRect = source?.currentVisibleRect();
     final launchAspectRatio = token.launchRect.width / token.launchRect.height;
     final returnAspectRatio = rect == null ? 0 : rect.width / rect.height;
     final aspectRatioChanged =
@@ -483,17 +452,17 @@ abstract final class VideoTransitionRegistry {
             0.08;
     if (source == null ||
         rect == null ||
+        visibleRect == null ||
         aspectRatioChanged ||
         !identical(source.route, token.sourceRoute) ||
         source.route?.isActive != true ||
-        !_isVisible(source.context, rect)) {
+        !_isVisibleRect(rect, visibleRect)) {
       return null;
     }
     return VideoReturnTarget(
       rect: rect,
+      visibleRect: visibleRect,
       borderRadius: source.resolvedBorderRadius(),
-      snapshot: snapshot,
-      coverUrl: token.coverUrl,
     );
   }
 
@@ -508,9 +477,34 @@ abstract final class VideoTransitionRegistry {
     if (visible == null) {
       return false;
     }
+    return _isVisibleRect(rect, visible);
+  }
+
+  static bool _isVisibleRect(Rect rect, Rect visible) {
     final visibleRatio =
         (visible.width * visible.height) / (rect.width * rect.height);
-    return visibleRatio >= 0.2;
+    final minimumVisibleWidth = math.min(32.0, rect.width * 0.2);
+    final minimumVisibleHeight = math.min(32.0, rect.height * 0.2);
+    return visibleRatio >= 0.2 &&
+        visible.width >= minimumVisibleWidth &&
+        visible.height >= minimumVisibleHeight;
+  }
+
+  static bool _isValidMediaRect(Rect sourceRect, Rect mediaRect) {
+    if (!mediaRect.left.isFinite ||
+        !mediaRect.top.isFinite ||
+        !mediaRect.right.isFinite ||
+        !mediaRect.bottom.isFinite ||
+        mediaRect.width <= 0 ||
+        mediaRect.height <= 0) {
+      return false;
+    }
+    final overlap = sourceRect.inflate(2).intersect(mediaRect);
+    if (overlap.width <= 0 || overlap.height <= 0) {
+      return false;
+    }
+    final mediaArea = mediaRect.width * mediaRect.height;
+    return overlap.width * overlap.height / mediaArea >= 0.85;
   }
 
   static Rect? _visiblePortion(BuildContext context, Rect rect) {
@@ -551,6 +545,123 @@ abstract final class VideoTransitionRegistry {
     return visible;
   }
 
+  static Rect? visiblePortion(BuildContext context, Rect rect) =>
+      _visiblePortion(context, rect);
+
+  static Rect _trimSiblingOcclusion(
+    BuildContext context,
+    Rect sourceRect,
+    Rect visibleRect,
+    Offset? pointerPosition,
+  ) {
+    final sourceRenderObject = context.findRenderObject();
+    if (pointerPosition == null || sourceRenderObject == null) {
+      return visibleRect;
+    }
+    final anchor = Offset(
+      pointerPosition.dx.clamp(visibleRect.left, visibleRect.right),
+      pointerPosition.dy.clamp(visibleRect.top, visibleRect.bottom),
+    );
+    bool receivesHit(Offset position) => _sourceReceivesHit(
+      context,
+      sourceRenderObject,
+      position,
+    );
+    if (!receivesHit(anchor)) {
+      return visibleRect;
+    }
+
+    var left = visibleRect.left;
+    var top = visibleRect.top;
+    var right = visibleRect.right;
+    var bottom = visibleRect.bottom;
+    const edgeInset = 0.5;
+    if (!receivesHit(Offset(anchor.dx, math.min(bottom, top + edgeInset)))) {
+      top = _findFirstHit(top, anchor.dy, (value) {
+        return receivesHit(Offset(anchor.dx, value));
+      });
+    }
+    if (!receivesHit(Offset(anchor.dx, math.max(top, bottom - edgeInset)))) {
+      bottom = _findLastHit(anchor.dy, bottom, (value) {
+        return receivesHit(Offset(anchor.dx, value));
+      });
+    }
+    if (!receivesHit(Offset(math.min(right, left + edgeInset), anchor.dy))) {
+      left = _findFirstHit(left, anchor.dx, (value) {
+        return receivesHit(Offset(value, anchor.dy));
+      });
+    }
+    if (!receivesHit(Offset(math.max(left, right - edgeInset), anchor.dy))) {
+      right = _findLastHit(anchor.dx, right, (value) {
+        return receivesHit(Offset(value, anchor.dy));
+      });
+    }
+    return Rect.fromLTRB(left, top, right, bottom).intersect(sourceRect);
+  }
+
+  static double _findFirstHit(
+    double hiddenEdge,
+    double visiblePoint,
+    bool Function(double) receivesHit,
+  ) {
+    var low = hiddenEdge;
+    var high = visiblePoint;
+    for (var index = 0; index < 8; index++) {
+      final middle = (low + high) / 2;
+      if (receivesHit(middle)) {
+        high = middle;
+      } else {
+        low = middle;
+      }
+    }
+    return high;
+  }
+
+  static double _findLastHit(
+    double visiblePoint,
+    double hiddenEdge,
+    bool Function(double) receivesHit,
+  ) {
+    var low = visiblePoint;
+    var high = hiddenEdge;
+    for (var index = 0; index < 8; index++) {
+      final middle = (low + high) / 2;
+      if (receivesHit(middle)) {
+        low = middle;
+      } else {
+        high = middle;
+      }
+    }
+    return low;
+  }
+
+  static bool _sourceReceivesHit(
+    BuildContext context,
+    RenderObject source,
+    Offset position,
+  ) {
+    final result = HitTestResult();
+    RendererBinding.instance.hitTestInView(
+      result,
+      position,
+      View.of(context).viewId,
+    );
+    for (final entry in result.path) {
+      final target = entry.target;
+      if (target is! RenderObject) {
+        continue;
+      }
+      RenderObject? current = target;
+      while (current != null) {
+        if (identical(current, source)) {
+          return true;
+        }
+        current = current.parent;
+      }
+    }
+    return false;
+  }
+
   static bool _isDisplayedIndexedStackChild(
     RenderIndexedStack stack,
     RenderObject child,
@@ -571,18 +682,15 @@ abstract final class VideoTransitionRegistry {
     if (sources == null) {
       return null;
     }
-    for (final requirePrepared in [true, false]) {
-      for (final source in sources.reversed) {
-        final rect = source.currentRect();
-        final mediaRect = source.currentMediaRect();
-        if (source.route?.isCurrent == true &&
-            (!requirePrepared || source.hasPreparedSnapshot) &&
-            rect != null &&
-            mediaRect != null &&
-            _isVisible(source.context, rect) &&
-            _isVisible(source.mediaContext, mediaRect)) {
-          return source;
-        }
+    for (final source in sources.reversed) {
+      final rect = source.currentRect();
+      final mediaRect = source.currentMediaRect();
+      if (source.route?.isCurrent == true &&
+          rect != null &&
+          mediaRect != null &&
+          _isVisible(source.context, rect) &&
+          _isValidMediaRect(rect, mediaRect)) {
+        return source;
       }
     }
     return null;
@@ -604,15 +712,15 @@ abstract final class VideoTransitionRegistry {
     return null;
   }
 
-  static void _prepareSource(_VideoTransitionSource source) {
-    _preparedSources.removeWhere((item) => !item.hasPreparedSnapshot);
-    source.prepareSnapshot();
-    _preparedSources
-      ..remove(source)
-      ..add(source);
-    while (_preparedSources.length > _maximumPreparedSnapshots) {
-      _preparedSources.removeAt(0).discardPreparedSnapshot();
-    }
+  static Rect? _currentVisibleRect(Object tag, int generation) =>
+      _sourceByGeneration(tag, generation)?.currentVisibleRect();
+
+  static void _notePointerDown(
+    Object tag,
+    int generation,
+    Offset position,
+  ) {
+    _sourceByGeneration(tag, generation)?.notePointerDown(position);
   }
 
   static void _attachMedia(
@@ -655,27 +763,6 @@ abstract final class VideoTransitionRegistry {
     _sourceByGeneration(tag, generation)?.detachTitle(boundaryKey);
   }
 
-  static void _retainTokenSnapshot(
-    VideoTransitionToken token,
-    ui.Image image,
-  ) {
-    _tokensWithSnapshots.add(token);
-    _retainedSnapshotPixels += image.width * image.height;
-    while (_retainedSnapshotPixels > _maximumRetainedSnapshotPixels &&
-        _tokensWithSnapshots.isNotEmpty) {
-      _tokensWithSnapshots.first._discardSnapshot();
-    }
-  }
-
-  static void _forgetTokenSnapshot(
-    VideoTransitionToken token,
-    ui.Image image,
-  ) {
-    if (_tokensWithSnapshots.remove(token)) {
-      _retainedSnapshotPixels -= image.width * image.height;
-    }
-  }
-
   static void _unregister(Object tag, int generation) {
     final sources = _sources[tag];
     if (sources == null) {
@@ -687,9 +774,7 @@ abstract final class VideoTransitionRegistry {
     if (index < 0) {
       return;
     }
-    final source = sources.removeAt(index);
-    _preparedSources.remove(source);
-    source.dispose();
+    sources.removeAt(index).dispose();
     if (sources.isEmpty) {
       _sources.remove(tag);
     }

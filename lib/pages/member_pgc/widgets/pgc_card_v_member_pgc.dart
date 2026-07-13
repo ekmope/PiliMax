@@ -35,6 +35,7 @@ class PgcCardVMemberPgc extends StatelessWidget {
     );
     return VideoDetailTransitionSource(
       tag: _heroTag,
+      layout: VideoTransitionSourceLayout.verticalCard,
       child: Card(
         shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
         child: InkWell(

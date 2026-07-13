@@ -39,8 +39,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   late final AnimationController _detailRevealController;
   late VideoDetailSkeletonVariant _entryVariant;
   bool? _entryIsVertical;
-  VideoDetailSkeletonProfile _entryContentProfile =
-      const VideoDetailSkeletonProfile();
+  late VideoDetailSkeletonProfile _entryContentProfile;
   Animation<double>? _routeAnimation;
   bool _routeAnimationAttachScheduled = false;
   VideoDetailSession? _session;
@@ -136,12 +135,13 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (!_showEntryLayer) {
       return true;
     }
-    if (!_showDetail && (!_argumentsResolved || _session == null)) {
+    if (!_showDetail) {
       setState(() {
         _showEarlyExitSurface = true;
+        _showEntryLayer = false;
         _useHeroTarget = false;
       });
-      return false;
+      return true;
     }
     _detailRevealController.stop();
     _orientationSettleTimer?.cancel();
@@ -180,6 +180,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     _arguments[videoDetailCancelPreparedExitKey] = _cancelPreparedExitCallback;
     _entryVariant = _resolvedSkeletonVariant();
     _entryIsVertical = _resolvedEntryOrientation();
+    _entryContentProfile = VideoDetailSession.skeletonProfileFor(_arguments);
     if (_hasPendingLaunch) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _resolveArguments());
     } else {
@@ -245,12 +246,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       if (!mounted) {
         return;
       }
-      final settleOrientationBeforeHandoff =
-          _pendingEntryOrientation != null &&
-          _pendingEntryOrientation != _entryIsVertical;
-      if (_useHeroTarget && !settleOrientationBeforeHandoff) {
-        setState(() => _useHeroTarget = false);
-      }
       if (_pendingEntryOrientation != null ||
           _pendingEntryVariant != null ||
           _pendingContentProfile != null) {
@@ -265,15 +260,13 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         }
       }
     });
-    if (!_usesExternalEntryOverlay) {
-      _fallbackTimer ??= Timer(_maximumPostTransitionHold, () {
-        if (!mounted) {
-          return;
-        }
-        _fallbackElapsed = true;
-        _tryMountDetail();
-      });
-    }
+    _fallbackTimer ??= Timer(_maximumPostTransitionHold, () {
+      if (!mounted) {
+        return;
+      }
+      _fallbackElapsed = true;
+      _tryMountDetail();
+    });
     _tryMountDetail();
   }
 
@@ -336,9 +329,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       (_) => _markPresentationReady(session),
       onError: (_, _) => _markPresentationReady(session),
     );
-    if (_usesExternalEntryOverlay && !_showDetail) {
-      setState(() => _showDetail = true);
-    }
     _tryMountDetail();
   }
 
@@ -375,13 +365,16 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     VideoDetailSkeletonProfile second,
   ) =>
       first.hasSeasonPanel == second.hasSeasonPanel &&
-      first.hasPagesPanel == second.hasPagesPanel;
+      first.hasPagesPanel == second.hasPagesPanel &&
+      first.tabCount == second.tabCount &&
+      first.actionCount == second.actionCount &&
+      first.hasEpisodePanel == second.hasEpisodePanel;
 
   void _stageEntryOrientation(bool? orientation) {
     if (orientation == null || orientation == _entryIsVertical) {
       return;
     }
-    if (!_routeAnimationCompleted || _useHeroTarget) {
+    if (!_routeAnimationCompleted) {
       _pendingEntryOrientation = orientation;
       return;
     }
@@ -392,7 +385,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (variant == _entryVariant) {
       return;
     }
-    if (!_routeAnimationCompleted || _useHeroTarget) {
+    if (!_routeAnimationCompleted) {
       _pendingEntryVariant = variant;
       return;
     }
@@ -407,7 +400,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (_sameContentProfile(profile, _entryContentProfile)) {
       return;
     }
-    if (!_routeAnimationCompleted || _useHeroTarget) {
+    if (!_routeAnimationCompleted) {
       _pendingContentProfile = profile;
       return;
     }
@@ -472,6 +465,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           !Pref.alwaysExpandIntroPanel && contentProfile.hasSeasonPanel,
       hasPagesPanel:
           !Pref.alwaysExpandIntroPanel && contentProfile.hasPagesPanel,
+      tabCount: contentProfile.tabCount,
+      actionCount: contentProfile.actionCount,
+      hasEpisodePanel: contentProfile.hasEpisodePanel,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
@@ -488,9 +484,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         setState(() {
           _orientationSettleTimer = null;
           _orientationSettling = false;
-          if (_usesExternalEntryOverlay) {
-            _useHeroTarget = false;
-          }
         });
         if (_showDetail && !_usesExternalEntryOverlay) {
           _beginDetailReveal();
@@ -513,18 +506,22 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   void _tryMountDetail() {
     if (_usesExternalEntryOverlay) {
-      if (!mounted || !_argumentsResolved || _session == null) {
+      if (!mounted ||
+          !_argumentsResolved ||
+          _session == null ||
+          !_routeAnimationCompleted ||
+          _pendingEntryOrientation != null ||
+          _pendingEntryVariant != null ||
+          _pendingContentProfile != null ||
+          _orientationSettling) {
         return;
       }
       if (!_showDetail) {
         setState(() => _showDetail = true);
+        WidgetsBinding.instance.addPostFrameCallback((_) => _tryMountDetail());
+        return;
       }
-      if (!_routeAnimationCompleted ||
-          _pendingEntryOrientation != null ||
-          _pendingEntryVariant != null ||
-          _pendingContentProfile != null ||
-          _orientationSettling ||
-          !_presentationReady) {
+      if (!_presentationReady && !_fallbackElapsed) {
         return;
       }
       _fallbackTimer?.cancel();
@@ -589,34 +586,38 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     final topInset = Pref.removeSafeArea
         ? 0.0
         : MediaQuery.viewPaddingOf(context).top;
-    final playerBottom = VideoDetailLayoutMetrics.entryPlayerBottom(
+    final playerRect = VideoDetailLayoutMetrics.entryPlayerRect(
       viewport,
       isVertical: _entryIsVertical,
       topInset: topInset,
     );
     final cover = _entryCover;
-    return Align(
-      alignment: Alignment.topCenter,
-      child: AnimatedContainer(
-        duration: _orientationTransitionDuration,
-        curve: Curves.easeInOutCubic,
-        width: viewport.width,
-        height: playerBottom,
-        child: VideoDetailHero.target(
-          tag: _heroTag,
-          child: cover == null
-              ? const ColoredBox(color: Colors.black)
-              : NetworkImgLayer(
-                  src: cover,
-                  width: viewport.width,
-                  height: playerBottom,
-                  fadeInDuration: Duration.zero,
-                  fadeOutDuration: Duration.zero,
-                  borderRadius: BorderRadius.zero,
-                  clip: false,
-                ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        AnimatedPositioned(
+          duration: _orientationTransitionDuration,
+          curve: Curves.easeInOutCubic,
+          left: playerRect.left,
+          top: playerRect.top,
+          width: playerRect.width,
+          height: playerRect.height,
+          child: VideoDetailHero.target(
+            tag: _heroTag,
+            child: cover == null
+                ? const ColoredBox(color: Colors.black)
+                : NetworkImgLayer(
+                    src: cover,
+                    width: playerRect.width,
+                    height: playerRect.height,
+                    fadeInDuration: Duration.zero,
+                    fadeOutDuration: Duration.zero,
+                    borderRadius: BorderRadius.zero,
+                    clip: false,
+                  ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -626,6 +627,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _skeletonVariant,
       !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasSeasonPanel,
       !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasPagesPanel,
+      _entryContentProfile.tabCount,
+      _entryContentProfile.actionCount,
+      _entryContentProfile.hasEpisodePanel,
     )),
     progress: _revealingDetail ? _detailRevealController.value : 0,
     isVertical: _entryIsVertical,
@@ -637,6 +641,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasSeasonPanel,
     hasPagesPanel:
         !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasPagesPanel,
+    tabCount: _entryContentProfile.tabCount,
+    actionCount: _entryContentProfile.actionCount,
+    hasEpisodePanel: _entryContentProfile.hasEpisodePanel,
   );
 
   Widget _animatedEntryShell() => AnimatedSwitcher(

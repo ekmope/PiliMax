@@ -4,6 +4,7 @@ import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
+import 'package:PiliMax/common/widgets/video_card/video_card_h_layout_metrics.dart';
 import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/watch_later_button.dart';
 import 'package:PiliMax/common/widgets/video_popup_menu.dart';
@@ -151,6 +152,7 @@ class _VideoCardHState extends State<VideoCardH> {
           children: [
             VideoDetailTransitionSource(
               tag: _heroTag,
+              layout: VideoTransitionSourceLayout.horizontalRow,
               child: InkWell(
                 onLongPress: onLongPress,
                 onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
@@ -158,10 +160,7 @@ class _VideoCardHState extends State<VideoCardH> {
                     ? () => onTapWithHeroTag!(_heroTag)
                     : onTap ?? onPushDetail,
                 child: Padding(
-                  padding: const .symmetric(
-                    horizontal: Style.safeSpace,
-                    vertical: 5,
-                  ),
+                  padding: VideoCardHLayoutMetrics.contentPadding,
                   child: Row(
                     crossAxisAlignment: .start,
                     children: [
@@ -249,7 +248,9 @@ class _VideoCardHState extends State<VideoCardH> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(
+                        width: VideoCardHLayoutMetrics.contentGap,
+                      ),
                       content(theme),
                     ],
                   ),
@@ -292,34 +293,38 @@ class _VideoCardHState extends State<VideoCardH> {
                 letterSpacing: 0.3,
                 color: isClicked ? theme.colorScheme.outline : null,
               );
+              final titleSpan = titleList?.isNotEmpty == true
+                  ? TextSpan(
+                      children: titleList!
+                          .map(
+                            (e) => TextSpan(
+                              text: e.text,
+                              style: titleStyle.copyWith(
+                                color: isClicked
+                                    ? theme.colorScheme.outline
+                                    : e.isEm
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurface,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    )
+                  : null;
               return VideoDetailTransitionTitle(
                 text: titleList?.isNotEmpty == true
                     ? titleList!.map((e) => e.text).join()
                     : videoItem.title,
+                textSpan: titleSpan,
                 style: titleStyle,
                 maxLines: 2,
                 textAlign: .start,
                 overflow: .ellipsis,
-                child: titleList?.isNotEmpty == true
+                child: titleSpan != null
                     ? Text.rich(
                         overflow: .ellipsis,
                         maxLines: 2,
-                        TextSpan(
-                          children: titleList!
-                              .map(
-                                (e) => TextSpan(
-                                  text: e.text,
-                                  style: titleStyle.copyWith(
-                                    color: isClicked
-                                        ? theme.colorScheme.outline
-                                        : e.isEm
-                                        ? theme.colorScheme.primary
-                                        : theme.colorScheme.onSurface,
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
+                        titleSpan,
                       )
                     : Text(
                         videoItem.title,

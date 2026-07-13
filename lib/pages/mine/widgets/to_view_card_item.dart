@@ -59,6 +59,7 @@ class ToViewCardItem extends StatelessWidget {
       cid: item.cid,
       cover: item.pic,
       title: item.title,
+      dimension: item.dimension,
       heroTag: _heroTag,
     );
   }
@@ -73,6 +74,7 @@ class ToViewCardItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: VideoDetailTransitionSource(
         tag: _heroTag,
+        layout: VideoTransitionSourceLayout.verticalCard,
         borderRadius: _cardRadius,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

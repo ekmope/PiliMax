@@ -11,6 +11,7 @@ import 'package:PiliMax/models/common/stat_type.dart';
 import 'package:PiliMax/models_new/member/coin_like_arc/item.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
+import 'package:PiliMax/utils/extension/dimension_ext.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
@@ -49,6 +50,7 @@ class _MemberCoinLikeItemState extends State<MemberCoinLikeItem> {
     );
     return VideoDetailTransitionSource(
       tag: _heroTag,
+      layout: VideoTransitionSourceLayout.verticalCard,
       child: Card(
         clipBehavior: Clip.hardEdge,
         child: InkWell(
@@ -71,6 +73,7 @@ class _MemberCoinLikeItemState extends State<MemberCoinLikeItem> {
                 cid: null,
                 cover: item.cover,
                 title: item.title,
+                isVertical: item.uri?.verticalFromUri,
                 heroTag: _heroTag,
               );
             }

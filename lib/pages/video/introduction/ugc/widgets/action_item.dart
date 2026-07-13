@@ -1,5 +1,6 @@
 import 'package:PiliMax/common/widgets/custom_arc.dart';
 import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
+import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
@@ -52,7 +53,7 @@ class ActionItem extends StatelessWidget {
           )
         : Icon(
             selectStatus ? selectIcon!.icon! : icon.icon,
-            size: 18,
+            size: VideoDetailLayoutMetrics.actionIconGlyphExtent,
             color: selectStatus ? primary : icon.color ?? colorScheme.outline,
             semanticLabel: semanticsLabel,
           );
@@ -64,14 +65,20 @@ class ActionItem extends StatelessWidget {
         children: [
           AnimatedBuilder(
             animation: animation!,
-            builder: (context, child) =>
-                Arc(size: 28, color: primary, progress: -animation!.value),
+            builder: (context, child) => Arc(
+              size: VideoDetailLayoutMetrics.actionIconBoxExtent,
+              color: primary,
+              progress: -animation!.value,
+            ),
           ),
           child,
         ],
       );
     } else {
-      child = SizedBox.square(dimension: 28, child: child);
+      child = SizedBox.square(
+        dimension: VideoDetailLayoutMetrics.actionIconBoxExtent,
+        child: child,
+      );
     }
 
     child = Material(

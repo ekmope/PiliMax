@@ -32,6 +32,20 @@ class SearchPgcItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     const TextStyle style = TextStyle(fontSize: 13);
+    final titleSpan = TextSpan(
+      children: item.title
+          .map(
+            (e) => TextSpan(
+              text: e.text,
+              style: TextStyle(
+                color: e.isEm
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface,
+              ),
+            ),
+          )
+          .toList(),
+    );
     void onLongPress() => imageSaveDialog(
       title: item.title.map((item) => item.text).join(),
       cover: item.cover,
@@ -40,6 +54,7 @@ class SearchPgcItem extends StatelessWidget {
       type: MaterialType.transparency,
       child: VideoDetailTransitionSource(
         tag: _heroTag,
+        layout: VideoTransitionSourceLayout.horizontalRow,
         child: InkWell(
           onTap: () => PageUtils.viewPgc(
             seasonId: item.seasonId,
@@ -85,22 +100,8 @@ class SearchPgcItem extends StatelessWidget {
                       const SizedBox(height: 4),
                       VideoDetailTransitionTitle(
                         text: item.title.map((item) => item.text).join(),
-                        child: Text.rich(
-                          TextSpan(
-                            children: item.title
-                                .map(
-                                  (e) => TextSpan(
-                                    text: e.text,
-                                    style: TextStyle(
-                                      color: e.isEm
-                                          ? theme.colorScheme.primary
-                                          : theme.colorScheme.onSurface,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ),
+                        textSpan: titleSpan,
+                        child: Text.rich(titleSpan),
                       ),
                       const SizedBox(height: 12),
                       Text('评分:${item.mediaScore?['score']}', style: style),

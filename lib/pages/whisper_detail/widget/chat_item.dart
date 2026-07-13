@@ -468,6 +468,7 @@ class ChatItem extends StatelessWidget {
         ? tappable
         : VideoDetailTransitionSource(
             tag: heroTag,
+            layout: VideoTransitionSourceLayout.embedded,
             borderRadius: BorderRadius.zero,
             child: tappable,
           );
@@ -483,6 +484,7 @@ class ChatItem extends StatelessWidget {
     return Center(
       child: VideoDetailTransitionSource(
         tag: heroTag,
+        layout: VideoTransitionSourceLayout.embedded,
         child: Container(
           clipBehavior: Clip.hardEdge,
           constraints: const BoxConstraints(maxWidth: 400.0),
@@ -731,7 +733,11 @@ class ChatItem extends StatelessWidget {
       behavior: .opaque,
       child: activeHeroTag == null
           ? card
-          : VideoDetailTransitionSource(tag: activeHeroTag, child: card),
+          : VideoDetailTransitionSource(
+              tag: activeHeroTag,
+              layout: VideoTransitionSourceLayout.embedded,
+              child: card,
+            ),
     );
   }
 

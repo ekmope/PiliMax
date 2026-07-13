@@ -158,6 +158,7 @@ class _VideoCardVState extends State<VideoCardV> {
       children: [
         VideoDetailTransitionSource(
           tag: _heroTag,
+          layout: VideoTransitionSourceLayout.verticalCard,
           child: Card(
             clipBehavior: Clip.hardEdge,
             child: MouseRegion(

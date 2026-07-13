@@ -131,6 +131,7 @@ class HistoryItem extends StatelessWidget {
           children: [
             VideoDetailTransitionSource(
               tag: _heroTag,
+              layout: VideoTransitionSourceLayout.horizontalRow,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: Style.safeSpace,

@@ -1,6 +1,7 @@
 import 'package:PiliMax/common/skeleton/video_card_h.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/video_card/video_card_h.dart';
+import 'package:PiliMax/common/widgets/video_card/video_card_h_layout_metrics.dart';
 import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pages/search_panel/all/controller.dart';
@@ -65,7 +66,7 @@ class _SearchAllPanelState
                 contentId: e.bvid ?? e.aid ?? e.cid ?? 'unknown',
               );
               return SizedBox(
-                height: 120,
+                height: VideoCardHLayoutMetrics.itemHeight,
                 child: VideoCardH(
                   key: ValueKey(heroTag),
                   videoItem: e,

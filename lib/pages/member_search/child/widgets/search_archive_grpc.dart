@@ -56,6 +56,7 @@ class SearchArchiveGrpc extends StatelessWidget {
         children: [
           VideoDetailTransitionSource(
             tag: heroTag,
+            layout: VideoTransitionSourceLayout.horizontalRow,
             child: InkWell(
               onLongPress: onLongPress,
               onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
@@ -194,6 +195,26 @@ class SearchArchiveGrpc extends StatelessWidget {
     final theme = Theme.of(context);
     String pubdate = DateFormatUtils.dateFormat(arc.pubdate.toInt());
     if (pubdate != '') pubdate += '  ';
+    final titleStyle = TextStyle(
+      fontSize: theme.textTheme.bodyMedium!.fontSize,
+      height: 1.42,
+      letterSpacing: 0.3,
+      color: theme.colorScheme.onSurface,
+    );
+    final titleSpan = TextSpan(
+      children: regTitle
+          .map(
+            (e) => TextSpan(
+              text: e.text,
+              style: titleStyle.copyWith(
+                color: e.isEm
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurface,
+              ),
+            ),
+          )
+          .toList(),
+    );
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,34 +222,14 @@ class SearchArchiveGrpc extends StatelessWidget {
           Expanded(
             child: VideoDetailTransitionTitle(
               text: arc.title,
-              style: TextStyle(
-                fontSize: theme.textTheme.bodyMedium!.fontSize,
-                height: 1.42,
-                letterSpacing: 0.3,
-                color: theme.colorScheme.onSurface,
-              ),
+              textSpan: titleSpan,
+              style: titleStyle,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               child: Text.rich(
                 overflow: TextOverflow.ellipsis,
                 maxLines: 2,
-                TextSpan(
-                  children: regTitle
-                      .map(
-                        (e) => TextSpan(
-                          text: e.text,
-                          style: TextStyle(
-                            fontSize: theme.textTheme.bodyMedium!.fontSize,
-                            height: 1.42,
-                            letterSpacing: 0.3,
-                            color: e.isEm
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
+                titleSpan,
               ),
             ),
           ),

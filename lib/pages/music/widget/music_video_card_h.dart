@@ -41,6 +41,7 @@ class MusicVideoCardH extends StatelessWidget {
       type: MaterialType.transparency,
       child: VideoDetailTransitionSource(
         tag: _heroTag,
+        layout: VideoTransitionSourceLayout.horizontalRow,
         child: InkWell(
           onTap: () {
             PageUtils.toVideoPage(

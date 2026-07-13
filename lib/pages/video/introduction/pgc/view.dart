@@ -15,6 +15,7 @@ import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/widgets/pgc_panel.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/action_item.dart';
+import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -69,13 +70,13 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 10,
+            spacing: VideoDetailLayoutMetrics.pgcInfoGap,
             children: [
               _buildCover(colorScheme, isLandscape, item),
               Expanded(child: _buildInfoPanel(isLandscape, colorScheme, item)),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: VideoDetailLayoutMetrics.pgcActionTopGap),
           // 点赞收藏转发 布局样式2
           if (introController.isPgc) actionGrid(item.stat!, introController),
           // 番剧分集
@@ -149,8 +150,8 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
           child: fromHero(
             tag: item.cover!,
             child: NetworkImgLayer(
-              width: 115,
-              height: 153,
+              width: VideoDetailLayoutMetrics.pgcCoverWidth,
+              height: VideoDetailLayoutMetrics.pgcCoverHeight,
               src: item.cover!,
             ),
           ),
@@ -290,7 +291,7 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
         ),
         behavior: HitTestBehavior.opaque,
         child: SizedBox(
-          height: 153,
+          height: VideoDetailLayoutMetrics.pgcCoverHeight,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -386,7 +387,7 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
 
   Widget actionGrid(PgcStat stat, PgcIntroController introController) {
     return SizedBox(
-      height: 48,
+      height: VideoDetailLayoutMetrics.actionHeight,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

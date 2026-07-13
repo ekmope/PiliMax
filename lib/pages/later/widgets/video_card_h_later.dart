@@ -54,6 +54,7 @@ class VideoCardHLater extends StatelessWidget {
       type: MaterialType.transparency,
       child: VideoDetailTransitionSource(
         tag: _heroTag,
+        layout: VideoTransitionSourceLayout.horizontalRow,
         child: InkWell(
           onLongPress: onLongPress,
           onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,

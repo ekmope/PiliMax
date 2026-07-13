@@ -93,6 +93,7 @@ class MemberCheeseItem extends StatelessWidget {
       type: MaterialType.transparency,
       child: VideoDetailTransitionSource(
         tag: _heroTag,
+        layout: VideoTransitionSourceLayout.horizontalRow,
         child: InkWell(
           onTap: () => PageUtils.viewPugv(
             seasonId: item.seasonId,

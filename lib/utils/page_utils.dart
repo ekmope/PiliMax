@@ -794,9 +794,6 @@ abstract final class PageUtils {
           final token = VideoTransitionRegistry.claim(
             tag: heroTag,
             contentKey: VideoDetailSession.contentKeyFor(arguments),
-            coverUrl: arguments['cover'] is String
-                ? arguments['cover'] as String
-                : null,
           );
           if (token != null) {
             arguments[videoTransitionTokenKey] = token;
@@ -829,6 +826,9 @@ abstract final class PageUtils {
                 };
           final rawIsVertical = arguments['isVertical'];
           final rawTitle = arguments['title'];
+          final skeletonProfile = VideoDetailSession.skeletonProfileFor(
+            arguments,
+          );
           entryOverlay = VideoDetailEntryOverlayController(
             overlay: rootOverlay!,
             transitionToken:
@@ -843,6 +843,9 @@ abstract final class PageUtils {
             expandedIntro: Pref.alwaysExpandIntroPanel,
             showRecommendations:
                 Pref.showRelatedVideo && !Pref.alwaysExpandIntroPanel,
+            tabCount: skeletonProfile.tabCount,
+            actionCount: skeletonProfile.actionCount,
+            hasEpisodePanel: skeletonProfile.hasEpisodePanel,
           )..insert();
           arguments[videoDetailEntryOverlayKey] = entryOverlay;
         } else {

@@ -1,13 +1,17 @@
 import 'dart:math' as math;
 
 import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/video_card/video_card_h_layout_metrics.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/theme_utils.dart';
 
-import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
+
+export 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart'
+    show VideoTransitionSourceLayout;
 
 /// Registers the whole card as the predictive-back return target.
 ///
@@ -18,11 +22,13 @@ class VideoDetailTransitionSource extends StatefulWidget {
     required this.tag,
     required this.child,
     this.borderRadius = Style.mdRadius,
+    this.layout = VideoTransitionSourceLayout.verticalCard,
   });
 
   final Object tag;
   final Widget child;
   final BorderRadiusGeometry borderRadius;
+  final VideoTransitionSourceLayout layout;
 
   @override
   State<VideoDetailTransitionSource> createState() =>
@@ -44,7 +50,8 @@ class _VideoDetailTransitionSourceState
   void didUpdateWidget(VideoDetailTransitionSource oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.tag != widget.tag ||
-        oldWidget.borderRadius != widget.borderRadius) {
+        oldWidget.borderRadius != widget.borderRadius ||
+        oldWidget.layout != widget.layout) {
       _registration?.dispose();
       _registration = _registerSource();
     }
@@ -56,6 +63,7 @@ class _VideoDetailTransitionSourceState
       boundaryKey: _sourceBoundaryKey,
       context: context,
       borderRadius: widget.borderRadius,
+      layout: widget.layout,
     );
   }
 
@@ -68,7 +76,7 @@ class _VideoDetailTransitionSourceState
   @override
   Widget build(BuildContext context) {
     final registration = _registration;
-    final child = RepaintBoundary(
+    final child = KeyedSubtree(
       key: _sourceBoundaryKey,
       child: widget.child,
     );
@@ -79,11 +87,7 @@ class _VideoDetailTransitionSourceState
       tag: widget.tag,
       registration: registration,
       child: Listener(
-        onPointerDown: (event) {
-          if (event.buttons & kPrimaryButton != 0) {
-            registration.prepare();
-          }
-        },
+        onPointerDown: (event) => registration.notePointerDown(event.position),
         child: child,
       ),
     );
@@ -117,6 +121,7 @@ class VideoDetailTransitionTitle extends StatefulWidget {
     super.key,
     required this.text,
     required this.child,
+    this.textSpan,
     this.style,
     this.maxLines,
     this.textAlign,
@@ -125,6 +130,7 @@ class VideoDetailTransitionTitle extends StatefulWidget {
 
   final String text;
   final Widget child;
+  final InlineSpan? textSpan;
   final TextStyle? style;
   final int? maxLines;
   final TextAlign? textAlign;
@@ -143,6 +149,7 @@ class _VideoDetailTransitionTitleState
   VideoTransitionTitleDescriptor get _descriptor =>
       VideoTransitionTitleDescriptor(
         text: widget.text,
+        textSpan: widget.textSpan,
         style: widget.style,
         maxLines: widget.maxLines,
         textAlign: widget.textAlign,
@@ -178,7 +185,7 @@ class _VideoDetailTransitionTitleState
   }
 
   @override
-  Widget build(BuildContext context) => RepaintBoundary(
+  Widget build(BuildContext context) => KeyedSubtree(
     key: _titleBoundaryKey,
     child: widget.child,
   );
@@ -224,27 +231,20 @@ class VideoDetailHero extends StatelessWidget {
     final fromChild = _heroChild(fromHero.child);
     final toChild = _heroChild(toHero.child);
     final sourceChild = fromChild.isDetailTarget ? toChild : fromChild;
-    final detailChild = fromChild.isDetailTarget ? fromChild : toChild;
     final sourceContext = fromChild.isDetailTarget
         ? toHeroContext
         : fromHeroContext;
-    final detailContext = fromChild.isDetailTarget
-        ? fromHeroContext
-        : toHeroContext;
     final sourceSize = _contextSize(sourceContext);
-    final detailSize = _contextSize(detailContext);
     final isPop = flightDirection == HeroFlightDirection.pop;
+    final sourceVisibleRect = _sourceVisibleRect(
+      sourceContext,
+      sourceChild.registration,
+    );
 
     final sourceFlightChild = _FixedSizeFlightChild(
       layoutSize: sourceSize,
       child: sourceChild.child,
     );
-    final detailFlightChild = _detailFlightSurface(
-      detailChild.child,
-      layoutSize: detailSize,
-      isPop: isPop,
-    );
-
     return AnimatedBuilder(
       animation: animation,
       builder: (context, _) {
@@ -253,65 +253,31 @@ class VideoDetailHero extends StatelessWidget {
           HeroFlightDirection.pop => 1 - animation.value,
         };
         final radius =
-            (isPop
-                ? BorderRadiusGeometry.lerp(
-                    detailChild.borderRadius,
-                    sourceChild.borderRadius,
-                    flightProgress,
-                  )
-                : BorderRadiusGeometry.lerp(
-                    sourceChild.borderRadius,
-                    detailChild.borderRadius,
-                    flightProgress,
-                  )) ??
-            detailChild.borderRadius;
-        const sourceOpacity = 1.0;
-        final detailOpacity = isPop ? 1 - flightProgress : flightProgress;
+            BorderRadiusGeometry.lerp(
+              isPop ? BorderRadius.zero : sourceChild.borderRadius,
+              isPop ? sourceChild.borderRadius : BorderRadius.zero,
+              flightProgress,
+            ) ??
+            BorderRadius.zero;
+        final visibleRect = Rect.lerp(
+          isPop ? const Rect.fromLTWH(0, 0, 1, 1) : sourceVisibleRect,
+          isPop ? sourceVisibleRect : const Rect.fromLTWH(0, 0, 1, 1),
+          flightProgress,
+        )!;
 
         return RepaintBoundary(
-          child: ClipRRect(
-            borderRadius: radius,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Opacity(opacity: sourceOpacity, child: sourceFlightChild),
-                Opacity(opacity: detailOpacity, child: detailFlightChild),
-              ],
+          child: ClipRect(
+            clipper: _NormalizedRectClipper(visibleRect),
+            clipBehavior: Clip.hardEdge,
+            child: ClipRRect(
+              borderRadius: radius,
+              clipBehavior: Clip.antiAlias,
+              child: sourceFlightChild,
             ),
           ),
         );
       },
     );
-  }
-
-  static Widget _detailFlightSurface(
-    Widget child, {
-    required Size layoutSize,
-    required bool isPop,
-  }) {
-    if (child case final VideoDetailHeroShell shell) {
-      return _FixedSizeFlightChild(
-        layoutSize: layoutSize,
-        alignment: Alignment.topCenter,
-        child: VideoDetailHeroShell(
-          // Keep the live player/cover visible under every reverse flight.
-          playerSurfaceOpacity: isPop ? 0 : shell.playerSurfaceOpacity,
-          navigationSurfaceOpacity: shell.navigationSurfaceOpacity,
-          detailSurfaceOpacity: shell.detailSurfaceOpacity,
-          recommendationSurfaceOpacity: shell.recommendationSurfaceOpacity,
-          recommendationCount: shell.recommendationCount,
-          isVertical: shell.isVertical,
-          playerBottomOverride: shell.playerBottomOverride,
-          variant: shell.variant,
-          title: shell.title,
-          expandedIntro: shell.expandedIntro,
-          showRecommendations: shell.showRecommendations,
-          hasSeasonPanel: shell.hasSeasonPanel,
-          hasPagesPanel: shell.hasPagesPanel,
-        ),
-      );
-    }
-    return _FixedSizeFlightChild(layoutSize: layoutSize, child: child);
   }
 
   static _VideoDetailHeroChild _heroChild(Widget child) {
@@ -321,6 +287,7 @@ class VideoDetailHero extends StatelessWidget {
     return _VideoDetailHeroChild(
       borderRadius: BorderRadius.zero,
       isDetailTarget: false,
+      registration: null,
       child: child,
     );
   }
@@ -331,6 +298,47 @@ class VideoDetailHero extends StatelessWidget {
       return renderObject.size;
     }
     return Size.zero;
+  }
+
+  static Rect _sourceVisibleRect(
+    BuildContext sourceContext,
+    VideoTransitionRegistration? registration,
+  ) {
+    final renderObject = sourceContext.findRenderObject();
+    final cardVisibleRect = registration?.currentVisibleRect();
+    if (renderObject is! RenderBox ||
+        !renderObject.hasSize ||
+        renderObject.size.isEmpty ||
+        cardVisibleRect == null) {
+      return const Rect.fromLTWH(0, 0, 1, 1);
+    }
+    final mediaRect =
+        renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    final intersection = mediaRect.intersect(cardVisibleRect);
+    if (intersection.isEmpty) {
+      if (cardVisibleRect.top >= mediaRect.bottom) {
+        return const Rect.fromLTRB(0, 1, 1, 1);
+      }
+      if (cardVisibleRect.bottom <= mediaRect.top) {
+        return const Rect.fromLTRB(0, 0, 1, 0);
+      }
+      if (cardVisibleRect.left >= mediaRect.right) {
+        return const Rect.fromLTRB(1, 0, 1, 1);
+      }
+      if (cardVisibleRect.right <= mediaRect.left) {
+        return const Rect.fromLTRB(0, 0, 0, 1);
+      }
+      return Rect.zero;
+    }
+    return Rect.fromLTRB(
+      ((intersection.left - mediaRect.left) / mediaRect.width).clamp(0.0, 1.0),
+      ((intersection.top - mediaRect.top) / mediaRect.height).clamp(0.0, 1.0),
+      ((intersection.right - mediaRect.left) / mediaRect.width).clamp(0.0, 1.0),
+      ((intersection.bottom - mediaRect.top) / mediaRect.height).clamp(
+        0.0,
+        1.0,
+      ),
+    );
   }
 
   static Widget _buildPlaceholder(
@@ -362,6 +370,7 @@ class VideoDetailHero extends StatelessWidget {
     required Object rawTag,
     required BorderRadiusGeometry borderRadius,
     required bool isDetailTarget,
+    VideoTransitionRegistration? registration,
     required Widget child,
   }) {
     return Hero(
@@ -376,6 +385,7 @@ class VideoDetailHero extends StatelessWidget {
       child: _VideoDetailHeroChild(
         borderRadius: borderRadius,
         isDetailTarget: isDetailTarget,
+        registration: registration,
         child: child,
       ),
     );
@@ -446,6 +456,7 @@ class _VideoDetailMediaHeroSourceState
       rawTag: scope.tag,
       borderRadius: widget.borderRadius,
       isDetailTarget: false,
+      registration: scope.registration,
       child: widget.child,
     );
   }
@@ -485,6 +496,10 @@ class VideoDetailHeroShell extends StatelessWidget {
     this.showRecommendations = true,
     this.hasSeasonPanel = false,
     this.hasPagesPanel = false,
+    this.tabCount = VideoDetailLayoutMetrics.defaultTabCount,
+    this.actionCount = VideoDetailLayoutMetrics.ugcActionCount,
+    this.hasEpisodePanel = false,
+    this.ugcTitleHeightOverride,
   }) : assert(playerSurfaceOpacity >= 0 && playerSurfaceOpacity <= 1),
        assert(
          navigationSurfaceOpacity >= 0 && navigationSurfaceOpacity <= 1,
@@ -493,7 +508,9 @@ class VideoDetailHeroShell extends StatelessWidget {
        assert(
          recommendationSurfaceOpacity >= 0 && recommendationSurfaceOpacity <= 1,
        ),
-       assert(recommendationCount >= 0);
+       assert(recommendationCount >= 0),
+       assert(tabCount > 0),
+       assert(actionCount >= 0);
 
   factory VideoDetailHeroShell.revealing({
     Key? key,
@@ -507,6 +524,10 @@ class VideoDetailHeroShell extends StatelessWidget {
     bool showRecommendations = true,
     bool hasSeasonPanel = false,
     bool hasPagesPanel = false,
+    int tabCount = VideoDetailLayoutMetrics.defaultTabCount,
+    int actionCount = VideoDetailLayoutMetrics.ugcActionCount,
+    bool hasEpisodePanel = false,
+    double? ugcTitleHeightOverride,
   }) => VideoDetailHeroShell(
     key: key,
     playerSurfaceOpacity: _remaining(progress, 0.04, 0.34),
@@ -522,6 +543,10 @@ class VideoDetailHeroShell extends StatelessWidget {
     showRecommendations: showRecommendations,
     hasSeasonPanel: hasSeasonPanel,
     hasPagesPanel: hasPagesPanel,
+    tabCount: tabCount,
+    actionCount: actionCount,
+    hasEpisodePanel: hasEpisodePanel,
+    ugcTitleHeightOverride: ugcTitleHeightOverride,
   );
 
   final double playerSurfaceOpacity;
@@ -537,6 +562,10 @@ class VideoDetailHeroShell extends StatelessWidget {
   final bool showRecommendations;
   final bool hasSeasonPanel;
   final bool hasPagesPanel;
+  final int tabCount;
+  final int actionCount;
+  final bool hasEpisodePanel;
+  final double? ugcTitleHeightOverride;
 
   static double _remaining(double progress, double begin, double end) {
     if (progress <= begin) {
@@ -551,7 +580,9 @@ class VideoDetailHeroShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final colorScheme = Pref.darkVideoPage
+        ? ThemeUtils.darkTheme.colorScheme
+        : Theme.of(context).colorScheme;
     final mediaSize = MediaQuery.sizeOf(context);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -583,6 +614,10 @@ class VideoDetailHeroShell extends StatelessWidget {
               showRecommendations: showRecommendations,
               hasSeasonPanel: hasSeasonPanel,
               hasPagesPanel: hasPagesPanel,
+              tabCount: tabCount,
+              actionCount: actionCount,
+              hasEpisodePanel: hasEpisodePanel,
+              ugcTitleHeightOverride: ugcTitleHeightOverride,
               textScaler: MediaQuery.textScalerOf(context),
               titleStyle: DefaultTextStyle.of(
                 context,
@@ -599,27 +634,45 @@ class _VideoDetailHeroChild extends StatelessWidget {
   const _VideoDetailHeroChild({
     required this.borderRadius,
     required this.isDetailTarget,
+    required this.registration,
     required this.child,
   });
 
   final BorderRadiusGeometry borderRadius;
   final bool isDetailTarget;
+  final VideoTransitionRegistration? registration;
   final Widget child;
 
   @override
   Widget build(BuildContext context) => child;
 }
 
+class _NormalizedRectClipper extends CustomClipper<Rect> {
+  const _NormalizedRectClipper(this.rect);
+
+  final Rect rect;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(
+    rect.left * size.width,
+    rect.top * size.height,
+    rect.right * size.width,
+    rect.bottom * size.height,
+  );
+
+  @override
+  bool shouldReclip(covariant _NormalizedRectClipper oldClipper) =>
+      rect != oldClipper.rect;
+}
+
 class _FixedSizeFlightChild extends StatelessWidget {
   const _FixedSizeFlightChild({
     required this.layoutSize,
     required this.child,
-    this.alignment = Alignment.center,
   });
 
   final Size layoutSize;
   final Widget child;
-  final AlignmentGeometry alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -632,7 +685,7 @@ class _FixedSizeFlightChild extends StatelessWidget {
           height: constraints.hasBoundedHeight ? constraints.maxHeight : null,
           child: FittedBox(
             fit: BoxFit.cover,
-            alignment: alignment,
+            alignment: Alignment.center,
             child: SizedBox.fromSize(size: effectiveSize, child: child),
           ),
         );
@@ -658,6 +711,10 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     required this.showRecommendations,
     required this.hasSeasonPanel,
     required this.hasPagesPanel,
+    required this.tabCount,
+    required this.actionCount,
+    required this.hasEpisodePanel,
+    required this.ugcTitleHeightOverride,
     required this.textScaler,
     required this.titleStyle,
   });
@@ -677,6 +734,10 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   final bool showRecommendations;
   final bool hasSeasonPanel;
   final bool hasPagesPanel;
+  final int tabCount;
+  final int actionCount;
+  final bool hasEpisodePanel;
+  final double? ugcTitleHeightOverride;
   final TextScaler textScaler;
   final TextStyle titleStyle;
 
@@ -739,29 +800,61 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
       final primaryPaint = _skeletonPaint(navigationSurfaceOpacity);
       final subtlePaint = _subtlePaint(navigationSurfaceOpacity);
       final centerY = rect.top + rect.height / 2;
-      _drawBar(
-        canvas,
-        Rect.fromLTWH(12, centerY - 5, 42, 10),
-        primaryPaint,
+      final tabFlex = VideoDetailLayoutMetrics.navigationTabRegionFlex(
+        tabCount,
       );
+      final tabRegionWidth =
+          rect.width *
+          tabFlex /
+          (tabFlex + VideoDetailLayoutMetrics.navigationActionRegionFlex);
+      final tabWidth = tabRegionWidth / tabCount;
+      for (var index = 0; index < tabCount; index++) {
+        final barWidth = math.min(index == 0 ? 42.0 : 48.0, tabWidth * 0.62);
+        _drawBar(
+          canvas,
+          Rect.fromCenter(
+            center: Offset(tabWidth * (index + 0.5), centerY),
+            width: barWidth,
+            height: index == 0 ? 10 : 8,
+          ),
+          index == 0 ? primaryPaint : subtlePaint,
+        );
+      }
+      final controlsRight =
+          rect.right - VideoDetailLayoutMetrics.navigationRightPadding;
+      final toggleLeft =
+          controlsRight -
+          VideoDetailLayoutMetrics.navigationDanmakuToggleExtent;
+      final sendLeft =
+          toggleLeft - VideoDetailLayoutMetrics.navigationSendDanmakuWidth;
       _drawBar(
         canvas,
-        Rect.fromLTWH(72, centerY - 5, 48, 10),
-        subtlePaint,
-      );
-      _drawBar(
-        canvas,
-        Rect.fromLTWH(math.max(132.0, rect.right - 106), centerY - 4, 52, 8),
+        Rect.fromCenter(
+          center: Offset(
+            sendLeft + VideoDetailLayoutMetrics.navigationSendDanmakuWidth / 2,
+            centerY,
+          ),
+          width: 52,
+          height: 8,
+        ),
         subtlePaint,
       );
       canvas
         ..drawCircle(
-          Offset(rect.right - 25, centerY),
+          Offset(
+            toggleLeft +
+                VideoDetailLayoutMetrics.navigationDanmakuToggleExtent / 2,
+            centerY,
+          ),
           9,
           primaryPaint,
         )
         ..drawRect(
-          Rect.fromLTWH(12, rect.bottom - 2, 42, 2),
+          Rect.fromCenter(
+            center: Offset(tabWidth / 2, rect.bottom - 1),
+            width: math.min(42, tabWidth * 0.62),
+            height: 2,
+          ),
           Paint()
             ..color = colorScheme.primary.withValues(
               alpha: 0.52 * navigationSurfaceOpacity,
@@ -917,14 +1010,18 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     required bool showActions,
   }) {
     const padding = VideoDetailLayoutMetrics.horizontalPadding;
-    final contentTop = top + padding;
+    final contentTop = top + VideoDetailLayoutMetrics.pgcContentTopPadding;
     final coverHeight = math.min(
-      153.0,
+      VideoDetailLayoutMetrics.pgcCoverHeight,
       math.max(0.0, size.height - contentTop),
     );
-    final coverWidth = math.min(115.0, math.max(0.0, size.width * 0.32));
-    final actionTop = contentTop + coverHeight + 6;
-    final episodeTop = showActions
+    final coverWidth = math.min(
+      VideoDetailLayoutMetrics.pgcCoverWidth,
+      math.max(0.0, size.width * 0.32),
+    );
+    final actionTop =
+        contentTop + coverHeight + VideoDetailLayoutMetrics.pgcActionTopGap;
+    final episodeTop = actionCount > 0
         ? actionTop + VideoDetailLayoutMetrics.actionHeight
         : actionTop;
 
@@ -942,11 +1039,14 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
           coverHeight,
         );
         canvas.drawRRect(
-          RRect.fromRectAndRadius(coverRect, const Radius.circular(6)),
+          RRect.fromRectAndRadius(
+            coverRect,
+            const Radius.circular(VideoDetailLayoutMetrics.pgcCoverRadius),
+          ),
           _thumbnailPaint(detailSurfaceOpacity),
         );
 
-        final infoX = coverRect.right + 10;
+        final infoX = coverRect.right + VideoDetailLayoutMetrics.pgcInfoGap;
         final infoWidth = math.max(0.0, size.width - padding - infoX);
         _drawBar(
           canvas,
@@ -993,7 +1093,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
           Rect.fromLTWH(infoX, contentTop + 120, infoWidth * 0.74, 8),
           subtlePaint,
         );
-        if (showActions) {
+        if (showActions && actionCount > 0) {
           _paintActions(
             canvas,
             Rect.fromLTWH(
@@ -1008,26 +1108,36 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
       },
     );
 
-    _paintEpisodeRows(canvas, size, episodeTop);
+    if (hasEpisodePanel) {
+      _paintEpisodeRows(canvas, size, episodeTop);
+    }
   }
 
   void _paintLocalBody(Canvas canvas, Size size, double top) {
     final bodyRect = _sectionRect(size, top, size.height);
     _paintSection(canvas, bodyRect, detailSurfaceOpacity, () {
-      const padding = VideoDetailLayoutMetrics.horizontalPadding;
+      const padding = VideoCardHLayoutMetrics.horizontalPadding;
       final primaryPaint = _skeletonPaint(detailSurfaceOpacity);
       final subtlePaint = _subtlePaint(detailSurfaceOpacity);
-      var y = top;
+      var y = top + VideoDetailLayoutMetrics.localTopPadding;
       for (var index = 0; index < recommendationCount; index++) {
         if (y >= size.height) {
           break;
         }
-        final thumbnailRect = Rect.fromLTWH(padding, y + 5, 160, 100);
+        final thumbnailRect = Rect.fromLTWH(
+          padding,
+          y + VideoCardHLayoutMetrics.verticalPadding,
+          VideoCardHLayoutMetrics.thumbnailWidth,
+          VideoCardHLayoutMetrics.thumbnailHeight,
+        );
         canvas.drawRRect(
-          RRect.fromRectAndRadius(thumbnailRect, Style.imgRadius),
+          RRect.fromRectAndRadius(
+            thumbnailRect,
+            const Radius.circular(VideoCardHLayoutMetrics.thumbnailRadius),
+          ),
           _thumbnailPaint(detailSurfaceOpacity),
         );
-        final textX = thumbnailRect.right + 10;
+        final textX = thumbnailRect.right + VideoCardHLayoutMetrics.contentGap;
         final textWidth = math.max(0.0, size.width - padding - textX);
         _drawBar(
           canvas,
@@ -1044,7 +1154,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
           Rect.fromLTWH(textX, y + 82, textWidth * 0.46, 8),
           subtlePaint,
         );
-        y += 112;
+        y += VideoDetailLayoutMetrics.localItemExtent;
       }
     });
   }
@@ -1113,6 +1223,9 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   }
 
   double _ugcTitleHeight(Size size) {
+    if (ugcTitleHeightOverride case final height?) {
+      return height;
+    }
     final value = title;
     if (value == null || value.isEmpty) {
       return 38;
@@ -1153,15 +1266,27 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     }
     final iconPaint = _skeletonPaint(opacity);
     final labelPaint = _subtlePaint(opacity);
-    const count = 6;
-    final itemWidth = rect.width / count;
-    for (var index = 0; index < count; index++) {
+    if (actionCount == 0) {
+      return;
+    }
+    final itemWidth = rect.width / actionCount;
+    for (var index = 0; index < actionCount; index++) {
       final centerX = rect.left + itemWidth * (index + 0.5);
-      canvas.drawCircle(Offset(centerX, rect.top + 13), 9, iconPaint);
+      canvas.drawCircle(
+        Offset(
+          centerX,
+          rect.top + VideoDetailLayoutMetrics.actionIconCenterOffset,
+        ),
+        VideoDetailLayoutMetrics.actionIconGlyphExtent / 2,
+        iconPaint,
+      );
       _drawBar(
         canvas,
         Rect.fromCenter(
-          center: Offset(centerX, rect.top + 33),
+          center: Offset(
+            centerX,
+            rect.top + VideoDetailLayoutMetrics.actionLabelCenterOffset,
+          ),
           width: math.min(24.0, itemWidth * 0.58),
           height: 6,
         ),
@@ -1197,32 +1322,48 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   }
 
   void _paintVideoCardRows(Canvas canvas, Size size, double top) {
-    const padding = VideoDetailLayoutMetrics.horizontalPadding;
+    const padding = VideoCardHLayoutMetrics.horizontalPadding;
     final primaryPaint = _skeletonPaint(recommendationSurfaceOpacity);
     final subtlePaint = _subtlePaint(recommendationSurfaceOpacity);
-    const cardHeight = Grid.videoCardHMainAxisExtent;
+    const cardHeight = VideoDetailLayoutMetrics.relatedCardHeight;
     final maxCrossAxisExtent = math.max(1.0, Grid.smallCardWidth * 2);
-    final crossAxisCount = math.max(
+    final preferredCrossAxisCount = math.max(
       1,
       (size.width / maxCrossAxisExtent).ceil(),
+    );
+    const minimumTileWidth =
+        2 * VideoCardHLayoutMetrics.horizontalPadding +
+        VideoCardHLayoutMetrics.thumbnailWidth +
+        VideoCardHLayoutMetrics.contentGap +
+        40;
+    final crossAxisCount = math.min(
+      preferredCrossAxisCount,
+      math.max(1, (size.width / minimumTileWidth).floor()),
     );
     final tileWidth = size.width / crossAxisCount;
     for (var index = 0; index < recommendationCount; index++) {
       final row = index ~/ crossAxisCount;
       final column = index % crossAxisCount;
-      final y = top + row * (cardHeight + Grid.videoCardHMainAxisSpacing);
+      final y =
+          top +
+          row * (cardHeight + VideoDetailLayoutMetrics.relatedCardSpacing);
       if (y >= size.height) {
         break;
       }
       final tileLeft = column * tileWidth;
       final contentWidth = math.max(0.0, tileWidth - 2 * padding);
       final thumbnailWidth = math.min(
-        160.0,
-        math.max(0.0, contentWidth - 96),
+        VideoCardHLayoutMetrics.thumbnailWidth,
+        math.max(
+          0.0,
+          contentWidth - VideoCardHLayoutMetrics.contentGap,
+        ),
       );
       final thumbnailHeight = math.min(
-        cardHeight - 10,
-        thumbnailWidth / Style.aspectRatio,
+        VideoCardHLayoutMetrics.thumbnailHeight,
+        thumbnailWidth /
+            (VideoCardHLayoutMetrics.thumbnailWidth /
+                VideoCardHLayoutMetrics.thumbnailHeight),
       );
       final thumbnailRect = Rect.fromLTWH(
         tileLeft + padding,
@@ -1230,11 +1371,25 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         thumbnailWidth,
         thumbnailHeight,
       );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(thumbnailRect, const Radius.circular(6)),
-        _thumbnailPaint(recommendationSurfaceOpacity),
+      final thumbnailRRect = RRect.fromRectAndRadius(
+        thumbnailRect,
+        const Radius.circular(VideoCardHLayoutMetrics.thumbnailRadius),
       );
-      final textX = thumbnailRect.right + 10;
+      canvas
+        ..drawRRect(
+          thumbnailRRect,
+          _thumbnailPaint(recommendationSurfaceOpacity),
+        )
+        ..drawRRect(
+          thumbnailRRect,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1
+            ..color = colorScheme.outline.withValues(
+              alpha: 0.14 * recommendationSurfaceOpacity,
+            ),
+        );
+      final textX = thumbnailRect.right + VideoCardHLayoutMetrics.contentGap;
       final textWidth = math.max(
         0.0,
         tileLeft + tileWidth - padding - textX,
@@ -1283,10 +1438,10 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         ),
         subtlePaint,
       );
-      const itemWidth = 140.0;
-      const itemHeight = 60.0;
-      const itemStride = 150.0;
-      final y = top + 42;
+      const itemWidth = VideoDetailLayoutMetrics.episodeItemWidth;
+      const itemHeight = VideoDetailLayoutMetrics.episodeItemHeight;
+      const itemStride = VideoDetailLayoutMetrics.episodeItemStride;
+      final y = top + VideoDetailLayoutMetrics.episodePanelHeaderHeight;
       for (var index = 0; index < recommendationCount; index++) {
         final rect = Rect.fromLTWH(
           padding + index * itemStride,
@@ -1377,6 +1532,10 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         showRecommendations != oldDelegate.showRecommendations ||
         hasSeasonPanel != oldDelegate.hasSeasonPanel ||
         hasPagesPanel != oldDelegate.hasPagesPanel ||
+        tabCount != oldDelegate.tabCount ||
+        actionCount != oldDelegate.actionCount ||
+        hasEpisodePanel != oldDelegate.hasEpisodePanel ||
+        ugcTitleHeightOverride != oldDelegate.ugcTitleHeightOverride ||
         textScaler != oldDelegate.textScaler ||
         titleStyle != oldDelegate.titleStyle;
   }

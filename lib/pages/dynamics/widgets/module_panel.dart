@@ -243,6 +243,7 @@ Widget module(
       }
       return VideoDetailTransitionSource(
         tag: commonHeroTag,
+        layout: VideoTransitionSourceLayout.embedded,
         borderRadius: floor == 1 ? BorderRadius.zero : Style.mdRadius,
         child: card,
       );

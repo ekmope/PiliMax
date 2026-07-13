@@ -53,6 +53,7 @@ class FavPgcItem extends StatelessWidget {
         children: [
           VideoDetailTransitionSource(
             tag: _heroTag,
+            layout: VideoTransitionSourceLayout.horizontalRow,
             child: InkWell(
               onTap: () {
                 if (ctr.enableMultiSelect.value) {

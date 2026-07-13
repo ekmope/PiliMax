@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:PiliMax/common/skeleton/video_card_h.dart';
+import 'package:PiliMax/common/widgets/video_card/video_card_h_layout_metrics.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -16,8 +17,10 @@ mixin GridMixin {
 }
 
 abstract final class Grid {
-  static const double videoCardHMainAxisExtent = 110;
-  static const double videoCardHMainAxisSpacing = 2;
+  static const double videoCardHMainAxisExtent =
+      VideoCardHLayoutMetrics.itemHeight;
+  static const double videoCardHMainAxisSpacing =
+      VideoCardHLayoutMetrics.mainAxisSpacing;
   static final double smallCardWidth = Pref.smallCardWidth;
 
   static SliverGridDelegateWithMaxCrossAxisExtent videoCardHDelegate({

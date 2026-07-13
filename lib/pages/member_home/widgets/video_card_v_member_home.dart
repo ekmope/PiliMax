@@ -97,6 +97,7 @@ class VideoCardVMemberHome extends StatelessWidget {
     );
     return VideoDetailTransitionSource(
       tag: _heroTag,
+      layout: VideoTransitionSourceLayout.verticalCard,
       child: Card(
         clipBehavior: Clip.hardEdge,
         child: InkWell(

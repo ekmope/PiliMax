@@ -2501,7 +2501,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       labelStyle:
           TabBarTheme.of(context).labelStyle?.copyWith(fontSize: 13) ??
           const TextStyle(fontSize: 13),
-      labelPadding: const EdgeInsets.symmetric(horizontal: 10.0),
+      labelPadding: const EdgeInsets.symmetric(
+        horizontal:
+            VideoDetailLayoutMetrics.navigationTabLabelHorizontalPadding,
+      ),
       dividerColor: Colors.transparent,
       dividerHeight: 0,
       onTap: (value) {
@@ -2555,7 +2558,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             if (tabs.isEmpty)
               const Spacer()
             else
-              Flexible(flex: tabs.length == 3 ? 2 : 1, child: tabBar()),
+              Flexible(
+                flex: VideoDetailLayoutMetrics.navigationTabRegionFlex(
+                  tabs.length,
+                ),
+                child: tabBar(),
+              ),
             Flexible(
               flex: 1,
               child: Center(
@@ -2563,7 +2571,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     SizedBox(
-                      height: 32,
+                      width:
+                          VideoDetailLayoutMetrics.navigationSendDanmakuWidth,
+                      height:
+                          VideoDetailLayoutMetrics.navigationSendDanmakuHeight,
                       child: TextButton(
                         style: const ButtonStyle(
                           padding: WidgetStatePropertyAll(EdgeInsets.zero),
@@ -2579,8 +2590,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                       ),
                     ),
                     SizedBox(
-                      width: 38,
-                      height: 38,
+                      width: VideoDetailLayoutMetrics
+                          .navigationDanmakuToggleExtent,
+                      height: VideoDetailLayoutMetrics
+                          .navigationDanmakuToggleExtent,
                       child: Obx(() {
                         final ctr = videoDetailController.plPlayerController;
                         final enableShowDanmaku = ctr.enableShowDanmaku.value;
@@ -2607,7 +2620,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                         );
                       }),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(
+                      width: VideoDetailLayoutMetrics.navigationRightPadding,
+                    ),
                   ],
                 ),
               ),

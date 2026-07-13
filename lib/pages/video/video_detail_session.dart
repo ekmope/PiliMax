@@ -3,7 +3,9 @@ import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models/model_hot_video_item.dart';
+import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliMax/models_new/video/video_detail/data.dart';
+import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 
 const videoDetailSessionKey = '_videoDetailSession';
@@ -16,27 +18,46 @@ final class VideoDetailSkeletonProfile {
   const VideoDetailSkeletonProfile({
     this.hasSeasonPanel = false,
     this.hasPagesPanel = false,
-  });
+    this.tabCount = VideoDetailLayoutMetrics.defaultTabCount,
+    this.actionCount = VideoDetailLayoutMetrics.ugcActionCount,
+    this.hasEpisodePanel = false,
+  }) : assert(tabCount > 0),
+       assert(actionCount >= 0);
 
   final bool hasSeasonPanel;
   final bool hasPagesPanel;
+  final int tabCount;
+  final int actionCount;
+  final bool hasEpisodePanel;
+
+  VideoDetailSkeletonProfile copyWith({
+    bool? hasSeasonPanel,
+    bool? hasPagesPanel,
+    int? tabCount,
+    int? actionCount,
+    bool? hasEpisodePanel,
+  }) => VideoDetailSkeletonProfile(
+    hasSeasonPanel: hasSeasonPanel ?? this.hasSeasonPanel,
+    hasPagesPanel: hasPagesPanel ?? this.hasPagesPanel,
+    tabCount: tabCount ?? this.tabCount,
+    actionCount: actionCount ?? this.actionCount,
+    hasEpisodePanel: hasEpisodePanel ?? this.hasEpisodePanel,
+  );
 }
 
 /// Owns launch-time data prefetch without creating GetX or player controllers.
 final class VideoDetailSession {
-  VideoDetailSession._({
+  VideoDetailSession._(
+    this._related, {
     required this.arguments,
     required this.launchContentKey,
     required this.launchOrientationReady,
     required this.skeletonProfileReady,
     required Future<LoadingState<VideoDetailData>>? intro,
-    required Future<LoadingState<List<HotVideoItemModel>?>>? related,
   }) : _intro = intro,
-       _related = related,
        _currentContentKey = launchContentKey,
        presentationReady = Future.wait<void>([
          if (intro != null) intro.then<void>((_) {}),
-         if (related != null) related.then<void>((_) {}),
        ]);
 
   factory VideoDetailSession.start(Map<dynamic, dynamic> arguments) {
@@ -49,6 +70,7 @@ final class VideoDetailSession {
     final launchIsVertical = snapshot['videoOrientationKnown'] == true
         ? snapshot['isVertical'] as bool?
         : null;
+    final launchSkeletonProfile = skeletonProfileFor(snapshot);
 
     Future<LoadingState<VideoDetailData>>? intro;
     Future<LoadingState<List<HotVideoItemModel>?>>? related;
@@ -71,20 +93,23 @@ final class VideoDetailSession {
           );
     final skeletonProfileReady = intro == null
         ? Future<VideoDetailSkeletonProfile>.value(
-            const VideoDetailSkeletonProfile(),
+            launchSkeletonProfile,
           )
         : intro.then<VideoDetailSkeletonProfile>(
-            _skeletonProfileFromIntro,
-            onError: (_, _) => const VideoDetailSkeletonProfile(),
+            (state) => _skeletonProfileFromIntro(
+              state,
+              launchSkeletonProfile,
+            ),
+            onError: (_, _) => launchSkeletonProfile,
           );
 
     return VideoDetailSession._(
+      related,
       arguments: snapshot,
       launchContentKey: launchContentKey,
       launchOrientationReady: launchOrientationReady,
       skeletonProfileReady: skeletonProfileReady,
       intro: intro,
-      related: related,
     );
   }
 
@@ -116,11 +141,44 @@ final class VideoDetailSession {
     return dimension!.isVertical;
   }
 
+  static VideoDetailSkeletonProfile skeletonProfileFor(
+    Map<dynamic, dynamic> arguments,
+  ) {
+    final variant = arguments['sourceType'] == SourceType.file
+        ? VideoDetailSkeletonVariant.local
+        : switch (arguments['videoType']) {
+            VideoType.pgc => VideoDetailSkeletonVariant.pgc,
+            VideoType.pugv => VideoDetailSkeletonVariant.pugv,
+            _ => VideoDetailSkeletonVariant.ugc,
+          };
+    final showReply = switch (variant) {
+      VideoDetailSkeletonVariant.ugc => Pref.showVideoReply,
+      VideoDetailSkeletonVariant.pgc ||
+      VideoDetailSkeletonVariant.pugv => Pref.showBangumiReply,
+      VideoDetailSkeletonVariant.local => false,
+    };
+    final pgcItem = arguments['pgcItem'];
+    final hasEpisodePanel =
+        pgcItem is PgcInfoModel && pgcItem.episodes?.isNotEmpty == true;
+    return VideoDetailSkeletonProfile(
+      tabCount: VideoDetailLayoutMetrics.portraitTabCount(
+        variant: variant,
+        showReply: showReply,
+      ),
+      actionCount: VideoDetailLayoutMetrics.actionCountFor(
+        variant,
+        includeAiAction: Pref.enableAiChat,
+      ),
+      hasEpisodePanel: hasEpisodePanel,
+    );
+  }
+
   static VideoDetailSkeletonProfile _skeletonProfileFromIntro(
     LoadingState<VideoDetailData> state,
+    VideoDetailSkeletonProfile base,
   ) {
     final data = state.dataOrNull;
-    return VideoDetailSkeletonProfile(
+    return base.copyWith(
       hasSeasonPanel: data?.ugcSeason != null,
       hasPagesPanel: (data?.pages?.length ?? 0) > 1,
     );

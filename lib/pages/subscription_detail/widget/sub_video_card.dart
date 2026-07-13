@@ -46,6 +46,7 @@ class SubVideoCardH extends StatelessWidget {
     final heroTag = _heroTag;
     return VideoDetailTransitionSource(
       tag: heroTag,
+      layout: VideoTransitionSourceLayout.horizontalRow,
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(

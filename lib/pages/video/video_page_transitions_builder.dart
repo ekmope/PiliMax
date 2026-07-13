@@ -2,7 +2,6 @@ import 'dart:collection';
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
-import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
@@ -435,16 +434,13 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   @override
   Widget build(BuildContext context) {
-    final child = widget.token == null && !_routeCompleted
+    final page = widget.token == null && !_routeCompleted
         ? FadeTransition(opacity: widget.animation, child: widget.child)
         : widget.child;
     return ValueListenableBuilder<double>(
       valueListenable: _progress,
-      child: child,
+      child: RepaintBoundary(child: SizedBox.expand(child: page)),
       builder: (context, progress, child) {
-        if (progress <= 0) {
-          return child!;
-        }
         return VideoPageExitTransition(
           progress: progress,
           returnTarget: _returnTarget,
@@ -476,77 +472,83 @@ class VideoPageExitTransition extends StatelessWidget {
           return child;
         }
         final target = returnTarget;
-        return target == null
-            ? _fallbackTransition(size)
-            : _sharedElementTransition(size, target);
+        final hasSharedTarget = target != null && !target.rect.isEmpty;
+        final geometry = hasSharedTarget
+            ? _sharedElementGeometry(size, target)
+            : _fallbackGeometry(size);
+        return _livePageLayer(geometry);
       },
     );
   }
 
-  Widget _fallbackTransition(Size size) {
+  _VideoExitGeometry _fallbackGeometry(Size size) {
     final scale = lerpDouble(1, 0.92, progress)!;
     final opacity = 1 - _interval(progress, 0.62, 1);
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Center(
-          child: Transform.scale(
-            scale: scale,
-            child: Opacity(
-              opacity: opacity,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24 * progress / scale),
-                child: SizedBox.fromSize(size: size, child: child),
-              ),
-            ),
-          ),
-        ),
-      ],
+    final scaledSize = size * scale;
+    final currentRect = Rect.fromCenter(
+      center: (Offset.zero & size).center,
+      width: scaledSize.width,
+      height: scaledSize.height,
+    );
+    return _VideoExitGeometry(
+      clipRect: currentRect,
+      visibleClipRect: currentRect,
+      contentTransform: Matrix4.identity()
+        ..translateByDouble(currentRect.left, currentRect.top, 0, 1)
+        ..scaleByDouble(scale, scale, 1, 1),
+      borderRadius: 24 * progress,
+      liveOpacity: opacity,
     );
   }
 
-  Widget _sharedElementTransition(Size size, VideoReturnTarget target) {
+  _VideoExitGeometry _sharedElementGeometry(
+    Size size,
+    VideoReturnTarget target,
+  ) {
     final screenRect = Offset.zero & size;
     final currentRect = Rect.lerp(screenRect, target.rect, progress)!;
-    final snapshotBlend = _snapshotBlend(currentRect, target.rect);
-    final liveOpacity = 1 - snapshotBlend;
+    final sourceHandoff = _sourceHandoff(currentRect, target.rect);
     final radius = _maxRadius(target.borderRadius);
-    final cardOpacity = snapshotBlend;
-    final currentRadius = lerpDouble(0, radius, progress)!;
+    final contentScale = math.max(
+      currentRect.width / size.width,
+      currentRect.height / size.height,
+    );
+    final scaledWidth = size.width * contentScale;
+    final contentLeft =
+        currentRect.left + (currentRect.width - scaledWidth) / 2;
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Positioned.fromRect(
-          rect: currentRect,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(currentRadius),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Opacity(
-                  opacity: liveOpacity,
-                  child: FittedBox(
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                    child: SizedBox.fromSize(size: size, child: child),
-                  ),
-                ),
-                Opacity(
-                  opacity: cardOpacity,
-                  child: target.snapshot == null
-                      ? _VideoCardFallback(coverUrl: target.coverUrl)
-                      : RawImage(
-                          image: target.snapshot,
-                          fit: BoxFit.cover,
-                          filterQuality: FilterQuality.medium,
-                        ),
-                ),
-              ],
-            ),
+    return _VideoExitGeometry(
+      clipRect: currentRect,
+      visibleClipRect: Rect.lerp(
+        screenRect,
+        target.visibleRect,
+        progress,
+      )!.intersect(currentRect),
+      contentTransform: Matrix4.identity()
+        ..translateByDouble(contentLeft, currentRect.top, 0, 1)
+        ..scaleByDouble(contentScale, contentScale, 1, 1),
+      borderRadius: lerpDouble(0, radius, progress)!,
+      liveOpacity: 1 - sourceHandoff,
+    );
+  }
+
+  Widget _livePageLayer(_VideoExitGeometry geometry) {
+    return ClipRect(
+      clipper: _VideoExitRectClipper(geometry.visibleClipRect),
+      clipBehavior: progress <= 0 ? Clip.none : Clip.hardEdge,
+      child: ClipRRect(
+        clipper: _VideoExitClipper(geometry.clipRRect),
+        clipBehavior: progress <= 0 ? Clip.none : Clip.antiAlias,
+        child: Opacity(
+          opacity: geometry.liveOpacity,
+          child: Transform(
+            alignment: Alignment.topLeft,
+            transform: geometry.contentTransform,
+            transformHitTests: false,
+            child: child,
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -557,7 +559,7 @@ class VideoPageExitTransition extends StatelessWidget {
     radius.bottomRight.x,
   ].reduce((a, b) => a > b ? a : b);
 
-  static double _snapshotBlend(Rect current, Rect target) {
+  static double _sourceHandoff(Rect current, Rect target) {
     if (target.width <= 0 || target.height <= 0) {
       return 0;
     }
@@ -565,20 +567,9 @@ class VideoPageExitTransition extends StatelessWidget {
       current.width / target.width,
       current.height / target.height,
     );
-    final targetDiagonal = math.sqrt(
-      target.width * target.width + target.height * target.height,
+    return Curves.easeInOutCubic.transform(
+      _inverseInterval(sizeRatio, 1.08, 1.02),
     );
-    final centerDistance = (current.center - target.center).distance;
-    final normalizedCenterDistance = targetDiagonal <= 0
-        ? double.infinity
-        : centerDistance / targetDiagonal;
-    final sizeBlend = _inverseInterval(sizeRatio, 1.14, 1.03);
-    final centerBlend = _inverseInterval(
-      normalizedCenterDistance,
-      0.14,
-      0.025,
-    );
-    return Curves.easeInOutCubic.transform(math.min(sizeBlend, centerBlend));
   }
 
   static double _inverseInterval(double value, double begin, double end) {
@@ -602,71 +593,52 @@ class VideoPageExitTransition extends StatelessWidget {
   }
 }
 
-class _VideoCardFallback extends StatelessWidget {
-  const _VideoCardFallback({required this.coverUrl});
+final class _VideoExitGeometry {
+  const _VideoExitGeometry({
+    required this.clipRect,
+    required this.visibleClipRect,
+    required this.contentTransform,
+    required this.borderRadius,
+    required this.liveOpacity,
+  });
 
-  final String? coverUrl;
+  final Rect clipRect;
+  final Rect visibleClipRect;
+  final Matrix4 contentTransform;
+  final double borderRadius;
+  final double liveOpacity;
+
+  RRect get clipRRect => RRect.fromRectAndRadius(
+    clipRect,
+    Radius.circular(borderRadius),
+  );
+}
+
+final class _VideoExitRectClipper extends CustomClipper<Rect> {
+  const _VideoExitRectClipper(this.rect);
+
+  final Rect rect;
 
   @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = constraints.biggest;
-        final coverHeight = (size.width / (16 / 9))
-            .clamp(0.0, size.height)
-            .toDouble();
-        if (size.height - coverHeight < 36) {
-          return NetworkImgLayer(
-            src: coverUrl,
-            width: size.width,
-            height: size.height,
-            borderRadius: BorderRadius.zero,
-            clip: false,
-          );
-        }
-        return ColoredBox(
-          color: colorScheme.surfaceContainerLow,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              NetworkImgLayer(
-                src: coverUrl,
-                width: size.width,
-                height: coverHeight,
-                borderRadius: BorderRadius.zero,
-                clip: false,
-              ),
-              if (coverHeight < size.height)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: size.width * 0.72,
-                          height: 7,
-                          color: colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.18,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Container(
-                          width: size.width * 0.44,
-                          height: 6,
-                          color: colorScheme.onSurfaceVariant.withValues(
-                            alpha: 0.1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  Rect getClip(Size size) => rect;
+
+  @override
+  bool shouldReclip(_VideoExitRectClipper oldClipper) =>
+      oldClipper.rect != rect;
+}
+
+final class _VideoExitClipper extends CustomClipper<RRect> {
+  const _VideoExitClipper(this.clipRRect);
+
+  final RRect clipRRect;
+
+  @override
+  RRect getClip(Size size) => clipRRect;
+
+  @override
+  Rect getApproximateClipRect(Size size) => clipRRect.outerRect;
+
+  @override
+  bool shouldReclip(_VideoExitClipper oldClipper) =>
+      oldClipper.clipRRect != clipRRect;
 }

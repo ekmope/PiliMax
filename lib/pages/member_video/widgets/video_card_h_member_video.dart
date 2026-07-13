@@ -77,6 +77,8 @@ class VideoCardHMemberVideo extends StatelessWidget {
                         videoItem.uri!,
                         isPgc: isPgc,
                         heroTag: _heroTag,
+                        cover: videoItem.cover,
+                        title: videoItem.title,
                       )) {
                         return;
                       }

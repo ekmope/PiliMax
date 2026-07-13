@@ -10,6 +10,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
+import 'package:PiliMax/models/common/video/source_type.dart' as video_source;
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart';
@@ -20,6 +21,10 @@ import 'package:PiliMax/pages/contact/view.dart';
 import 'package:PiliMax/pages/fav_panel/view.dart';
 import 'package:PiliMax/pages/share/view.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
+import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
+import 'package:PiliMax/pages/video/video_layout_metrics.dart';
+import 'package:PiliMax/services/live_pip_overlay_service.dart';
+import 'package:PiliMax/services/pip_overlay_service.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
@@ -53,6 +58,14 @@ final class VideoLaunchException implements Exception {
 abstract final class PageUtils {
   static const videoPendingLaunchKey = '_videoPendingLaunch';
   static const _videoPendingPartKey = '_videoPendingPart';
+  static bool _videoRouteLaunchPending = false;
+  static bool _videoRouteNavigationInstalling = false;
+  static int _videoRouteLaunchGeneration = 0;
+
+  static bool get isOpeningVideoRoute =>
+      _videoRouteLaunchPending ||
+      _videoRouteNavigationInstalling ||
+      VideoDetailEntryOverlayController.isEnteringVideo;
 
   static RelativeRect menuPosition(Offset offset) {
     return .fromLTRB(offset.dx, offset.dy, offset.dx, 0);
@@ -286,26 +299,43 @@ abstract final class PageUtils {
               seasonId: archive.seasonId,
               epId: archive.epid,
               heroTag: heroTag,
+              cover: archive.cover,
+              title: archive.title,
             );
             return;
           }
           // jumpUrl
           if (archive.jumpUrl case final jumpUrl?) {
-            if (viewPgcFromUri(jumpUrl, heroTag: heroTag)) {
+            if (viewPgcFromUri(
+              jumpUrl,
+              heroTag: heroTag,
+              cover: archive.cover,
+              title: archive.title,
+            )) {
               return;
             }
           }
           // redirectUrl from intro
           final res = await VideoHttp.videoIntro(bvid: archive.bvid!);
           if (res.dataOrNull?.redirectUrl case final redirectUrl?) {
-            if (viewPgcFromUri(redirectUrl, heroTag: heroTag)) {
+            if (viewPgcFromUri(
+              redirectUrl,
+              heroTag: heroTag,
+              cover: archive.cover,
+              title: archive.title,
+            )) {
               return;
             }
           }
           // redirectUrl from jumpUrl
           if (await UrlUtils.parseRedirectUrl(archive.jumpUrl.http2https, false)
               case final redirectUrl?) {
-            if (viewPgcFromUri(redirectUrl, heroTag: heroTag)) {
+            if (viewPgcFromUri(
+              redirectUrl,
+              heroTag: heroTag,
+              cover: archive.cover,
+              title: archive.title,
+            )) {
               return;
             }
           }
@@ -364,9 +394,16 @@ abstract final class PageUtils {
             seasonId: pgc.seasonId,
             epId: pgc.epid,
             heroTag: heroTag,
+            cover: pgc.cover,
+            title: pgc.title,
           );
         } else if (pgc.jumpUrl case final jumpUrl?) {
-          if (!viewPgcFromUri(jumpUrl, heroTag: heroTag)) {
+          if (!viewPgcFromUri(
+            jumpUrl,
+            heroTag: heroTag,
+            cover: pgc.cover,
+            title: pgc.title,
+          )) {
             handleWebview(jumpUrl.http2https);
           }
         } else {
@@ -434,7 +471,12 @@ abstract final class PageUtils {
         // if (kDebugMode) debugPrint('DYNAMIC_TYPE_PGC_UNION 鐣墽');
         DynamicArchiveModel pgc = item.modules.moduleDynamic!.major!.pgc!;
         if (pgc.epid != null) {
-          viewPgc(epId: pgc.epid, heroTag: heroTag);
+          viewPgc(
+            epId: pgc.epid,
+            heroTag: heroTag,
+            cover: pgc.cover,
+            title: pgc.title,
+          );
         }
         break;
 
@@ -459,9 +501,12 @@ abstract final class PageUtils {
         break;
 
       case 'DYNAMIC_TYPE_COURSES_SEASON':
+        final courses = item.modules.moduleDynamic!.major!.courses!;
         PageUtils.viewPugv(
-          seasonId: item.modules.moduleDynamic!.major!.courses!.id,
+          seasonId: courses.id,
           heroTag: heroTag,
+          cover: courses.cover,
+          title: courses.title,
         );
         break;
 
@@ -721,37 +766,127 @@ abstract final class PageUtils {
     };
   }
 
-  static Future<void>? _openVideoPage(
+  static Future<void> _openVideoPage(
     Map<dynamic, dynamic> arguments, {
     required bool off,
-  }) {
-    if (!off && arguments[videoTransitionTokenKey] == null) {
-      final heroTag = arguments['heroTag'];
-      if (heroTag is String && heroTag.isNotEmpty) {
-        final token = VideoTransitionRegistry.claim(
-          tag: heroTag,
-          contentKey: VideoDetailSession.contentKeyFor(arguments),
-          coverUrl: arguments['cover'] is String
-              ? arguments['cover'] as String
-              : null,
-        );
-        if (token != null) {
-          arguments[videoTransitionTokenKey] = token;
+  }) async {
+    if (!off &&
+        (_videoRouteLaunchPending ||
+            VideoDetailEntryOverlayController.isEnteringVideo)) {
+      return;
+    }
+    final launchGeneration = ++_videoRouteLaunchGeneration;
+    VideoDetailEntryOverlayController? entryOverlay;
+    Future<void>? navigation;
+    final rootOverlay = Get.key.currentState?.overlay;
+    final rootOverlaySize = rootOverlay?.mounted == true
+        ? MediaQuery.maybeSizeOf(rootOverlay!.context) ?? Size.zero
+        : Size.zero;
+    final ownsPendingGate = !off;
+    if (ownsPendingGate) {
+      _videoRouteLaunchPending = true;
+    }
+    try {
+      if (!off && arguments[videoTransitionTokenKey] == null) {
+        final heroTag = arguments['heroTag'];
+        if (heroTag is String && heroTag.isNotEmpty) {
+          final token = VideoTransitionRegistry.claim(
+            tag: heroTag,
+            contentKey: VideoDetailSession.contentKeyFor(arguments),
+            coverUrl: arguments['cover'] is String
+                ? arguments['cover'] as String
+                : null,
+          );
+          if (token != null) {
+            arguments[videoTransitionTokenKey] = token;
+          }
         }
       }
+      if (!off && arguments[videoTransitionTokenKey] is VideoTransitionToken) {
+        // Preserve the card's release/ripple frame before covering the source.
+        await WidgetsBinding.instance.endOfFrame;
+        if (launchGeneration != _videoRouteLaunchGeneration) {
+          (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
+              ?.dispose();
+          return;
+        }
+        final overlayIsMounted = rootOverlay?.mounted == true;
+        final canUseEntryOverlay =
+            overlayIsMounted &&
+            rootOverlaySize.height >= rootOverlaySize.width &&
+            arguments['fromPip'] != true &&
+            !PipOverlayService.isInPipMode &&
+            !LivePipOverlayService.isInPipMode;
+        if (canUseEntryOverlay) {
+          final variant =
+              arguments['sourceType'] == video_source.SourceType.file
+              ? VideoDetailSkeletonVariant.local
+              : switch (arguments['videoType']) {
+                  VideoType.pgc => VideoDetailSkeletonVariant.pgc,
+                  VideoType.pugv => VideoDetailSkeletonVariant.pugv,
+                  _ => VideoDetailSkeletonVariant.ugc,
+                };
+          final rawIsVertical = arguments['isVertical'];
+          final rawTitle = arguments['title'];
+          entryOverlay = VideoDetailEntryOverlayController(
+            overlay: rootOverlay!,
+            isVertical:
+                arguments['videoOrientationKnown'] == true &&
+                    rawIsVertical is bool
+                ? rawIsVertical
+                : null,
+            variant: variant,
+            title: rawTitle is String ? rawTitle : null,
+            expandedIntro: Pref.alwaysExpandIntroPanel,
+            showRecommendations:
+                Pref.showRelatedVideo && !Pref.alwaysExpandIntroPanel,
+          )..insert();
+          arguments[videoDetailEntryOverlayKey] = entryOverlay;
+        } else {
+          (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
+              ?.dispose();
+        }
+      }
+      _videoRouteNavigationInstalling = true;
+      navigation = off
+          ? Get.offNamed<void>(
+              '/videoV',
+              arguments: arguments,
+              preventDuplicates: false,
+            )
+          : Get.toNamed<void>(
+              '/videoV',
+              arguments: arguments,
+              preventDuplicates: false,
+            );
+      if (navigation == null) {
+        entryOverlay?.abort();
+        arguments.remove(videoDetailEntryOverlayKey);
+        (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
+            ?.dispose();
+        return;
+      }
+      // Navigator has installed the route synchronously, but no frame has
+      // painted yet. Lift the skeleton above it; Hero installs above both.
+      entryOverlay?.bringToFront();
+    } catch (_) {
+      entryOverlay?.abort();
+      arguments.remove(videoDetailEntryOverlayKey);
+      (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
+          ?.dispose();
+      rethrow;
+    } finally {
+      if (ownsPendingGate) {
+        _videoRouteLaunchPending = false;
+      }
+      _videoRouteNavigationInstalling = false;
     }
-    if (off) {
-      return Get.offNamed(
-        '/videoV',
-        arguments: arguments,
-        preventDuplicates: false,
-      );
-    } else {
-      return Get.toNamed(
-        '/videoV',
-        arguments: arguments,
-        preventDuplicates: false,
-      );
+    try {
+      await navigation;
+    } catch (_) {
+      entryOverlay?.abort();
+      (arguments[videoTransitionTokenKey] as VideoTransitionToken?)?.dispose();
+      rethrow;
     }
   }
 
@@ -996,6 +1131,8 @@ abstract final class PageUtils {
     int? aid,
     bool off = false,
     String? heroTag,
+    String? cover,
+    String? title,
   }) {
     RegExpMatch? match = _pgcRegex.firstMatch(uri);
     if (match != null) {
@@ -1008,6 +1145,8 @@ abstract final class PageUtils {
           progress: progress,
           off: off,
           heroTag: heroTag,
+          cover: cover,
+          title: title,
         );
       } else {
         viewPugv(
@@ -1016,6 +1155,8 @@ abstract final class PageUtils {
           aid: aid,
           off: off,
           heroTag: heroTag,
+          cover: cover,
+          title: title,
         );
       }
       return true;
@@ -1045,6 +1186,8 @@ abstract final class PageUtils {
     int? progress, // milliseconds
     bool off = false,
     String? heroTag,
+    String? cover,
+    String? title,
   }) async {
     final arguments = _buildVideoPageArguments(
       videoType: VideoType.pgc,
@@ -1054,6 +1197,8 @@ abstract final class PageUtils {
       seasonId: seasonId is int ? seasonId : int.tryParse('$seasonId'),
       epId: epId is int ? epId : int.tryParse('$epId'),
       progress: progress,
+      cover: cover,
+      title: title,
       heroTag: heroTag,
       pendingLaunchType: VideoPendingLaunchType.pgc,
     );
@@ -1070,6 +1215,8 @@ abstract final class PageUtils {
     int? aid,
     bool off = false,
     String? heroTag,
+    String? cover,
+    String? title,
   }) async {
     final arguments = _buildVideoPageArguments(
       videoType: VideoType.pugv,
@@ -1078,6 +1225,8 @@ abstract final class PageUtils {
       cid: null,
       seasonId: seasonId is int ? seasonId : int.tryParse('$seasonId'),
       epId: epId is int ? epId : int.tryParse('$epId'),
+      cover: cover,
+      title: title,
       heroTag: heroTag,
       pendingLaunchType: VideoPendingLaunchType.pugv,
     );

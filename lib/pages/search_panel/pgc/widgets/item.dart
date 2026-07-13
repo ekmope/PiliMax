@@ -43,6 +43,8 @@ class SearchPgcItem extends StatelessWidget {
         child: InkWell(
           onTap: () => PageUtils.viewPgc(
             seasonId: item.seasonId,
+            cover: item.cover,
+            title: item.title.map((item) => item.text).join(),
             heroTag: _heroTag,
           ),
           onLongPress: onLongPress,

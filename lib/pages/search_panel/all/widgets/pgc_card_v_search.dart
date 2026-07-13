@@ -44,6 +44,8 @@ class PgcCardVSearch extends StatelessWidget {
           onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
           onTap: () => PageUtils.viewPgc(
             seasonId: item.seasonId,
+            cover: item.cover,
+            title: item.title.map((item) => item.text).join(),
             heroTag: _heroTag,
           ),
           child: Column(

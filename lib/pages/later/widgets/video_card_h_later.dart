@@ -64,6 +64,8 @@ class VideoCardHLater extends StatelessWidget {
                     PageUtils.viewPugv(
                       seasonId: videoItem.aid,
                       heroTag: _heroTag,
+                      cover: videoItem.pic,
+                      title: videoItem.title,
                     );
                     return;
                   }
@@ -72,11 +74,15 @@ class VideoCardHLater extends StatelessWidget {
                       PageUtils.viewPgc(
                         epId: videoItem.bangumi!.epId,
                         heroTag: _heroTag,
+                        cover: videoItem.pic,
+                        title: videoItem.title,
                       );
                     } else if (videoItem.redirectUrl?.isNotEmpty == true) {
                       PageUtils.viewPgcFromUri(
                         videoItem.redirectUrl!,
                         heroTag: _heroTag,
+                        cover: videoItem.pic,
+                        title: videoItem.title,
                       );
                     }
                     return;

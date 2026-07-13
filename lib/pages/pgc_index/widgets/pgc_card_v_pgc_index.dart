@@ -43,6 +43,8 @@ class PgcCardVPgcIndex extends StatelessWidget {
           borderRadius: Style.mdRadius,
           onTap: () => PageUtils.viewPgc(
             seasonId: item.seasonId,
+            cover: item.cover,
+            title: item.title,
             heroTag: _heroTag,
           ),
           onLongPress: onLongPress,

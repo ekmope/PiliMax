@@ -99,6 +99,8 @@ class _VideoCardHState extends State<VideoCardH> {
         PageUtils.viewPugv(
           seasonId: videoItem.seasonId,
           heroTag: _heroTag,
+          cover: videoItem.cover,
+          title: videoItem.title,
         );
         return;
       }
@@ -114,6 +116,8 @@ class _VideoCardHState extends State<VideoCardH> {
           PageUtils.viewPgcFromUri(
             videoItem.redirectUrl!,
             heroTag: _heroTag,
+            cover: videoItem.cover,
+            title: videoItem.title,
           )) {
         return;
       }

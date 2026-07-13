@@ -27,14 +27,29 @@ class ToViewCardItem extends StatelessWidget {
 
   void _onTap() {
     if (item.isPugv ?? false) {
-      PageUtils.viewPugv(seasonId: item.aid, heroTag: _heroTag);
+      PageUtils.viewPugv(
+        seasonId: item.aid,
+        heroTag: _heroTag,
+        cover: item.pic,
+        title: item.title,
+      );
       return;
     }
     if (item.isPgc ?? false) {
       if (item.bangumi?.epId != null) {
-        PageUtils.viewPgc(epId: item.bangumi!.epId, heroTag: _heroTag);
+        PageUtils.viewPgc(
+          epId: item.bangumi!.epId,
+          heroTag: _heroTag,
+          cover: item.pic,
+          title: item.title,
+        );
       } else if (item.redirectUrl?.isNotEmpty == true) {
-        PageUtils.viewPgcFromUri(item.redirectUrl!, heroTag: _heroTag);
+        PageUtils.viewPgcFromUri(
+          item.redirectUrl!,
+          heroTag: _heroTag,
+          cover: item.pic,
+          title: item.title,
+        );
       }
       return;
     }

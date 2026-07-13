@@ -55,7 +55,12 @@ class _MemberCoinLikeItemState extends State<MemberCoinLikeItem> {
           onTap: () {
             if (item.isPgc == true) {
               if (item.uri?.isNotEmpty == true) {
-                PageUtils.viewPgcFromUri(item.uri!, heroTag: _heroTag);
+                PageUtils.viewPgcFromUri(
+                  item.uri!,
+                  heroTag: _heroTag,
+                  cover: item.cover,
+                  title: item.title,
+                );
               }
               return;
             }

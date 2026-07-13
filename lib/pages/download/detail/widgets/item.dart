@@ -452,12 +452,16 @@ class DetailItem extends StatelessWidget {
                           seasonId: entry.seasonId,
                           epId: ep.episodeId,
                           heroTag: _heroTag,
+                          cover: entry.cover,
+                          title: entry.showTitle,
                         );
                       } else {
                         PageUtils.viewPgc(
                           seasonId: entry.seasonId,
                           epId: ep.episodeId,
                           heroTag: _heroTag,
+                          cover: entry.cover,
+                          title: entry.showTitle,
                         );
                       }
                       return;

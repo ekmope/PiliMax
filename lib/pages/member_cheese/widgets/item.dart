@@ -92,6 +92,8 @@ class MemberCheeseItem extends StatelessWidget {
           onTap: () => PageUtils.viewPugv(
             seasonId: item.seasonId,
             heroTag: _heroTag,
+            cover: item.cover,
+            title: item.title,
           ),
           onLongPress: onLongPress,
           onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,

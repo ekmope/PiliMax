@@ -9,11 +9,11 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 
-/// Expands a complete video card into the lightweight detail-page shell.
+/// Moves a frozen video card surface into the detail player's rectangle.
 ///
 /// Both ends opt in to user-gesture transitions so Android predictive back can
 /// drive the same flight. Keep the target child lightweight; the default
-/// [VideoDetailHeroShell] intentionally contains no player or scrolling state.
+/// The flight never carries a live player or scrolling state.
 class VideoDetailHero extends StatefulWidget {
   const VideoDetailHero.source({
     super.key,
@@ -102,15 +102,15 @@ class VideoDetailHero extends StatefulWidget {
             : 1 -
                   _interval(
                     flightProgress,
-                    isUnknownEntry ? 0.28 : 0.08,
-                    isUnknownEntry ? 0.78 : 0.52,
+                    isUnknownEntry ? 0.28 : 0.42,
+                    isUnknownEntry ? 0.78 : 0.76,
                   );
         final detailOpacity = isPop
             ? 1 - _interval(flightProgress, 0.14, 0.78)
             : _interval(
                 flightProgress,
-                isUnknownEntry ? 0.55 : 0.16,
-                isUnknownEntry ? 0.96 : 0.82,
+                isUnknownEntry ? 0.55 : 0.48,
+                isUnknownEntry ? 0.96 : 0.9,
               );
 
         return RepaintBoundary(

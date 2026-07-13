@@ -88,6 +88,8 @@ class FavVideoCardH extends StatelessWidget {
                         seasonId: item.ogv!.seasonId,
                         epId: item.id,
                         heroTag: _heroTag,
+                        cover: item.cover,
+                        title: item.title,
                       );
                       break;
                     default:

@@ -65,7 +65,12 @@ class HistoryCardItem extends StatelessWidget {
         SmartDialog.showToast('直播未开播');
       }
     } else if (_isPgc) {
-      PageUtils.viewPgc(epId: item.history.epid, heroTag: _heroTag);
+      PageUtils.viewPgc(
+        epId: item.history.epid,
+        heroTag: _heroTag,
+        cover: _cover,
+        title: item.title,
+      );
     } else if (_isCheese) {
       if (item.uri?.isNotEmpty == true) {
         PageUtils.viewPgcFromUri(
@@ -73,6 +78,8 @@ class HistoryCardItem extends StatelessWidget {
           isPgc: false,
           aid: item.history.oid,
           heroTag: _heroTag,
+          cover: _cover,
+          title: item.title,
         );
       }
     } else {

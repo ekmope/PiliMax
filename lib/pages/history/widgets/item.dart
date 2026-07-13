@@ -97,6 +97,8 @@ class HistoryItem extends StatelessWidget {
                   PageUtils.viewPgc(
                     epId: item.history.epid,
                     heroTag: _heroTag,
+                    cover: cover,
+                    title: item.title,
                   );
                 } else if (business == 'cheese') {
                   if (item.uri?.isNotEmpty == true) {
@@ -105,6 +107,8 @@ class HistoryItem extends StatelessWidget {
                       isPgc: false,
                       aid: item.history.oid,
                       heroTag: _heroTag,
+                      cover: cover,
+                      title: item.title,
                     );
                   }
                 } else {

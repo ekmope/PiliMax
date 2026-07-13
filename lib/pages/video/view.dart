@@ -143,6 +143,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   final Set<TabController> _pendingTabControllerDisposals = <TabController>{};
   bool _layoutReadyForRoutePop = false;
   Animation<double>? _initialRouteAnimation;
+  bool _initialRouteAnimationAttachScheduled = false;
   bool _initialHeroTransitionCompleted = false;
   bool _initialVideoSourceReady = false;
   bool _initialPlayerStarted = false;
@@ -675,7 +676,20 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     if (_initialHeroTransitionCompleted || _initialRouteAnimation != null) {
       return;
     }
-    final animation = ModalRoute.of(context)?.animation;
+    final route = ModalRoute.of(context);
+    if (route?.offstage == true) {
+      if (!_initialRouteAnimationAttachScheduled) {
+        _initialRouteAnimationAttachScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _initialRouteAnimationAttachScheduled = false;
+          if (mounted) {
+            _attachInitialRouteAnimation();
+          }
+        });
+      }
+      return;
+    }
+    final animation = route?.animation;
     if (animation == null ||
         animation.status == AnimationStatus.completed ||
         animation.value >= 1) {
@@ -3326,6 +3340,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     );
     if (!Pref.enableInAppPip) {
       _logSponsorBlock('Reject PiP: in-app PiP is disabled in settings');
+      return false;
+    }
+    if (PageUtils.isOpeningVideoRoute) {
+      _logSponsorBlock('Reject PiP: entering another video detail route');
       return false;
     }
     if (PipOverlayService.isInPipMode) {

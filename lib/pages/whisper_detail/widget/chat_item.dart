@@ -602,6 +602,8 @@ class ChatItem extends StatelessWidget {
         onTap = () => PageUtils.viewPgc(
           epId: content['id'],
           heroTag: heroTag,
+          cover: content['thumb'],
+          title: content['title'],
         );
         break;
 

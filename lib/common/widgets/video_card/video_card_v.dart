@@ -99,7 +99,12 @@ class _VideoCardVState extends State<VideoCardV> {
   void onPushDetail() {
     switch (videoItem.goto) {
       case 'bangumi':
-        PageUtils.viewPgc(epId: videoItem.param!, heroTag: _heroTag);
+        PageUtils.viewPgc(
+          epId: videoItem.param!,
+          heroTag: _heroTag,
+          cover: videoItem.cover,
+          title: videoItem.title,
+        );
         break;
       case 'av':
         final bvid = videoItem.bvid ?? IdUtils.av2bv(videoItem.aid!);

@@ -89,12 +89,16 @@ class BiliDownloadEntryInfo with MultiSelectData {
                         seasonId: seasonId,
                         epId: ep.episodeId,
                         heroTag: heroTag,
+                        cover: cover,
+                        title: showTitle,
                       );
                     } else {
                       PageUtils.viewPgc(
                         seasonId: seasonId,
                         epId: ep.episodeId,
                         heroTag: heroTag,
+                        cover: cover,
+                        title: showTitle,
                       );
                     }
                     return;

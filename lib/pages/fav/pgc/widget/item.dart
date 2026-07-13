@@ -61,6 +61,8 @@ class FavPgcItem extends StatelessWidget {
                 }
                 PageUtils.viewPgc(
                   seasonId: item.seasonId,
+                  cover: item.cover,
+                  title: item.title,
                   heroTag: _heroTag,
                 );
               },

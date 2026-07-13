@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/pages/video/video_detail_args.dart';
+import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/pages/video/view.dart';
@@ -40,6 +42,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   VideoDetailSkeletonProfile _entryContentProfile =
       const VideoDetailSkeletonProfile();
   Animation<double>? _routeAnimation;
+  bool _routeAnimationAttachScheduled = false;
   VideoDetailSession? _session;
   Timer? _fallbackTimer;
   Timer? _orientationSettleTimer;
@@ -71,6 +74,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     return title is String ? title : null;
   }
 
+  String? get _entryCover {
+    final cover = _arguments['cover'];
+    return cover is String && cover.isNotEmpty ? cover : null;
+  }
+
   bool get _fromPip => _arguments['fromPip'] == true;
 
   bool get _needsImmediatePipTakeover =>
@@ -80,6 +88,12 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   bool get _hasVideoTransition =>
       _arguments[videoTransitionTokenKey] is VideoTransitionToken;
+
+  VideoDetailEntryOverlayController? get _entryOverlay =>
+      _arguments[videoDetailEntryOverlayKey]
+          as VideoDetailEntryOverlayController?;
+
+  bool get _usesExternalEntryOverlay => _entryOverlay?.isActive == true;
 
   VideoDetailSkeletonVariant get _skeletonVariant => _entryVariant;
 
@@ -118,6 +132,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (!mounted) {
       return false;
     }
+    _entryOverlay?.abort();
     if (!_showEntryLayer) {
       return true;
     }
@@ -183,12 +198,31 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final animation = ModalRoute.of(context)?.animation;
+    _attachRouteAnimation();
+  }
+
+  void _attachRouteAnimation() {
+    final route = ModalRoute.of(context);
+    if (route?.offstage == true) {
+      _entryOverlay?.bindRouteAnimation(null);
+      if (!_routeAnimationAttachScheduled) {
+        _routeAnimationAttachScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _routeAnimationAttachScheduled = false;
+          if (mounted) {
+            _attachRouteAnimation();
+          }
+        });
+      }
+      return;
+    }
+    final animation = route?.animation;
     if (identical(animation, _routeAnimation)) {
       return;
     }
     _routeAnimation?.removeStatusListener(_onRouteAnimationStatus);
     _routeAnimation = animation;
+    _entryOverlay?.bindRouteAnimation(animation);
     if (animation == null || animation.status == AnimationStatus.completed) {
       _markRouteAnimationCompleted();
     } else {
@@ -211,7 +245,10 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       if (!mounted) {
         return;
       }
-      if (_useHeroTarget) {
+      final settleOrientationBeforeHandoff =
+          _pendingEntryOrientation != null &&
+          _pendingEntryOrientation != _entryIsVertical;
+      if (_useHeroTarget && !settleOrientationBeforeHandoff) {
         setState(() => _useHeroTarget = false);
       }
       if (_pendingEntryOrientation != null ||
@@ -221,16 +258,22 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           (_) => _applyPendingEntryProfile(),
         );
       } else if (_showDetail && _showEntryLayer) {
-        _beginDetailReveal();
+        if (_usesExternalEntryOverlay) {
+          _tryMountDetail();
+        } else {
+          _beginDetailReveal();
+        }
       }
     });
-    _fallbackTimer ??= Timer(_maximumPostTransitionHold, () {
-      if (!mounted) {
-        return;
-      }
-      _fallbackElapsed = true;
-      _tryMountDetail();
-    });
+    if (!_usesExternalEntryOverlay) {
+      _fallbackTimer ??= Timer(_maximumPostTransitionHold, () {
+        if (!mounted) {
+          return;
+        }
+        _fallbackElapsed = true;
+        _tryMountDetail();
+      });
+    }
     _tryMountDetail();
   }
 
@@ -264,7 +307,12 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       }
     } catch (error) {
       if (mounted) {
-        setState(() => _error = error);
+        _entryOverlay?.abort();
+        setState(() {
+          _error = error;
+          _showEntryLayer = false;
+          _useHeroTarget = false;
+        });
       }
     } finally {
       _isResolving = false;
@@ -288,6 +336,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       (_) => _markPresentationReady(session),
       onError: (_, _) => _markPresentationReady(session),
     );
+    if (_usesExternalEntryOverlay && !_showDetail) {
+      setState(() => _showDetail = true);
+    }
     _tryMountDetail();
   }
 
@@ -380,7 +431,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (orientation == _entryIsVertical &&
         variant == _entryVariant &&
         _sameContentProfile(contentProfile, _entryContentProfile)) {
-      if (_showDetail) {
+      if (_showDetail && !_usesExternalEntryOverlay) {
         _beginDetailReveal();
       } else {
         _tryMountDetail();
@@ -413,6 +464,15 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _entryContentProfile = contentProfile;
       _orientationSettling = true;
     });
+    _entryOverlay?.updateProfile(
+      isVertical: orientation,
+      variant: variant,
+      title: _entryTitle,
+      hasSeasonPanel:
+          !Pref.alwaysExpandIntroPanel && contentProfile.hasSeasonPanel,
+      hasPagesPanel:
+          !Pref.alwaysExpandIntroPanel && contentProfile.hasPagesPanel,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           !_orientationSettling ||
@@ -425,9 +485,14 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         if (!mounted) {
           return;
         }
-        _orientationSettleTimer = null;
-        _orientationSettling = false;
-        if (_showDetail) {
+        setState(() {
+          _orientationSettleTimer = null;
+          _orientationSettling = false;
+          if (_usesExternalEntryOverlay) {
+            _useHeroTarget = false;
+          }
+        });
+        if (_showDetail && !_usesExternalEntryOverlay) {
           _beginDetailReveal();
         } else {
           _tryMountDetail();
@@ -447,6 +512,26 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   }
 
   void _tryMountDetail() {
+    if (_usesExternalEntryOverlay) {
+      if (!mounted || !_argumentsResolved || _session == null) {
+        return;
+      }
+      if (!_showDetail) {
+        setState(() => _showDetail = true);
+      }
+      if (!_routeAnimationCompleted ||
+          _pendingEntryOrientation != null ||
+          _pendingEntryVariant != null ||
+          _pendingContentProfile != null ||
+          _orientationSettling ||
+          !_presentationReady) {
+        return;
+      }
+      _fallbackTimer?.cancel();
+      _fallbackTimer = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _beginDetailReveal());
+      return;
+    }
     if (!mounted ||
         _showDetail ||
         !_argumentsResolved ||
@@ -480,6 +565,17 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _useHeroTarget = false;
       _revealingDetail = true;
     });
+    final entryOverlay = _entryOverlay;
+    if (entryOverlay != null) {
+      unawaited(
+        entryOverlay.beginReveal().whenComplete(() {
+          if (mounted && _showEntryLayer) {
+            setState(() => _showEntryLayer = false);
+          }
+        }),
+      );
+      return;
+    }
     _detailRevealController.forward(from: 0);
   }
 
@@ -488,21 +584,41 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     WidgetsBinding.instance.addPostFrameCallback((_) => _resolveArguments());
   }
 
-  Widget _heroTarget() => VideoDetailHero.target(
-    tag: _heroTag,
-    child: VideoDetailHeroShell(
+  Widget _heroTarget(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final topInset = Pref.removeSafeArea
+        ? 0.0
+        : MediaQuery.viewPaddingOf(context).top;
+    final playerBottom = VideoDetailLayoutMetrics.entryPlayerBottom(
+      viewport,
       isVertical: _entryIsVertical,
-      variant: _skeletonVariant,
-      title: _entryTitle,
-      expandedIntro: Pref.alwaysExpandIntroPanel,
-      showRecommendations:
-          Pref.showRelatedVideo && !Pref.alwaysExpandIntroPanel,
-      hasSeasonPanel:
-          !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasSeasonPanel,
-      hasPagesPanel:
-          !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasPagesPanel,
-    ),
-  );
+      topInset: topInset,
+    );
+    final cover = _entryCover;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: AnimatedContainer(
+        duration: _orientationTransitionDuration,
+        curve: Curves.easeInOutCubic,
+        width: viewport.width,
+        height: playerBottom,
+        child: VideoDetailHero.target(
+          tag: _heroTag,
+          child: cover == null
+              ? const ColoredBox(color: Colors.black)
+              : NetworkImgLayer(
+                  src: cover,
+                  width: viewport.width,
+                  height: playerBottom,
+                  fadeInDuration: Duration.zero,
+                  fadeOutDuration: Duration.zero,
+                  borderRadius: BorderRadius.zero,
+                  clip: false,
+                ),
+        ),
+      ),
+    );
+  }
 
   Widget _entryShell() => VideoDetailHeroShell.revealing(
     key: ValueKey((
@@ -532,45 +648,48 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   Widget _errorOverlay(BuildContext context, Object error) {
     final colorScheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: Stack(
-        children: [
-          Align(
-            alignment: Alignment.topLeft,
-            child: IconButton(
-              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-              onPressed: Get.back,
-              icon: const Icon(Icons.arrow_back),
-            ),
-          ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 36,
-                    color: colorScheme.error,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    error.toString(),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: _retry,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('重试'),
-                  ),
-                ],
+    return ColoredBox(
+      color: colorScheme.surface,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Align(
+              alignment: Alignment.topLeft,
+              child: IconButton(
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                onPressed: Get.back,
+                icon: const Icon(Icons.arrow_back),
               ),
             ),
-          ),
-        ],
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 36,
+                      color: colorScheme.error,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      error.toString(),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _retry,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('重试'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -596,6 +715,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _arguments.remove(videoDetailCancelPreparedExitKey);
     }
     _session?.dispose();
+    _entryOverlay?.dispose();
     (_arguments[videoTransitionTokenKey] as VideoTransitionToken?)?.dispose();
     super.dispose();
   }
@@ -606,17 +726,18 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (_showEarlyExitSurface) {
       return ColoredBox(color: colorScheme.surface);
     }
+    final showHeroTarget = _useHeroTarget && _hasVideoTransition;
     if (!_showDetail) {
       return Scaffold(
-        backgroundColor: _useHeroTarget && _hasVideoTransition
+        backgroundColor: showHeroTarget || _usesExternalEntryOverlay
             ? Colors.transparent
             : colorScheme.surface,
         body: Stack(
           fit: StackFit.expand,
           children: [
-            IgnorePointer(
-              child: _useHeroTarget ? _heroTarget() : _animatedEntryShell(),
-            ),
+            if (!_usesExternalEntryOverlay)
+              IgnorePointer(child: _animatedEntryShell()),
+            if (showHeroTarget) IgnorePointer(child: _heroTarget(context)),
             if (_error case final error?) _errorOverlay(context, error),
           ],
         ),
@@ -633,15 +754,18 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
             child: VideoDetailPageV(session: _session),
           ),
         ),
-        if (_showEntryLayer)
+        if (_showEntryLayer && !_usesExternalEntryOverlay)
           Positioned.fill(
             child: IgnorePointer(
               child: AnimatedBuilder(
                 animation: _detailRevealController,
-                builder: (context, _) =>
-                    _useHeroTarget ? _heroTarget() : _animatedEntryShell(),
+                builder: (context, _) => _animatedEntryShell(),
               ),
             ),
+          ),
+        if (showHeroTarget)
+          Positioned.fill(
+            child: IgnorePointer(child: _heroTarget(context)),
           ),
       ],
     );

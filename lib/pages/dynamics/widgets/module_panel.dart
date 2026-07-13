@@ -133,7 +133,12 @@ Widget module(
             try {
               final url = commonUrl!;
               if (isPgcVideo &&
-                  PageUtils.viewPgcFromUri(url, heroTag: commonHeroTag)) {
+                  PageUtils.viewPgcFromUri(
+                    url,
+                    heroTag: commonHeroTag,
+                    cover: common.cover,
+                    title: common.title,
+                  )) {
                 return;
               }
               if (videoId.isNotEmpty) {

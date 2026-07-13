@@ -65,11 +65,18 @@ class SearchArchiveGrpc extends StatelessWidget {
                     item.uri,
                     isPgc: false,
                     heroTag: heroTag,
+                    cover: arc.pic,
+                    title: titleStr,
                   );
                   return;
                 }
                 if (arc.hasRedirectUrl()) {
-                  PageUtils.viewPgcFromUri(arc.redirectUrl, heroTag: heroTag);
+                  PageUtils.viewPgcFromUri(
+                    arc.redirectUrl,
+                    heroTag: heroTag,
+                    cover: arc.pic,
+                    title: titleStr,
+                  );
                   return;
                 }
                 PageUtils.toVideoPage(

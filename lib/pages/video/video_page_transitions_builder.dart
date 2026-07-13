@@ -4,6 +4,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
+import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
 
 import 'package:flutter/material.dart';
@@ -52,6 +53,11 @@ class AppPredictiveBackPageTransitionsBuilder extends PageTransitionsBuilder {
     final token = arguments is Map
         ? arguments[videoTransitionTokenKey] as VideoTransitionToken?
         : null;
+    if (arguments is Map) {
+      (arguments[videoDetailEntryOverlayKey]
+              as VideoDetailEntryOverlayController?)
+          ?.bindRouteAnimation(route.offstage ? null : animation);
+    }
     _VideoRouteAnimations.register(animation);
     return _VideoPredictiveBackDriver(
       route: route,
@@ -134,6 +140,11 @@ class AppZoomPageTransitionsBuilder extends PageTransitionsBuilder {
     final token = arguments is Map
         ? arguments[videoTransitionTokenKey] as VideoTransitionToken?
         : null;
+    if (arguments is Map) {
+      (arguments[videoDetailEntryOverlayKey]
+              as VideoDetailEntryOverlayController?)
+          ?.bindRouteAnimation(route.offstage ? null : animation);
+    }
     _VideoRouteAnimations.register(animation);
     return _VideoPredictiveBackDriver(
       route: route,
@@ -229,7 +240,9 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   void initState() {
     super.initState();
     _VideoRouteAnimations.register(widget.animation);
-    _routeCompleted = widget.animation.status == AnimationStatus.completed;
+    _routeCompleted =
+        !widget.route.offstage &&
+        widget.animation.status == AnimationStatus.completed;
     widget.animation
       ..addListener(_handleAnimationTick)
       ..addStatusListener(_handleAnimationStatus);

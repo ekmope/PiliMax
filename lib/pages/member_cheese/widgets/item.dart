@@ -38,10 +38,15 @@ class MemberCheeseItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          item.title!,
+        VideoDetailTransitionTitle(
+          text: item.title!,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
+          child: Text(
+            item.title!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         if (item.status != null) ...[
           const SizedBox(height: 6),

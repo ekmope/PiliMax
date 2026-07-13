@@ -7,12 +7,54 @@ import 'package:flutter/rendering.dart';
 
 const videoTransitionTokenKey = '_videoTransitionToken';
 
+final class VideoTransitionTitleDescriptor {
+  const VideoTransitionTitleDescriptor({
+    required this.text,
+    this.style,
+    this.maxLines,
+    this.textAlign,
+    this.overflow,
+  });
+
+  final String text;
+  final TextStyle? style;
+  final int? maxLines;
+  final TextAlign? textAlign;
+  final TextOverflow? overflow;
+}
+
+final class VideoTransitionTitleSnapshot {
+  const VideoTransitionTitleSnapshot({
+    required this.rect,
+    required this.text,
+    required this.style,
+    required this.maxLines,
+    required this.textAlign,
+    required this.overflow,
+    required this.textDirection,
+    required this.textScaler,
+  });
+
+  final Rect rect;
+  final String text;
+  final TextStyle style;
+  final int? maxLines;
+  final TextAlign? textAlign;
+  final TextOverflow? overflow;
+  final TextDirection textDirection;
+  final TextScaler textScaler;
+}
+
 final class VideoTransitionToken {
   VideoTransitionToken({
     required this.tag,
     required this.sourceGeneration,
     required this.sourceRoute,
     required this.launchRect,
+    required this.mediaLaunchRect,
+    required this.mediaLaunchBorderRadius,
+    required this.launchBorderRadius,
+    required this.title,
     required this.contentKey,
     required this.coverUrl,
     required Future<ui.Image?> snapshot,
@@ -33,6 +75,10 @@ final class VideoTransitionToken {
   final int sourceGeneration;
   final Route<dynamic>? sourceRoute;
   final Rect launchRect;
+  final Rect mediaLaunchRect;
+  final BorderRadius mediaLaunchBorderRadius;
+  final BorderRadius launchBorderRadius;
+  final VideoTransitionTitleSnapshot? title;
   String contentKey;
   final String? coverUrl;
   final Future<ui.Image?> _snapshotFuture;
@@ -94,12 +140,16 @@ final class VideoTransitionRegistration {
     }
   }
 
-  void attachMedia(GlobalKey boundaryKey) {
+  void attachMedia(
+    GlobalKey boundaryKey,
+    BorderRadiusGeometry borderRadius,
+  ) {
     if (!_disposed) {
       VideoTransitionRegistry._attachMedia(
         _tag,
         _generation,
         boundaryKey,
+        borderRadius,
       );
     }
   }
@@ -107,6 +157,30 @@ final class VideoTransitionRegistration {
   void detachMedia(GlobalKey boundaryKey) {
     if (!_disposed) {
       VideoTransitionRegistry._detachMedia(
+        _tag,
+        _generation,
+        boundaryKey,
+      );
+    }
+  }
+
+  void attachTitle(
+    GlobalKey boundaryKey,
+    VideoTransitionTitleDescriptor descriptor,
+  ) {
+    if (!_disposed) {
+      VideoTransitionRegistry._attachTitle(
+        _tag,
+        _generation,
+        boundaryKey,
+        descriptor,
+      );
+    }
+  }
+
+  void detachTitle(GlobalKey boundaryKey) {
+    if (!_disposed) {
+      VideoTransitionRegistry._detachTitle(
         _tag,
         _generation,
         boundaryKey,
@@ -136,12 +210,17 @@ final class _VideoTransitionSource {
   final Route<dynamic>? route;
   final BorderRadiusGeometry borderRadius;
   GlobalKey? _mediaBoundaryKey;
+  BorderRadiusGeometry? _mediaBorderRadius;
+  GlobalKey? _titleBoundaryKey;
+  VideoTransitionTitleDescriptor? _titleDescriptor;
   Future<ui.Image?>? _preparedSnapshot;
   Timer? _preparedSnapshotExpiry;
 
   BuildContext? get context => boundaryKey.currentContext;
 
   BuildContext? get mediaContext => _mediaBoundaryKey?.currentContext;
+
+  BuildContext? get titleContext => _titleBoundaryKey?.currentContext;
 
   bool get hasPreparedSnapshot => _preparedSnapshot != null;
 
@@ -164,21 +243,67 @@ final class _VideoTransitionSource {
     return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
-  void attachMedia(GlobalKey boundaryKey) {
-    if (identical(_mediaBoundaryKey, boundaryKey)) {
-      return;
+  void attachMedia(
+    GlobalKey boundaryKey,
+    BorderRadiusGeometry borderRadius,
+  ) {
+    if (!identical(_mediaBoundaryKey, boundaryKey)) {
+      assert(
+        _mediaBoundaryKey == null,
+        'A video transition source can only have one media Hero.',
+      );
+      _mediaBoundaryKey = boundaryKey;
     }
-    assert(
-      _mediaBoundaryKey == null,
-      'A video transition source can only have one media Hero.',
-    );
-    _mediaBoundaryKey = boundaryKey;
+    _mediaBorderRadius = borderRadius;
   }
 
   void detachMedia(GlobalKey boundaryKey) {
     if (identical(_mediaBoundaryKey, boundaryKey)) {
       _mediaBoundaryKey = null;
+      _mediaBorderRadius = null;
     }
+  }
+
+  void attachTitle(
+    GlobalKey boundaryKey,
+    VideoTransitionTitleDescriptor descriptor,
+  ) {
+    if (!identical(_titleBoundaryKey, boundaryKey)) {
+      assert(
+        _titleBoundaryKey == null,
+        'A video transition source can only have one title anchor.',
+      );
+      _titleBoundaryKey = boundaryKey;
+    }
+    _titleDescriptor = descriptor;
+  }
+
+  void detachTitle(GlobalKey boundaryKey) {
+    if (identical(_titleBoundaryKey, boundaryKey)) {
+      _titleBoundaryKey = null;
+      _titleDescriptor = null;
+    }
+  }
+
+  VideoTransitionTitleSnapshot? currentTitleSnapshot() {
+    final descriptor = _titleDescriptor;
+    final context = titleContext;
+    final rect = _rectFor(context);
+    if (descriptor == null || context == null || rect == null) {
+      return null;
+    }
+    final defaultTextStyle = DefaultTextStyle.of(context);
+    return VideoTransitionTitleSnapshot(
+      rect: rect,
+      text: descriptor.text,
+      style: defaultTextStyle.style.merge(descriptor.style),
+      maxLines: descriptor.maxLines ?? defaultTextStyle.maxLines,
+      textAlign: descriptor.textAlign ?? defaultTextStyle.textAlign,
+      overflow: descriptor.overflow ?? defaultTextStyle.overflow,
+      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      textScaler:
+          MediaQuery.maybeOf(context)?.textScaler ?? TextScaler.noScaling,
+    );
   }
 
   BorderRadius resolvedBorderRadius() {
@@ -186,6 +311,14 @@ final class _VideoTransitionSource {
         ? TextDirection.ltr
         : Directionality.maybeOf(context!) ?? TextDirection.ltr;
     return borderRadius.resolve(direction);
+  }
+
+  BorderRadius resolvedMediaBorderRadius() {
+    final context = mediaContext;
+    final direction = context == null
+        ? TextDirection.ltr
+        : Directionality.maybeOf(context) ?? TextDirection.ltr;
+    return (_mediaBorderRadius ?? BorderRadius.zero).resolve(direction);
   }
 
   void prepareSnapshot() {
@@ -251,6 +384,9 @@ final class _VideoTransitionSource {
 
   void dispose() {
     _mediaBoundaryKey = null;
+    _mediaBorderRadius = null;
+    _titleBoundaryKey = null;
+    _titleDescriptor = null;
     discardPreparedSnapshot();
   }
 }
@@ -313,12 +449,19 @@ abstract final class VideoTransitionRegistry {
       return null;
     }
     final snapshot = source.takeSnapshot();
+    final mediaLaunchBorderRadius = source.resolvedMediaBorderRadius();
+    final launchBorderRadius = source.resolvedBorderRadius();
+    final title = source.currentTitleSnapshot();
     _preparedSources.remove(source);
     return VideoTransitionToken(
       tag: tag,
       sourceGeneration: source.generation,
       sourceRoute: source.route,
       launchRect: rect,
+      mediaLaunchRect: mediaRect,
+      mediaLaunchBorderRadius: mediaLaunchBorderRadius,
+      launchBorderRadius: launchBorderRadius,
+      title: title,
       contentKey: contentKey,
       coverUrl: coverUrl,
       snapshot: snapshot,
@@ -476,8 +619,12 @@ abstract final class VideoTransitionRegistry {
     Object tag,
     int generation,
     GlobalKey boundaryKey,
+    BorderRadiusGeometry borderRadius,
   ) {
-    _sourceByGeneration(tag, generation)?.attachMedia(boundaryKey);
+    _sourceByGeneration(
+      tag,
+      generation,
+    )?.attachMedia(boundaryKey, borderRadius);
   }
 
   static void _detachMedia(
@@ -486,6 +633,26 @@ abstract final class VideoTransitionRegistry {
     GlobalKey boundaryKey,
   ) {
     _sourceByGeneration(tag, generation)?.detachMedia(boundaryKey);
+  }
+
+  static void _attachTitle(
+    Object tag,
+    int generation,
+    GlobalKey boundaryKey,
+    VideoTransitionTitleDescriptor descriptor,
+  ) {
+    _sourceByGeneration(
+      tag,
+      generation,
+    )?.attachTitle(boundaryKey, descriptor);
+  }
+
+  static void _detachTitle(
+    Object tag,
+    int generation,
+    GlobalKey boundaryKey,
+  ) {
+    _sourceByGeneration(tag, generation)?.detachTitle(boundaryKey);
   }
 
   static void _retainTokenSnapshot(

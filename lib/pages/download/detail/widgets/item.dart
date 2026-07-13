@@ -282,9 +282,8 @@ class DetailItem extends StatelessWidget {
                         spacing: 5,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            showTitle ? entry.title : entry.showTitle,
-                            textAlign: TextAlign.start,
+                          VideoDetailTransitionTitle(
+                            text: showTitle ? entry.title : entry.showTitle,
                             style: TextStyle(
                               fontSize: theme.textTheme.bodyMedium!.fontSize,
                               height: 1.42,
@@ -295,7 +294,23 @@ class DetailItem extends StatelessWidget {
                                       ? 1
                                       : 2
                                 : 2,
+                            textAlign: TextAlign.start,
                             overflow: TextOverflow.ellipsis,
+                            child: Text(
+                              showTitle ? entry.title : entry.showTitle,
+                              textAlign: TextAlign.start,
+                              style: TextStyle(
+                                fontSize: theme.textTheme.bodyMedium!.fontSize,
+                                height: 1.42,
+                                letterSpacing: 0.3,
+                              ),
+                              maxLines: showTitle
+                                  ? entry.ep != null
+                                        ? 1
+                                        : 2
+                                  : 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           if (showTitle) ...[
                             if (entry.pageData?.part case final part?)

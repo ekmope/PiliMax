@@ -184,12 +184,26 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
                 ),
               ),
             if (video.title case final title?)
-              Text(
-                title,
-                maxLines: isDetail ? null : 1,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                overflow: isDetail ? null : TextOverflow.ellipsis,
-              ),
+              if (heroTag == null)
+                Text(
+                  title,
+                  maxLines: isDetail ? null : 1,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  overflow: isDetail ? null : TextOverflow.ellipsis,
+                )
+              else
+                VideoDetailTransitionTitle(
+                  text: title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  maxLines: isDetail ? null : 1,
+                  overflow: isDetail ? null : TextOverflow.ellipsis,
+                  child: Text(
+                    title,
+                    maxLines: isDetail ? null : 1,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    overflow: isDetail ? null : TextOverflow.ellipsis,
+                  ),
+                ),
           ],
         ),
       ),

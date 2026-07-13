@@ -173,12 +173,19 @@ class FavVideoCardH extends StatelessWidget {
             spacing: 3,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                item.title!,
-                textAlign: TextAlign.start,
+              VideoDetailTransitionTitle(
+                text: item.title!,
                 style: const TextStyle(letterSpacing: 0.3),
                 maxLines: 2,
+                textAlign: TextAlign.start,
                 overflow: TextOverflow.ellipsis,
+                child: Text(
+                  item.title!,
+                  textAlign: TextAlign.start,
+                  style: const TextStyle(letterSpacing: 0.3),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               if (item.type == 24 && item.intro?.isNotEmpty == true)
                 Text(

@@ -244,9 +244,8 @@ class VideoCardHMemberVideo extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(
-              videoItem.title,
-              textAlign: TextAlign.start,
+            child: VideoDetailTransitionTitle(
+              text: videoItem.title,
               style: TextStyle(
                 fontWeight: isCurr ? FontWeight.bold : null,
                 fontSize: theme.textTheme.bodyMedium!.fontSize,
@@ -255,7 +254,21 @@ class VideoCardHMemberVideo extends StatelessWidget {
                 color: isCurr ? theme.colorScheme.primary : null,
               ),
               maxLines: 2,
+              textAlign: TextAlign.start,
               overflow: TextOverflow.ellipsis,
+              child: Text(
+                videoItem.title,
+                textAlign: TextAlign.start,
+                style: TextStyle(
+                  fontWeight: isCurr ? FontWeight.bold : null,
+                  fontSize: theme.textTheme.bodyMedium!.fontSize,
+                  height: 1.42,
+                  letterSpacing: 0.3,
+                  color: isCurr ? theme.colorScheme.primary : null,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
           Text(

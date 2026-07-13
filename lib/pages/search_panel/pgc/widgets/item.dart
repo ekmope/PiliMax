@@ -83,20 +83,23 @@ class SearchPgcItem extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 4),
-                      Text.rich(
-                        TextSpan(
-                          children: item.title
-                              .map(
-                                (e) => TextSpan(
-                                  text: e.text,
-                                  style: TextStyle(
-                                    color: e.isEm
-                                        ? theme.colorScheme.primary
-                                        : theme.colorScheme.onSurface,
+                      VideoDetailTransitionTitle(
+                        text: item.title.map((item) => item.text).join(),
+                        child: Text.rich(
+                          TextSpan(
+                            children: item.title
+                                .map(
+                                  (e) => TextSpan(
+                                    text: e.text,
+                                    style: TextStyle(
+                                      color: e.isEm
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.onSurface,
+                                    ),
                                   ),
-                                ),
-                              )
-                              .toList(),
+                                )
+                                .toList(),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),

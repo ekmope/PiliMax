@@ -199,25 +199,36 @@ class SearchArchiveGrpc extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text.rich(
-              overflow: TextOverflow.ellipsis,
+            child: VideoDetailTransitionTitle(
+              text: arc.title,
+              style: TextStyle(
+                fontSize: theme.textTheme.bodyMedium!.fontSize,
+                height: 1.42,
+                letterSpacing: 0.3,
+                color: theme.colorScheme.onSurface,
+              ),
               maxLines: 2,
-              TextSpan(
-                children: regTitle
-                    .map(
-                      (e) => TextSpan(
-                        text: e.text,
-                        style: TextStyle(
-                          fontSize: theme.textTheme.bodyMedium!.fontSize,
-                          height: 1.42,
-                          letterSpacing: 0.3,
-                          color: e.isEm
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurface,
+              overflow: TextOverflow.ellipsis,
+              child: Text.rich(
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                TextSpan(
+                  children: regTitle
+                      .map(
+                        (e) => TextSpan(
+                          text: e.text,
+                          style: TextStyle(
+                            fontSize: theme.textTheme.bodyMedium!.fontSize,
+                            height: 1.42,
+                            letterSpacing: 0.3,
+                            color: e.isEm
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurface,
+                          ),
                         ),
-                      ),
-                    )
-                    .toList(),
+                      )
+                      .toList(),
+                ),
               ),
             ),
           ),

@@ -67,14 +67,21 @@ class PgcCardVMemberPgc extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(4, 5, 0, 3),
-                child: Text(
-                  item.title,
+                child: VideoDetailTransitionTitle(
+                  text: item.title,
                   textAlign: TextAlign.start,
-                  style: const TextStyle(
-                    letterSpacing: 0.3,
-                  ),
+                  style: const TextStyle(letterSpacing: 0.3),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
+                  child: Text(
+                    item.title,
+                    textAlign: TextAlign.start,
+                    style: const TextStyle(
+                      letterSpacing: 0.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ],

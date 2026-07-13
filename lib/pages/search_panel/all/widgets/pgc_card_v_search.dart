@@ -80,14 +80,21 @@ class PgcCardVSearch extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(4, 5, 0, 3),
-                child: Text(
-                  item.title.map((e) => e.text).join(),
+                child: VideoDetailTransitionTitle(
+                  text: item.title.map((e) => e.text).join(),
                   textAlign: TextAlign.start,
-                  style: const TextStyle(
-                    letterSpacing: 0.3,
-                  ),
+                  style: const TextStyle(letterSpacing: 0.3),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
+                  child: Text(
+                    item.title.map((e) => e.text).join(),
+                    textAlign: TextAlign.start,
+                    style: const TextStyle(
+                      letterSpacing: 0.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ],

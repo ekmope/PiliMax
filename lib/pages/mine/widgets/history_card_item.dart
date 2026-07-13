@@ -187,11 +187,17 @@ class HistoryCardItem extends StatelessWidget {
             // 标题
             SizedBox(
               width: _cardWidth,
-              child: Text(
-                ' ${item.title ?? ''}',
+              child: VideoDetailTransitionTitle(
+                text: item.title ?? '',
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
                 style: theme.textTheme.bodySmall,
+                child: Text(
+                  ' ${item.title ?? ''}',
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: theme.textTheme.bodySmall,
+                ),
               ),
             ),
             // 副标题（作者名 / showTitle）

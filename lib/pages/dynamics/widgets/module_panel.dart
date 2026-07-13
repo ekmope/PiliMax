@@ -199,12 +199,27 @@ Widget module(
                     spacing: 2,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '${common.titlePrefix ?? ''}${common.title ?? ''}',
-                        style: TextStyle(color: theme.colorScheme.primary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      if (isCommonVideo)
+                        VideoDetailTransitionTitle(
+                          text:
+                              '${common.titlePrefix ?? ''}${common.title ?? ''}',
+                          style: TextStyle(color: theme.colorScheme.primary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          child: Text(
+                            '${common.titlePrefix ?? ''}${common.title ?? ''}',
+                            style: TextStyle(color: theme.colorScheme.primary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        )
+                      else
+                        Text(
+                          '${common.titlePrefix ?? ''}${common.title ?? ''}',
+                          style: TextStyle(color: theme.colorScheme.primary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       if (common.desc?.isNotEmpty ?? false)
                         Text(
                           common.desc!,

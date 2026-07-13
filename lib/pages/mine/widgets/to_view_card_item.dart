@@ -132,11 +132,17 @@ class ToViewCardItem extends StatelessWidget {
             const SizedBox(height: 8),
             SizedBox(
               width: _cardWidth,
-              child: Text(
-                ' ${item.title ?? ''}',
+              child: VideoDetailTransitionTitle(
+                text: item.title ?? '',
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
                 style: theme.textTheme.bodySmall,
+                child: Text(
+                  ' ${item.title ?? ''}',
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: theme.textTheme.bodySmall,
+                ),
               ),
             ),
             SizedBox(

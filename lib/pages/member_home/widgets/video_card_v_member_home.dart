@@ -173,12 +173,18 @@ class VideoCardVMemberHome extends StatelessWidget {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(6, 5, 6, 5),
-        child: Text(
-          '${videoItem.title}\n',
+        child: VideoDetailTransitionTitle(
+          text: videoItem.title,
+          style: const TextStyle(height: 1.38),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            height: 1.38,
+          child: Text(
+            '${videoItem.title}\n',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              height: 1.38,
+            ),
           ),
         ),
       ),

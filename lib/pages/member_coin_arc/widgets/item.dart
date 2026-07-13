@@ -127,10 +127,15 @@ class _MemberCoinLikeItemState extends State<MemberCoinLikeItem> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${item.title}\n',
+                    VideoDetailTransitionTitle(
+                      text: item.title ?? '',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
+                      child: Text(
+                        '${item.title}\n',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Row(

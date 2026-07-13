@@ -314,8 +314,8 @@ class HistoryItem extends StatelessWidget {
         spacing: 2,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            item.title!,
+          VideoDetailTransitionTitle(
+            text: item.title!,
             style: TextStyle(
               fontSize: theme.textTheme.bodyMedium!.fontSize,
               height: 1.42,
@@ -323,6 +323,16 @@ class HistoryItem extends StatelessWidget {
             ),
             maxLines: item.videos! > 1 ? 1 : 2,
             overflow: TextOverflow.ellipsis,
+            child: Text(
+              item.title!,
+              style: TextStyle(
+                fontSize: theme.textTheme.bodyMedium!.fontSize,
+                height: 1.42,
+                letterSpacing: 0.3,
+              ),
+              maxLines: item.videos! > 1 ? 1 : 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           if (item.history.business == 'pgc' &&
               item.showTitle?.isNotEmpty == true)

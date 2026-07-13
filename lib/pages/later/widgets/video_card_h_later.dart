@@ -188,6 +188,24 @@ class VideoCardHLater extends StatelessWidget {
   Widget content(BuildContext context, ThemeData theme) {
     final isPgc = videoItem.isPgc == true && videoItem.bangumi != null;
     Widget stat = StatWidget(type: StatType.play, value: videoItem.stat?.view);
+    final title = isPgc ? videoItem.bangumi!.season!.title! : videoItem.title!;
+    final titleStyle = TextStyle(
+      fontSize: theme.textTheme.bodyMedium!.fontSize,
+      height: 1.42,
+      letterSpacing: 0.3,
+    );
+    final titleWidget = VideoDetailTransitionTitle(
+      text: title,
+      style: titleStyle,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      child: Text(
+        title,
+        style: titleStyle,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
     return Expanded(
       child: Stack(
         clipBehavior: Clip.none,
@@ -196,16 +214,7 @@ class VideoCardHLater extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: isPgc
                 ? [
-                    Text(
-                      videoItem.bangumi!.season!.title!,
-                      style: TextStyle(
-                        fontSize: theme.textTheme.bodyMedium!.fontSize,
-                        height: 1.42,
-                        letterSpacing: 0.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    titleWidget,
                     const SizedBox(height: 3),
                     Text(
                       videoItem.subtitle!,
@@ -221,18 +230,7 @@ class VideoCardHLater extends StatelessWidget {
                     stat,
                   ]
                 : [
-                    Expanded(
-                      child: Text(
-                        videoItem.title!,
-                        style: TextStyle(
-                          fontSize: theme.textTheme.bodyMedium!.fontSize,
-                          height: 1.42,
-                          letterSpacing: 0.3,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                    Expanded(child: titleWidget),
                     Text(
                       videoItem.owner!.name!,
                       maxLines: 1,

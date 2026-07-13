@@ -108,6 +108,82 @@ class _VideoDetailTransitionScope extends InheritedWidget {
       tag != oldWidget.tag || !identical(registration, oldWidget.registration);
 }
 
+/// Registers a card title for the shared detail transition without scaling it.
+///
+/// This must be a descendant of [VideoDetailTransitionSource]. The transition
+/// captures its resolved text style and geometry when navigation is claimed.
+class VideoDetailTransitionTitle extends StatefulWidget {
+  const VideoDetailTransitionTitle({
+    super.key,
+    required this.text,
+    required this.child,
+    this.style,
+    this.maxLines,
+    this.textAlign,
+    this.overflow,
+  }) : assert(maxLines == null || maxLines > 0);
+
+  final String text;
+  final Widget child;
+  final TextStyle? style;
+  final int? maxLines;
+  final TextAlign? textAlign;
+  final TextOverflow? overflow;
+
+  @override
+  State<VideoDetailTransitionTitle> createState() =>
+      _VideoDetailTransitionTitleState();
+}
+
+class _VideoDetailTransitionTitleState
+    extends State<VideoDetailTransitionTitle> {
+  final GlobalKey _titleBoundaryKey = GlobalKey();
+  _VideoDetailTransitionScope? _scope;
+
+  VideoTransitionTitleDescriptor get _descriptor =>
+      VideoTransitionTitleDescriptor(
+        text: widget.text,
+        style: widget.style,
+        maxLines: widget.maxLines,
+        textAlign: widget.textAlign,
+        overflow: widget.overflow,
+      );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final scope = _VideoDetailTransitionScope.maybeOf(context);
+    assert(
+      scope != null,
+      'VideoDetailTransitionTitle must be inside '
+      'VideoDetailTransitionSource.',
+    );
+    if (!identical(scope?.registration, _scope?.registration)) {
+      _scope?.registration.detachTitle(_titleBoundaryKey);
+      _scope = scope;
+    }
+    scope?.registration.attachTitle(_titleBoundaryKey, _descriptor);
+  }
+
+  @override
+  void didUpdateWidget(VideoDetailTransitionTitle oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scope?.registration.attachTitle(_titleBoundaryKey, _descriptor);
+  }
+
+  @override
+  void dispose() {
+    _scope?.registration.detachTitle(_titleBoundaryKey);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => RepaintBoundary(
+    key: _titleBoundaryKey,
+    child: widget.child,
+  );
+}
+
 /// Moves a frozen video media surface into the detail player's rectangle.
 ///
 /// Both ends opt in to user-gesture transitions so Android predictive back can
@@ -189,25 +265,8 @@ class VideoDetailHero extends StatelessWidget {
                     flightProgress,
                   )) ??
             detailChild.borderRadius;
-        final isUnknownEntry =
-            !isPop &&
-            detailChild.child is VideoDetailHeroShell &&
-            (detailChild.child as VideoDetailHeroShell).isVertical == null;
-        final sourceOpacity = isPop
-            ? _interval(flightProgress, 0.28, 0.88)
-            : 1 -
-                  _interval(
-                    flightProgress,
-                    isUnknownEntry ? 0.28 : 0.42,
-                    isUnknownEntry ? 0.78 : 0.76,
-                  );
-        final detailOpacity = isPop
-            ? 1 - _interval(flightProgress, 0.14, 0.78)
-            : _interval(
-                flightProgress,
-                isUnknownEntry ? 0.55 : 0.48,
-                isUnknownEntry ? 0.96 : 0.9,
-              );
+        const sourceOpacity = 1.0;
+        final detailOpacity = isPop ? 1 - flightProgress : flightProgress;
 
         return RepaintBoundary(
           child: ClipRRect(
@@ -242,6 +301,7 @@ class VideoDetailHero extends StatelessWidget {
           recommendationSurfaceOpacity: shell.recommendationSurfaceOpacity,
           recommendationCount: shell.recommendationCount,
           isVertical: shell.isVertical,
+          playerBottomOverride: shell.playerBottomOverride,
           variant: shell.variant,
           title: shell.title,
           expandedIntro: shell.expandedIntro,
@@ -271,16 +331,6 @@ class VideoDetailHero extends StatelessWidget {
       return renderObject.size;
     }
     return Size.zero;
-  }
-
-  static double _interval(double value, double begin, double end) {
-    if (value <= begin) {
-      return 0;
-    }
-    if (value >= end) {
-      return 1;
-    }
-    return Curves.easeInOutCubic.transform((value - begin) / (end - begin));
   }
 
   static Widget _buildPlaceholder(
@@ -365,7 +415,18 @@ class _VideoDetailMediaHeroSourceState
     }
     _scope?.registration.detachMedia(_mediaBoundaryKey);
     _scope = scope;
-    scope?.registration.attachMedia(_mediaBoundaryKey);
+    scope?.registration.attachMedia(_mediaBoundaryKey, widget.borderRadius);
+  }
+
+  @override
+  void didUpdateWidget(_VideoDetailMediaHeroSource oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.borderRadius != widget.borderRadius) {
+      _scope?.registration.attachMedia(
+        _mediaBoundaryKey,
+        widget.borderRadius,
+      );
+    }
   }
 
   @override
@@ -417,6 +478,7 @@ class VideoDetailHeroShell extends StatelessWidget {
     this.recommendationSurfaceOpacity = 1,
     this.recommendationCount = 4,
     this.isVertical,
+    this.playerBottomOverride,
     this.variant = VideoDetailSkeletonVariant.ugc,
     this.title,
     this.expandedIntro = false,
@@ -438,6 +500,7 @@ class VideoDetailHeroShell extends StatelessWidget {
     required double progress,
     int recommendationCount = 4,
     bool? isVertical,
+    double? playerBottomOverride,
     VideoDetailSkeletonVariant variant = VideoDetailSkeletonVariant.ugc,
     String? title,
     bool expandedIntro = false,
@@ -452,6 +515,7 @@ class VideoDetailHeroShell extends StatelessWidget {
     recommendationSurfaceOpacity: _remaining(progress, 0.56, 1),
     recommendationCount: recommendationCount,
     isVertical: isVertical,
+    playerBottomOverride: playerBottomOverride,
     variant: variant,
     title: title,
     expandedIntro: expandedIntro,
@@ -466,6 +530,7 @@ class VideoDetailHeroShell extends StatelessWidget {
   final double recommendationSurfaceOpacity;
   final int recommendationCount;
   final bool? isVertical;
+  final double? playerBottomOverride;
   final VideoDetailSkeletonVariant variant;
   final String? title;
   final bool expandedIntro;
@@ -508,6 +573,7 @@ class VideoDetailHeroShell extends StatelessWidget {
               recommendationSurfaceOpacity: recommendationSurfaceOpacity,
               recommendationCount: recommendationCount,
               isVertical: isVertical,
+              playerBottomOverride: playerBottomOverride,
               topInset: Pref.removeSafeArea
                   ? 0
                   : MediaQuery.viewPaddingOf(context).top,
@@ -584,6 +650,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     required this.recommendationSurfaceOpacity,
     required this.recommendationCount,
     required this.isVertical,
+    required this.playerBottomOverride,
     required this.topInset,
     required this.variant,
     required this.title,
@@ -602,6 +669,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   final double recommendationSurfaceOpacity;
   final int recommendationCount;
   final bool? isVertical;
+  final double? playerBottomOverride;
   final double topInset;
   final VideoDetailSkeletonVariant variant;
   final String? title;
@@ -622,11 +690,15 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
       ..save()
       ..clipRect(Offset.zero & size);
 
-    final playerBottom = VideoDetailLayoutMetrics.entryPlayerBottom(
-      size,
-      isVertical: isVertical,
-      topInset: topInset,
-    );
+    final playerBottom =
+        (playerBottomOverride ??
+                VideoDetailLayoutMetrics.entryPlayerBottom(
+                  size,
+                  isVertical: isVertical,
+                  topInset: topInset,
+                ))
+            .clamp(0.0, size.height)
+            .toDouble();
     final playerRect = Rect.fromLTRB(0, 0, size.width, playerBottom);
     if (playerSurfaceOpacity > 0) {
       canvas.drawRect(
@@ -1297,6 +1369,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
             oldDelegate.recommendationSurfaceOpacity ||
         recommendationCount != oldDelegate.recommendationCount ||
         isVertical != oldDelegate.isVertical ||
+        playerBottomOverride != oldDelegate.playerBottomOverride ||
         topInset != oldDelegate.topInset ||
         variant != oldDelegate.variant ||
         title != oldDelegate.title ||

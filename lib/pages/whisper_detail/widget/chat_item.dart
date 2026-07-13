@@ -390,16 +390,38 @@ class ChatItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  content['field1'],
-                  maxLines: 2,
-                  style: TextStyle(
-                    letterSpacing: 0.6,
-                    height: 1.5,
-                    color: textColor,
-                    fontWeight: FontWeight.bold,
+                if (bvid == null)
+                  Text(
+                    content['field1'],
+                    maxLines: 2,
+                    style: TextStyle(
+                      letterSpacing: 0.6,
+                      height: 1.5,
+                      color: textColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                else
+                  VideoDetailTransitionTitle(
+                    text: '${content['field1'] ?? ''}',
+                    style: TextStyle(
+                      letterSpacing: 0.6,
+                      height: 1.5,
+                      color: textColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 2,
+                    child: Text(
+                      content['field1'],
+                      maxLines: 2,
+                      style: TextStyle(
+                        letterSpacing: 0.6,
+                        height: 1.5,
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
                 Text(
                   content['field2'],
                   style: TextStyle(
@@ -516,13 +538,23 @@ class ChatItem extends StatelessWidget {
                         horizontal: 12,
                         vertical: 8,
                       ),
-                      child: Text(
-                        content['times'] == 0 ? '内容已失效' : content['title'],
+                      child: VideoDetailTransitionTitle(
+                        text:
+                            '${content['times'] == 0 ? '内容已失效' : content['title'] ?? ''}',
                         style: TextStyle(
                           letterSpacing: 0.6,
                           height: 1.5,
                           color: textColor,
                           fontWeight: FontWeight.bold,
+                        ),
+                        child: Text(
+                          content['times'] == 0 ? '内容已失效' : content['title'],
+                          style: TextStyle(
+                            letterSpacing: 0.6,
+                            height: 1.5,
+                            color: textColor,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -639,15 +671,34 @@ class ChatItem extends StatelessWidget {
       children: [
         activeHeroTag == null ? cover : VideoDetailHero.source(child: cover),
         const SizedBox(height: 6),
-        Text(
-          content['title'] ?? "",
-          style: TextStyle(
-            letterSpacing: 0.6,
-            height: 1.5,
-            color: textColor,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        activeHeroTag == null
+            ? Text(
+                content['title'] ?? "",
+                style: TextStyle(
+                  letterSpacing: 0.6,
+                  height: 1.5,
+                  color: textColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            : VideoDetailTransitionTitle(
+                text: '${content['title'] ?? ''}',
+                style: TextStyle(
+                  letterSpacing: 0.6,
+                  height: 1.5,
+                  color: textColor,
+                  fontWeight: FontWeight.bold,
+                ),
+                child: Text(
+                  content['title'] ?? "",
+                  style: TextStyle(
+                    letterSpacing: 0.6,
+                    height: 1.5,
+                    color: textColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
         if (content['source'] == 6 &&
             (content['headline'] as String?)?.isNotEmpty == true) ...[
           const SizedBox(height: 1),

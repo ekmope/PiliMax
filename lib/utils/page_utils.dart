@@ -831,6 +831,8 @@ abstract final class PageUtils {
           final rawTitle = arguments['title'];
           entryOverlay = VideoDetailEntryOverlayController(
             overlay: rootOverlay!,
+            transitionToken:
+                arguments[videoTransitionTokenKey] as VideoTransitionToken,
             isVertical:
                 arguments['videoOrientationKnown'] == true &&
                     rawIsVertical is bool

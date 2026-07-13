@@ -103,14 +103,21 @@ class PgcCardVTimeline extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              item.title ?? '',
+            VideoDetailTransitionTitle(
+              text: item.title ?? '',
               textAlign: TextAlign.start,
-              style: const TextStyle(
-                letterSpacing: 0.3,
-              ),
+              style: const TextStyle(letterSpacing: 0.3),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              child: Text(
+                item.title ?? '',
+                textAlign: TextAlign.start,
+                style: const TextStyle(
+                  letterSpacing: 0.3,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             Text(
               item.pubIndex ?? '',

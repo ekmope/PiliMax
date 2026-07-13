@@ -107,14 +107,21 @@ class MusicVideoCardH extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(
-              videoItem.title!,
-              textAlign: TextAlign.start,
-              style: const TextStyle(
-                letterSpacing: 0.3,
-              ),
+            child: VideoDetailTransitionTitle(
+              text: videoItem.title!,
+              style: const TextStyle(letterSpacing: 0.3),
               maxLines: 2,
+              textAlign: TextAlign.start,
               overflow: TextOverflow.ellipsis,
+              child: Text(
+                videoItem.title!,
+                textAlign: TextAlign.start,
+                style: const TextStyle(
+                  letterSpacing: 0.3,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
           Row(

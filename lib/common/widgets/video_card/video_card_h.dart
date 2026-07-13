@@ -280,57 +280,57 @@ class _VideoCardHState extends State<VideoCardH> {
       child: Column(
         crossAxisAlignment: .start,
         children: [
-          if (videoItem.titleList?.isNotEmpty == true)
-            Expanded(
-              child: Obx(() {
-                final key = videoItem.bvid ?? videoItem.aid?.toString();
-                final isClicked =
-                    key != null && VideoCardH.clickedBvids.contains(key);
-                return Text.rich(
-                  overflow: .ellipsis,
-                  maxLines: 2,
-                  TextSpan(
-                    children: videoItem.titleList!
-                        .map(
-                          (e) => TextSpan(
-                            text: e.text,
-                            style: TextStyle(
-                              fontSize: theme.textTheme.bodyMedium!.fontSize,
-                              height: 1.42,
-                              letterSpacing: 0.3,
-                              color: isClicked
-                                  ? theme.colorScheme.outline
-                                  : e.isEm
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurface,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                );
-              }),
-            )
-          else
-            Expanded(
-              child: Obx(() {
-                final key = videoItem.bvid ?? videoItem.aid?.toString();
-                final isClicked =
-                    key != null && VideoCardH.clickedBvids.contains(key);
-                return Text(
-                  videoItem.title,
-                  textAlign: .start,
-                  style: TextStyle(
-                    fontSize: theme.textTheme.bodyMedium!.fontSize,
-                    height: 1.42,
-                    letterSpacing: 0.3,
-                    color: isClicked ? theme.colorScheme.outline : null,
-                  ),
-                  maxLines: 2,
-                  overflow: .ellipsis,
-                );
-              }),
-            ),
+          Expanded(
+            child: Obx(() {
+              final key = videoItem.bvid ?? videoItem.aid?.toString();
+              final isClicked =
+                  key != null && VideoCardH.clickedBvids.contains(key);
+              final titleList = videoItem.titleList;
+              final titleStyle = TextStyle(
+                fontSize: theme.textTheme.bodyMedium!.fontSize,
+                height: 1.42,
+                letterSpacing: 0.3,
+                color: isClicked ? theme.colorScheme.outline : null,
+              );
+              return VideoDetailTransitionTitle(
+                text: titleList?.isNotEmpty == true
+                    ? titleList!.map((e) => e.text).join()
+                    : videoItem.title,
+                style: titleStyle,
+                maxLines: 2,
+                textAlign: .start,
+                overflow: .ellipsis,
+                child: titleList?.isNotEmpty == true
+                    ? Text.rich(
+                        overflow: .ellipsis,
+                        maxLines: 2,
+                        TextSpan(
+                          children: titleList!
+                              .map(
+                                (e) => TextSpan(
+                                  text: e.text,
+                                  style: titleStyle.copyWith(
+                                    color: isClicked
+                                        ? theme.colorScheme.outline
+                                        : e.isEm
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      )
+                    : Text(
+                        videoItem.title,
+                        textAlign: .start,
+                        style: titleStyle,
+                        maxLines: 2,
+                        overflow: .ellipsis,
+                      ),
+              );
+            }),
+          ),
           Text(
             "$pubdate${videoItem.owner.name}",
             maxLines: 1,

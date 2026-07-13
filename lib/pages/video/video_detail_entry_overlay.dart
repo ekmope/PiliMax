@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show lerpDouble;
 
 import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 
@@ -17,6 +18,7 @@ const videoDetailEntryOverlayKey = '_videoDetailEntryOverlay';
 final class VideoDetailEntryOverlayController {
   factory VideoDetailEntryOverlayController({
     required OverlayState overlay,
+    required VideoTransitionToken transitionToken,
     required bool? isVertical,
     required VideoDetailSkeletonVariant variant,
     String? title,
@@ -27,6 +29,7 @@ final class VideoDetailEntryOverlayController {
     Duration revealDuration = const Duration(milliseconds: 320),
   }) => VideoDetailEntryOverlayController._(
     overlay: overlay,
+    transitionToken: transitionToken,
     isVertical: isVertical,
     variant: variant,
     title: title,
@@ -39,6 +42,7 @@ final class VideoDetailEntryOverlayController {
 
   VideoDetailEntryOverlayController._({
     required this._overlay,
+    required this.transitionToken,
     required this._isVertical,
     required this._variant,
     required this._title,
@@ -57,6 +61,7 @@ final class VideoDetailEntryOverlayController {
   static bool get isEnteringVideo => _activeController?.isActive ?? false;
 
   final OverlayState _overlay;
+  final VideoTransitionToken transitionToken;
   bool? _isVertical;
   VideoDetailSkeletonVariant _variant;
   String? _title;
@@ -187,6 +192,8 @@ final class VideoDetailEntryOverlayController {
   }
 
   double get _routeProgress => (_routeAnimation?.value ?? 0).clamp(0.0, 1.0);
+
+  bool get _hasRouteAnimation => _routeAnimation != null;
 
   void _onRouteAnimationTick() => _entry?.markNeedsBuild();
 
@@ -321,6 +328,90 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     );
   }
 
+  Rect? _targetTitleRect(Size viewport, double playerBottom) {
+    const padding = VideoDetailLayoutMetrics.horizontalPadding;
+    final bodyTop = playerBottom + VideoDetailLayoutMetrics.tabBarHeight;
+    return switch (widget.controller._variant) {
+      VideoDetailSkeletonVariant.ugc => () {
+        final top =
+            bodyTop +
+            VideoDetailLayoutMetrics.introTopPadding +
+            VideoDetailLayoutMetrics.ownerHeight +
+            VideoDetailLayoutMetrics.sectionGap;
+        final availableHeight = (viewport.height - top)
+            .clamp(0.0, viewport.height)
+            .toDouble();
+        final height = availableHeight.clamp(0.0, 48.0).toDouble();
+        return Rect.fromLTWH(
+          padding,
+          top,
+          (viewport.width - 2 * padding).clamp(0.0, viewport.width).toDouble(),
+          height,
+        );
+      }(),
+      VideoDetailSkeletonVariant.pgc || VideoDetailSkeletonVariant.pugv => () {
+        final contentTop = bodyTop + padding;
+        final coverWidth = (viewport.width * 0.32).clamp(0.0, 115.0).toDouble();
+        final infoX = padding + coverWidth + 10;
+        final infoWidth = (viewport.width - padding - infoX)
+            .clamp(0.0, viewport.width)
+            .toDouble();
+        return Rect.fromLTWH(
+          infoX,
+          contentTop + 3,
+          infoWidth * 0.62,
+          34,
+        );
+      }(),
+      VideoDetailSkeletonVariant.local => null,
+    };
+  }
+
+  Widget _buildMorphingTitle({
+    required Rect morphRect,
+    required Size viewport,
+    required double playerBottom,
+    required double progress,
+  }) {
+    final title = widget.controller.transitionToken.title;
+    if (title == null || title.text.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final targetRect = _targetTitleRect(viewport, playerBottom);
+    final rect = Rect.lerp(title.rect, targetRect ?? title.rect, progress)!;
+    final sourceFontSize = title.style.fontSize ?? 14;
+    final fontSize = lerpDouble(sourceFontSize, 16, progress)!;
+    final handoffBegin = targetRect == null ? 0.20 : 0.52;
+    final handoffEnd = targetRect == null ? 0.56 : 0.90;
+    final handoffProgress =
+        ((progress - handoffBegin) / (handoffEnd - handoffBegin))
+            .clamp(0.0, 1.0)
+            .toDouble();
+    final titleOpacity =
+        progress * (1 - Curves.easeInOutCubic.transform(handoffProgress));
+    if (titleOpacity <= 0) {
+      return const SizedBox.shrink();
+    }
+    return Positioned(
+      left: rect.left - morphRect.left,
+      top: rect.top - morphRect.top,
+      width: rect.width,
+      height: rect.height,
+      child: Opacity(
+        opacity: titleOpacity,
+        child: Text(
+          title.text,
+          style: title.style.copyWith(fontSize: fontSize),
+          maxLines: title.maxLines,
+          textAlign: title.textAlign,
+          overflow: title.overflow,
+          textDirection: title.textDirection,
+          textScaler: title.textScaler,
+        ),
+      ),
+    );
+  }
+
   void _onRevealStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
       widget.controller.complete();
@@ -351,48 +442,94 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
               targetPlayerBottom,
               Curves.easeInOutCubic.transform(_profileController.value),
             )!;
-      final routeProgress = Curves.easeOutCubic.transform(
+      final progress = Curves.easeOutCubic.transform(
         widget.controller._routeProgress,
       );
-      final routeOpacity = routeProgress;
       final revealOpacity =
           1 -
           Curves.easeInOutCubic.transform(
             _revealController.value,
           );
-      final entryOffset = (viewport.height - targetPlayerBottom).clamp(
-        0.0,
-        viewport.height,
-      );
       final profileOffset = playerBottom - targetPlayerBottom;
+      final morphRect = Rect.lerp(
+        widget.controller.transitionToken.launchRect,
+        Offset.zero & viewport,
+        progress,
+      )!;
+      final borderRadius = BorderRadius.lerp(
+        widget.controller.transitionToken.launchBorderRadius,
+        BorderRadius.zero,
+        progress,
+      )!;
+      final mediaRect = Rect.lerp(
+        widget.controller.transitionToken.mediaLaunchRect,
+        Rect.fromLTWH(0, 0, viewport.width, playerBottom),
+        progress,
+      )!;
+      final localMediaRect = mediaRect.shift(-morphRect.topLeft);
+      final mediaBorderRadius = BorderRadius.lerp(
+        widget.controller.transitionToken.mediaLaunchBorderRadius,
+        BorderRadius.zero,
+        progress,
+      )!;
+      final surfaceColor = Theme.of(context).colorScheme.surface;
 
       return Stack(
         fit: StackFit.expand,
         children: [
-          IgnorePointer(
-            child: Opacity(
-              opacity: routeOpacity * revealOpacity,
-              child: Transform.translate(
-                offset: Offset(
-                  0,
-                  entryOffset * (1 - routeProgress) + profileOffset,
-                ),
-                child: VideoDetailHeroShell(
-                  playerSurfaceOpacity: 0,
-                  navigationSurfaceOpacity: 1,
-                  detailSurfaceOpacity: 1,
-                  recommendationSurfaceOpacity: 1,
-                  isVertical: widget.controller._isVertical,
-                  variant: widget.controller._variant,
-                  title: widget.controller._title,
-                  expandedIntro: widget.controller.expandedIntro,
-                  showRecommendations: widget.controller.showRecommendations,
-                  hasSeasonPanel: widget.controller._hasSeasonPanel,
-                  hasPagesPanel: widget.controller._hasPagesPanel,
+          if (widget.controller._hasRouteAnimation)
+            Positioned.fromRect(
+              rect: morphRect,
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: revealOpacity,
+                  child: ClipRRect(
+                    borderRadius: borderRadius,
+                    child: CustomPaint(
+                      painter: _VideoDetailMorphSurfacePainter(
+                        color: surfaceColor.withValues(alpha: progress),
+                        mediaRect: localMediaRect,
+                        mediaBorderRadius: mediaBorderRadius,
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Opacity(
+                            opacity: progress,
+                            child: Transform.translate(
+                              offset: Offset(0, profileOffset),
+                              child: VideoDetailHeroShell(
+                                playerSurfaceOpacity: 0,
+                                navigationSurfaceOpacity: 1,
+                                detailSurfaceOpacity: 1,
+                                recommendationSurfaceOpacity: 1,
+                                isVertical: widget.controller._isVertical,
+                                playerBottomOverride:
+                                    localMediaRect.bottom - profileOffset,
+                                variant: widget.controller._variant,
+                                title: widget.controller._title,
+                                expandedIntro: widget.controller.expandedIntro,
+                                showRecommendations:
+                                    widget.controller.showRecommendations,
+                                hasSeasonPanel:
+                                    widget.controller._hasSeasonPanel,
+                                hasPagesPanel: widget.controller._hasPagesPanel,
+                              ),
+                            ),
+                          ),
+                          _buildMorphingTitle(
+                            morphRect: morphRect,
+                            viewport: viewport,
+                            playerBottom: playerBottom,
+                            progress: progress,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
           Positioned(
             top: playerBottom,
             left: 0,
@@ -404,4 +541,31 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
       );
     },
   );
+}
+
+class _VideoDetailMorphSurfacePainter extends CustomPainter {
+  const _VideoDetailMorphSurfacePainter({
+    required this.color,
+    required this.mediaRect,
+    required this.mediaBorderRadius,
+  });
+
+  final Color color;
+  final Rect mediaRect;
+  final BorderRadius mediaBorderRadius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final surfacePath = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addRRect(mediaBorderRadius.toRRect(mediaRect));
+    canvas.drawPath(surfacePath, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _VideoDetailMorphSurfacePainter oldDelegate) =>
+      color != oldDelegate.color ||
+      mediaRect != oldDelegate.mediaRect ||
+      mediaBorderRadius != oldDelegate.mediaBorderRadius;
 }

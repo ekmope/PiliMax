@@ -125,7 +125,10 @@ class FavPgcItem extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(item.title!),
+                          VideoDetailTransitionTitle(
+                            text: item.title!,
+                            child: Text(item.title!),
+                          ),
                           if (item.newEp?.indexShow != null) ...[
                             const SizedBox(height: 6),
                             Text(

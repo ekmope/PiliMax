@@ -13,9 +13,9 @@ import 'package:PiliMax/utils/num_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-const _previewTransitionDuration = Duration(milliseconds: 220);
-const _previewMetaFadeDuration = Duration(milliseconds: 140);
-const _previewMetaCacheTtl = Duration(minutes: 5);
+const _previewTransitionDuration = Duration(milliseconds: 240);
+const _previewMetaFadeDuration = Duration(milliseconds: 120);
+const _previewMetaCacheTtl = Duration(minutes: 3);
 const _previewMetaCacheLimit = 64;
 
 final Map<String, _PreviewMetaCacheEntry> _previewMetaCache = {};

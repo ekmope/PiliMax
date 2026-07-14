@@ -2362,6 +2362,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     required double width,
     required double height,
     bool isPipMode = false,
+    bool isInAppPip = false,
   }) => Obx(() {
     final child =
         (!isPipMode && !_allowPlayerMount) ||
@@ -2373,6 +2374,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             maxWidth: width,
             maxHeight: height,
             isPipMode: isPipMode,
+            isInAppPip: isInAppPip,
             plPlayerController: plPlayerController!,
             videoDetailController: videoDetailController,
             introController: introController,
@@ -3472,8 +3474,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         controller: videoDetailController,
         additionalControllers: additionalControllers,
         context: context,
-        videoPlayerBuilder: (isNative, w, h) =>
-            plPlayer(width: w, height: h, isPipMode: true),
+        videoPlayerBuilder: (isNative, w, h) => plPlayer(
+          width: w,
+          height: h,
+          isPipMode: true,
+          isInAppPip: !isNative,
+        ),
         onClose: () {
           _isEnteringPipMode = false;
           _logSponsorBlock('PiP closed by user');

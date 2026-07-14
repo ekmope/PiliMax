@@ -99,6 +99,7 @@ class PLVideoPlayer extends StatefulWidget {
     this.showEpisodes,
     this.showViewPoints,
     this.isPipMode = false,
+    this.isInAppPip = false,
     this.fill = Colors.black,
     this.alignment = Alignment.center,
     super.key,
@@ -123,6 +124,9 @@ class PLVideoPlayer extends StatefulWidget {
   showEpisodes;
   final VoidCallback? showViewPoints;
   final bool isPipMode;
+
+  /// In-app floating player, excluding native system PiP.
+  final bool isInAppPip;
   final Color fill;
   final Alignment alignment;
 
@@ -791,7 +795,19 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               requestFocus: false,
               initialValue: val,
               color: Colors.black.withValues(alpha: 0.8),
+              menuPadding: EdgeInsets.zero,
               itemBuilder: (context) {
+                if (videoDetailController.subtitles.length >= 2) {
+                  return [
+                    PopupMenuItem<int>(
+                      enabled: false,
+                      padding: EdgeInsets.zero,
+                      child: _SubtitleSelectPanel(
+                        controller: videoDetailController,
+                      ),
+                    ),
+                  ];
+                }
                 return [
                   PopupMenuItem<int>(
                     value: 0,
@@ -1473,7 +1489,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         if (widget.danmuWidget case final danmaku?)
           Positioned.fill(top: 4, child: danmaku),
 
-        if (!isLive)
+        if (!isLive && !widget.isInAppPip)
           Positioned.fill(
             child: IgnorePointer(
               ignoring: !plPlayerController.enableDragSubtitle,
@@ -2575,6 +2591,118 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           },
         ),
       ),
+    );
+  }
+}
+
+class _SubtitleSelectPanel extends StatelessWidget {
+  const _SubtitleSelectPanel({required this.controller});
+
+  final VideoDetailController controller;
+
+  static const _headerStyle = TextStyle(color: Colors.white70, fontSize: 12);
+  static const _itemStyle = TextStyle(color: Colors.white, fontSize: 13);
+  static const _disabledStyle = TextStyle(color: Colors.white38, fontSize: 13);
+
+  Widget _item({
+    required String label,
+    required bool selected,
+    required bool disabled,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: disabled ? null : onTap,
+      child: Container(
+        height: 35,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: disabled ? _disabledStyle : _itemStyle,
+              ),
+            ),
+            if (selected)
+              const Icon(Icons.check, size: 16, color: Colors.white),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _column({
+    required String title,
+    required int selectedIndex,
+    required int disabledIndex,
+    required ValueChanged<int> onSelect,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 32,
+          child: Center(child: Text(title, style: _headerStyle)),
+        ),
+        _item(
+          label: '关闭',
+          selected: selectedIndex == 0,
+          disabled: false,
+          onTap: () => onSelect(0),
+        ),
+        ...controller.subtitles.mapIndexed(
+          (i, e) => _item(
+            label: e.lanDoc ?? e.lan,
+            selected: selectedIndex == i + 1,
+            disabled: disabledIndex == i + 1,
+            onTap: () => onSelect(i + 1),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(
+      () {
+        final primary = controller.vttSubtitlesIndex.value;
+        final secondary = controller.vttSecondarySubtitlesIndex.value;
+        return SizedBox(
+          width: 300,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _column(
+                    title: '主字幕',
+                    selectedIndex: primary,
+                    disabledIndex: secondary,
+                    onSelect: controller.setSubtitle,
+                  ),
+                ),
+                const VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: Colors.white24,
+                ),
+                Expanded(
+                  child: _column(
+                    title: '副字幕',
+                    selectedIndex: secondary,
+                    disabledIndex: primary,
+                    onSelect: controller.setSecondarySubtitle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

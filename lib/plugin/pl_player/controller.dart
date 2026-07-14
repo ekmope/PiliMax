@@ -392,6 +392,13 @@ class PlPlayerController with BlockConfigMixin {
   final bool showVipDanmaku = Pref.showVipDanmaku; // loop unswitching
   late double subtitleStrokeWidth = Pref.subtitleStrokeWidth;
   late int subtitleFontWeight = Pref.subtitleFontWeight;
+  // Secondary subtitles share positioning with primary subtitles.
+  late double subtitleSecondaryFontScale = Pref.subtitleSecondaryFontScale;
+  late double subtitleSecondaryFontScaleFS = Pref.subtitleSecondaryFontScaleFS;
+  late double subtitleSecondaryBgOpacity = Pref.subtitleSecondaryBgOpacity;
+  late double subtitleSecondaryStrokeWidth = Pref.subtitleSecondaryStrokeWidth;
+  late int subtitleSecondaryFontWeight = Pref.subtitleSecondaryFontWeight;
+  late double subtitleSecondarySpacing = Pref.subtitleSecondarySpacing;
 
   // settings
   late final showFSActionItem = Pref.showFSActionItem;
@@ -446,17 +453,35 @@ class PlPlayerController with BlockConfigMixin {
   // 播放顺序相关
   late PlayRepeat playRepeat = Pref.playRepeat;
 
-  TextStyle get subTitleStyle => TextStyle(
+  TextStyle _buildSubtitleStyle({
+    required double fontScale,
+    required double fontScaleFS,
+    required int fontWeight,
+    required double bgOpacity,
+  }) => TextStyle(
     height: 1.5,
-    fontSize:
-        16 * (isFullScreen.value ? subtitleFontScaleFS : subtitleFontScale),
+    fontSize: 16 * (isFullScreen.value ? fontScaleFS : fontScale),
     letterSpacing: 0.1,
     wordSpacing: 0.1,
     color: Colors.white,
-    fontWeight: FontWeight.values[subtitleFontWeight],
-    backgroundColor: subtitleBgOpacity == 0
+    fontWeight: FontWeight.values[fontWeight],
+    backgroundColor: bgOpacity == 0
         ? null
-        : Colors.black.withValues(alpha: subtitleBgOpacity),
+        : Colors.black.withValues(alpha: bgOpacity),
+  );
+
+  TextStyle get subTitleStyle => _buildSubtitleStyle(
+    fontScale: subtitleFontScale,
+    fontScaleFS: subtitleFontScaleFS,
+    fontWeight: subtitleFontWeight,
+    bgOpacity: subtitleBgOpacity,
+  );
+
+  TextStyle get subTitleSecondaryStyle => _buildSubtitleStyle(
+    fontScale: subtitleSecondaryFontScale,
+    fontScaleFS: subtitleSecondaryFontScaleFS,
+    fontWeight: subtitleSecondaryFontWeight,
+    bgOpacity: subtitleSecondaryBgOpacity,
   );
 
   late final Rx<SubtitleViewConfiguration> subtitleConfig = getSubConfig.obs;
@@ -464,19 +489,35 @@ class PlPlayerController with BlockConfigMixin {
 
   SubtitleViewConfiguration get getSubConfig {
     final subTitleStyle = this.subTitleStyle;
+    final secondaryStyle = subTitleSecondaryStyle;
+
+    TextStyle? strokeOf(TextStyle base, double bgOpacity, double strokeWidth) =>
+        bgOpacity == 0
+        ? base.copyWith(
+            color: null,
+            background: null,
+            backgroundColor: null,
+            foreground: Paint()
+              ..color = Colors.black
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = strokeWidth,
+          )
+        : null;
+
     return SubtitleViewConfiguration(
       style: subTitleStyle,
-      strokeStyle: subtitleBgOpacity == 0
-          ? subTitleStyle.copyWith(
-              color: null,
-              background: null,
-              backgroundColor: null,
-              foreground: Paint()
-                ..color = Colors.black
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = subtitleStrokeWidth,
-            )
-          : null,
+      strokeStyle: strokeOf(
+        subTitleStyle,
+        subtitleBgOpacity,
+        subtitleStrokeWidth,
+      ),
+      secondaryStyle: secondaryStyle,
+      secondaryStrokeStyle: strokeOf(
+        secondaryStyle,
+        subtitleSecondaryBgOpacity,
+        subtitleSecondaryStrokeWidth,
+      ),
+      spacing: subtitleSecondarySpacing,
       padding: EdgeInsets.only(
         left: subtitlePaddingH.toDouble(),
         right: subtitlePaddingH.toDouble(),
@@ -1821,6 +1862,12 @@ class PlPlayerController with BlockConfigMixin {
       SettingBoxKey.subtitleBgOpacity: subtitleBgOpacity,
       SettingBoxKey.subtitleStrokeWidth: subtitleStrokeWidth,
       SettingBoxKey.subtitleFontWeight: subtitleFontWeight,
+      SettingBoxKey.subtitleSecondaryFontScale: subtitleSecondaryFontScale,
+      SettingBoxKey.subtitleSecondaryFontScaleFS: subtitleSecondaryFontScaleFS,
+      SettingBoxKey.subtitleSecondaryBgOpacity: subtitleSecondaryBgOpacity,
+      SettingBoxKey.subtitleSecondaryStrokeWidth: subtitleSecondaryStrokeWidth,
+      SettingBoxKey.subtitleSecondaryFontWeight: subtitleSecondaryFontWeight,
+      SettingBoxKey.subtitleSecondarySpacing: subtitleSecondarySpacing,
     });
   }
 

@@ -1,9 +1,24 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
+
+class AiApiException implements Exception {
+  final String url;
+  final int? statusCode;
+  final String detail;
+
+  AiApiException({required this.url, this.statusCode, required this.detail});
+
+  @override
+  String toString() =>
+      '请求 $url 出错'
+      '${statusCode != null ? '（HTTP $statusCode）' : ''}'
+      '：$detail';
+}
 
 class AiPromptTemplate {
   String name;
@@ -30,31 +45,196 @@ class AiChatService {
   }
 
   static String _baseUrl() {
-    var url = Pref.aiApiUrl.trimRight();
-    if (url.endsWith('/')) url = url.substring(0, url.length - 1);
-    if (url.endsWith('/v1')) url = url.substring(0, url.length - 3);
-    return url;
+    final url = Pref.aiApiUrl.trim();
+    final fragmentIndex = url.indexOf('#');
+    return fragmentIndex < 0 ? url : url.substring(0, fragmentIndex);
   }
 
-  /// Fetch model list from /v1/models
+  static String _endpointUrl(String endpoint) {
+    final baseUrl = _baseUrl();
+    final uri = Uri.tryParse(baseUrl);
+    if (uri == null ||
+        !const {'http', 'https'}.contains(uri.scheme.toLowerCase()) ||
+        uri.host.isEmpty) {
+      throw _responseError(
+        url: baseUrl,
+        detail: '接口地址格式无效，请填写包含 http:// 或 https:// 的完整地址',
+      );
+    }
+    final basePath = uri.path.replaceFirst(RegExp(r'/+$'), '');
+    return uri.replace(path: '$basePath/$endpoint').toString();
+  }
+
+  static String _safeUrl(String url) {
+    final queryIndex = url.indexOf('?');
+    final fragmentIndex = url.indexOf('#');
+    var end = url.length;
+    if (queryIndex >= 0 && queryIndex < end) end = queryIndex;
+    if (fragmentIndex >= 0 && fragmentIndex < end) end = fragmentIndex;
+    var result = url.substring(0, end);
+    final uri = Uri.tryParse(result);
+    if (uri != null && uri.hasAuthority && uri.userInfo.isNotEmpty) {
+      result = uri.replace(userInfo: '').toString();
+    }
+    return _redactApiKey(result);
+  }
+
+  static String _redactApiKey(String value) {
+    final apiKey = Pref.aiApiKey;
+    if (apiKey.isEmpty) return value;
+    return value
+        .replaceAll(apiKey, '[redacted]')
+        .replaceAll(Uri.encodeQueryComponent(apiKey), '[redacted]');
+  }
+
+  static String _safeDetail(String detail, String requestUrl) {
+    var result = detail;
+    final safeUrl = _safeUrl(requestUrl);
+    if (requestUrl != safeUrl) {
+      result = result.replaceAll(requestUrl, safeUrl);
+    }
+
+    final uri = Uri.tryParse(requestUrl);
+    if (uri != null) {
+      for (final value in uri.userInfo.split(':')) {
+        if (value.isNotEmpty) {
+          result = result
+              .replaceAll(value, '[redacted]')
+              .replaceAll(Uri.encodeQueryComponent(value), '[redacted]');
+        }
+      }
+      for (final values in uri.queryParametersAll.values) {
+        for (final value in values) {
+          if (value.isNotEmpty) {
+            result = result
+                .replaceAll(value, '[redacted]')
+                .replaceAll(Uri.encodeQueryComponent(value), '[redacted]');
+          }
+        }
+      }
+      if (uri.fragment.isNotEmpty) {
+        result = result.replaceAll(uri.fragment, '[redacted]');
+      }
+    }
+    return _redactApiKey(result);
+  }
+
+  static String _snippet(String value, [int max = 300]) {
+    final text = value.trim();
+    return text.length <= max ? text : '${text.substring(0, max)}…';
+  }
+
+  static Future<String> _responseText(Response<dynamic>? response) async {
+    dynamic data = response?.data;
+    if (data is ResponseBody) {
+      try {
+        data = await utf8.decodeStream(data.stream);
+      } catch (_) {
+        return '';
+      }
+    }
+    if (data is String) {
+      try {
+        data = jsonDecode(data);
+      } catch (_) {
+        return data;
+      }
+    }
+    if (data is Map) {
+      final error = data['error'];
+      if (error is Map && error['message'] != null) {
+        return error['message'].toString();
+      }
+      if (error != null) return error.toString();
+      if (data['message'] != null) return data['message'].toString();
+      return jsonEncode(data);
+    }
+    return data?.toString() ?? '';
+  }
+
+  static AiApiException _logged(
+    AiApiException exception, [
+    StackTrace? stackTrace,
+  ]) {
+    logger.e('AI 请求失败', error: exception, stackTrace: stackTrace);
+    return exception;
+  }
+
+  static AiApiException _responseError({
+    required String url,
+    required String detail,
+    int? statusCode,
+    StackTrace? stackTrace,
+  }) => _logged(
+    AiApiException(
+      url: _safeUrl(url),
+      statusCode: statusCode,
+      detail: _safeDetail(detail, url),
+    ),
+    stackTrace,
+  );
+
+  static Future<AiApiException> _requestError(
+    String fallbackUrl,
+    DioException error,
+  ) async {
+    final requestUrl = error.requestOptions.uri.toString();
+    final url = requestUrl.isEmpty ? fallbackUrl : requestUrl;
+    String detail;
+    if (error.type == DioExceptionType.badResponse) {
+      detail = _snippet(await _responseText(error.response));
+      if (detail.isEmpty) detail = '服务器返回错误';
+    } else {
+      detail = switch (error.type) {
+        DioExceptionType.connectionTimeout ||
+        DioExceptionType.sendTimeout ||
+        DioExceptionType.receiveTimeout => '连接超时',
+        DioExceptionType.badCertificate => '证书校验失败',
+        DioExceptionType.cancel => '请求已取消',
+        _ => '无法连接（${error.message ?? error.error ?? error.type.name}）',
+      };
+    }
+    return _responseError(
+      url: url,
+      statusCode: error.response?.statusCode,
+      detail: detail,
+      stackTrace: error.stackTrace,
+    );
+  }
+
+  /// Fetch model list from {base}/models.
   static Future<List<String>> fetchModels() async {
     final baseUrl = _baseUrl();
     if (baseUrl.isEmpty) throw Exception('请先配置 API 地址');
-    final res = await Dio().get(
-      '$baseUrl/v1/models',
-      options: _options(receiveTimeout: const Duration(seconds: 30)),
-    );
-    final data = res.data;
+    final url = _endpointUrl('models');
+    final Response<dynamic> response;
+    try {
+      response = await Dio().get(
+        url,
+        options: _options(receiveTimeout: const Duration(seconds: 30)),
+      );
+    } on DioException catch (error) {
+      throw await _requestError(url, error);
+    }
+    final data = response.data;
     if (data is Map && data['data'] is List) {
       return (data['data'] as List)
-          .map((e) => e['id']?.toString() ?? '')
-          .where((e) => e.isNotEmpty)
+          .map(
+            (item) => item is Map ? item['id']?.toString() ?? '' : '',
+          )
+          .where((id) => id.isNotEmpty)
           .toList();
     }
-    return [];
+    throw _responseError(
+      url: url,
+      statusCode: response.statusCode,
+      detail:
+          '响应不是模型列表，请检查接口地址与版本路径'
+          '${data == null ? '' : '（${_snippet(data.toString(), 200)}）'}',
+    );
   }
 
-  /// Stream chat completion from /v1/chat/completions
+  /// Stream chat completion from {base}/chat/completions.
   /// Returns a stream of content strings (each token/chunk)
   static Stream<String> streamChat({
     required List<Map<String, String>> messages,
@@ -65,42 +245,119 @@ class AiChatService {
     final useModel = model ?? Pref.aiModel;
     if (useModel.isEmpty) throw Exception('请先选择模型');
 
+    final url = _endpointUrl('chat/completions');
     final opts = _options(receiveTimeout: const Duration(minutes: 10))
       ..responseType = ResponseType.stream;
-    final response = await Dio().post<ResponseBody>(
-      '$baseUrl/v1/chat/completions',
-      data: jsonEncode({
-        'model': useModel,
-        'messages': messages,
-        'stream': true,
-      }),
-      options: opts,
-    );
+    final Response<ResponseBody> response;
+    try {
+      response = await Dio().post<ResponseBody>(
+        url,
+        data: jsonEncode({
+          'model': useModel,
+          'messages': messages,
+          'stream': true,
+        }),
+        options: opts,
+      );
+    } on DioException catch (error) {
+      throw await _requestError(url, error);
+    }
 
-    final stream = response.data!.stream;
+    final body = response.data;
+    if (body == null) {
+      throw _responseError(
+        url: url,
+        statusCode: response.statusCode,
+        detail: '服务器返回了空响应体',
+      );
+    }
 
-    await for (final line in stream
-        .cast<List<int>>()
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty || !trimmed.startsWith('data:')) continue;
-      final data = trimmed.replaceFirst('data:', '').trim();
-      if (data == '[DONE]') return;
-      if (data.isEmpty) continue;
-      try {
-        final json = jsonDecode(data) as Map<String, dynamic>;
-        final choices = json['choices'] as List?;
-        if (choices != null && choices.isNotEmpty) {
-          final delta = choices[0]['delta'] as Map<String, dynamic>?;
-          final content = delta?['content'] as String?;
-          if (content != null) {
-            yield content;
-          }
+    var sawData = false;
+    var sawContent = false;
+    final nonSse = StringBuffer();
+    try {
+      await for (final line
+          in body.stream
+              .cast<List<int>>()
+              .transform(utf8.decoder)
+              .transform(const LineSplitter())) {
+        final trimmed = line.trim();
+        if (trimmed.isEmpty) continue;
+        if (!trimmed.startsWith('data:')) {
+          if (!sawData && nonSse.length < 300) nonSse.writeln(trimmed);
+          continue;
         }
-      } catch (e) {
-        if (kDebugMode) debugPrint('SSE parse error: $e');
+        sawData = true;
+        final data = trimmed.replaceFirst('data:', '').trim();
+        if (data == '[DONE]') break;
+        if (data.isEmpty) continue;
+        try {
+          final decoded = jsonDecode(data);
+          if (decoded is! Map<String, dynamic>) {
+            throw const FormatException('SSE data is not a JSON object');
+          }
+          final json = decoded;
+          if (json['error'] case final error?) {
+            final detail = error is Map && error['message'] != null
+                ? error['message'].toString()
+                : error.toString();
+            throw _responseError(
+              url: url,
+              statusCode: response.statusCode,
+              detail: '服务器返回错误：${_snippet(detail)}',
+            );
+          }
+          final choices = json['choices'] as List?;
+          if (choices != null && choices.isNotEmpty) {
+            final delta = choices[0]['delta'] as Map<String, dynamic>?;
+            final content = delta?['content'] as String?;
+            if (content != null && content.isNotEmpty) {
+              sawContent = true;
+              yield content;
+            }
+          }
+        } on AiApiException {
+          rethrow;
+        } catch (error, stackTrace) {
+          if (kDebugMode) {
+            debugPrint('SSE parse error: ${error.runtimeType}');
+          }
+          throw _responseError(
+            url: url,
+            statusCode: response.statusCode,
+            detail: '流式响应格式错误：${_snippet(data)}',
+            stackTrace: stackTrace,
+          );
+        }
       }
+    } on AiApiException {
+      rethrow;
+    } catch (error, stackTrace) {
+      throw _responseError(
+        url: url,
+        statusCode: response.statusCode,
+        detail: '读取流式响应失败：$error',
+        stackTrace: stackTrace,
+      );
+    }
+
+    if (!sawData) {
+      final contentType = response.headers.value(Headers.contentTypeHeader);
+      throw _responseError(
+        url: url,
+        statusCode: response.statusCode,
+        detail:
+            '未返回流式响应，请检查接口地址与版本路径'
+            '${contentType == null ? '' : '（content-type: $contentType）'}'
+            '${nonSse.isEmpty ? '' : '：${_snippet(nonSse.toString())}'}',
+      );
+    }
+    if (!sawContent) {
+      throw _responseError(
+        url: url,
+        statusCode: response.statusCode,
+        detail: '流式响应未包含有效内容',
+      );
     }
   }
 

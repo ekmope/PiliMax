@@ -1496,6 +1496,95 @@ class VideoDetailController extends GetxController
   final Map<int, ({bool isData, String id})> vttSubtitles = {};
 
   late final RxInt vttSubtitlesIndex = (-1).obs;
+  late final RxInt vttSecondarySubtitlesIndex = 0.obs;
+  int _playInfoQueryGeneration = 0;
+  int _subtitleContextGeneration = 0;
+  int _primarySubtitleSelectionGeneration = 0;
+  int _secondarySubtitleSelectionGeneration = 0;
+  int? _pendingPrimarySubtitleIndex;
+  int? _pendingSecondarySubtitleIndex;
+  static Future<void> _subtitleTrackUpdateQueue = Future<void>.value();
+  static int _appliedPrimarySubtitleIndex = 0;
+  static int _appliedSecondarySubtitleIndex = 0;
+
+  Future<void> _queueSubtitleTrackUpdate(Future<void> Function() action) {
+    final run = _subtitleTrackUpdateQueue.then((_) => action());
+    _subtitleTrackUpdateQueue = run.catchError((_) {});
+    return run;
+  }
+
+  void _reconcilePrimarySubtitleIndex(
+    bool Function() isCurrent, {
+    int? loadingIndex,
+  }) {
+    if (!isCurrent()) return;
+    vttSubtitlesIndex.value = loadingIndex != null && loadingIndex < 0
+        ? loadingIndex
+        : _appliedPrimarySubtitleIndex;
+  }
+
+  void _reconcileSecondarySubtitleIndex(bool Function() isCurrent) {
+    if (!isCurrent()) return;
+    vttSecondarySubtitlesIndex.value = _appliedSecondarySubtitleIndex;
+  }
+
+  Future<void> _clearAppliedSecondaryConflict(
+    bool Function() isCurrent,
+  ) {
+    return _queueSubtitleTrackUpdate(() async {
+      if (_appliedPrimarySubtitleIndex <= 0 ||
+          _appliedPrimarySubtitleIndex != _appliedSecondarySubtitleIndex) {
+        return;
+      }
+      final player = plPlayerController.videoPlayerController;
+      if (player == null) {
+        _appliedSecondarySubtitleIndex = 0;
+      } else {
+        await player.setSecondarySubtitleTrack(.no());
+        _appliedSecondarySubtitleIndex = 0;
+      }
+      if (isCurrent()) {
+        vttSecondarySubtitlesIndex.value = 0;
+      }
+    });
+  }
+
+  void _invalidateSubtitleSelections() {
+    _subtitleContextGeneration++;
+    _primarySubtitleSelectionGeneration++;
+    _secondarySubtitleSelectionGeneration++;
+    _pendingPrimarySubtitleIndex = null;
+    _pendingSecondarySubtitleIndex = null;
+  }
+
+  bool _isCurrentSubtitleContext({
+    required int generation,
+    required String bvid,
+    required int cid,
+    required int? epId,
+    required int? seasonId,
+  }) =>
+      !isClosed &&
+      generation == _subtitleContextGeneration &&
+      bvid == this.bvid &&
+      cid == this.cid.value &&
+      epId == this.epId &&
+      seasonId == this.seasonId;
+
+  bool _isCurrentPlayInfoQuery({
+    required int generation,
+    required String bvid,
+    required int cid,
+    required int? epId,
+    required int? seasonId,
+  }) =>
+      generation == _playInfoQueryGeneration &&
+      !isClosed &&
+      bvid == this.bvid &&
+      cid == this.cid.value &&
+      epId == this.epId &&
+      seasonId == this.seasonId;
+
   late final RxBool showVP = Pref.showViewPointsOverlay.obs;
   late final RxList<ViewPointSegment> viewPointList = <ViewPointSegment>[].obs;
 
@@ -1568,6 +1657,26 @@ class VideoDetailController extends GetxController
   }
 
   Future<void> _loadFileSubtitles() async {
+    _playInfoQueryGeneration++;
+    _invalidateSubtitleSelections();
+    final contextGeneration = _subtitleContextGeneration;
+    final requestBvid = bvid;
+    final requestCid = cid.value;
+    final requestEpId = epId;
+    final requestSeasonId = seasonId;
+    bool isCurrentContext() => _isCurrentSubtitleContext(
+      generation: contextGeneration,
+      bvid: requestBvid,
+      cid: requestCid,
+      epId: requestEpId,
+      seasonId: requestSeasonId,
+    );
+
+    await setSubtitle(0);
+    if (!isCurrentContext()) return;
+    // Local playback must not inherit mpv's secondary-sid from the last video.
+    await setSecondarySubtitle(0);
+    if (!isCurrentContext()) return;
     final indexFile = File(
       path.join(
         entry.entryDirPath,
@@ -1581,6 +1690,7 @@ class VideoDetailController extends GetxController
     try {
       final jsonList = (jsonDecode(await indexFile.readAsString()) as List)
           .cast<Map<String, dynamic>>();
+      if (!isCurrentContext()) return;
       loaded = jsonList.map(Subtitle.fromJson).toList();
     } catch (e) {
       if (kDebugMode) debugPrint('_loadFileSubtitles parse failed: $e');
@@ -1600,59 +1710,276 @@ class VideoDetailController extends GetxController
       }
     }
     if (validSubs.isEmpty) return;
-    if (isClosed) return;
+    if (!isCurrentContext()) return;
 
-    subtitles.value = validSubs;
-
-    final idx = switch (Pref.subtitlePreferenceV2) {
+    final preference = Pref.subtitlePreferenceV2;
+    var isMuted = false;
+    if (preference == SubtitlePrefType.auto && PlatformUtils.isMobile) {
+      isMuted = (await FlutterVolumeController.getVolume() ?? 0.0) <= 0.0;
+      if (!isCurrentContext()) return;
+    }
+    final idx = switch (preference) {
       SubtitlePrefType.off => 0,
       SubtitlePrefType.on => 1,
       SubtitlePrefType.withoutAi =>
-        subtitles.first.lan.startsWith('ai') ? 0 : 1,
+        validSubs.first.lan.startsWith('ai') ? 0 : 1,
       SubtitlePrefType.auto =>
-        !subtitles.first.lan.startsWith('ai') ||
-                (PlatformUtils.isMobile &&
-                    (await FlutterVolumeController.getVolume() ?? 0.0) <= 0.0)
-            ? 1
-            : 0,
+        !validSubs.first.lan.startsWith('ai') || isMuted ? 1 : 0,
     };
-    if (!isClosed) await setSubtitle(idx);
+    if (!isCurrentContext()) return;
+    subtitles.value = validSubs;
+    await setSubtitle(idx);
   }
 
   // 设定字幕轨道
   Future<void> setSubtitle(int index) async {
+    final selectionGeneration = ++_primarySubtitleSelectionGeneration;
+    final contextGeneration = _subtitleContextGeneration;
+    final requestBvid = bvid;
+    final requestCid = cid.value;
+    final requestEpId = epId;
+    final requestSeasonId = seasonId;
+    bool isCurrentSelection() =>
+        selectionGeneration == _primarySubtitleSelectionGeneration &&
+        _isCurrentSubtitleContext(
+          generation: contextGeneration,
+          bvid: requestBvid,
+          cid: requestCid,
+          epId: requestEpId,
+          seasonId: requestSeasonId,
+        );
+    _pendingPrimarySubtitleIndex = null;
+
     if (index <= 0) {
-      await plPlayerController.videoPlayerController?.setSubtitleTrack(.no());
-      vttSubtitlesIndex.value = index;
+      _pendingPrimarySubtitleIndex = 0;
+      try {
+        await _queueSubtitleTrackUpdate(() async {
+          if (!isCurrentSelection()) return;
+          final player = plPlayerController.videoPlayerController;
+          if (player == null) {
+            _appliedPrimarySubtitleIndex = 0;
+          } else {
+            await player.setSubtitleTrack(.no());
+            _appliedPrimarySubtitleIndex = 0;
+          }
+        });
+        _reconcilePrimarySubtitleIndex(
+          isCurrentSelection,
+          loadingIndex: index,
+        );
+      } catch (_) {
+        _reconcilePrimarySubtitleIndex(
+          isCurrentSelection,
+          loadingIndex: index,
+        );
+        rethrow;
+      } finally {
+        if (selectionGeneration == _primarySubtitleSelectionGeneration) {
+          _pendingPrimarySubtitleIndex = null;
+        }
+      }
       return;
     }
 
-    Future<void> setSub(({bool isData, String id}) subtitle) async {
-      final sub = subtitles[index - 1];
-
-      String subUri = subtitle.id;
-      if (subtitle.isData) {
-        subUri = 'memory://$subUri';
+    final subIndex = index - 1;
+    if (subIndex < 0 || subIndex >= subtitles.length) {
+      _reconcilePrimarySubtitleIndex(isCurrentSelection);
+      return;
+    }
+    final sub = subtitles[subIndex];
+    _pendingPrimarySubtitleIndex = index;
+    try {
+      // Primary subtitles win same-track races; cancel any pending secondary.
+      if (index == vttSecondarySubtitlesIndex.value ||
+          index == _pendingSecondarySubtitleIndex ||
+          index == _appliedSecondarySubtitleIndex) {
+        await setSecondarySubtitle(0);
+        if (!isCurrentSelection()) return;
       }
-      await plPlayerController.videoPlayerController?.setSubtitleTrack(
-        SubtitleTrack(subUri, sub.lanDoc, sub.lan, uri: true),
+
+      final subUri = await _resolveVttUri(
+        subIndex: subIndex,
+        subtitleItem: sub,
+        isCurrent: isCurrentSelection,
       );
-      vttSubtitlesIndex.value = index;
+      if (!isCurrentSelection()) return;
+      if (subUri == null) {
+        _reconcilePrimarySubtitleIndex(isCurrentSelection);
+        return;
+      }
+
+      // Recheck after the VTT request because the secondary choice may have
+      // changed while this selection was waiting on the network.
+      if (index == vttSecondarySubtitlesIndex.value ||
+          index == _pendingSecondarySubtitleIndex ||
+          index == _appliedSecondarySubtitleIndex) {
+        await setSecondarySubtitle(0);
+        if (!isCurrentSelection()) return;
+      }
+
+      await _queueSubtitleTrackUpdate(() async {
+        if (!isCurrentSelection()) return;
+        final pendingSecondary = _pendingSecondarySubtitleIndex;
+        if (pendingSecondary == index ||
+            (vttSecondarySubtitlesIndex.value == index &&
+                pendingSecondary != 0) ||
+            (_appliedSecondarySubtitleIndex == index &&
+                pendingSecondary != 0)) {
+          return;
+        }
+        final player = plPlayerController.videoPlayerController;
+        if (player == null) return;
+        await player.setSubtitleTrack(
+          SubtitleTrack(subUri, sub.lanDoc, sub.lan, uri: true),
+        );
+        _appliedPrimarySubtitleIndex = index;
+        final latestPendingSecondary = _pendingSecondarySubtitleIndex;
+        if (!isCurrentSelection() ||
+            latestPendingSecondary == index ||
+            (vttSecondarySubtitlesIndex.value == index &&
+                latestPendingSecondary != 0) ||
+            (_appliedSecondarySubtitleIndex == index &&
+                latestPendingSecondary != 0)) {
+          return;
+        }
+      });
+      await _clearAppliedSecondaryConflict(isCurrentSelection);
+      _reconcilePrimarySubtitleIndex(isCurrentSelection);
+      _reconcileSecondarySubtitleIndex(isCurrentSelection);
+    } catch (_) {
+      _reconcilePrimarySubtitleIndex(isCurrentSelection);
+      _reconcileSecondarySubtitleIndex(isCurrentSelection);
+      rethrow;
+    } finally {
+      if (selectionGeneration == _primarySubtitleSelectionGeneration) {
+        _pendingPrimarySubtitleIndex = null;
+      }
+    }
+  }
+
+  Future<void> setSecondarySubtitle(int index) async {
+    final selectionGeneration = ++_secondarySubtitleSelectionGeneration;
+    final contextGeneration = _subtitleContextGeneration;
+    final requestBvid = bvid;
+    final requestCid = cid.value;
+    final requestEpId = epId;
+    final requestSeasonId = seasonId;
+    bool isCurrentSelection() =>
+        selectionGeneration == _secondarySubtitleSelectionGeneration &&
+        _isCurrentSubtitleContext(
+          generation: contextGeneration,
+          bvid: requestBvid,
+          cid: requestCid,
+          epId: requestEpId,
+          seasonId: requestSeasonId,
+        );
+    _pendingSecondarySubtitleIndex = null;
+
+    // A track cannot be primary and secondary at the same time. Primary wins.
+    if (index <= 0 ||
+        index == vttSubtitlesIndex.value ||
+        index == _pendingPrimarySubtitleIndex ||
+        index == _appliedPrimarySubtitleIndex) {
+      _pendingSecondarySubtitleIndex = 0;
+      try {
+        await _queueSubtitleTrackUpdate(() async {
+          if (!isCurrentSelection()) return;
+          final player = plPlayerController.videoPlayerController;
+          if (player == null) {
+            _appliedSecondarySubtitleIndex = 0;
+          } else {
+            await player.setSecondarySubtitleTrack(.no());
+            _appliedSecondarySubtitleIndex = 0;
+          }
+        });
+        _reconcileSecondarySubtitleIndex(isCurrentSelection);
+      } catch (_) {
+        _reconcileSecondarySubtitleIndex(isCurrentSelection);
+        rethrow;
+      } finally {
+        if (selectionGeneration == _secondarySubtitleSelectionGeneration) {
+          _pendingSecondarySubtitleIndex = null;
+        }
+      }
+      return;
     }
 
-    ({bool isData, String id})? subtitle = vttSubtitles[index - 1];
-    if (subtitle != null) {
-      await setSub(subtitle);
-    } else {
-      final result = await VideoHttp.vttSubtitles(
-        subtitles[index - 1].subtitleUrl!,
+    final subIndex = index - 1;
+    if (subIndex < 0 || subIndex >= subtitles.length) {
+      _reconcileSecondarySubtitleIndex(isCurrentSelection);
+      return;
+    }
+    final sub = subtitles[subIndex];
+    _pendingSecondarySubtitleIndex = index;
+    final player = plPlayerController.videoPlayerController;
+    if (player == null) {
+      _pendingSecondarySubtitleIndex = null;
+      _reconcileSecondarySubtitleIndex(isCurrentSelection);
+      return;
+    }
+    try {
+      final subUri = await _resolveVttUri(
+        subIndex: subIndex,
+        subtitleItem: sub,
+        isCurrent: isCurrentSelection,
       );
-      if (!isClosed && result != null) {
-        final subtitle = (isData: true, id: result);
-        vttSubtitles[index - 1] = subtitle;
-        await setSub(subtitle);
+      if (!isCurrentSelection()) return;
+      if (subUri == null) {
+        _reconcileSecondarySubtitleIndex(isCurrentSelection);
+        return;
+      }
+
+      // Recheck after awaiting VTT data to close the in-flight same-track race.
+      if (index == vttSubtitlesIndex.value ||
+          index == _pendingPrimarySubtitleIndex ||
+          index == _appliedPrimarySubtitleIndex) {
+        await setSecondarySubtitle(0);
+        return;
+      }
+
+      await _queueSubtitleTrackUpdate(() async {
+        if (!isCurrentSelection()) return;
+        if (index == vttSubtitlesIndex.value ||
+            index == _pendingPrimarySubtitleIndex ||
+            index == _appliedPrimarySubtitleIndex) {
+          return;
+        }
+        await player.setSecondarySubtitleTrack(
+          SubtitleTrack(subUri, sub.lanDoc, sub.lan, uri: true),
+        );
+        _appliedSecondarySubtitleIndex = index;
+      });
+      await _clearAppliedSecondaryConflict(isCurrentSelection);
+      _reconcilePrimarySubtitleIndex(isCurrentSelection);
+      _reconcileSecondarySubtitleIndex(isCurrentSelection);
+    } catch (_) {
+      _reconcilePrimarySubtitleIndex(isCurrentSelection);
+      _reconcileSecondarySubtitleIndex(isCurrentSelection);
+      rethrow;
+    } finally {
+      if (selectionGeneration == _secondarySubtitleSelectionGeneration) {
+        _pendingSecondarySubtitleIndex = null;
       }
     }
+  }
+
+  Future<String?> _resolveVttUri({
+    required int subIndex,
+    required Subtitle subtitleItem,
+    required bool Function() isCurrent,
+  }) async {
+    if (!isCurrent()) return null;
+    ({bool isData, String id})? resolved = vttSubtitles[subIndex];
+    if (resolved == null) {
+      final subtitleUrl = subtitleItem.subtitleUrl;
+      if (subtitleUrl == null) return null;
+      final result = await VideoHttp.vttSubtitles(subtitleUrl);
+      if (!isCurrent()) return null;
+      if (result == null) return null;
+      resolved = (isData: true, id: result);
+      vttSubtitles[subIndex] = resolved;
+    }
+    return resolved.isData ? 'memory://${resolved.id}' : resolved.id;
   }
 
   // interactive video
@@ -1721,17 +2048,39 @@ class VideoDetailController extends GetxController
   }
 
   Future<void> _queryPlayInfo() async {
+    final queryGeneration = ++_playInfoQueryGeneration;
+    _invalidateSubtitleSelections();
+    final requestAid = aid;
+    final requestBvid = bvid;
+    final requestCid = cid.value;
+    final requestEpId = epId;
+    final requestSeasonId = seasonId;
+    final requestTimeLength = data.timeLength;
+    bool isCurrentQuery() => _isCurrentPlayInfoQuery(
+      generation: queryGeneration,
+      bvid: requestBvid,
+      cid: requestCid,
+      epId: requestEpId,
+      seasonId: requestSeasonId,
+    );
+
     vttSubtitles.clear();
-    vttSubtitlesIndex.value = 0;
+    await setSubtitle(0);
+    if (!isCurrentQuery()) return;
+    // Do not carry a secondary track across parts or videos. Clearing the
+    // mpv option also prevents stale track ids from colliding with sub-add.
+    await setSecondarySubtitle(0);
+    if (!isCurrentQuery()) return;
     if (plPlayerController.showViewPoints) {
       viewPointList.clear();
     }
     final res = await VideoHttp.playInfo(
-      bvid: bvid,
-      cid: cid.value,
-      seasonId: seasonId,
-      epId: epId,
+      bvid: requestBvid,
+      cid: requestCid,
+      seasonId: requestSeasonId,
+      epId: requestEpId,
     );
+    if (!isCurrentQuery()) return;
     if (res case Success(:final response)) {
       if (response.lastPlayTime != null &&
           response.lastPlayTime! > 0 &&
@@ -1775,12 +2124,16 @@ class VideoDetailController extends GetxController
           } catch (_) {}
         }
       }
+      if (!isCurrentQuery()) return;
 
       if (plPlayerController.showViewPoints &&
           response.viewPoints?.firstOrNull?.type == 2) {
         try {
           viewPointList.value = response.viewPoints!.map((item) {
-            final end = (item.to! / (data.timeLength! / 1000)).clamp(0.0, 1.0);
+            final end = (item.to! / (requestTimeLength! / 1000)).clamp(
+              0.0,
+              1.0,
+            );
             return ViewPointSegment(
               end: end,
               title: item.content,
@@ -1793,13 +2146,15 @@ class VideoDetailController extends GetxController
       }
 
       if (response.subtitle?.subtitles case final sub? when (sub.isNotEmpty)) {
-        _setSubtitle(sub);
+        await _setSubtitle(sub, isCurrent: isCurrentQuery);
+        if (!isCurrentQuery()) return;
       } else if (!Accounts.main.isLogin) {
-        final res = await DmGrpc.dmView(aid, cid.value);
+        final res = await DmGrpc.dmView(requestAid, requestCid);
+        if (!isCurrentQuery()) return;
         if (res case Success(:final response)) {
           if (response.hasSubtitle() &&
               response.subtitle.subtitles.isNotEmpty) {
-            _setSubtitle(
+            await _setSubtitle(
               response.subtitle.subtitles
                   .map(
                     (i) => Subtitle(
@@ -1814,7 +2169,9 @@ class VideoDetailController extends GetxController
                   )
                   .toList()
                 ..sort(),
+              isCurrent: isCurrentQuery,
             );
+            if (!isCurrentQuery()) return;
           }
         } else {
           res.toast();
@@ -1823,19 +2180,24 @@ class VideoDetailController extends GetxController
     }
   }
 
-  Future<void> _setSubtitle(List<Subtitle> sub) async {
-    subtitles.value = sub;
+  Future<void> _setSubtitle(
+    List<Subtitle> sub, {
+    required bool Function() isCurrent,
+  }) async {
+    var isMuted = false;
+    if (Pref.subtitlePreferenceV2 == .auto && PlatformUtils.isMobile) {
+      isMuted = (await FlutterVolumeController.getVolume() ?? 0.0) <= 0.0;
+      if (!isCurrent()) return;
+    }
+
     final idx = switch (Pref.subtitlePreferenceV2) {
       .off => 0,
       .on => 1,
       .withoutAi => sub.first.lan.startsWith('ai') ? 0 : 1,
-      .auto =>
-        !sub.first.lan.startsWith('ai') ||
-                (PlatformUtils.isMobile &&
-                    (await FlutterVolumeController.getVolume() ?? 0.0) <= 0.0)
-            ? 1
-            : 0,
+      .auto => !sub.first.lan.startsWith('ai') || isMuted ? 1 : 0,
     };
+    if (!isCurrent()) return;
+    subtitles.value = sub;
     await setSubtitle(idx);
   }
 
@@ -1984,6 +2346,9 @@ class VideoDetailController extends GetxController
     animController
       ?..removeListener(_animListener)
       ..dispose();
+    _playInfoQueryGeneration++;
+    _invalidateSubtitleSelections();
+    vttSecondarySubtitlesIndex.value = 0;
     subtitles.clear();
     vttSubtitles.clear();
     Get.delete<AiChatController>(tag: heroTag);
@@ -2006,8 +2371,11 @@ class VideoDetailController extends GetxController
     savedDanmaku = null;
 
     // subtitle
+    _playInfoQueryGeneration++;
+    _invalidateSubtitleSelections();
     subtitles.clear();
     vttSubtitlesIndex.value = -1;
+    vttSecondarySubtitlesIndex.value = 0;
     vttSubtitles.clear();
 
     if (plPlayerController.showViewPoints) {

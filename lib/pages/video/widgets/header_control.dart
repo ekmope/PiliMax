@@ -1434,6 +1434,7 @@ class HeaderControlState extends State<HeaderControl>
 
   /// 字幕设置
   void showSetSubtitle() {
+    int segment = 0;
     showBottomSheet(
       padding: () => isFullScreen ? const .only(bottom: 70) : .zero,
       (context, setState) {
@@ -1448,54 +1449,80 @@ class HeaderControlState extends State<HeaderControl>
           thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
         );
 
-        void updateStrokeWidth(double val) {
-          plPlayerController
-            ..subtitleStrokeWidth = val
-            ..updateSubtitleStyle();
+        final isPrimary = segment == 0;
+        final subtitleFontScale = isPrimary
+            ? this.subtitleFontScale
+            : plPlayerController.subtitleSecondaryFontScale;
+        final subtitleFontScaleFS = isPrimary
+            ? this.subtitleFontScaleFS
+            : plPlayerController.subtitleSecondaryFontScaleFS;
+        final subtitleFontWeight = isPrimary
+            ? this.subtitleFontWeight
+            : plPlayerController.subtitleSecondaryFontWeight;
+        final subtitleStrokeWidth = isPrimary
+            ? this.subtitleStrokeWidth
+            : plPlayerController.subtitleSecondaryStrokeWidth;
+        final subtitleBgOpacity = isPrimary
+            ? this.subtitleBgOpacity
+            : plPlayerController.subtitleSecondaryBgOpacity;
+
+        void update(VoidCallback apply) {
+          apply();
+          plPlayerController.updateSubtitleStyle();
           setState(() {});
         }
 
-        void updateOpacity(double val) {
-          plPlayerController
-            ..subtitleBgOpacity = val.toPrecision(2)
-            ..updateSubtitleStyle();
-          setState(() {});
-        }
+        void updateStrokeWidth(double val) => update(() {
+          if (isPrimary) {
+            plPlayerController.subtitleStrokeWidth = val;
+          } else {
+            plPlayerController.subtitleSecondaryStrokeWidth = val;
+          }
+        });
 
-        void updateBottomPadding(double val) {
-          plPlayerController
-            ..subtitlePaddingB = val.round()
-            ..updateSubtitleStyle();
-          setState(() {});
-        }
+        void updateOpacity(double val) => update(() {
+          if (isPrimary) {
+            plPlayerController.subtitleBgOpacity = val.toPrecision(2);
+          } else {
+            plPlayerController.subtitleSecondaryBgOpacity = val.toPrecision(2);
+          }
+        });
 
-        void updateHorizontalPadding(double val) {
-          plPlayerController
-            ..subtitlePaddingH = val.round()
-            ..updateSubtitleStyle();
-          setState(() {});
-        }
+        void updateBottomPadding(double val) => update(() {
+          plPlayerController.subtitlePaddingB = val.round();
+        });
 
-        void updateFontScaleFS(double val) {
-          plPlayerController
-            ..subtitleFontScaleFS = val
-            ..updateSubtitleStyle();
-          setState(() {});
-        }
+        void updateHorizontalPadding(double val) => update(() {
+          plPlayerController.subtitlePaddingH = val.round();
+        });
 
-        void updateFontScale(double val) {
-          plPlayerController
-            ..subtitleFontScale = val
-            ..updateSubtitleStyle();
-          setState(() {});
-        }
+        void updateFontScaleFS(double val) => update(() {
+          if (isPrimary) {
+            plPlayerController.subtitleFontScaleFS = val;
+          } else {
+            plPlayerController.subtitleSecondaryFontScaleFS = val;
+          }
+        });
 
-        void updateFontWeight(double val) {
-          plPlayerController
-            ..subtitleFontWeight = val.toInt()
-            ..updateSubtitleStyle();
-          setState(() {});
-        }
+        void updateFontScale(double val) => update(() {
+          if (isPrimary) {
+            plPlayerController.subtitleFontScale = val;
+          } else {
+            plPlayerController.subtitleSecondaryFontScale = val;
+          }
+        });
+
+        void updateFontWeight(double val) => update(() {
+          if (isPrimary) {
+            plPlayerController.subtitleFontWeight = val.toInt();
+          } else {
+            plPlayerController.subtitleSecondaryFontWeight = val.toInt();
+          }
+        });
+
+        void updateSecondarySpacing(double val) => update(() {
+          plPlayerController.subtitleSecondarySpacing = val;
+        });
 
         return Padding(
           padding: const EdgeInsets.all(12),
@@ -1512,6 +1539,21 @@ class HeaderControlState extends State<HeaderControl>
                     height: 45,
                     child: Center(child: Text('字幕设置', style: titleStyle)),
                   ),
+                  Center(
+                    child: SegmentedButton<int>(
+                      showSelectedIcon: false,
+                      style: const ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      segments: const [
+                        ButtonSegment(value: 0, label: Text('主字幕')),
+                        ButtonSegment(value: 1, label: Text('副字幕')),
+                      ],
+                      selected: {segment},
+                      onSelectionChanged: (value) =>
+                          setState(() => segment = value.first),
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1519,7 +1561,11 @@ class HeaderControlState extends State<HeaderControl>
                       Text(
                         '字体大小 ${(subtitleFontScale * 100).toStringAsFixed(1)}%',
                       ),
-                      resetBtn(theme, '100.0%', () => updateFontScale(1.0)),
+                      resetBtn(
+                        theme,
+                        isPrimary ? '100.0%' : '80.0%',
+                        () => updateFontScale(isPrimary ? 1.0 : 0.8),
+                      ),
                     ],
                   ),
                   Padding(
@@ -1548,7 +1594,11 @@ class HeaderControlState extends State<HeaderControl>
                       Text(
                         '全屏字体大小 ${(subtitleFontScaleFS * 100).toStringAsFixed(1)}%',
                       ),
-                      resetBtn(theme, '150.0%', () => updateFontScaleFS(1.5)),
+                      resetBtn(
+                        theme,
+                        isPrimary ? '150.0%' : '110.0%',
+                        () => updateFontScaleFS(isPrimary ? 1.5 : 1.1),
+                      ),
                     ],
                   ),
                   Padding(
@@ -1623,58 +1673,94 @@ class HeaderControlState extends State<HeaderControl>
                       ),
                     ),
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('左右边距 $subtitlePaddingH'),
-                      resetBtn(theme, 24, () => updateHorizontalPadding(24)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 0,
-                      bottom: 6,
-                      left: 10,
-                      right: 10,
+                  if (isPrimary) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('左右边距 $subtitlePaddingH'),
+                        resetBtn(theme, 24, () => updateHorizontalPadding(24)),
+                      ],
                     ),
-                    child: SliderTheme(
-                      data: sliderTheme,
-                      child: Slider(
-                        min: 0,
-                        max: 100,
-                        value: subtitlePaddingH.toDouble(),
-                        divisions: 100,
-                        label: '$subtitlePaddingH',
-                        onChanged: updateHorizontalPadding,
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: 0,
+                        bottom: 6,
+                        left: 10,
+                        right: 10,
+                      ),
+                      child: SliderTheme(
+                        data: sliderTheme,
+                        child: Slider(
+                          min: 0,
+                          max: 100,
+                          value: subtitlePaddingH.toDouble(),
+                          divisions: 100,
+                          label: '$subtitlePaddingH',
+                          onChanged: updateHorizontalPadding,
+                        ),
                       ),
                     ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('底部边距 $subtitlePaddingB'),
-                      resetBtn(theme, 24, () => updateBottomPadding(24)),
-                    ],
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      top: 0,
-                      bottom: 6,
-                      left: 10,
-                      right: 10,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('底部边距 $subtitlePaddingB'),
+                        resetBtn(theme, 24, () => updateBottomPadding(24)),
+                      ],
                     ),
-                    child: SliderTheme(
-                      data: sliderTheme,
-                      child: Slider(
-                        min: 0,
-                        max: 200,
-                        value: subtitlePaddingB.toDouble(),
-                        divisions: 200,
-                        label: '$subtitlePaddingB',
-                        onChanged: updateBottomPadding,
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: 0,
+                        bottom: 6,
+                        left: 10,
+                        right: 10,
+                      ),
+                      child: SliderTheme(
+                        data: sliderTheme,
+                        child: Slider(
+                          min: 0,
+                          max: 200,
+                          value: subtitlePaddingB.toDouble(),
+                          divisions: 200,
+                          label: '$subtitlePaddingB',
+                          onChanged: updateBottomPadding,
+                        ),
                       ),
                     ),
-                  ),
+                  ] else ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '与主字幕间距 ${plPlayerController.subtitleSecondarySpacing.toStringAsFixed(1)}',
+                        ),
+                        resetBtn(
+                          theme,
+                          4.0,
+                          () => updateSecondarySpacing(4.0),
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: 0,
+                        bottom: 6,
+                        left: 10,
+                        right: 10,
+                      ),
+                      child: SliderTheme(
+                        data: sliderTheme,
+                        child: Slider(
+                          min: 0,
+                          max: 40,
+                          divisions: 40,
+                          value: plPlayerController.subtitleSecondarySpacing,
+                          label: plPlayerController.subtitleSecondarySpacing
+                              .toStringAsFixed(1),
+                          onChanged: updateSecondarySpacing,
+                        ),
+                      ),
+                    ),
+                  ],
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

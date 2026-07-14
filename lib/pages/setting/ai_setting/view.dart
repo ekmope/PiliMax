@@ -42,7 +42,11 @@ class AiSettingPage extends StatelessWidget {
                     controller: controller.apiUrlCtl,
                     decoration: const InputDecoration(
                       labelText: '接口地址',
-                      hintText: 'https://api.example.com',
+                      hintText: 'https://api.example.com/v1',
+                      helperText:
+                          '填写完整版本路径，应用只会补全 /models 和 /chat/completions；'
+                          '例如 OpenAI …/v1、Gemini …/v1beta、火山方舟 …/api/v3',
+                      helperMaxLines: 3,
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.link),
                     ),

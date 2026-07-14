@@ -445,13 +445,10 @@ abstract final class Pref {
     defaultValue: AudioQuality.k192.code,
   );
 
-  static const List<VideoDecodeFormatType> _androidDefaultPreferCodecs = [
-    VideoDecodeFormatType.HEVC,
+  static const List<VideoDecodeFormatType> _defaultPreferCodecs = [
     VideoDecodeFormatType.AVC,
+    VideoDecodeFormatType.AV1,
   ];
-
-  static List<VideoDecodeFormatType> get _platformDefaultPreferCodecs =>
-      Platform.isAndroid ? _androidDefaultPreferCodecs : const [];
 
   static List<VideoDecodeFormatType> get preferCodecs {
     // TODO: remove next 2 version
@@ -475,14 +472,14 @@ abstract final class Pref {
     }
 
     if (!_setting.containsKey(SettingBoxKey.preferCodecs)) {
-      return _platformDefaultPreferCodecs;
+      return _defaultPreferCodecs;
     }
 
     final codecs = _setting.get(SettingBoxKey.preferCodecs);
     if (codecs is List) {
       return codecs.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
     }
-    return _platformDefaultPreferCodecs;
+    return _defaultPreferCodecs;
   }
 
   static String get hardwareDecoding => _setting.get(
@@ -683,6 +680,32 @@ abstract final class Pref {
 
   static int get subtitleFontWeight =>
       _setting.get(SettingBoxKey.subtitleFontWeight, defaultValue: 5);
+
+  static double get subtitleSecondaryFontScale =>
+      _setting.get(SettingBoxKey.subtitleSecondaryFontScale, defaultValue: 0.8);
+
+  static double get subtitleSecondaryFontScaleFS => _setting.get(
+    SettingBoxKey.subtitleSecondaryFontScaleFS,
+    defaultValue: 1.1,
+  );
+
+  static double get subtitleSecondaryBgOpacity => _setting.get(
+    SettingBoxKey.subtitleSecondaryBgOpacity,
+    defaultValue: 0.67,
+  );
+
+  static double get subtitleSecondaryStrokeWidth => _setting.get(
+    SettingBoxKey.subtitleSecondaryStrokeWidth,
+    defaultValue: 2.0,
+  );
+
+  static int get subtitleSecondaryFontWeight =>
+      _setting.get(SettingBoxKey.subtitleSecondaryFontWeight, defaultValue: 5);
+
+  static double get subtitleSecondarySpacing => _setting.get(
+    SettingBoxKey.subtitleSecondarySpacing,
+    defaultValue: 4.0,
+  );
 
   static bool get badCertificateCallback =>
       _setting.get(SettingBoxKey.badCertificateCallback, defaultValue: false);

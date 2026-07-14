@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-const videoDetailRouteForwardTransitionDuration = Duration(milliseconds: 420);
-const videoDetailRouteReverseTransitionDuration = Duration(milliseconds: 320);
+const videoDetailRouteForwardTransitionDuration = Duration(milliseconds: 480);
+const videoDetailRouteReverseTransitionDuration = Duration(milliseconds: 480);
 
 /// Keeps the video Hero and entry overlay on one fixed route timeline.
 ///

@@ -12,6 +12,7 @@ import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/pages/mine/controller.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/services/debug_log_service.dart';
+import 'package:PiliMax/services/video_transition_diagnostics.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
@@ -317,6 +318,13 @@ Commit Hash: ${BuildConfig.commitHash}''',
             subtitle: Text('长按清除日志', style: subTitleStyle),
             trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
           ),
+          if (VideoTransitionDiagnostics.available)
+            ListTile(
+              onTap: () => Get.toNamed('/videoTransitionDiagnostics'),
+              leading: const Icon(Icons.monitor_heart_outlined),
+              title: const Text('视频动画诊断'),
+              trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
+            ),
           ListTile(
             onTap: () {
               if (cacheSize.value.isNotEmpty) {

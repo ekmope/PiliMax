@@ -14,6 +14,13 @@ val agpMajorVersion = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION
 val builtInKotlinProperty = providers.gradleProperty("android.builtInKotlin").orNull
 val isBuiltInKotlinEnabled = agpMajorVersion >= 9 &&
         (builtInKotlinProperty == null || builtInKotlinProperty.toBoolean())
+val isDiagnosticRelease = providers.gradleProperty("pilimaxDiagnosticRelease")
+    .orNull
+    ?.toBoolean() == true
+val diagnosticApplicationId = providers.gradleProperty("pilimaxDiagnosticApplicationId")
+    .orElse("com.pilimax.debug")
+val isDiagnosticImpellerEnabled = isDiagnosticRelease &&
+        (providers.gradleProperty("pilimaxEnableImpeller").orNull?.toBoolean() == true)
 if (!isBuiltInKotlinEnabled) {
     apply(plugin = "org.jetbrains.kotlin.android")
 }
@@ -29,7 +36,12 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.PiliMax.android"
+        applicationId = if (isDiagnosticRelease) {
+            diagnosticApplicationId.get()
+        } else {
+            "com.PiliMax.android"
+        }
+        manifestPlaceholders["enableImpeller"] = isDiagnosticImpellerEnabled.toString()
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -56,14 +68,26 @@ android {
     }
 
     buildFeatures {
-        if (project.hasProperty("dev")) {
+        if (project.hasProperty("dev") || isDiagnosticRelease) {
             resValues = true
         }
     }
 
     buildTypes {
         release {
-            if (project.hasProperty("dev")) {
+            if (isDiagnosticRelease) {
+                signingConfig = config
+                    ?: throw GradleException("Missing diagnostic release signing config. Create android/key.properties.")
+                resValue(
+                    type = "string",
+                    name = "app_name",
+                    value = if (isDiagnosticImpellerEnabled) {
+                        "PiliMax FPS Impeller"
+                    } else {
+                        "PiliMax FPS Skia"
+                    },
+                )
+            } else if (project.hasProperty("dev")) {
                 signingConfig = config ?: signingConfigs["debug"]
                 applicationIdSuffix = ".dev"
                 resValue(

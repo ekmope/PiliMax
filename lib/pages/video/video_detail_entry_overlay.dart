@@ -30,7 +30,7 @@ final class VideoDetailEntryOverlayController {
     int tabCount = VideoDetailLayoutMetrics.defaultTabCount,
     int actionCount = VideoDetailLayoutMetrics.ugcActionCount,
     bool hasEpisodePanel = false,
-    Duration revealDuration = const Duration(milliseconds: 320),
+    Duration revealDuration = const Duration(milliseconds: 480),
   }) => VideoDetailEntryOverlayController._(
     overlay: overlay,
     transitionToken: transitionToken,
@@ -93,8 +93,11 @@ final class VideoDetailEntryOverlayController {
   bool _routeCompleted = false;
   bool _removed = false;
   bool _disposed = false;
+  bool _didCompleteReveal = false;
 
   bool get isActive => _entry != null && !_removed && !_disposed;
+
+  bool get didCompleteReveal => _didCompleteReveal;
 
   /// Inserts the entry once. Repeated calls are harmless.
   void insert() {
@@ -197,7 +200,10 @@ final class VideoDetailEntryOverlayController {
   }
 
   /// Removes the skeleton immediately after a successful content handoff.
-  void complete() => _remove();
+  void complete() {
+    _didCompleteReveal = true;
+    _remove();
+  }
 
   /// Removes the skeleton immediately when navigation or preparation aborts.
   void abort() => _remove();

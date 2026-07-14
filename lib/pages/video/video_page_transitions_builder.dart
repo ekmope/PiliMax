@@ -4,7 +4,9 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
+import 'package:PiliMax/pages/video/video_detail_exit_snapshot.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
+import 'package:PiliMax/services/video_transition_diagnostics.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -217,12 +219,18 @@ class _VideoPredictiveBackDriver extends StatefulWidget {
 class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     with WidgetsBindingObserver {
   final ValueNotifier<double> _progress = ValueNotifier(0);
+  final SnapshotController _snapshotController = SnapshotController();
+  final GlobalKey _transitionRootKey = GlobalKey();
   _VideoPopPhase _phase = _VideoPopPhase.idle;
   VideoReturnTarget? _returnTarget;
+  VideoDetailExitVisual? _exitVisual;
+  Widget? _exitTexture;
   bool _routeCompleted = false;
   double _lastProgress = 0;
   double _commitStartProgress = 0;
   double _cancelStartProgress = 0;
+  int? _forwardDiagnosticId;
+  int? _backDiagnosticId;
 
   Map<dynamic, dynamic>? get _arguments {
     final arguments = widget.route.settings.arguments;
@@ -242,6 +250,12 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     _routeCompleted =
         !widget.route.offstage &&
         widget.animation.status == AnimationStatus.completed;
+    if (!_routeCompleted && widget.token != null) {
+      _forwardDiagnosticId = VideoTransitionDiagnostics.begin(
+        VideoTransitionDiagnosticKind.entry,
+        expectedDuration: widget.route.transitionDuration,
+      );
+    }
     widget.animation
       ..addListener(_handleAnimationTick)
       ..addStatusListener(_handleAnimationStatus);
@@ -276,12 +290,28 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   }
 
   @override
+  void didChangeMetrics() {
+    if (!_snapshotController.allowSnapshotting) {
+      return;
+    }
+    _endSnapshotExit();
+    _returnTarget = null;
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
     if (!widget.enablePredictiveBack ||
         backEvent.isButtonEvent ||
         !_isEnabled) {
       return false;
     }
+    _finishBackDiagnostic('superseded');
+    _backDiagnosticId = VideoTransitionDiagnostics.begin(
+      VideoTransitionDiagnosticKind.predictiveBack,
+    );
     _phase = _VideoPopPhase.predicting;
     _setProgress(backEvent.progress);
     widget.route.handleStartBackGesture(progress: 1 - backEvent.progress);
@@ -293,6 +323,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (_phase != _VideoPopPhase.predicting) {
       return;
     }
+    VideoTransitionDiagnostics.recordInputEvent(_backDiagnosticId);
     _setProgress(backEvent.progress);
     widget.route.handleUpdateBackGestureProgress(
       progress: 1 - backEvent.progress,
@@ -332,6 +363,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   void _handleAnimationStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
+      _finishForwardDiagnostic('completed');
       if (_phase == _VideoPopPhase.canceling) {
         _finishCancel();
         return;
@@ -344,10 +376,23 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
       }
       return;
     }
+    if (status == AnimationStatus.dismissed) {
+      if (_phase == _VideoPopPhase.committing) {
+        _finishBackDiagnostic('committed');
+      } else if (_phase == _VideoPopPhase.programmatic) {
+        _finishBackDiagnostic('completed');
+      }
+      return;
+    }
     if (status == AnimationStatus.reverse &&
         _routeCompleted &&
         _phase == _VideoPopPhase.idle) {
       _phase = _VideoPopPhase.programmatic;
+      _finishBackDiagnostic('superseded');
+      _backDiagnosticId = VideoTransitionDiagnostics.begin(
+        VideoTransitionDiagnosticKind.programmaticBack,
+        expectedDuration: widget.route.reverseTransitionDuration,
+      );
       _handleAnimationTick();
     }
   }
@@ -355,6 +400,19 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   void _finishCancel() {
     _phase = _VideoPopPhase.idle;
     _setProgress(0);
+    _finishBackDiagnostic('canceled');
+  }
+
+  void _finishForwardDiagnostic(String outcome) {
+    final captureId = _forwardDiagnosticId;
+    _forwardDiagnosticId = null;
+    VideoTransitionDiagnostics.finish(captureId, outcome: outcome);
+  }
+
+  void _finishBackDiagnostic(String outcome) {
+    final captureId = _backDiagnosticId;
+    _backDiagnosticId = null;
+    VideoTransitionDiagnostics.finish(captureId, outcome: outcome);
   }
 
   void _handleAnimationTick() {
@@ -407,11 +465,13 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
       _returnTarget = canReturnToSource
           ? VideoTransitionRegistry.resolveReturn(token)
           : null;
+      _prepareSnapshotExit();
     } else if (next == 0) {
       final cancelPreparedExit =
           _arguments?[videoDetailCancelPreparedExitKey] as VoidCallback?;
       cancelPreparedExit?.call();
       _returnTarget = null;
+      _endSnapshotExit();
     }
     _lastProgress = next;
     if (_progress.value != next) {
@@ -419,8 +479,38 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     }
   }
 
+  void _prepareSnapshotExit() {
+    _exitVisual?.dispose();
+    final provider =
+        _arguments?[videoDetailExitVisualProviderKey]
+            as VideoDetailExitVisualProvider?;
+    final transitionRoot = _transitionRootKey.currentContext
+        ?.findRenderObject();
+    final visual = transitionRoot is RenderBox
+        ? provider?.call(transitionRoot)
+        : null;
+    if (visual?.isUsable == true) {
+      _exitVisual = visual;
+    } else {
+      visual?.dispose();
+      _exitVisual = null;
+    }
+    _exitTexture = _exitVisual?.buildLiveTexture();
+    _snapshotController.allowSnapshotting = _exitVisual != null;
+  }
+
+  void _endSnapshotExit() {
+    final visual = _exitVisual;
+    _snapshotController.allowSnapshotting = false;
+    _exitVisual = null;
+    _exitTexture = null;
+    visual?.dispose();
+  }
+
   @override
   void dispose() {
+    _finishForwardDiagnostic('disposed');
+    _finishBackDiagnostic('disposed');
     _VideoRouteAnimations.unregister(widget.animation);
     if (widget.enablePredictiveBack) {
       WidgetsBinding.instance.removeObserver(this);
@@ -428,6 +518,10 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     widget.animation
       ..removeListener(_handleAnimationTick)
       ..removeStatusListener(_handleAnimationStatus);
+    _exitVisual?.dispose();
+    _exitVisual = null;
+    _exitTexture = null;
+    _snapshotController.dispose();
     _progress.dispose();
     super.dispose();
   }
@@ -439,11 +533,20 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
         : widget.child;
     return ValueListenableBuilder<double>(
       valueListenable: _progress,
-      child: RepaintBoundary(child: SizedBox.expand(child: page)),
+      child: SnapshotWidget(
+        controller: _snapshotController,
+        mode: SnapshotMode.forced,
+        child: RepaintBoundary(
+          key: _transitionRootKey,
+          child: SizedBox.expand(child: page),
+        ),
+      ),
       builder: (context, progress, child) {
         return VideoPageExitTransition(
           progress: progress,
           returnTarget: _returnTarget,
+          exitVisual: _exitVisual,
+          exitTexture: _exitTexture,
           child: child!,
         );
       },
@@ -456,11 +559,15 @@ class VideoPageExitTransition extends StatelessWidget {
     super.key,
     required this.progress,
     required this.returnTarget,
+    this.exitVisual,
+    this.exitTexture,
     required this.child,
   });
 
   final double progress;
   final VideoReturnTarget? returnTarget;
+  final VideoDetailExitVisual? exitVisual;
+  final Widget? exitTexture;
   final Widget child;
 
   @override
@@ -545,7 +652,49 @@ class VideoPageExitTransition extends StatelessWidget {
             alignment: Alignment.topLeft,
             transform: geometry.contentTransform,
             transformHitTests: false,
-            child: child,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                child,
+                if (exitVisual case final visual?)
+                  Positioned.fromRect(
+                    rect: visual.clipRect,
+                    child: const ColoredBox(color: Colors.black),
+                  ),
+                if ((exitVisual, exitTexture) case (
+                  final visual?,
+                  final texture?,
+                ))
+                  ClipRect(
+                    clipper: _VideoExitRectClipper(visual.clipRect),
+                    clipBehavior: Clip.hardEdge,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Positioned.fromRect(
+                          rect: visual.playerRect,
+                          child: texture,
+                        ),
+                      ],
+                    ),
+                  ),
+                if (exitVisual case final visual?)
+                  for (final foreground in visual.foregrounds)
+                    ClipRect(
+                      clipper: _VideoExitRectClipper(foreground.clipRect),
+                      clipBehavior: Clip.hardEdge,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Positioned.fromRect(
+                            rect: foreground.rect,
+                            child: foreground.build(),
+                          ),
+                        ],
+                      ),
+                    ),
+              ],
+            ),
           ),
         ),
       ),

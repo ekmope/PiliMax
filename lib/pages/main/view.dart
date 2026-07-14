@@ -17,6 +17,7 @@ import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/services/route_restore_service.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
+import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
@@ -56,8 +57,11 @@ class _MainAppState extends PopScopeState<MainApp>
   @override
   bool get initCanPop => _allowAndroidPredictiveExit;
 
+  bool get _supportsPredictiveBack =>
+      Platform.isAndroid && DeviceUtils.sdkInt >= 33;
+
   bool get _allowAndroidPredictiveExit =>
-      Platform.isAndroid &&
+      _supportsPredictiveBack &&
       !_isOnDynamicsSubTab &&
       !_isOnHomeSubTab &&
       (_mainController.directExitOnBack.value ||

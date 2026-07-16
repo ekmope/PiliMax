@@ -119,6 +119,9 @@ abstract final class GStorage {
     if (map.containsKey(localCache.name)) {
       final localCacheMap = map[localCache.name] as Map<String, dynamic>;
       for (final entry in localCacheMap.entries) {
+        if (!exportableLocalCacheKeys.contains(entry.key)) {
+          continue;
+        }
         futures.add(
           localCache.put(
             entry.key,

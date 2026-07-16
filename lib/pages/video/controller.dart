@@ -75,6 +75,7 @@ import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
@@ -423,15 +424,33 @@ class VideoDetailController extends GetxController
           (a, b) => a > b ? a : b,
         );
       }
-      // 同一视频里，半屏/全屏预设值可能都会回落到同一个可用画质。
-      if (currentVideoQa.value?.code == targetQa) {
-        plPlayerController.cacheVideoQa = targetQa;
+      // 进入全屏时只升不降，保留用户手动选择的更高画质。
+      final curQa = currentVideoQa.value?.code;
+      if (curQa != null && targetQa <= curQa) {
+        plPlayerController.cacheVideoQa = curQa;
         return;
       }
       plPlayerController.cacheVideoQa = targetQa;
       currentVideoQa.value = VideoQuality.fromCode(targetQa);
       updatePlayer();
     };
+  }
+
+  Future<void> persistVideoQa(int quality) async {
+    if (plPlayerController.tempPlayerConf) return;
+
+    final String key;
+    if (!PlatformUtils.isMobile) {
+      key = SettingBoxKey.defaultVideoQa;
+    } else if (!plPlayerController.isFullScreen.value &&
+        Pref.defaultVideoQaHalfScreen != null) {
+      key = SettingBoxKey.defaultVideoQaHalfScreen;
+    } else {
+      key = await ConnectivityUtils.isWiFi
+          ? SettingBoxKey.defaultVideoQa
+          : SettingBoxKey.defaultVideoQaCellular;
+    }
+    await GStorage.setting.put(key, quality);
   }
 
   @override
@@ -1248,14 +1267,15 @@ class VideoDetailController extends GetxController
       if (plPlayerController.cacheVideoQa == null) {
         final isWiFi = await ConnectivityUtils.isWiFi;
         if (!isCurrentQuery()) return;
+        final fsQa = isWiFi
+            ? Pref.defaultVideoQa
+            : Pref.defaultVideoQaCellular;
         final halfScreenQa = Pref.defaultVideoQaHalfScreen;
         plPlayerController
           ..cacheVideoQa =
               !plPlayerController.isFullScreen.value && halfScreenQa != null
-              ? halfScreenQa
-              : isWiFi
-              ? Pref.defaultVideoQa
-              : Pref.defaultVideoQaCellular
+              ? min(halfScreenQa, fsQa)
+              : fsQa
           ..cacheAudioQa = isWiFi
               ? Pref.defaultAudioQa
               : Pref.defaultAudioQaCellular;

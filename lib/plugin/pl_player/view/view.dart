@@ -62,8 +62,6 @@ import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/mobile_observer.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:PiliMax/utils/storage.dart';
-import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
@@ -943,13 +941,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
                       SmartDialog.showToast("画质已变为：${newQa.desc}");
 
-                      // update
-                      if (!plPlayerController.tempPlayerConf) {
-                        GStorage.setting.put(
-                          SettingBoxKey.defaultVideoQaHalfScreen,
-                          quality,
-                        );
-                      }
+                      videoDetailController.persistVideoQa(quality);
                     },
                     child: Text(
                       item.newDesc ?? '',

@@ -708,8 +708,7 @@ class AudioController extends GetxController
         progress ~/ Duration.millisecondsPerSecond <= durationSeconds + 30) {
       return progress ~/ Duration.millisecondsPerSecond;
     }
-    if (durationSeconds <= 0 &&
-        progress > 12 * Duration.secondsPerHour) {
+    if (durationSeconds <= 0 && progress > 12 * Duration.secondsPerHour) {
       return progress ~/ Duration.millisecondsPerSecond;
     }
     return progress;
@@ -1138,23 +1137,6 @@ class AudioController extends GetxController
     }
   }
 
-  @override
-  void showFavBottomSheet(BuildContext context, {bool isLongPress = false}) {
-    if (!isLogin) {
-      SmartDialog.showToast('账号未登录');
-      return;
-    }
-    if (enableQuickFav) {
-      if (!isLongPress) {
-        actionFavVideo(isQuick: true);
-      } else {
-        PageUtils.showFavBottomSheet(context: context, ctr: this);
-      }
-    } else if (!isLongPress) {
-      PageUtils.showFavBottomSheet(context: context, ctr: this);
-    }
-  }
-
   void showReply() {
     MainReplyPage.toMainReplyPage(oid: oid.toInt(), replyType: isUgc ? 1 : 14);
   }
@@ -1430,7 +1412,7 @@ class AudioController extends GetxController
   void updateFavCount(int count) {
     try {
       audioItem.value!.stat
-        ..hasFav = count > 0
+        ..hasFav = hasFav.value
         ..favourite += count;
       audioItem.refresh();
     } catch (_) {}

@@ -16,11 +16,7 @@ import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/loading_action_mixin.dart';
 import 'package:PiliMax/utils/page_utils.dart';
-import 'package:PiliMax/utils/storage.dart';
-import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -208,10 +204,11 @@ abstract class CommonIntroController extends GetxController
 }
 
 mixin FavMixin on TripleMixin {
-  Set? favIds;
-  int? quickFavId;
-  late final enableQuickFav = Pref.enableQuickFav;
+  Set<int>? favIds;
   final Rx<FavFolderData> favFolderData = FavFolderData().obs;
+  BuildContext? _favContext;
+
+  String get _favFeedbackTag => 'favorite-feedback-$hashCode';
 
   bool isActionLoading(IntroAction action);
 
@@ -223,7 +220,6 @@ mixin FavMixin on TripleMixin {
   (Object, int) get getFavRidType;
 
   Future<LoadingState<FavFolderData>> queryVideoInFolder() async {
-    favIds = null;
     final (rid, type) = getFavRidType;
     final res = await FavHttp.videoInFolder(
       mid: Accounts.main.mid,
@@ -232,118 +228,220 @@ mixin FavMixin on TripleMixin {
     );
     if (res case Success(:final response)) {
       favFolderData.value = response;
-      favIds = response.list
-          ?.where((item) => item.favState == 1)
-          .map((item) => item.id)
-          .toSet();
+      favIds =
+          response.list
+              ?.where((item) => item.favState == 1)
+              .map((item) => item.id)
+              .toSet() ??
+          <int>{};
     }
     return res;
   }
 
-  int get favFolderId {
-    if (this.quickFavId != null) {
-      return this.quickFavId!;
+  BuildContext? get _activeFavContext {
+    final context = _favContext;
+    if (context != null && context.mounted) {
+      return context;
     }
-    final quickFavId = Pref.quickFavId;
-    final list = favFolderData.value.list!;
-    if (quickFavId != null) {
-      final folderInfo = list.firstWhereOrNull((e) => e.id == quickFavId);
-      if (folderInfo != null) {
-        return this.quickFavId = quickFavId;
-      } else {
-        GStorage.setting.delete(SettingBoxKey.quickFavId);
-      }
-    }
-    return this.quickFavId = list.first.id;
+    final getContext = Get.context;
+    return getContext != null && getContext.mounted ? getContext : null;
   }
 
   // 收藏
   void showFavBottomSheet(BuildContext context, {bool isLongPress = false}) {
+    _favContext = context;
     if (!Accounts.main.isLogin) {
       SmartDialog.showToast('账号未登录');
       return;
     }
-    // 快速收藏 &
-    // 点按 收藏至默认文件夹
-    // 长按选择文件夹
-    if (enableQuickFav) {
-      if (!isLongPress) {
-        actionFavVideo(isQuick: true);
-      } else {
-        PageUtils.showFavBottomSheet(context: context, ctr: this);
-      }
-    } else if (!isLongPress) {
+    if (isActionLoading(IntroAction.favorite)) {
+      return;
+    }
+    if (isLongPress) {
       PageUtils.showFavBottomSheet(context: context, ctr: this);
+    } else {
+      actionFavVideo(isQuick: true);
     }
   }
 
   void updateFavCount(int count);
 
+  void _applyFavMembership(Set<int> oldIds, Set<int> newIds) {
+    final wasFav = oldIds.isNotEmpty;
+    final isFav = newIds.isNotEmpty;
+    hasFav.value = isFav;
+    updateFavCount((isFav ? 1 : 0) - (wasFav ? 1 : 0));
+  }
+
+  Future<void> _showFavFeedback({
+    required String message,
+    required Alignment alignment,
+    required Duration duration,
+    bool showModify = false,
+  }) async {
+    final tag = _favFeedbackTag;
+    await SmartDialog.dismiss(tag: tag);
+    if (isClosed) {
+      return;
+    }
+    SmartDialog.show(
+      tag: tag,
+      keepSingle: true,
+      clickMaskDismiss: false,
+      usePenetrate: true,
+      maskColor: Colors.transparent,
+      alignment: alignment,
+      animationType: SmartAnimationType.fade,
+      displayTime: duration,
+      bindPage: true,
+      builder: (context) {
+        final colorScheme = ColorScheme.of(context);
+        final content = Material(
+          elevation: 6,
+          color: colorScheme.surfaceContainerHigh,
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: showModify
+                ? const EdgeInsets.fromLTRB(16, 6, 6, 6)
+                : const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            child: showModify
+                ? Row(
+                    children: [
+                      Expanded(child: Text(message)),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () async {
+                          await SmartDialog.dismiss(tag: tag);
+                          final originContext = _activeFavContext;
+                          if (originContext != null && originContext.mounted) {
+                            PageUtils.showFavBottomSheet(
+                              context: originContext,
+                              ctr: this,
+                            );
+                          }
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: colorScheme.primary,
+                        ),
+                        child: const Text('修改收藏夹'),
+                      ),
+                    ],
+                  )
+                : Text(message),
+          ),
+        );
+        if (!showModify) {
+          return content;
+        }
+        final width = (MediaQuery.sizeOf(context).width - 32)
+            .clamp(0, 520)
+            .toDouble();
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewPaddingOf(context).bottom + 12,
+          ),
+          child: SizedBox(width: width, child: content),
+        );
+      },
+    );
+  }
+
   Future<void> actionFavVideo({bool isQuick = false}) async {
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('账号未登录');
+      return;
+    }
     await runWithActionLoading(IntroAction.favorite, () async {
       final (rid, type) = getFavRidType;
-      // 收藏至默认文件夹
+      // 点按只切换接口返回列表中的第一个（默认）收藏夹。
       if (isQuick) {
-        SmartDialog.showLoading(msg: '请求中');
         final res = await queryVideoInFolder();
-        if (res.isSuccess) {
-          final hasFav = this.hasFav.value;
-          final result = hasFav
-              ? await FavHttp.unfavAll(rid: rid, type: type)
-              : await FavHttp.favVideo(
-                  resources: '$rid:$type',
-                  addIds: favFolderId.toString(),
-                );
-          SmartDialog.dismiss();
-          if (result.isSuccess) {
-            updateFavCount(hasFav ? -1 : 1);
-            this.hasFav.value = !hasFav;
-            SmartDialog.showToast(hasFav ? '已从默认收藏夹中移除' : '已加入默认收藏夹');
-          } else {
-            result.toast();
+        if (!res.isSuccess) {
+          res.toast();
+          return;
+        }
+        final folders = favFolderData.value.list;
+        if (folders == null || folders.isEmpty) {
+          SmartDialog.showToast('未找到默认收藏夹');
+          return;
+        }
+        final defaultFolder = folders.first;
+        final oldIds = Set<int>.of(favIds ?? const <int>{});
+        final wasInDefault = oldIds.contains(defaultFolder.id);
+        final result = await FavHttp.favVideo(
+          resources: '$rid:$type',
+          addIds: wasInDefault ? null : defaultFolder.id.toString(),
+          delIds: wasInDefault ? defaultFolder.id.toString() : null,
+        );
+        if (!result.isSuccess) {
+          result.toast();
+          return;
+        }
+
+        final newIds = Set<int>.of(oldIds);
+        if (wasInDefault) {
+          newIds.remove(defaultFolder.id);
+          defaultFolder.favState = 0;
+          if (defaultFolder.mediaCount > 0) {
+            defaultFolder.mediaCount--;
           }
         } else {
-          SmartDialog.dismiss();
-          res.toast();
+          newIds.add(defaultFolder.id);
+          defaultFolder
+            ..favState = 1
+            ..mediaCount = defaultFolder.mediaCount + 1;
+        }
+        favIds = newIds;
+        favFolderData.refresh();
+        _applyFavMembership(oldIds, newIds);
+
+        if (wasInDefault) {
+          await _showFavFeedback(
+            message: newIds.isEmpty ? '已取消收藏' : '已移出默认收藏夹',
+            alignment: Alignment.center,
+            duration: const Duration(milliseconds: 1200),
+          );
+        } else {
+          await _showFavFeedback(
+            message: '已加入「默认收藏夹」',
+            alignment: Alignment.bottomCenter,
+            duration: const Duration(seconds: 4),
+            showModify: true,
+          );
         }
         return;
       }
 
-      List<int?> addMediaIdsNew = [];
-      List<int?> delMediaIdsNew = [];
-      try {
-        for (final i in favFolderData.value.list!) {
-          bool isFaved = favIds?.contains(i.id) == true;
-          if (i.favState == 1) {
-            if (!isFaved) {
-              addMediaIdsNew.add(i.id);
-            }
-          } else {
-            if (isFaved) {
-              delMediaIdsNew.add(i.id);
-            }
-          }
-        }
-      } catch (e) {
-        if (kDebugMode) debugPrint(e.toString());
+      final folders = favFolderData.value.list;
+      if (folders == null) {
+        SmartDialog.showToast('收藏夹数据异常');
+        return;
       }
+      final oldIds = Set<int>.of(favIds ?? const <int>{});
+      final newIds = folders
+          .where((item) => item.favState == 1)
+          .map((item) => item.id)
+          .toSet();
+      final addMediaIdsNew = newIds.difference(oldIds);
+      final delMediaIdsNew = oldIds.difference(newIds);
       SmartDialog.showLoading(msg: '请求中');
-      final result = await FavHttp.favVideo(
-        resources: '$rid:$type',
-        addIds: addMediaIdsNew.join(','),
-        delIds: delMediaIdsNew.join(','),
-      );
-      SmartDialog.dismiss();
+      late final LoadingState<void> result;
+      try {
+        result = await FavHttp.favVideo(
+          resources: '$rid:$type',
+          addIds: addMediaIdsNew.join(','),
+          delIds: delMediaIdsNew.join(','),
+        );
+      } finally {
+        await SmartDialog.dismiss(status: SmartStatus.loading);
+      }
       if (result.isSuccess) {
         Get.back();
-        final newVal =
-            addMediaIdsNew.isNotEmpty ||
-            favIds?.length != delMediaIdsNew.length;
-        if (hasFav.value != newVal) {
-          updateFavCount(newVal ? 1 : -1);
-          hasFav.value = newVal;
-        }
-        SmartDialog.showToast('${newVal ? '' : '取消'}收藏成功');
+        favIds = newIds;
+        favFolderData.refresh();
+        _applyFavMembership(oldIds, newIds);
+        SmartDialog.showToast('${newIds.isNotEmpty ? '' : '取消'}收藏成功');
       } else {
         result.toast();
       }

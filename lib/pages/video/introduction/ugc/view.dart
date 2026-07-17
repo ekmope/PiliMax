@@ -291,8 +291,17 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     const SizedBox(height: 8, width: .infinity),
     GestureDetector(
       onTap: () => Utils.copyText('${videoDetail.bvid}'),
-      child: Text(
-        videoDetail.bvid ?? '',
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: videoDetail.bvid ?? ''),
+            if (videoDetail.copyright == 1)
+              TextSpan(
+                text: ' 🚫未经作者授权禁止转载',
+                style: TextStyle(color: colorScheme.error),
+              ),
+          ],
+        ),
         style: TextStyle(fontSize: 14, color: colorScheme.secondary),
       ),
     ),

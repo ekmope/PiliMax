@@ -10,8 +10,6 @@ import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognize
 import 'package:PiliMax/common/widgets/image_grid/image_grid_view.dart'
     show ImageGridView, ImageModel;
 import 'package:PiliMax/common/widgets/pendant_avatar.dart';
-import 'package:PiliMax/http/fav.dart';
-import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/audio_normalization.dart';
 import 'package:PiliMax/models/common/dm_chart_source.dart';
 import 'package:PiliMax/models/common/dynamic/dynamics_type.dart';
@@ -33,7 +31,6 @@ import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/services/route_restore_service.dart';
 import 'package:PiliMax/services/download/download_service.dart';
-import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/filtering_text.dart';
@@ -544,14 +541,6 @@ List<SettingsModel> get extraSettings => [
         }
       } catch (_) {}
     },
-  ),
-  const SwitchModel(
-    title: '快速收藏',
-    subtitle: '点击设置默认收藏夹\n点按收藏至默认，长按选择文件夹',
-    leading: Icon(Icons.bookmark_add_outlined),
-    setKey: SettingBoxKey.enableQuickFav,
-    onTap: _showFavDialog,
-    defaultVal: false,
   ),
   SwitchModel(
     title: '评论区搜索关键词',
@@ -1075,52 +1064,6 @@ Future<void> _showDmChartSourceDialog(
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.dmChartSource, res.index);
     setState();
-  }
-}
-
-Future<void> _showFavDialog(BuildContext context) async {
-  if (Accounts.main.isLogin) {
-    final res = await FavHttp.allFavFolders(Accounts.main.mid);
-    if (res case Success(:final response)) {
-      final list = response.list;
-      if (list == null || list.isEmpty) {
-        return;
-      }
-      final quickFavId = Pref.quickFavId;
-      if (!context.mounted) return;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          clipBehavior: Clip.hardEdge,
-          title: const Text('选择默认收藏夹'),
-          contentPadding: const EdgeInsets.only(top: 5, bottom: 18),
-          content: SingleChildScrollView(
-            child: RadioGroup(
-              onChanged: (value) {
-                Get.back();
-                GStorage.setting.put(SettingBoxKey.quickFavId, value);
-                SmartDialog.showToast('设置成功');
-              },
-              groupValue: quickFavId,
-              child: Column(
-                children: list
-                    .map(
-                      (item) => RadioListTile(
-                        toggleable: true,
-                        dense: true,
-                        title: Text(item.title),
-                        value: item.id,
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
-          ),
-        ),
-      );
-    } else {
-      res.toast();
-    }
   }
 }
 

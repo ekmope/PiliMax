@@ -220,7 +220,7 @@ class VideoDetailHeroFlightOverlay {
   ///
   /// On push it fades out during the first fraction. On pop it fades in during
   /// the final fraction, immediately before the source card is restored. The
-  /// default one-fifth fraction is 100 ms on the shared 500 ms timeline.
+  /// default one-fifth fraction is 80 ms on the shared 400 ms timeline.
   final double fadeFraction;
 }
 

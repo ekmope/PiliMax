@@ -109,6 +109,51 @@ class FavVideoCardH extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 VideoDetailHero.source(
+                  flightChild: AspectRatio(
+                    aspectRatio: Style.aspectRatio,
+                    child: LayoutBuilder(
+                      builder: (context, boxConstraints) {
+                        return NetworkImgLayer(
+                          clip: false,
+                          src: item.cover,
+                          width: boxConstraints.maxWidth,
+                          height: boxConstraints.maxHeight,
+                          fadeInDuration: Duration.zero,
+                          fadeOutDuration: Duration.zero,
+                        );
+                      },
+                    ),
+                  ),
+                  flightOverlays: <VideoDetailHeroFlightOverlay>[
+                    if (item.type == 12)
+                      const VideoDetailHeroFlightOverlay(
+                        top: 6.0,
+                        right: 6.0,
+                        child: PBadge(
+                          isStack: false,
+                          text: '音频',
+                          type: PBadgeType.gray,
+                        ),
+                      )
+                    else
+                      VideoDetailHeroFlightOverlay(
+                        top: 6.0,
+                        right: 6.0,
+                        child: PBadge(
+                          isStack: false,
+                          text: item.ogv?.typeName,
+                        ),
+                      ),
+                    VideoDetailHeroFlightOverlay(
+                      right: 6.0,
+                      bottom: 6.0,
+                      child: PBadge(
+                        isStack: false,
+                        text: DurationUtils.formatDuration(item.duration),
+                        type: PBadgeType.gray,
+                      ),
+                    ),
+                  ],
                   child: AspectRatio(
                     aspectRatio: Style.aspectRatio,
                     child: LayoutBuilder(

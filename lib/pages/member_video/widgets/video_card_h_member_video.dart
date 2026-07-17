@@ -109,6 +109,122 @@ class VideoCardHMemberVideo extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     VideoDetailHero.source(
+                      flightChild: AspectRatio(
+                        aspectRatio: Style.aspectRatio,
+                        child: LayoutBuilder(
+                          builder: (context, boxConstraints) {
+                            return NetworkImgLayer(
+                              clip: false,
+                              src: videoItem.cover,
+                              width: boxConstraints.maxWidth,
+                              height: boxConstraints.maxHeight,
+                              fadeInDuration: Duration.zero,
+                              fadeOutDuration: Duration.zero,
+                            );
+                          },
+                        ),
+                      ),
+                      flightOverlays: <VideoDetailHeroFlightOverlay>[
+                        if (fromViewAid == videoItem.param)
+                          const VideoDetailHeroFlightOverlay(
+                            top: 0,
+                            right: 0,
+                            bottom: 0,
+                            left: 0,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                borderRadius: Style.mdRadius,
+                                color: Colors.black54,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '上次观看',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    letterSpacing: 5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (videoItem.badges?.isNotEmpty == true)
+                          VideoDetailHeroFlightOverlay(
+                            top: 6.0,
+                            right: 6.0,
+                            child: PBadge(
+                              isStack: false,
+                              text: videoItem.badges!
+                                  .map((item) => item.text)
+                                  .join('|'),
+                              type: videoItem.badges!.first.text == '充电专属'
+                                  ? PBadgeType.error
+                                  : PBadgeType.primary,
+                            ),
+                          ),
+                        if (videoItem.history != null)
+                          VideoDetailHeroFlightOverlay(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: Builder(
+                              builder: (context) {
+                                try {
+                                  return VideoProgressIndicator(
+                                    color: theme.colorScheme.primary,
+                                    backgroundColor:
+                                        theme.colorScheme.secondaryContainer,
+                                    progress:
+                                        videoItem.history!.progress! /
+                                        videoItem.history!.duration!,
+                                  );
+                                } catch (_) {
+                                  return const SizedBox.shrink();
+                                }
+                              },
+                            ),
+                          ),
+                        if (videoItem.history != null)
+                          VideoDetailHeroFlightOverlay(
+                            right: 6.0,
+                            bottom: 6.0,
+                            child: Builder(
+                              builder: (context) {
+                                try {
+                                  return PBadge(
+                                    isStack: false,
+                                    text:
+                                        videoItem.history!.progress ==
+                                            videoItem.history!.duration
+                                        ? '已看完'
+                                        : '${DurationUtils.formatDuration(videoItem.history!.progress)}/${DurationUtils.formatDuration(videoItem.history!.duration)}',
+                                    type: PBadgeType.gray,
+                                  );
+                                } catch (_) {
+                                  return PBadge(
+                                    isStack: false,
+                                    text: DurationUtils.formatDuration(
+                                      videoItem.duration,
+                                    ),
+                                    type: PBadgeType.gray,
+                                  );
+                                }
+                              },
+                            ),
+                          )
+                        else if (videoItem.duration > 0)
+                          VideoDetailHeroFlightOverlay(
+                            right: 6.0,
+                            bottom: 6.0,
+                            child: PBadge(
+                              isStack: false,
+                              text: DurationUtils.formatDuration(
+                                videoItem.duration,
+                              ),
+                              type: PBadgeType.gray,
+                            ),
+                          ),
+                      ],
                       child: AspectRatio(
                         aspectRatio: Style.aspectRatio,
                         child: LayoutBuilder(

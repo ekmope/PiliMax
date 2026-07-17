@@ -118,6 +118,64 @@ class HistoryCardItem extends StatelessWidget {
             // 封面区域
             VideoDetailHero.source(
               borderRadius: _cardRadius,
+              flightChild: SizedBox(
+                width: _cardWidth,
+                height: _cardHeight,
+                child: NetworkImgLayer(
+                  clip: false,
+                  src: coverSrc,
+                  width: _cardWidth,
+                  height: _cardHeight,
+                  fadeInDuration: Duration.zero,
+                  fadeOutDuration: Duration.zero,
+                ),
+              ),
+              flightOverlays: <VideoDetailHeroFlightOverlay>[
+                if (_isLive)
+                  VideoDetailHeroFlightOverlay(
+                    top: 6.0,
+                    right: 6.0,
+                    child: PBadge(
+                      isStack: false,
+                      text: item.liveStatus == 1 ? '直播中' : '未开播',
+                      type: item.liveStatus == 1
+                          ? PBadgeType.primary
+                          : PBadgeType.gray,
+                    ),
+                  )
+                else if (_isArticle)
+                  const VideoDetailHeroFlightOverlay(
+                    top: 6.0,
+                    right: 6.0,
+                    child: PBadge(
+                      isStack: false,
+                      text: '专栏',
+                      type: PBadgeType.secondary,
+                    ),
+                  )
+                else if (item.badge?.isNotEmpty == true)
+                  VideoDetailHeroFlightOverlay(
+                    top: 6.0,
+                    right: 6.0,
+                    child: PBadge(
+                      isStack: false,
+                      text: item.badge,
+                      type: PBadgeType.primary,
+                    ),
+                  ),
+                if (_isVideo && hasDuration)
+                  VideoDetailHeroFlightOverlay(
+                    right: 6.0,
+                    bottom: 6.0,
+                    child: PBadge(
+                      isStack: false,
+                      text: item.progress == -1
+                          ? '已看完'
+                          : DurationUtils.formatDuration(item.progress),
+                      type: PBadgeType.gray,
+                    ),
+                  ),
+              ],
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   borderRadius: _cardRadius,

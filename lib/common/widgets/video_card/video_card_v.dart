@@ -176,6 +176,48 @@ class _VideoCardVState extends State<VideoCardV> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     VideoDetailHero.source(
+                      flightChild: AspectRatio(
+                        aspectRatio: Style.aspectRatio,
+                        child: LayoutBuilder(
+                          builder: (context, boxConstraints) => NetworkImgLayer(
+                            clip: false,
+                            src: videoItem.cover,
+                            width: boxConstraints.maxWidth,
+                            height: boxConstraints.maxHeight,
+                            fadeInDuration: Duration.zero,
+                            fadeOutDuration: Duration.zero,
+                          ),
+                        ),
+                      ),
+                      flightOverlays: [
+                        if (videoItem.duration > 0)
+                          VideoDetailHeroFlightOverlay(
+                            bottom: 6,
+                            right: 7,
+                            child: PBadge(
+                              isStack: false,
+                              size: .small,
+                              type: .gray,
+                              text: DurationUtils.formatDuration(
+                                videoItem.duration,
+                              ),
+                            ),
+                          ),
+                        if (videoItem case RcmdVideoItemAppModel(
+                          :final canPlay,
+                        ) when canPlay != 1)
+                          const VideoDetailHeroFlightOverlay(
+                            top: 6,
+                            right: 6,
+                            child: PBadge(
+                              isStack: false,
+                              text: '充电专属',
+                              size: .small,
+                              type: .error,
+                              fontSize: 10,
+                            ),
+                          ),
+                      ],
                       child: AspectRatio(
                         aspectRatio: Style.aspectRatio,
                         child: LayoutBuilder(

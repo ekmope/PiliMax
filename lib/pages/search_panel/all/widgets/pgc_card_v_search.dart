@@ -53,6 +53,31 @@ class PgcCardVSearch extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               VideoDetailHero.source(
+                flightChild: AspectRatio(
+                  aspectRatio: 0.75,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      return NetworkImgLayer(
+                        clip: false,
+                        src: item.cover,
+                        width: boxConstraints.maxWidth,
+                        height: boxConstraints.maxHeight,
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
+                      );
+                    },
+                  ),
+                ),
+                flightOverlays: <VideoDetailHeroFlightOverlay>[
+                  VideoDetailHeroFlightOverlay(
+                    right: 6,
+                    top: 6,
+                    child: PBadge(
+                      isStack: false,
+                      text: item.seasonTypeName,
+                    ),
+                  ),
+                ],
                 child: AspectRatio(
                   aspectRatio: 0.75,
                   child: LayoutBuilder(

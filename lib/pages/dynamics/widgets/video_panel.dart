@@ -75,11 +75,63 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
       return const SizedBox.shrink();
     }
 
+    Widget buildBottomPanel() => Container(
+      height: 70,
+      alignment: Alignment.bottomLeft,
+      padding: const EdgeInsets.fromLTRB(10, 0, 8, 8),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.transparent, Colors.black54],
+        ),
+        borderRadius: .vertical(bottom: Style.imgRadius),
+      ),
+      child: DefaultTextStyle.merge(
+        style: TextStyle(
+          fontSize: theme.textTheme.labelMedium!.fontSize,
+          color: Colors.white,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (video.durationText case final durationText?) ...[
+              DecoratedBox(
+                decoration: const BoxDecoration(
+                  color: Colors.black45,
+                  borderRadius: .all(.circular(4)),
+                ),
+                child: Text(' $durationText '),
+              ),
+              const SizedBox(width: 6),
+            ],
+            if (video.stat case final stat?) ...[
+              Text('${NumUtils.numFormat(stat.play)}播放'),
+              const SizedBox(width: 6),
+              Text('${NumUtils.numFormat(stat.danmu)}弹幕'),
+            ],
+            const Spacer(),
+            const PlayIcon(size: 50),
+          ],
+        ),
+      ),
+    );
+
     final padding = floor == 1
         ? const EdgeInsets.symmetric(horizontal: 12)
         : EdgeInsets.zero;
-    Widget mediaHero(Widget child) =>
-        heroTag == null ? child : VideoDetailHero.source(child: child);
+    Widget mediaHero({
+      required Widget child,
+      required Widget flightChild,
+      List<VideoDetailHeroFlightOverlay> flightOverlays =
+          const <VideoDetailHeroFlightOverlay>[],
+    }) => heroTag == null
+        ? child
+        : VideoDetailHero.source(
+            flightChild: flightChild,
+            flightOverlays: flightOverlays,
+            child: child,
+          );
     final card = Padding(
       padding: padding,
       child: MouseRegion(
@@ -91,7 +143,41 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
           children: [
             if (video.cover case final cover?)
               mediaHero(
-                Stack(
+                flightChild: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return NetworkImgLayer(
+                      clip: false,
+                      width: constraints.maxWidth,
+                      height: constraints.maxWidth / Style.aspectRatio,
+                      src: cover,
+                      quality: 40,
+                      fadeInDuration: Duration.zero,
+                      fadeOutDuration: Duration.zero,
+                    );
+                  },
+                ),
+                flightOverlays: <VideoDetailHeroFlightOverlay>[
+                  if (video.badge?.text case final badge?)
+                    VideoDetailHeroFlightOverlay(
+                      top: 8.0,
+                      right: 10.0,
+                      child: PBadge(
+                        isStack: false,
+                        text: badge,
+                        type: switch (badge) {
+                          '充电专属' => PBadgeType.error,
+                          _ => PBadgeType.primary,
+                        },
+                      ),
+                    ),
+                  VideoDetailHeroFlightOverlay(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: buildBottomPanel(),
+                  ),
+                ],
+                child: Stack(
                   clipBehavior: Clip.none,
                   children: [
                     LayoutBuilder(
@@ -137,48 +223,7 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      child: Container(
-                        height: 70,
-                        alignment: Alignment.bottomLeft,
-                        padding: const EdgeInsets.fromLTRB(10, 0, 8, 8),
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Colors.black54],
-                          ),
-                          borderRadius: .vertical(bottom: Style.imgRadius),
-                        ),
-                        child: DefaultTextStyle.merge(
-                          style: TextStyle(
-                            fontSize: theme.textTheme.labelMedium!.fontSize,
-                            color: Colors.white,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              if (video.durationText
-                                  case final durationText?) ...[
-                                DecoratedBox(
-                                  decoration: const BoxDecoration(
-                                    color: Colors.black45,
-                                    borderRadius: .all(.circular(4)),
-                                  ),
-                                  child: Text(' $durationText '),
-                                ),
-                                const SizedBox(width: 6),
-                              ],
-                              if (video.stat case final stat?) ...[
-                                Text('${NumUtils.numFormat(stat.play)}播放'),
-                                const SizedBox(width: 6),
-                                Text('${NumUtils.numFormat(stat.danmu)}弹幕'),
-                              ],
-                              const Spacer(),
-                              const PlayIcon(size: 50),
-                            ],
-                          ),
-                        ),
-                      ),
+                      child: buildBottomPanel(),
                     ),
                   ],
                 ),

@@ -8,6 +8,7 @@ import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/pages/video/video_detail_args.dart';
 import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
+import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/pages/video/view.dart';
 import 'package:PiliMax/services/live_pip_overlay_service.dart';
@@ -31,7 +32,7 @@ class VideoDetailRoutePage extends StatefulWidget {
 class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     with SingleTickerProviderStateMixin {
   static const _maximumPostTransitionHold = Duration(milliseconds: 1200);
-  static const _detailRevealDuration = Duration(milliseconds: 480);
+  static const _detailRevealDuration = videoDetailTransitionDuration;
   static const _orientationTransitionDuration = Duration(milliseconds: 180);
 
   late final Map<dynamic, dynamic> _arguments = VideoDetailArgs.normalize(

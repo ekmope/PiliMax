@@ -108,6 +108,62 @@ class VideoCardVMemberHome extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               VideoDetailHero.source(
+                flightChild: AspectRatio(
+                  aspectRatio: Style.aspectRatio,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      return NetworkImgLayer(
+                        clip: false,
+                        src: videoItem.cover,
+                        width: boxConstraints.maxWidth,
+                        height: boxConstraints.maxHeight,
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
+                      );
+                    },
+                  ),
+                ),
+                flightOverlays: <VideoDetailHeroFlightOverlay>[
+                  if (videoItem.badges?.isNotEmpty == true)
+                    VideoDetailHeroFlightOverlay(
+                      top: 6,
+                      right: 6,
+                      child: PBadge(
+                        isStack: false,
+                        text: videoItem.badges!
+                            .map((e) => e.text ?? '')
+                            .join('|'),
+                        type: videoItem.badges!.first.text == '充电专属'
+                            ? PBadgeType.error
+                            : PBadgeType.primary,
+                      ),
+                    )
+                  else if (videoItem.isCooperation == true)
+                    const VideoDetailHeroFlightOverlay(
+                      top: 6,
+                      right: 6,
+                      child: PBadge(isStack: false, text: '合作'),
+                    )
+                  else if (videoItem.isSteins == true)
+                    const VideoDetailHeroFlightOverlay(
+                      top: 6,
+                      right: 6,
+                      child: PBadge(isStack: false, text: '互动'),
+                    ),
+                  if (videoItem.duration > 0)
+                    VideoDetailHeroFlightOverlay(
+                      right: 7,
+                      bottom: 6,
+                      child: PBadge(
+                        isStack: false,
+                        size: PBadgeSize.small,
+                        type: PBadgeType.gray,
+                        text: DurationUtils.formatDuration(
+                          videoItem.duration,
+                        ),
+                      ),
+                    ),
+                ],
                 child: AspectRatio(
                   aspectRatio: Style.aspectRatio,
                   child: LayoutBuilder(

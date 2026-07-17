@@ -165,6 +165,75 @@ class _VideoCardHState extends State<VideoCardH> {
                     crossAxisAlignment: .start,
                     children: [
                       VideoDetailHero.source(
+                        flightChild: AspectRatio(
+                          aspectRatio: Style.aspectRatio,
+                          child: LayoutBuilder(
+                            builder: (context, boxConstraints) =>
+                                NetworkImgLayer(
+                                  clip: false,
+                                  src: videoItem.cover,
+                                  width: boxConstraints.maxWidth,
+                                  height: boxConstraints.maxHeight,
+                                  fadeInDuration: Duration.zero,
+                                  fadeOutDuration: Duration.zero,
+                                ),
+                          ),
+                        ),
+                        flightOverlays: [
+                          if (videoItem.badge case final badge?)
+                            VideoDetailHeroFlightOverlay(
+                              top: 6,
+                              right: 6,
+                              child: PBadge(
+                                isStack: false,
+                                text: badge,
+                                type: switch (badge) {
+                                  '充电专属' => .error,
+                                  _ => .primary,
+                                },
+                              ),
+                            ),
+                          if (videoItem.progress case final progress?
+                              when progress != 0)
+                            VideoDetailHeroFlightOverlay(
+                              right: 6,
+                              bottom: 8,
+                              child: PBadge(
+                                isStack: false,
+                                text: progress == -1
+                                    ? '已看完'
+                                    : '${DurationUtils.formatDuration(progress)}/${DurationUtils.formatDuration(videoItem.duration)}',
+                                type: .gray,
+                              ),
+                            )
+                          else if (videoItem.duration > 0)
+                            VideoDetailHeroFlightOverlay(
+                              right: 6,
+                              bottom: 6,
+                              child: PBadge(
+                                isStack: false,
+                                text: DurationUtils.formatDuration(
+                                  videoItem.duration,
+                                ),
+                                type: .gray,
+                              ),
+                            ),
+                          if (videoItem.progress case final progress?
+                              when progress != 0)
+                            VideoDetailHeroFlightOverlay(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: VideoProgressIndicator(
+                                color: theme.colorScheme.primary,
+                                backgroundColor:
+                                    theme.colorScheme.secondaryContainer,
+                                progress: progress == -1
+                                    ? 1
+                                    : progress / videoItem.duration,
+                              ),
+                            ),
+                        ],
                         child: AspectRatio(
                           aspectRatio: Style.aspectRatio,
                           child: LayoutBuilder(

@@ -375,6 +375,14 @@ class ChatItem extends StatelessWidget {
       height: 73.125,
       src: content['cover_url'],
     );
+    final flightCover = NetworkImgLayer(
+      clip: false,
+      width: 130,
+      height: 73.125,
+      src: content['cover_url'],
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
+    );
     final card = ColoredBox(
       color: theme.colorScheme.onInverseSurface,
       child: Row(
@@ -384,6 +392,7 @@ class ChatItem extends StatelessWidget {
               ? cover
               : VideoDetailHero.source(
                   borderRadius: BorderRadius.zero,
+                  flightChild: flightCover,
                   child: cover,
                 ),
           Expanded(
@@ -513,6 +522,29 @@ class ChatItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     VideoDetailHero.source(
+                      flightChild: NetworkImgLayer(
+                        clip: false,
+                        width: constrains.maxWidth,
+                        height: constrains.maxWidth / Style.aspectRatio16x9,
+                        src: content['cover'],
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
+                      ),
+                      flightOverlays: <VideoDetailHeroFlightOverlay>[
+                        VideoDetailHeroFlightOverlay(
+                          left: 6,
+                          bottom: 6,
+                          child: PBadge(
+                            isStack: false,
+                            type: PBadgeType.gray,
+                            text: content['times'] == 0
+                                ? '--:--'
+                                : DurationUtils.formatDuration(
+                                    content['times'],
+                                  ),
+                          ),
+                        ),
+                      ],
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
@@ -668,10 +700,23 @@ class ChatItem extends StatelessWidget {
       height: 123.75,
       src: content['thumb'],
     );
+    final flightCover = NetworkImgLayer(
+      clip: false,
+      width: 220,
+      height: 123.75,
+      src: content['thumb'],
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
+    );
     final card = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        activeHeroTag == null ? cover : VideoDetailHero.source(child: cover),
+        activeHeroTag == null
+            ? cover
+            : VideoDetailHero.source(
+                flightChild: flightCover,
+                child: cover,
+              ),
         const SizedBox(height: 6),
         activeHeroTag == null
             ? Text(

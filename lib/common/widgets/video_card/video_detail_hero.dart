@@ -191,6 +191,38 @@ class _VideoDetailTransitionTitleState
   );
 }
 
+/// A decoration painted above a [VideoDetailHero] flight.
+///
+/// Unlike [VideoDetailHero.flightChild], this child is positioned directly in
+/// the Hero's current bounds and is never scaled with the media surface. A
+/// single anchor keeps the child's logical-pixel size; supplying both opposing
+/// anchors stretches it across that axis, which is useful for progress bars or
+/// full-surface decorations. An omitted axis defaults to the leading edge.
+@immutable
+class VideoDetailHeroFlightOverlay {
+  const VideoDetailHeroFlightOverlay({
+    required this.child,
+    this.top,
+    this.right,
+    this.bottom,
+    this.left,
+    this.fadeFraction = 1 / 9,
+  }) : assert(fadeFraction > 0 && fadeFraction <= 1);
+
+  final Widget child;
+  final double? top;
+  final double? right;
+  final double? bottom;
+  final double? left;
+
+  /// Portion of the uncurved route/gesture timeline reserved for fading this
+  /// decoration.
+  ///
+  /// On push it fades out during the first fraction. On pop it fades in during
+  /// the final fraction, immediately before the source card is restored.
+  final double fadeFraction;
+}
+
 /// Moves a frozen video media surface into the detail player's rectangle.
 ///
 /// Both ends opt in to user-gesture transitions so Android predictive back can
@@ -200,6 +232,8 @@ class VideoDetailHero extends StatelessWidget {
   const VideoDetailHero.source({
     super.key,
     required this.child,
+    required this.flightChild,
+    this.flightOverlays = const <VideoDetailHeroFlightOverlay>[],
     this.borderRadius = Style.mdRadius,
   }) : tag = null,
        _isDetailTarget = false;
@@ -209,10 +243,23 @@ class VideoDetailHero extends StatelessWidget {
     required this.tag,
     this.child = const VideoDetailHeroShell(),
     this.borderRadius = BorderRadius.zero,
-  }) : _isDetailTarget = true;
+  }) : flightChild = null,
+       flightOverlays = const <VideoDetailHeroFlightOverlay>[],
+       _isDetailTarget = true;
 
   final Object? tag;
+
+  /// The complete source/target content shown while no Hero flight is active.
   final Widget child;
+
+  /// A decoration-free media surface used only by a source Hero flight.
+  ///
+  /// The target constructor stores `null`; the internal fallback to [child]
+  /// remains available for framework-created or defensive fallback children.
+  final Widget? flightChild;
+
+  /// Unscaled decorations painted above [flightChild] during the flight.
+  final List<VideoDetailHeroFlightOverlay> flightOverlays;
   final BorderRadiusGeometry borderRadius;
   final bool _isDetailTarget;
 
@@ -243,7 +290,7 @@ class VideoDetailHero extends StatelessWidget {
 
     final sourceFlightChild = _FixedSizeFlightChild(
       layoutSize: sourceSize,
-      child: sourceChild.child,
+      child: sourceChild.flightChild ?? sourceChild.child,
     );
     return AnimatedBuilder(
       animation: animation,
@@ -265,6 +312,22 @@ class VideoDetailHero extends StatelessWidget {
           flightProgress,
         )!;
 
+        final flightBody = sourceChild.flightOverlays.isEmpty
+            ? sourceFlightChild
+            : Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.none,
+                children: <Widget>[
+                  sourceFlightChild,
+                  for (final overlay in sourceChild.flightOverlays)
+                    _buildFlightOverlay(
+                      overlay,
+                      flightProgress: flightProgress,
+                      isPop: isPop,
+                    ),
+                ],
+              );
+
         return RepaintBoundary(
           child: ClipRect(
             clipper: _NormalizedRectClipper(visibleRect),
@@ -272,7 +335,7 @@ class VideoDetailHero extends StatelessWidget {
             child: ClipRRect(
               borderRadius: radius,
               clipBehavior: Clip.antiAlias,
-              child: sourceFlightChild,
+              child: flightBody,
             ),
           ),
         );
@@ -290,6 +353,74 @@ class VideoDetailHero extends StatelessWidget {
       registration: null,
       child: child,
     );
+  }
+
+  static Widget _buildFlightOverlay(
+    VideoDetailHeroFlightOverlay overlay, {
+    required double flightProgress,
+    required bool isPop,
+  }) {
+    final opacity = _flightOverlayOpacity(
+      overlay,
+      flightProgress: flightProgress,
+      isPop: isPop,
+    );
+    return Positioned(
+      top: overlay.top ?? (overlay.bottom == null ? 0.0 : null),
+      right: overlay.right,
+      bottom: overlay.bottom,
+      left: overlay.left ?? (overlay.right == null ? 0.0 : null),
+      child: IgnorePointer(
+        child: ExcludeSemantics(
+          child: Opacity(opacity: opacity, child: overlay.child),
+        ),
+      ),
+    );
+  }
+
+  static double _flightOverlayOpacity(
+    VideoDetailHeroFlightOverlay overlay, {
+    required double flightProgress,
+    required bool isPop,
+  }) {
+    final fraction = overlay.fadeFraction;
+    final rawProgress = _rawFlightProgress(
+      flightProgress,
+      isPop: isPop,
+    );
+    if (!isPop) {
+      if (rawProgress <= 0) {
+        return 1;
+      }
+      if (rawProgress >= fraction) {
+        return 0;
+      }
+      return 1 - Curves.ease.transform(rawProgress / fraction);
+    }
+
+    final fadeStart = 1 - fraction;
+    if (rawProgress <= fadeStart) {
+      return 0;
+    }
+    if (rawProgress >= 1) {
+      return 1;
+    }
+    return Curves.ease.transform(
+      (rawProgress - fadeStart) / fraction,
+    );
+  }
+
+  static double _rawFlightProgress(
+    double flightProgress, {
+    required bool isPop,
+  }) {
+    final easedProgress = flightProgress.clamp(0.0, 1.0).toDouble();
+    if (isPop) {
+      // The reversed easeOutCubic flight reaches the source as easeInCubic.
+      return math.pow(easedProgress, 1 / 3).toDouble();
+    }
+    // Inverse of easeOutCubic: f(t) = 1 - (1 - t)^3.
+    return 1 - math.pow(1 - easedProgress, 1 / 3).toDouble();
   }
 
   static Size _contextSize(BuildContext context) {
@@ -354,6 +485,8 @@ class VideoDetailHero extends StatelessWidget {
     if (!_isDetailTarget) {
       return _VideoDetailMediaHeroSource(
         borderRadius: borderRadius,
+        flightChild: flightChild,
+        flightOverlays: flightOverlays,
         child: child,
       );
     }
@@ -372,6 +505,9 @@ class VideoDetailHero extends StatelessWidget {
     required bool isDetailTarget,
     VideoTransitionRegistration? registration,
     required Widget child,
+    Widget? flightChild,
+    List<VideoDetailHeroFlightOverlay> flightOverlays =
+        const <VideoDetailHeroFlightOverlay>[],
   }) {
     return Hero(
       key: key,
@@ -386,6 +522,8 @@ class VideoDetailHero extends StatelessWidget {
         borderRadius: borderRadius,
         isDetailTarget: isDetailTarget,
         registration: registration,
+        flightChild: flightChild,
+        flightOverlays: flightOverlays,
         child: child,
       ),
     );
@@ -396,10 +534,14 @@ class _VideoDetailMediaHeroSource extends StatefulWidget {
   const _VideoDetailMediaHeroSource({
     required this.borderRadius,
     required this.child,
+    required this.flightChild,
+    required this.flightOverlays,
   });
 
   final BorderRadiusGeometry borderRadius;
   final Widget child;
+  final Widget? flightChild;
+  final List<VideoDetailHeroFlightOverlay> flightOverlays;
 
   @override
   State<_VideoDetailMediaHeroSource> createState() =>
@@ -458,6 +600,8 @@ class _VideoDetailMediaHeroSourceState
       isDetailTarget: false,
       registration: scope.registration,
       child: widget.child,
+      flightChild: widget.flightChild,
+      flightOverlays: widget.flightOverlays,
     );
   }
 }
@@ -636,12 +780,16 @@ class _VideoDetailHeroChild extends StatelessWidget {
     required this.isDetailTarget,
     required this.registration,
     required this.child,
+    this.flightChild,
+    this.flightOverlays = const <VideoDetailHeroFlightOverlay>[],
   });
 
   final BorderRadiusGeometry borderRadius;
   final bool isDetailTarget;
   final VideoTransitionRegistration? registration;
   final Widget child;
+  final Widget? flightChild;
+  final List<VideoDetailHeroFlightOverlay> flightOverlays;
 
   @override
   Widget build(BuildContext context) => child;

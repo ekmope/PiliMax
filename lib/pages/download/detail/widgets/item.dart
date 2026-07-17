@@ -94,6 +94,47 @@ class DetailItem extends StatelessWidget {
       customOnLongPress?.call();
     }
 
+    final coverFile = File(
+      path.join(entry.entryDirPath, PathUtils.coverName),
+    );
+    final hasLocalCover = coverFile.existsSync();
+
+    Widget buildCover(BoxConstraints constraints, {required bool forFlight}) {
+      final maxWidth = constraints.maxWidth;
+      final maxHeight = constraints.maxHeight;
+      int? cacheWidth, cacheHeight;
+      if (entry.pageData?.cacheWidth ?? false) {
+        cacheWidth = maxWidth.cacheSize(context);
+      } else {
+        cacheHeight = maxHeight.cacheSize(context);
+      }
+      if (hasLocalCover) {
+        return Image.file(
+          coverFile,
+          width: maxWidth,
+          height: maxHeight,
+          fit: BoxFit.cover,
+          cacheWidth: cacheWidth,
+          cacheHeight: cacheHeight,
+          colorBlendMode: NetworkImgLayer.reduce ? BlendMode.modulate : null,
+          color: NetworkImgLayer.reduce ? NetworkImgLayer.reduceLuxColor : null,
+        );
+      }
+      return NetworkImgLayer(
+        clip: false,
+        src: entry.cover,
+        width: maxWidth,
+        height: maxHeight,
+        cacheWidth: entry.pageData?.cacheWidth,
+        fadeInDuration: forFlight
+            ? Duration.zero
+            : const Duration(milliseconds: 120),
+        fadeOutDuration: forFlight
+            ? Duration.zero
+            : const Duration(milliseconds: 120),
+      );
+    }
+
     return Material(
       type: MaterialType.transparency,
       child: VideoDetailTransitionSource(
@@ -159,6 +200,86 @@ class DetailItem extends StatelessWidget {
               spacing: 10,
               children: [
                 VideoDetailHero.source(
+                  flightChild: AspectRatio(
+                    aspectRatio: Style.aspectRatio,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return buildCover(constraints, forFlight: true);
+                      },
+                    ),
+                  ),
+                  flightOverlays: <VideoDetailHeroFlightOverlay>[
+                    if (entry.videoQuality case final videoQuality?)
+                      VideoDetailHeroFlightOverlay(
+                        right: 6.0,
+                        top: 6.0,
+                        child: PBadge(
+                          isStack: false,
+                          text: VideoQuality.fromCode(videoQuality).shortDesc,
+                          type: PBadgeType.gray,
+                        ),
+                      ),
+                    if (progress != null)
+                      VideoDetailHeroFlightOverlay(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: ListenableBuilder(
+                          listenable: progress!,
+                          builder: (_, _) {
+                            final watchProgress = GStorage.watchProgress.get(
+                              cid.toString(),
+                            );
+                            if (watchProgress == null) {
+                              return const SizedBox.shrink();
+                            }
+                            return VideoProgressIndicator(
+                              color: theme.colorScheme.primary,
+                              backgroundColor:
+                                  theme.colorScheme.secondaryContainer,
+                              progress: watchProgress / entry.totalTimeMilli,
+                            );
+                          },
+                        ),
+                      ),
+                    if (progress != null)
+                      VideoDetailHeroFlightOverlay(
+                        right: 6,
+                        bottom: 7,
+                        child: ListenableBuilder(
+                          listenable: progress!,
+                          builder: (_, _) {
+                            final watchProgress = GStorage.watchProgress.get(
+                              cid.toString(),
+                            );
+                            return PBadge(
+                              isStack: false,
+                              text: watchProgress == null
+                                  ? DurationUtils.formatDuration(
+                                      entry.totalTimeMilli ~/ 1000,
+                                    )
+                                  : watchProgress >= entry.totalTimeMilli - 400
+                                  ? '已看完'
+                                  : '${DurationUtils.formatDuration(watchProgress ~/ 1000)}/'
+                                        '${DurationUtils.formatDuration(entry.totalTimeMilli ~/ 1000)}',
+                              type: PBadgeType.gray,
+                            );
+                          },
+                        ),
+                      )
+                    else if (entry.totalTimeMilli != 0)
+                      VideoDetailHeroFlightOverlay(
+                        right: 6,
+                        bottom: 7,
+                        child: PBadge(
+                          isStack: false,
+                          text: DurationUtils.formatDuration(
+                            entry.totalTimeMilli ~/ 1000,
+                          ),
+                          type: PBadgeType.gray,
+                        ),
+                      ),
+                  ],
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -166,42 +287,7 @@ class DetailItem extends StatelessWidget {
                         aspectRatio: Style.aspectRatio,
                         child: LayoutBuilder(
                           builder: (context, constraints) {
-                            final cover = File(
-                              path.join(
-                                entry.entryDirPath,
-                                PathUtils.coverName,
-                              ),
-                            );
-                            final maxWidth = constraints.maxWidth;
-                            final maxHeight = constraints.maxHeight;
-                            int? cacheWidth, cacheHeight;
-                            if (entry.pageData?.cacheWidth ?? false) {
-                              cacheWidth = maxWidth.cacheSize(context);
-                            } else {
-                              cacheHeight = maxHeight.cacheSize(context);
-                            }
-                            return cover.existsSync()
-                                ? Image.file(
-                                    cover,
-                                    width: maxWidth,
-                                    height: maxHeight,
-                                    fit: BoxFit.cover,
-                                    cacheWidth: cacheWidth,
-                                    cacheHeight: cacheHeight,
-                                    colorBlendMode: NetworkImgLayer.reduce
-                                        ? BlendMode.modulate
-                                        : null,
-                                    color: NetworkImgLayer.reduce
-                                        ? NetworkImgLayer.reduceLuxColor
-                                        : null,
-                                  )
-                                : NetworkImgLayer(
-                                    clip: false,
-                                    src: entry.cover,
-                                    width: maxWidth,
-                                    height: maxHeight,
-                                    cacheWidth: entry.pageData?.cacheWidth,
-                                  );
+                            return buildCover(constraints, forFlight: false);
                           },
                         ),
                       ),

@@ -3,6 +3,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
+import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
@@ -30,7 +31,7 @@ final class VideoDetailEntryOverlayController {
     int tabCount = VideoDetailLayoutMetrics.defaultTabCount,
     int actionCount = VideoDetailLayoutMetrics.ugcActionCount,
     bool hasEpisodePanel = false,
-    Duration revealDuration = const Duration(milliseconds: 480),
+    Duration revealDuration = videoDetailTransitionDuration,
   }) => VideoDetailEntryOverlayController._(
     overlay: overlay,
     transitionToken: transitionToken,

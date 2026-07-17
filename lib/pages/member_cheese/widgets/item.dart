@@ -112,6 +112,35 @@ class MemberCheeseItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 VideoDetailHero.source(
+                  flightChild: AspectRatio(
+                    aspectRatio: Style.aspectRatio,
+                    child: LayoutBuilder(
+                      builder: (context, boxConstraints) {
+                        return NetworkImgLayer(
+                          clip: false,
+                          src: item.cover,
+                          width: boxConstraints.maxWidth,
+                          height: boxConstraints.maxHeight,
+                          borderRadius: const BorderRadius.all(
+                            Radius.circular(4),
+                          ),
+                          fadeInDuration: Duration.zero,
+                          fadeOutDuration: Duration.zero,
+                        );
+                      },
+                    ),
+                  ),
+                  flightOverlays: <VideoDetailHeroFlightOverlay>[
+                    if (item.marks?.isNotEmpty == true)
+                      VideoDetailHeroFlightOverlay(
+                        top: 6,
+                        right: 6,
+                        child: PBadge(
+                          isStack: false,
+                          text: item.marks!.join('|'),
+                        ),
+                      ),
+                  ],
                   child: AspectRatio(
                     aspectRatio: Style.aspectRatio,
                     child: LayoutBuilder(

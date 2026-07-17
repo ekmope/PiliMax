@@ -169,6 +169,15 @@ Widget module(
                   if (isCommonVideo)
                     VideoDetailHero.source(
                       borderRadius: const BorderRadius.all(Radius.circular(6)),
+                      flightChild: CachedNetworkImage(
+                        width: 45,
+                        height: 45,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 45.cacheSize(context),
+                        imageUrl: ImageUtils.safeThumbnailUrl(common.cover),
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
+                      ),
                       child: ClipRRect(
                         borderRadius: const BorderRadius.all(
                           Radius.circular(6),

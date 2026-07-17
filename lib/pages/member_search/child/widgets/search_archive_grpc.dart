@@ -101,6 +101,44 @@ class SearchArchiveGrpc extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     VideoDetailHero.source(
+                      flightChild: AspectRatio(
+                        aspectRatio: Style.aspectRatio,
+                        child: LayoutBuilder(
+                          builder: (context, boxConstraints) {
+                            return NetworkImgLayer(
+                              clip: false,
+                              src: arc.pic,
+                              width: boxConstraints.maxWidth,
+                              height: boxConstraints.maxHeight,
+                              fadeInDuration: Duration.zero,
+                              fadeOutDuration: Duration.zero,
+                            );
+                          },
+                        ),
+                      ),
+                      flightOverlays: <VideoDetailHeroFlightOverlay>[
+                        if (item.isPugv)
+                          const VideoDetailHeroFlightOverlay(
+                            top: 6.0,
+                            right: 6.0,
+                            child: PBadge(
+                              isStack: false,
+                              text: '课堂',
+                            ),
+                          ),
+                        if (arc.duration > Int64.ZERO)
+                          VideoDetailHeroFlightOverlay(
+                            right: 6.0,
+                            bottom: 6.0,
+                            child: PBadge(
+                              isStack: false,
+                              text: DurationUtils.formatDuration(
+                                arc.duration.toInt(),
+                              ),
+                              type: PBadgeType.gray,
+                            ),
+                          ),
+                      ],
                       child: AspectRatio(
                         aspectRatio: Style.aspectRatio,
                         child: LayoutBuilder(

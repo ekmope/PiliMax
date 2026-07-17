@@ -99,6 +99,92 @@ class VideoCardHLater extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 VideoDetailHero.source(
+                  flightChild: AspectRatio(
+                    aspectRatio: Style.aspectRatio,
+                    child: LayoutBuilder(
+                      builder: (context, boxConstraints) {
+                        return NetworkImgLayer(
+                          clip: false,
+                          src: videoItem.pic,
+                          width: boxConstraints.maxWidth,
+                          height: boxConstraints.maxHeight,
+                          cacheWidth: videoItem.dimension?.cacheWidth,
+                          fadeInDuration: Duration.zero,
+                          fadeOutDuration: Duration.zero,
+                        );
+                      },
+                    ),
+                  ),
+                  flightOverlays: <VideoDetailHeroFlightOverlay>[
+                    if (videoItem.isCharging == true)
+                      const VideoDetailHeroFlightOverlay(
+                        top: 6.0,
+                        right: 6.0,
+                        child: PBadge(
+                          isStack: false,
+                          text: '充电专属',
+                          type: PBadgeType.error,
+                        ),
+                      )
+                    else if (videoItem.rights?.isCooperation == 1)
+                      const VideoDetailHeroFlightOverlay(
+                        top: 6.0,
+                        right: 6.0,
+                        child: PBadge(isStack: false, text: '合作'),
+                      )
+                    else if (videoItem.pgcLabel != null)
+                      VideoDetailHeroFlightOverlay(
+                        top: 6.0,
+                        right: 6.0,
+                        child: PBadge(
+                          isStack: false,
+                          text: videoItem.pgcLabel,
+                        ),
+                      )
+                    else if (videoItem.isPugv ?? false)
+                      const VideoDetailHeroFlightOverlay(
+                        top: 6.0,
+                        right: 6.0,
+                        child: PBadge(isStack: false, text: '课堂'),
+                      ),
+                    if (videoItem.progress != null && videoItem.progress != 0)
+                      VideoDetailHeroFlightOverlay(
+                        right: 6,
+                        bottom: 8,
+                        child: PBadge(
+                          isStack: false,
+                          text: videoItem.progress == -1
+                              ? '已看完'
+                              : '${DurationUtils.formatDuration(videoItem.progress)}/${DurationUtils.formatDuration(videoItem.duration)}',
+                          type: PBadgeType.gray,
+                        ),
+                      )
+                    else if (videoItem.duration! > 0)
+                      VideoDetailHeroFlightOverlay(
+                        right: 6.0,
+                        bottom: 6.0,
+                        child: PBadge(
+                          isStack: false,
+                          text: DurationUtils.formatDuration(
+                            videoItem.duration,
+                          ),
+                          type: PBadgeType.gray,
+                        ),
+                      ),
+                    if (videoItem.progress != null && videoItem.progress != 0)
+                      VideoDetailHeroFlightOverlay(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: VideoProgressIndicator(
+                          color: theme.colorScheme.primary,
+                          backgroundColor: theme.colorScheme.secondaryContainer,
+                          progress: videoItem.progress == -1
+                              ? 1
+                              : videoItem.progress! / videoItem.duration!,
+                        ),
+                      ),
+                  ],
                   child: AspectRatio(
                     aspectRatio: Style.aspectRatio,
                     child: LayoutBuilder(

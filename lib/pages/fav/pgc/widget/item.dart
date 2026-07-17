@@ -78,6 +78,40 @@ class FavPgcItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     VideoDetailHero.source(
+                      flightChild: AspectRatio(
+                        aspectRatio: 3 / 4,
+                        child: LayoutBuilder(
+                          builder: (context, boxConstraints) {
+                            return NetworkImgLayer(
+                              clip: false,
+                              src: item.cover,
+                              width: boxConstraints.maxWidth,
+                              height: boxConstraints.maxHeight,
+                              borderRadius: const BorderRadius.all(
+                                Radius.circular(4),
+                              ),
+                              fadeInDuration: Duration.zero,
+                              fadeOutDuration: Duration.zero,
+                            );
+                          },
+                        ),
+                      ),
+                      flightOverlays: <VideoDetailHeroFlightOverlay>[
+                        VideoDetailHeroFlightOverlay(
+                          right: 4,
+                          top: 4,
+                          child: PBadge(
+                            isStack: false,
+                            text: item.badge,
+                            size: PBadgeSize.small,
+                            fontSize: 10,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 2,
+                              vertical: 1,
+                            ),
+                          ),
+                        ),
+                      ],
                       child: AspectRatio(
                         aspectRatio: 3 / 4,
                         child: LayoutBuilder(

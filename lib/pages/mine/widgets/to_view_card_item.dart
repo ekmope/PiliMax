@@ -81,6 +81,42 @@ class ToViewCardItem extends StatelessWidget {
           children: [
             VideoDetailHero.source(
               borderRadius: _cardRadius,
+              flightChild: SizedBox(
+                width: _cardWidth,
+                height: _cardHeight,
+                child: NetworkImgLayer(
+                  clip: false,
+                  src: item.pic,
+                  width: _cardWidth,
+                  height: _cardHeight,
+                  fadeInDuration: Duration.zero,
+                  fadeOutDuration: Duration.zero,
+                ),
+              ),
+              flightOverlays: <VideoDetailHeroFlightOverlay>[
+                if (item.pgcLabel?.isNotEmpty == true)
+                  VideoDetailHeroFlightOverlay(
+                    top: 6.0,
+                    right: 6.0,
+                    child: PBadge(
+                      isStack: false,
+                      text: item.pgcLabel,
+                      type: PBadgeType.primary,
+                    ),
+                  ),
+                if (hasDuration)
+                  VideoDetailHeroFlightOverlay(
+                    right: 6.0,
+                    bottom: 6.0,
+                    child: PBadge(
+                      isStack: false,
+                      text: item.progress == -1
+                          ? '已看完'
+                          : DurationUtils.formatDuration(item.progress),
+                      type: PBadgeType.gray,
+                    ),
+                  ),
+              ],
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   borderRadius: _cardRadius,

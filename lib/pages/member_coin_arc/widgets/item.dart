@@ -84,6 +84,45 @@ class _MemberCoinLikeItemState extends State<MemberCoinLikeItem> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               VideoDetailHero.source(
+                flightChild: AspectRatio(
+                  aspectRatio: Style.aspectRatio,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      return NetworkImgLayer(
+                        clip: false,
+                        src: item.cover,
+                        width: boxConstraints.maxWidth,
+                        height: boxConstraints.maxHeight,
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
+                      );
+                    },
+                  ),
+                ),
+                flightOverlays: <VideoDetailHeroFlightOverlay>[
+                  if (item.isCooperation == true)
+                    const VideoDetailHeroFlightOverlay(
+                      top: 6,
+                      right: 6,
+                      child: PBadge(isStack: false, text: '合作'),
+                    )
+                  else if (item.isSteins == true)
+                    const VideoDetailHeroFlightOverlay(
+                      top: 6,
+                      right: 6,
+                      child: PBadge(isStack: false, text: '互动'),
+                    ),
+                  if (item.duration != null && item.duration! > 0)
+                    VideoDetailHeroFlightOverlay(
+                      right: 6,
+                      bottom: 6,
+                      child: PBadge(
+                        isStack: false,
+                        type: PBadgeType.gray,
+                        text: DurationUtils.formatDuration(item.duration),
+                      ),
+                    ),
+                ],
                 child: AspectRatio(
                   aspectRatio: Style.aspectRatio,
                   child: LayoutBuilder(

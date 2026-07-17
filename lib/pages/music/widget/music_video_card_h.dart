@@ -63,6 +63,32 @@ class MusicVideoCardH extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 VideoDetailHero.source(
+                  flightChild: AspectRatio(
+                    aspectRatio: Style.aspectRatio,
+                    child: LayoutBuilder(
+                      builder: (context, boxConstraints) {
+                        return NetworkImgLayer(
+                          clip: false,
+                          src: videoItem.cover,
+                          width: boxConstraints.maxWidth,
+                          height: boxConstraints.maxHeight,
+                          fadeInDuration: Duration.zero,
+                          fadeOutDuration: Duration.zero,
+                        );
+                      },
+                    ),
+                  ),
+                  flightOverlays: <VideoDetailHeroFlightOverlay>[
+                    VideoDetailHeroFlightOverlay(
+                      right: 6.0,
+                      bottom: 6.0,
+                      child: PBadge(
+                        isStack: false,
+                        text: DurationUtils.formatDuration(videoItem.duration),
+                        type: PBadgeType.gray,
+                      ),
+                    ),
+                  ],
                   child: AspectRatio(
                     aspectRatio: Style.aspectRatio,
                     child: LayoutBuilder(

@@ -1,8 +1,7 @@
+import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
-const videoDetailRouteForwardTransitionDuration = Duration(milliseconds: 480);
-const videoDetailRouteReverseTransitionDuration = Duration(milliseconds: 480);
 
 /// Keeps the video Hero and entry overlay on one fixed route timeline.
 ///
@@ -25,11 +24,10 @@ final class VideoDetailPageRoute<T> extends GetPageRoute<T> {
        );
 
   @override
-  Duration get transitionDuration => videoDetailRouteForwardTransitionDuration;
+  Duration get transitionDuration => videoDetailTransitionDuration;
 
   @override
-  Duration get reverseTransitionDuration =>
-      videoDetailRouteReverseTransitionDuration;
+  Duration get reverseTransitionDuration => videoDetailTransitionDuration;
 
   @override
   Widget buildTransitions(

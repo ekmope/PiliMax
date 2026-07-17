@@ -54,6 +54,39 @@ class PgcCardV extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               VideoDetailHero.source(
+                flightChild: AspectRatio(
+                  aspectRatio: 0.75,
+                  child: LayoutBuilder(
+                    builder: (context, boxConstraints) {
+                      return NetworkImgLayer(
+                        clip: false,
+                        src: item.cover,
+                        width: boxConstraints.maxWidth,
+                        height: boxConstraints.maxHeight,
+                        fadeInDuration: Duration.zero,
+                        fadeOutDuration: Duration.zero,
+                      );
+                    },
+                  ),
+                ),
+                flightOverlays: <VideoDetailHeroFlightOverlay>[
+                  VideoDetailHeroFlightOverlay(
+                    top: 6,
+                    right: 6,
+                    child: PBadge(isStack: false, text: item.badge),
+                  ),
+                  if (item.isFinish == 0 &&
+                      item.renewalTime?.isNotEmpty == true)
+                    VideoDetailHeroFlightOverlay(
+                      bottom: 6,
+                      left: 6,
+                      child: PBadge(
+                        isStack: false,
+                        text: item.renewalTime,
+                        type: PBadgeType.gray,
+                      ),
+                    ),
+                ],
                 child: AspectRatio(
                   aspectRatio: 0.75,
                   child: LayoutBuilder(

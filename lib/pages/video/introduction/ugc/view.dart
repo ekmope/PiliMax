@@ -296,9 +296,8 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
           children: [
             TextSpan(text: videoDetail.bvid ?? ''),
             if (videoDetail.copyright == 1)
-              TextSpan(
+              const TextSpan(
                 text: ' 🚫未经作者授权禁止转载',
-                style: TextStyle(color: colorScheme.error),
               ),
           ],
         ),

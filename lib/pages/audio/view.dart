@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:math' show min;
 
 import 'package:PiliMax/common/assets.dart';
@@ -205,23 +206,7 @@ class _AudioPageState extends State<AudioPage> {
               IconButton(
                 tooltip: '退出听视频',
                 onPressed: _exitAudioPage,
-                icon: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 100),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  child: _exitingAudioPage
-                      ? const SizedBox(
-                          key: ValueKey('audio-exit-progress'),
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(
-                          key: ValueKey('audio-exit-close'),
-                          Icons.close,
-                          size: 22,
-                        ),
-                ),
+                icon: const Icon(Icons.close, size: 22),
               ),
               if (_controller.isUgc)
                 IconButton(
@@ -286,8 +271,17 @@ class _AudioPageState extends State<AudioPage> {
     }
     setState(() {
       _exitingAudioPage = true;
+      _allowPop = true;
     });
 
+    unawaited(_preparePlaybackForExit());
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _preparePlaybackForExit() async {
     final syncFuture = () async {
       try {
         await _controller.syncBackToVideoPlayer();
@@ -304,17 +298,7 @@ class _AudioPageState extends State<AudioPage> {
         pauseFuture,
       ]).timeout(_exitPreparationTimeout);
     } catch (_) {
-      // Exit even if position synchronization or pausing stalls.
-    } finally {
-      if (mounted) {
-        setState(() {
-          _allowPop = true;
-        });
-        await WidgetsBinding.instance.endOfFrame;
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
-      }
+      // The visual exit is independent from playback synchronization.
     }
   }
 

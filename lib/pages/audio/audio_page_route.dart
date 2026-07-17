@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-const audioPageExitTransitionDuration = Duration(milliseconds: 300);
+const audioPageExitTransitionDuration = Duration(milliseconds: 400);
 
 /// Keeps GetX's audio-page lifecycle while providing a dedicated exit motion.
 final class AudioPageRoute<T> extends GetPageRoute<T> {
@@ -21,9 +21,6 @@ final class AudioPageRoute<T> extends GetPageRoute<T> {
          maintainState: definition.maintainState,
          middlewares: definition.middlewares,
        );
-
-  @override
-  Duration get transitionDuration => audioPageExitTransitionDuration;
 
   @override
   Duration get reverseTransitionDuration => audioPageExitTransitionDuration;
@@ -47,20 +44,22 @@ final class AudioPageRoute<T> extends GetPageRoute<T> {
       );
     }
 
-    final exitAnimation = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutCubic,
+    final reversedAnimation = ReverseAnimation(animation);
+    final exitProgress = reversedAnimation.drive(
+      CurveTween(curve: Curves.easeOutCubic),
     );
 
     return FadeTransition(
-      opacity: exitAnimation,
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.96, end: 1).animate(exitAnimation),
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.04),
-            end: Offset.zero,
-          ).animate(exitAnimation),
+      opacity: Tween<double>(begin: 1, end: 0).animate(exitProgress),
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: Offset.zero,
+          end: const Offset(0.08, 0),
+        ).animate(exitProgress),
+        transformHitTests: false,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 1, end: 0.94).animate(exitProgress),
+          alignment: Alignment.centerLeft,
           child: child,
         ),
       ),

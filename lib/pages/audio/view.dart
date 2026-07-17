@@ -14,6 +14,7 @@ import 'package:PiliMax/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pb.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/models/common/image_type.dart';
+import 'package:PiliMax/pages/audio/audio_page_route.dart';
 import 'package:PiliMax/pages/audio/controller.dart';
 import 'package:PiliMax/pages/audio/volume_button.dart';
 import 'package:PiliMax/pages/setting/models/play_settings.dart'
@@ -47,6 +48,8 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 class AudioPage extends StatefulWidget {
   const AudioPage({super.key});
 
+  static bool _routeNavigationActive = false;
+
   @override
   State<AudioPage> createState() => _AudioPageState();
 
@@ -62,22 +65,47 @@ class AudioPage extends StatefulWidget {
     int? extraId,
     List<Map<String, int>>? playlistProgress,
   }) {
+    if (_routeNavigationActive) {
+      return null;
+    }
     heroTag ??= Utils.makeHeroTag(oid);
-    return Get.toNamed(
-      '/audio',
-      arguments: {
-        'id': ?id,
-        'oid': oid,
-        'subId': ?subId,
-        'from': from,
-        'itemType': itemType,
-        'heroTag': heroTag,
-        'start': ?start,
-        'audioUrl': ?audioUrl,
-        'extraId': ?extraId,
-        'playlistProgress': ?playlistProgress,
-      },
-    );
+    final arguments = <String, dynamic>{
+      'id': ?id,
+      'oid': oid,
+      'subId': ?subId,
+      'from': from,
+      'itemType': itemType,
+      'heroTag': heroTag,
+      'start': ?start,
+      'audioUrl': ?audioUrl,
+      'extraId': ?extraId,
+      'playlistProgress': ?playlistProgress,
+    };
+
+    _routeNavigationActive = true;
+    try {
+      final definition = Get.routeTree.matchRoute('/audio').route;
+      final rootNavigator = Get.key.currentState;
+      final navigation = definition != null && rootNavigator != null
+          ? rootNavigator.push<void>(
+              AudioPageRoute<void>(
+                definition: definition,
+                arguments: arguments,
+              ),
+            )
+          : Get.toNamed<void>('/audio', arguments: arguments);
+      if (navigation == null) {
+        _routeNavigationActive = false;
+        return null;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _routeNavigationActive = false;
+      });
+      return navigation;
+    } catch (_) {
+      _routeNavigationActive = false;
+      rethrow;
+    }
   }
 }
 
@@ -86,6 +114,8 @@ extension _ListOrderExt on ListOrder {
 }
 
 class _AudioPageState extends State<AudioPage> {
+  static const _exitPreparationTimeout = Duration(milliseconds: 800);
+
   late final _controller = Get.put(
     AudioController(),
     tag: Get.arguments['heroTag'] ?? Utils.generateRandomString(8),
@@ -129,101 +159,122 @@ class _AudioPageState extends State<AudioPage> {
           _exitAudioPage();
         }
       },
-      child: Scaffold(
-        resizeToAvoidBottomInset: false,
-        appBar: AppBar(
-          actions: [
-            if (_controller.isUgc && _controller.enableSponsorBlock)
-              Obx(() {
-                if (_controller.segmentProgressList.isNotEmpty) {
-                  return IconButton(
-                    tooltip: '片段信息',
-                    onPressed: _controller.showSBDetail,
-                    icon: const Icon(MdiIcons.advertisements, size: 22),
+      child: AbsorbPointer(
+        absorbing: _exitingAudioPage,
+        child: Scaffold(
+          resizeToAvoidBottomInset: false,
+          appBar: AppBar(
+            actions: [
+              if (_controller.isUgc && _controller.enableSponsorBlock)
+                Obx(() {
+                  if (_controller.segmentProgressList.isNotEmpty) {
+                    return IconButton(
+                      tooltip: '片段信息',
+                      onPressed: _controller.showSBDetail,
+                      icon: const Icon(MdiIcons.advertisements, size: 22),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                }),
+              Builder(
+                builder: (context) {
+                  return StaticPopupMenuButton<ListOrder>(
+                    tooltip: '排序',
+                    icon: const Icon(Icons.sort, size: 22),
+                    initialValue: _controller.order,
+                    onSelected: (value) {
+                      _controller.onChangeOrder(value);
+                      (context as Element).markNeedsBuild();
+                    },
+                    itemBuilder: (context) => ListOrder.values
+                        .map(
+                          (e) => PopupMenuItem(value: e, child: Text(e.title)),
+                        )
+                        .toList(),
                   );
-                }
-                return const SizedBox.shrink();
-              }),
-            Builder(
-              builder: (context) {
-                return StaticPopupMenuButton<ListOrder>(
-                  tooltip: '排序',
-                  icon: const Icon(Icons.sort, size: 22),
-                  initialValue: _controller.order,
-                  onSelected: (value) {
-                    _controller.onChangeOrder(value);
-                    (context as Element).markNeedsBuild();
-                  },
-                  itemBuilder: (context) => ListOrder.values
-                      .map((e) => PopupMenuItem(value: e, child: Text(e.title)))
-                      .toList(),
-                );
-              },
-            ),
-            IconButton(
-              tooltip: '定时关闭',
-              onPressed: () => shutdownTimerService
-                ..onPause = _controller.onPause
-                ..isPlaying = _controller.isPlaying
-                ..showScheduleExitDialog(context, isFullScreen: false),
-              icon: const Icon(Icons.schedule, size: 22),
-            ),
-            IconButton(
-              tooltip: '退出听视频',
-              onPressed: () => _exitAudioPage(),
-              icon: const Icon(Icons.close, size: 22),
-            ),
-            if (_controller.isUgc)
-              IconButton(
-                tooltip: '更多',
-                onPressed: _showMore,
-                icon: const Icon(Icons.more_vert, size: 22),
+                },
               ),
-            const SizedBox(width: 5),
-          ],
-        ),
-        body: Padding(
-          padding: EdgeInsets.only(
-            left: 20 + padding.left,
-            right: 20 + padding.right,
-            bottom: 30 + padding.bottom,
-          ),
-          child: isPortrait
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _buildInfo(colorScheme, isPortrait)),
-                    const SizedBox(height: 25),
-                    _buildProgressBar(colorScheme),
-                    _buildDuration(colorScheme),
-                    _buildControls(),
-                  ],
-                )
-              : Row(
-                  spacing: 12,
-                  children: [
-                    Expanded(child: _buildInfo(colorScheme, isPortrait)),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Obx(() {
-                            final audioItem = _controller.audioItem.value;
-                            if (audioItem != null) {
-                              return _buildActions(audioItem);
-                            }
-                            return const SizedBox.shrink();
-                          }),
-                          const SizedBox(height: 25),
-                          _buildProgressBar(colorScheme),
-                          _buildDuration(colorScheme),
-                          _buildControls(),
-                        ],
-                      ),
-                    ),
-                  ],
+              IconButton(
+                tooltip: '定时关闭',
+                onPressed: () => shutdownTimerService
+                  ..onPause = _controller.onPause
+                  ..isPlaying = _controller.isPlaying
+                  ..showScheduleExitDialog(context, isFullScreen: false),
+                icon: const Icon(Icons.schedule, size: 22),
+              ),
+              IconButton(
+                tooltip: '退出听视频',
+                onPressed: _exitAudioPage,
+                icon: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 100),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  child: _exitingAudioPage
+                      ? const SizedBox(
+                          key: ValueKey('audio-exit-progress'),
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(
+                          key: ValueKey('audio-exit-close'),
+                          Icons.close,
+                          size: 22,
+                        ),
                 ),
+              ),
+              if (_controller.isUgc)
+                IconButton(
+                  tooltip: '更多',
+                  onPressed: _showMore,
+                  icon: const Icon(Icons.more_vert, size: 22),
+                ),
+              const SizedBox(width: 5),
+            ],
+          ),
+          body: Padding(
+            padding: EdgeInsets.only(
+              left: 20 + padding.left,
+              right: 20 + padding.right,
+              bottom: 30 + padding.bottom,
+            ),
+            child: isPortrait
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildInfo(colorScheme, isPortrait)),
+                      const SizedBox(height: 25),
+                      _buildProgressBar(colorScheme),
+                      _buildDuration(colorScheme),
+                      _buildControls(),
+                    ],
+                  )
+                : Row(
+                    spacing: 12,
+                    children: [
+                      Expanded(child: _buildInfo(colorScheme, isPortrait)),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Obx(() {
+                              final audioItem = _controller.audioItem.value;
+                              if (audioItem != null) {
+                                return _buildActions(audioItem);
+                              }
+                              return const SizedBox.shrink();
+                            }),
+                            const SizedBox(height: 25),
+                            _buildProgressBar(colorScheme),
+                            _buildDuration(colorScheme),
+                            _buildControls(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
       ),
     );
@@ -233,18 +284,37 @@ class _AudioPageState extends State<AudioPage> {
     if (_exitingAudioPage) {
       return;
     }
-    _exitingAudioPage = true;
+    setState(() {
+      _exitingAudioPage = true;
+    });
+
+    final syncFuture = () async {
+      try {
+        await _controller.syncBackToVideoPlayer();
+      } catch (_) {}
+    }();
+    final pauseFuture = () async {
+      try {
+        await _controller.onPause();
+      } catch (_) {}
+    }();
     try {
-      await _controller.syncBackToVideoPlayer();
-    } catch (_) {}
-    try {
-      await _controller.onPause();
-    } catch (_) {}
-    if (mounted) {
-      setState(() {
-        _allowPop = true;
-      });
-      Get.back();
+      await Future.wait<void>([
+        syncFuture,
+        pauseFuture,
+      ]).timeout(_exitPreparationTimeout);
+    } catch (_) {
+      // Exit even if position synchronization or pausing stalls.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _allowPop = true;
+        });
+        await WidgetsBinding.instance.endOfFrame;
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      }
     }
   }
 

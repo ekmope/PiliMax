@@ -206,7 +206,7 @@ class VideoDetailHeroFlightOverlay {
     this.right,
     this.bottom,
     this.left,
-    this.fadeFraction = 1 / 9,
+    this.fadeFraction = 1 / 5,
   }) : assert(fadeFraction > 0 && fadeFraction <= 1);
 
   final Widget child;
@@ -219,7 +219,8 @@ class VideoDetailHeroFlightOverlay {
   /// decoration.
   ///
   /// On push it fades out during the first fraction. On pop it fades in during
-  /// the final fraction, immediately before the source card is restored.
+  /// the final fraction, immediately before the source card is restored. The
+  /// default one-fifth fraction is 100 ms on the shared 500 ms timeline.
   final double fadeFraction;
 }
 

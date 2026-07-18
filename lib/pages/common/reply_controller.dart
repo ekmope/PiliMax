@@ -216,6 +216,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   void onCheckReply(ReplyInfo replyInfo, {required bool isManual}) {
     ReplyUtils.onCheckReply(
       replyInfo: replyInfo,
+      enableCommAntifraud: _enableCommAntifraud,
       biliSendCommAntifraud: _biliSendCommAntifraud,
       sourceId: sourceId,
       isManual: isManual,

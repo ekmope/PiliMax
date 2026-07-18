@@ -105,11 +105,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   }
 
   Future<void> _queryVideoIntro({bool Function()? isCurrent}) async {
-    bool isCurrentIntro() => !isClosed && (isCurrent?.call() ?? true);
+    final requestBvid = bvid;
+    bool isCurrentIntro() =>
+        !isClosed && bvid == requestBvid && (isCurrent?.call() ?? true);
     if (!isCurrentIntro()) {
       return;
     }
-    final requestBvid = bvid;
     queryVideoTags(isCurrent: isCurrentIntro);
     final initialVideoIntro = _initialVideoIntro;
     _initialVideoIntro = null;
@@ -175,7 +176,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         cid.value = pages.first.cid!;
         videoDetailCtr.cid.value = cid.value;
       }
-      queryUserStat(response.staff);
+      queryUserStat(response.staff, isCurrent: isCurrentIntro);
     } else {
       if (!isCurrentIntro()) {
         return;
@@ -188,18 +189,24 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       return;
     }
     if (isLogin) {
-      queryAllStatus();
-      queryFollowStatus();
+      queryAllStatus(isCurrent: isCurrentIntro);
+      queryFollowStatus(isCurrent: isCurrentIntro);
     }
   }
 
   // 获取up主粉丝数
-  Future<void> queryUserStat(List<Staff>? staff) async {
+  Future<void> queryUserStat(
+    List<Staff>? staff, {
+    bool Function()? isCurrent,
+  }) async {
+    bool canApply() => !isClosed && (isCurrent?.call() ?? true);
+    if (!canApply()) return;
     if (staff != null && staff.isNotEmpty) {
       final res = await Request().get(
         Api.relations,
         queryParameters: {'fids': staff.map((item) => item.mid).join(',')},
       );
+      if (!canApply()) return;
       if (res.data['code'] == 0) {
         staffRelations.addAll({'status': true, ...?res.data['data']});
       }
@@ -209,14 +216,19 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         return;
       }
       final res = await MemberHttp.memberCardInfo(mid: mid);
+      if (!canApply()) return;
       if (res case Success(:final response)) {
         userStat.value = response;
       }
     }
   }
 
-  Future<void> queryAllStatus() async {
-    final result = await VideoHttp.videoRelation(bvid: bvid);
+  Future<void> queryAllStatus({bool Function()? isCurrent}) async {
+    bool canApply() => !isClosed && (isCurrent?.call() ?? true);
+    if (!canApply()) return;
+    final requestBvid = bvid;
+    final result = await VideoHttp.videoRelation(bvid: requestBvid);
+    if (!canApply() || bvid != requestBvid) return;
     if (result case Success(:final response)) {
       late final stat = videoDetail.value.stat;
       if (response.like!) {
@@ -438,12 +450,15 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   }
 
   // 查询关注状态
-  Future<void> queryFollowStatus() async {
+  Future<void> queryFollowStatus({bool Function()? isCurrent}) async {
+    bool canApply() => !isClosed && (isCurrent?.call() ?? true);
+    if (!canApply()) return;
     final videoDetail = this.videoDetail.value;
     if (videoDetail.owner == null || videoDetail.staff?.isNotEmpty == true) {
       return;
     }
     final res = await UserHttp.userRelation(videoDetail.owner!.mid!);
+    if (!canApply()) return;
     if (res case Success(:final response)) {
       if (response.special == 1) response.attribute = -10;
       followStatus.value = response;
@@ -559,6 +574,9 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     bool manual = false,
     bool preferHistoryPart = true,
   }) async {
+    // Allocate the token before any await (including cid resolution). Otherwise
+    // an older tap whose lookup finishes later can become the newest request.
+    final currentIntroGeneration = nextIntroRequestGeneration();
     try {
       final String bvid = episode.bvid ?? this.bvid;
       final int aid = episode.aid ?? IdUtils.bv2av(bvid);
@@ -570,11 +588,13 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
           cid = res.cid;
           dimension = res.dimension;
         }
+        if (!isCurrentIntroRequest(currentIntroGeneration)) {
+          return false;
+        }
       }
       if (cid == null) {
         return false;
       }
-      final currentIntroGeneration = nextIntroRequestGeneration();
 
       if (manual) {
         videoDetailCtr.plPlayerController.markManualEpisodeChange();
@@ -637,6 +657,9 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       );
       if (fromAudioPage) {
         await queryVideoUrl;
+        if (!isCurrentIntroRequest(currentIntroGeneration)) {
+          return false;
+        }
       }
 
       if (this.bvid != bvid) {

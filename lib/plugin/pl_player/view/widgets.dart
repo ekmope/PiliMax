@@ -107,6 +107,8 @@ Widget buildSeekPreviewWidget(
                   imgYSize: imgYSize,
                   height: height,
                   imageCache: plPlayerController.previewCache,
+                  requestToken: plPlayerController.capturePreviewRequest(url),
+                  isRequestCurrent: plPlayerController.isPreviewRequestCurrent,
                   onSetSize: (xSize, ySize) => data
                     ..imgXSize = imgXSize = xSize
                     ..imgYSize = imgYSize = ySize,
@@ -124,6 +126,8 @@ Widget buildSeekPreviewWidget(
   );
 }
 
+typedef VideoShotImageLoader = Future<ui.Image?> Function(String url);
+
 class VideoShotImage extends StatefulWidget {
   const VideoShotImage({
     super.key,
@@ -136,6 +140,9 @@ class VideoShotImage extends StatefulWidget {
     required this.height,
     required this.onSetSize,
     required this.isMounted,
+    required this.requestToken,
+    required this.isRequestCurrent,
+    this.imageLoader = _getImg,
   });
 
   final Map<String, ui.Image?> imageCache;
@@ -147,6 +154,9 @@ class VideoShotImage extends StatefulWidget {
   final double height;
   final Function(double imgXSize, double imgYSize) onSetSize;
   final ValueGetter<bool> isMounted;
+  final PreviewRequestToken requestToken;
+  final bool Function(PreviewRequestToken token) isRequestCurrent;
+  final VideoShotImageLoader imageLoader;
 
   @override
   State<VideoShotImage> createState() => _VideoShotImageState();
@@ -176,6 +186,8 @@ Future<ui.Image?> _loadImg(String path) async {
 }
 
 class _VideoShotImageState extends State<VideoShotImage> {
+  static const _loadCoordinator = PreviewLoadCoordinator<ui.Image>();
+
   late Size _size;
   late Rect _srcRect;
   late Rect _dstRect;
@@ -186,7 +198,7 @@ class _VideoShotImageState extends State<VideoShotImage> {
   void initState() {
     super.initState();
     _initSize();
-    _loadImg();
+    unawaited(_loadImg());
   }
 
   void _initSizeIfNeeded() {
@@ -232,35 +244,43 @@ class _VideoShotImageState extends State<VideoShotImage> {
     );
   }
 
-  void _loadImg() {
-    final url = widget.url;
-    _image = widget.imageCache[url];
+  Future<void> _loadImg() async {
+    final requestToken = widget.requestToken;
+    final url = requestToken.url;
+    final imageCache = widget.imageCache;
+    _image = imageCache[url];
     if (_image != null) {
       _initSizeIfNeeded();
-    } else if (!widget.imageCache.containsKey(url)) {
-      widget.imageCache[url] = null;
-      _getImg(url).then((image) {
-        if (image != null) {
-          if (widget.isMounted()) {
-            widget.imageCache[url] = image;
-          }
-          if (mounted) {
-            _image = image;
-            _initSizeIfNeeded();
-            setState(() {});
-          }
-        } else {
-          widget.imageCache.remove(url);
-        }
-      });
+      return;
+    }
+    if (imageCache.containsKey(url)) return;
+
+    final image = await _loadCoordinator.load(
+      token: requestToken,
+      cache: imageCache,
+      isRequestCurrent: widget.isRequestCurrent,
+      canRetain: widget.isMounted,
+      loader: widget.imageLoader,
+      disposeValue: (image) => image.dispose(),
+    );
+    if (image != null &&
+        mounted &&
+        widget.requestToken == requestToken &&
+        widget.url == url &&
+        identical(widget.imageCache, imageCache)) {
+      _image = image;
+      _initSizeIfNeeded();
+      setState(() {});
     }
   }
 
   @override
   void didUpdateWidget(VideoShotImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url) {
-      _loadImg();
+    if (oldWidget.url != widget.url ||
+        oldWidget.requestToken != widget.requestToken ||
+        !identical(oldWidget.imageCache, widget.imageCache)) {
+      unawaited(_loadImg());
     }
     if (oldWidget.x != widget.x || oldWidget.y != widget.y) {
       _setSrcRect(widget.imgXSize, widget.imgYSize);

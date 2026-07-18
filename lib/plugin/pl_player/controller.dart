@@ -7,7 +7,7 @@ import 'dart:ui' as ui;
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/http/constants.dart';
-import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/loading_state.dart' show LoadingState, Success;
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/models/common/audio_normalization.dart';
@@ -30,6 +30,9 @@ import 'package:PiliMax/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/plugin/pl_player/models/video_fit_type.dart';
+import 'package:PiliMax/plugin/pl_player/pl_player_source_coordinator.dart';
+import 'package:PiliMax/plugin/pl_player/pl_player_source_error_policy.dart';
+import 'package:PiliMax/plugin/pl_player/preview_request_coordinator.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliMax/services/live_pip_overlay_service.dart';
 import 'package:PiliMax/services/pip_overlay_service.dart';
@@ -53,7 +56,6 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:archive/archive.dart' show getCrc32;
 import 'package:canvas_danmaku/canvas_danmaku.dart';
-import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback, DeviceOrientation;
@@ -167,6 +169,8 @@ class PlPlayerController with BlockConfigMixin {
   late DataSource dataSource;
 
   Timer? _timer;
+  // Cancelled by the source coordinator and by [_cancelSubForSeek].
+  // ignore: cancel_subscriptions
   StreamSubscription? _subForSeek;
 
   Box setting = GStorage.setting;
@@ -178,24 +182,8 @@ class PlPlayerController with BlockConfigMixin {
 
   bool get _hasUsableBuffer => buffered.value > position.value;
 
-  bool _isTransientNetworkError(String event) {
-    final lowerEvent = event.toLowerCase();
-    return lowerEvent.contains('tls') ||
-        lowerEvent.contains('ssl') ||
-        lowerEvent.contains('handshake') ||
-        lowerEvent.contains('stream ends prematurely') ||
-        lowerEvent.contains('unexpected end of file') ||
-        lowerEvent.contains('ffurl_read returned') ||
-        lowerEvent.contains('failed to open https://') ||
-        lowerEvent.contains('can not open external file https://') ||
-        lowerEvent.contains('connection reset') ||
-        lowerEvent.contains('connection aborted') ||
-        lowerEvent.contains('network is unreachable') ||
-        lowerEvent.contains('timed out');
-  }
-
   bool _shouldSilenceRecoverableError(String event) {
-    if (!_isTransientNetworkError(event)) {
+    if (!PlPlayerSourceErrorPolicy.isTransientNetworkError(event)) {
       return false;
     }
     return (playerStatus.isPlaying && _hasPlaybackProgress) ||
@@ -203,8 +191,16 @@ class PlPlayerController with BlockConfigMixin {
         (isBuffering.value && _hasUsableBuffer);
   }
 
-  bool isCurrentVideoSource({required String bvid, required int cid}) =>
-      dataStatus.value == DataStatus.loaded && _bvid == bvid && this.cid == cid;
+  bool isCurrentVideoSource({
+    required String bvid,
+    required int cid,
+    Object? sourceOwner,
+  }) =>
+      _activeSourceGeneration != null &&
+      (sourceOwner == null || isSourceOwnerActive(sourceOwner)) &&
+      dataStatus.value == DataStatus.loaded &&
+      _bvid == bvid &&
+      this.cid == cid;
 
   /// 视频播放速度
   double get playbackSpeed => _playbackSpeed.value;
@@ -645,6 +641,10 @@ class PlPlayerController with BlockConfigMixin {
 
   // 添加一个私有构造函数
   PlPlayerController._() {
+    _sourceCoordinator = PlPlayerSourceCoordinator<Player>(
+      currentPlayer: () => _videoPlayerController,
+      onSourceInvalidated: _handleSourceInvalidated,
+    );
     if (PlatformUtils.isMobile) {
       _orientationListener = NativeDeviceOrientationPlatform.instance
           .onOrientationChanged(
@@ -704,7 +704,10 @@ class PlPlayerController with BlockConfigMixin {
 
   static bool _isAnimPgcType(int? pgcType) => pgcType == 1 || pgcType == 4;
 
-  void resetTempSettings({int? nextPgcType}) {
+  void resetTempSettings({
+    int? nextPgcType,
+    required int sourceGeneration,
+  }) {
     if (!tempPlayerConf) {
       return;
     }
@@ -722,8 +725,12 @@ class PlPlayerController with BlockConfigMixin {
     playRepeat = Pref.playRepeat;
     cacheVideoQa = PlatformUtils.isMobile ? null : Pref.defaultVideoQa;
     cacheAudioQa = Pref.defaultAudioQa;
-    if (_playbackSpeed.value != playSpeedDefault) {
-      unawaited(setPlaybackSpeed(playSpeedDefault));
+    if (_playbackSpeed.value != playSpeedDefault &&
+        _sourceCoordinator.isCurrent(sourceGeneration)) {
+      _publishPlaybackSpeed(
+        speed: playSpeedDefault,
+        previousSpeed: _playbackSpeed.value,
+      );
     }
 
     final defaultSuperResolutionType = _isAnimPgcType(nextPgcType)
@@ -735,8 +742,28 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
-  bool _processing = false;
-  bool get processing => _processing;
+  late final PlPlayerSourceCoordinator<Player> _sourceCoordinator;
+  bool get processing => _sourceCoordinator.processing;
+
+  int? get _activeSourceGeneration {
+    final generation = _sourceCoordinator.activeGeneration;
+    return generation != null && _sourceCoordinator.isActive(generation)
+        ? generation
+        : null;
+  }
+
+  bool isSourceOwnerActive(Object sourceOwner) =>
+      _sourceCoordinator.isOwnerActive(sourceOwner);
+
+  bool _isPlayerOperationCurrent(
+    int generation,
+    Player player, {
+    bool requireActive = false,
+  }) => _sourceCoordinator.isPlayerCurrent(
+    generation,
+    player,
+    requireActive: requireActive,
+  );
 
   // offline
   bool get isFileSource => dataSource is FileSource;
@@ -748,8 +775,9 @@ class PlPlayerController with BlockConfigMixin {
       AudioNormalization.getParamFromConfig(_audioNormalization);
 
   // 初始化资源
-  Future<void> setDataSource(
+  Future<bool> setDataSource(
     DataSource dataSource, {
+    required Object sourceOwner,
     bool isLive = false,
     bool autoplay = true,
     // 初始化播放位置
@@ -773,88 +801,274 @@ class PlPlayerController with BlockConfigMixin {
     VoidCallback? onInit,
     Volume? volume,
     bool autoFullScreenFlag = false,
-  }) async {
-    try {
-      _processing = true;
-      final nextVideoContextKey = PipOverlayService.buildVideoContextKey(
-        videoType: videoType ?? VideoType.ugc,
+  }) {
+    return _sourceCoordinator.openSource(
+      owner: sourceOwner,
+      prepare: (attempt) => _prepareSource(
+        attempt: attempt,
+        dataSource: dataSource,
+        isLive: isLive,
+        autoplay: autoplay,
+        seekTo: seekTo,
+        speed: speed,
+        width: width,
+        height: height,
+        duration: duration,
+        isVertical: isVertical,
+        aid: aid,
         bvid: bvid,
         cid: cid,
-        epId: epid,
+        roomId: roomId,
+        epid: epid,
         seasonId: seasonId,
+        pgcType: pgcType,
+        videoType: videoType,
+        onInit: onInit,
+        volume: volume,
+        autoFullScreenFlag: autoFullScreenFlag,
+        sourceOwner: sourceOwner,
+      ),
+      onError: (err, stackTrace, attempt) {
+        if (attempt.isCurrent) {
+          dataStatus.value = DataStatus.error;
+        }
+        if (kDebugMode) {
+          debugPrint(stackTrace.toString());
+          debugPrint(
+            'PlPlayer source setup failed (${err.runtimeType})',
+          );
+        }
+      },
+    );
+  }
+
+  Future<PlPlayerPreparedSource<Player>?> _prepareSource({
+    required PlPlayerSourceAttempt<Player> attempt,
+    required DataSource dataSource,
+    required bool isLive,
+    required bool autoplay,
+    required Duration? seekTo,
+    required double speed,
+    required int? width,
+    required int? height,
+    required Duration? duration,
+    required bool? isVertical,
+    required int? aid,
+    required String? bvid,
+    required int? cid,
+    required int? roomId,
+    required int? epid,
+    required int? seasonId,
+    required int? pgcType,
+    required VideoType? videoType,
+    required VoidCallback? onInit,
+    required Volume? volume,
+    required bool autoFullScreenFlag,
+    required Object sourceOwner,
+  }) async {
+    bool isCurrent() => attempt.isCurrent;
+    attempt.registerAbort(_abortUncommittedSourcePlayer);
+    if (!isCurrent()) return null;
+    final nextVideoContextKey = PipOverlayService.buildVideoContextKey(
+      videoType: videoType ?? VideoType.ugc,
+      bvid: bvid,
+      cid: cid,
+      epId: epid,
+      seasonId: seasonId,
+    );
+    final shouldResetTempSettings =
+        tempPlayerConf &&
+        _activeVideoContextKey != null &&
+        nextVideoContextKey != null &&
+        nextVideoContextKey != _activeVideoContextKey;
+    if (shouldResetTempSettings) {
+      resetTempSettings(
+        nextPgcType: pgcType,
+        sourceGeneration: attempt.generation,
       );
-      final shouldResetTempSettings =
-          tempPlayerConf &&
-          _activeVideoContextKey != null &&
-          nextVideoContextKey != null &&
-          nextVideoContextKey != _activeVideoContextKey;
-      if (shouldResetTempSettings) {
-        resetTempSettings(nextPgcType: pgcType);
-      }
-      _activeVideoContextKey = nextVideoContextKey;
-      this.isLive = isLive;
-      _videoType = videoType ?? VideoType.ugc;
-      this.width = width;
-      this.height = height;
-      this.dataSource = dataSource;
-      _autoPlay = autoplay;
-      // 初始化视频倍速
-      // _playbackSpeed.value = speed;
-      // 初始化数据加载状态
-      dataStatus.value = DataStatus.loading;
-      // 初始化全屏方向
-      _isVertical = isVertical ?? false;
-      _aid = aid;
-      _bvid = bvid;
-      this.cid = cid;
-      this.roomId = roomId;
-      _epid = epid;
-      _seasonId = seasonId;
-      _pgcType = pgcType;
+      if (!isCurrent()) return null;
+    }
+    _activeVideoContextKey = nextVideoContextKey;
+    this.isLive = isLive;
+    _videoType = videoType ?? VideoType.ugc;
+    this.width = width;
+    this.height = height;
+    this.dataSource = dataSource;
+    _autoPlay = autoplay;
+    // 初始化视频倍速
+    // _playbackSpeed.value = speed;
+    // 初始化数据加载状态
+    dataStatus.value = DataStatus.loading;
+    // 初始化全屏方向
+    _isVertical = isVertical ?? false;
+    _aid = aid;
+    _bvid = bvid;
+    this.cid = cid;
+    this.roomId = roomId;
+    _epid = epid;
+    _seasonId = seasonId;
+    _pgcType = pgcType;
 
-      if (showSeekPreview) {
-        _clearPreview();
-      }
-      cancelLongPressTimer();
-      if (_videoPlayerController != null &&
-          _videoPlayerController!.state.playing) {
-        await pause(notify: false);
-      }
+    if (showSeekPreview) {
+      _clearPreview();
+    }
+    if (_videoPlayerController != null &&
+        _videoPlayerController!.state.playing) {
+      await _pauseForSourceSwitch(attempt);
+      if (!isCurrent()) return null;
+    }
 
-      if (_playerCount == 0) {
-        return;
-      }
-      // 配置Player 音轨、字幕等等
-      await _createVideoController(dataSource, seekTo, volume);
+    if (_playerCount == 0 || !isCurrent()) return null;
+    // 配置Player 音轨、字幕等等
+    final preparedMedia = await _prepareVideoSource(
+      dataSource,
+      seekTo,
+      volume,
+      attempt: attempt,
+    );
+    if (preparedMedia == null) return null;
+    final (:player, :media, :primarySource) = preparedMedia;
 
-      if (_playerCount == 0) {
-        _removeListeners();
-        _videoPlayerController?.dispose();
+    if (_playerCount == 0 || !isCurrent()) {
+      if (_playerCount == 0 && identical(_videoPlayerController, player)) {
         _videoPlayerController = null;
         _videoController = null;
-        return;
+        await player.dispose();
       }
-
-      updateDuration(duration ?? _videoPlayerController!.state.duration);
-      position.value = buffered.value = seekTo?.inSeconds ?? 0;
-
-      dataStatus.value = .loaded;
-
-      if (autoFullScreenFlag && autoEnterFullScreen) {
-        triggerFullScreen(status: true);
-      }
-
-      await _initializePlayer();
-      onInit?.call();
-    } catch (err, stackTrace) {
-      dataStatus.value = DataStatus.error;
-      if (kDebugMode) {
-        debugPrint(stackTrace.toString());
-        debugPrint('plPlayer err:  $err');
-      }
-    } finally {
-      _processing = false;
+      return null;
     }
+
+    final sourceErrorContext = PlPlayerSourceErrorContext(
+      primarySource: primarySource,
+      isFileSource: dataSource is FileSource,
+      isLive: isLive,
+      onlyPlayAudio: onlyPlayAudio.value,
+    );
+    final openingErrors = PlPlayerOpeningErrorAccumulator();
+
+    void captureOpeningError(String event) {
+      openingErrors.add(
+        PlPlayerSourceErrorPolicy.classify(
+          event: event,
+          context: sourceErrorContext,
+          phase: PlPlayerSourceErrorPhase.opening,
+        ),
+        event,
+      );
+    }
+
+    void ensureOpeningSucceeded() {
+      if (openingErrors.hasFatalPrimaryError) {
+        throw StateError('Player reported an error while opening source');
+      }
+    }
+
+    return PlPlayerPreparedSource<Player>(
+      player: player,
+      subscribe: (lease) => _createSourceListeners(
+        player,
+        lease,
+        sourceErrorContext: sourceErrorContext,
+        sourceDataSource: dataSource,
+        onOpeningError: captureOpeningError,
+      ),
+      open: (_) async {
+        await player.open(media, play: false);
+        // media-kit reports some native open failures only through its
+        // asynchronous error stream instead of completing open with an
+        // error. Give queued error delivery a turn before committing.
+        await Future<void>.delayed(Duration.zero);
+        ensureOpeningSucceeded();
+      },
+      didOpen: (lease) {
+        // Close the synchronous handoff between the open-stage check and the
+        // coordinator's active-source commit.
+        ensureOpeningSucceeded();
+        _syncPlayerStateAfterOpen(lease);
+        updateDuration(duration ?? player.state.duration);
+        position.value = buffered.value = seekTo?.inSeconds ?? 0;
+        for (final error in openingErrors.deferredErrors) {
+          if (!lease.isCurrent(
+            _videoPlayerController,
+            requireActive: true,
+          )) {
+            return;
+          }
+          final keepSource = _handleSourceError(
+            error.event,
+            lease,
+            sourceErrorContext,
+            dataSource,
+            disposition: error.action,
+            fromOpening: true,
+          );
+          if (!keepSource) {
+            _sourceCoordinator.invalidate();
+            return;
+          }
+        }
+        if (!lease.isCurrent(
+          _videoPlayerController,
+          requireActive: true,
+        )) {
+          return;
+        }
+        dataStatus.value = .loaded;
+        if (autoFullScreenFlag && autoEnterFullScreen) {
+          triggerFullScreen(status: true);
+        }
+      },
+      initialize: (lease) async {
+        await _initializePlayer(lease);
+        if (lease.isCurrent(_videoPlayerController, requireActive: true) &&
+            isSourceOwnerActive(sourceOwner)) {
+          onInit?.call();
+        }
+      },
+      discard: attempt.abort,
+    );
+  }
+
+  Future<void> _abortUncommittedSourcePlayer() async {
+    final player = _videoPlayerController;
+    _videoPlayerController = null;
+    _videoController = null;
+    if (player != null) {
+      await player.dispose();
+    }
+  }
+
+  void _handleSourceInvalidated() {
+    unawaited(WakelockPlus.disable());
+    _sourceCoordinator.releaseSourceTimer(_timer, cancel: true);
+    _timer = null;
+    volumeTimer?.cancel();
+    volumeTimer = null;
+    volumeIndicator.value = false;
+    volumeInterceptEventStream = false;
+    cancelLongPressTimer();
+    _cancelSubForSeek();
+    _dismissSourceScopedScreenshot();
+  }
+
+  Future<void> _pauseForSourceSwitch(
+    PlPlayerSourceAttempt<Player> attempt,
+  ) async {
+    final player = _videoPlayerController;
+    if (player == null || !player.state.playing) return;
+    final lease = attempt.bind(player);
+
+    await player.pause();
+    unawaited(WakelockPlus.disable());
+    unawaited(audioSessionHandler?.setActive(false));
+    if (!lease.isCurrent(_videoPlayerController)) return;
+
+    playerStatus.value = PlayerStatus.paused;
+    videoPlayerServiceHandler?.onStatusChange(
+      playerStatus.value,
+      isBuffering.value,
+      isLive,
+    );
   }
 
   String? shadersDirPath;
@@ -911,7 +1125,7 @@ class PlPlayerController with BlockConfigMixin {
 
   static final loudnormRegExp = RegExp('loudnorm=([^,]+)');
 
-  Future<Player> _initPlayer() async {
+  Future<(Player, VideoController)> _initPlayer() async {
     assert(_videoPlayerController == null);
     if (PlatformUtils.isMobile && Pref.enableAppVolume) {
       // 移动平台应用内音量模式：初始化系统音量
@@ -945,20 +1159,27 @@ class PlPlayerController with BlockConfigMixin {
 
     assert(_videoController == null);
 
-    _videoController = await VideoController.create(
-      player,
-      configuration: VideoControllerConfiguration(
-        enableHardwareAcceleration: hwdec != null,
-        androidAttachSurfaceAfterVideoParameters: false,
-        hwdec: hwdec,
-      ),
-    );
+    try {
+      final videoController = await VideoController.create(
+        player,
+        configuration: VideoControllerConfiguration(
+          enableHardwareAcceleration: hwdec != null,
+          androidAttachSurfaceAfterVideoParameters: false,
+          hwdec: hwdec,
+        ),
+      );
 
-    player.setMediaHeader(userAgent: BrowserUa.pc, referer: HttpString.baseUrl);
-
-    _startListeners(player);
-
-    return player;
+      player.setMediaHeader(
+        userAgent: BrowserUa.pc,
+        referer: HttpString.baseUrl,
+      );
+      return (player, videoController);
+    } catch (error, stackTrace) {
+      try {
+        await player.dispose();
+      } catch (_) {}
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   Map<String, String>? _buffer;
@@ -968,11 +1189,15 @@ class PlPlayerController with BlockConfigMixin {
   Map<String, String> get liveBuffer => _liveBuffer ??= Pref.initLiveBuffer();
 
   // 配置播放器
-  Future<void> _createVideoController(
+  Future<({Player player, Media media, String primarySource})?>
+  _prepareVideoSource(
     DataSource dataSource,
     Duration? seekTo,
-    Volume? volume,
-  ) async {
+    Volume? volume, {
+    required PlPlayerSourceAttempt<Player> attempt,
+  }) async {
+    bool isCurrent() => attempt.isCurrent;
+    if (!isCurrent()) return null;
     isBuffering.value = false;
     _heartDuration = 0;
 
@@ -981,17 +1206,17 @@ class PlPlayerController with BlockConfigMixin {
     var player = _videoPlayerController;
 
     if (player == null) {
-      player = await _initPlayer();
-      if (_playerCount == 0) {
-        _removeListeners();
-        player.dispose();
-        player = null;
-        _videoController = null;
-        return;
+      final created = await _initPlayer();
+      player = created.$1;
+      if (_playerCount == 0 || !isCurrent()) {
+        await player.dispose();
+        return null;
       }
+      _videoController = created.$2;
       _videoPlayerController = player;
       if (isAnim && superResolutionType.value != .disable) {
         await setShader();
+        if (!isCurrent()) return null;
       }
     }
 
@@ -1038,56 +1263,105 @@ class PlPlayerController with BlockConfigMixin {
       }
     }
 
-    await player.open(
-      Media(video, start: seekTo, extras: extras.isEmpty ? null : extras),
-      play: false,
+    if (!isCurrent()) return null;
+    return (
+      player: player,
+      primarySource: video,
+      media: Media(
+        video,
+        start: seekTo,
+        extras: extras.isEmpty ? null : extras,
+      ),
     );
   }
 
-  Future<void>? refreshPlayer() {
+  void _syncPlayerStateAfterOpen(PlPlayerSourceLease<Player> lease) {
+    final player = lease.player;
+    if (!lease.isCurrent(_videoPlayerController, requireActive: true)) {
+      return;
+    }
+    final state = player.state;
+    position.value = state.position.inSeconds;
+    updateDuration(state.duration);
+    playerStatus.value = state.completed
+        ? PlayerStatus.completed
+        : state.playing
+        ? PlayerStatus.playing
+        : PlayerStatus.paused;
+    unawaited(WakelockPlus.toggle(enable: state.playing));
+    videoPlayerServiceHandler?.onStatusChange(
+      playerStatus.value,
+      isBuffering.value,
+      isLive,
+    );
+  }
+
+  Future<bool> refreshPlayer({int? generation}) {
     if (dataSource is FileSource) {
-      return null;
+      return Future<bool>.value(false);
     }
-    if (_videoPlayerController case final ctr? when (ctr.current.isNotEmpty)) {
-      return ctr.open(
-        ctr.current.last.copyWith(start: ctr.state.position),
-        play: true,
-      );
-    }
-    return null;
+    return _sourceCoordinator.refresh(
+      generation: generation,
+      open: (lease) async {
+        final ctr = lease.player;
+        if (ctr.current.isEmpty) return false;
+        final media = ctr.current.last.copyWith(start: ctr.state.position);
+        await ctr.open(media, play: true);
+        return true;
+      },
+      didOpen: _syncPlayerStateAfterOpen,
+    );
   }
 
   // 开始播放
-  Future<void> _initializePlayer() async {
-    if (_instance == null) return;
+  Future<void> _initializePlayer(
+    PlPlayerSourceLease<Player> sourceLease,
+  ) async {
+    final player = sourceLease.player;
+    bool isCurrent() =>
+        _instance != null &&
+        sourceLease.isCurrent(_videoPlayerController, requireActive: true);
+    if (!isCurrent()) return;
     // 设置倍速
     if (isLive) {
-      await setPlaybackSpeed(1.0);
+      await _setPlaybackSpeedForSource(1.0, sourceLease);
+      if (!isCurrent()) return;
     } else {
-      if (_videoPlayerController?.state.rate != _playbackSpeed.value) {
-        await setPlaybackSpeed(_playbackSpeed.value);
+      if (player.state.rate != _playbackSpeed.value) {
+        await _setPlaybackSpeedForSource(_playbackSpeed.value, sourceLease);
+        if (!isCurrent()) return;
       }
     }
     _initVideoFit();
     await applyOnlyPlayAudioTrack();
+    if (!isCurrent()) return;
     // 自动播放
     if (_autoPlay) {
       playIfExists();
     }
   }
 
-  List<StreamSubscription>? _subscriptions;
   final Set<ValueChanged<Duration>> _positionListeners = {};
   final Set<ValueChanged<Duration>> _seekListeners = {};
   final Set<ValueChanged<PlayerStatus>> _statusListeners = {};
 
   /// 播放事件监听
-  void _startListeners(NativePlayer player) {
-    assert(_subscriptions == null);
+  Iterable<StreamSubscription<dynamic>> _createSourceListeners(
+    Player player,
+    PlPlayerSourceLease<Player> sourceLease, {
+    required PlPlayerSourceErrorContext sourceErrorContext,
+    required DataSource sourceDataSource,
+    void Function(String event)? onOpeningError,
+  }) {
     final stream = player.stream;
-    _subscriptions = [
+    bool isCurrent() => sourceLease.isCurrent(
+      _videoPlayerController,
+      requireActive: true,
+    );
+    return [
       /// playing
       stream.playing.listen((bool playing) {
+        if (!isCurrent()) return;
         WakelockPlus.toggle(enable: playing);
         if (playing) {
           if (_isAutoEnterPip) {
@@ -1113,7 +1387,7 @@ class PlPlayerController with BlockConfigMixin {
           element(playing ? .playing : .paused);
         }
 
-        final seconds = videoPlayerController!.state.position.inSeconds;
+        final seconds = player.state.position.inSeconds;
         if (seconds != 0) {
           makeHeartBeat(seconds, type: .status);
         }
@@ -1121,6 +1395,7 @@ class PlPlayerController with BlockConfigMixin {
 
       ///completed
       stream.completed.listen((bool completed) {
+        if (!isCurrent()) return;
         if (completed) {
           playerStatus.value = .completed;
 
@@ -1134,6 +1409,7 @@ class PlPlayerController with BlockConfigMixin {
 
       /// position
       stream.position.listen((Duration position) {
+        if (!isCurrent()) return;
         final posInSeconds = position.inSeconds;
 
         if (posInSeconds != this.position.value) {
@@ -1150,11 +1426,16 @@ class PlPlayerController with BlockConfigMixin {
           element(position);
         }
       }),
-      stream.duration.listen(updateDuration),
+      stream.duration.listen((duration) {
+        if (!isCurrent()) return;
+        updateDuration(duration);
+      }),
       stream.buffer.listen((Duration buffer) {
+        if (!isCurrent()) return;
         buffered.value = buffer.inSeconds;
       }),
       stream.buffering.listen((bool buffering) {
+        if (!isCurrent()) return;
         isBuffering.value = buffering;
         videoPlayerServiceHandler?.onStatusChange(
           playerStatus.value,
@@ -1164,106 +1445,197 @@ class PlPlayerController with BlockConfigMixin {
       }),
       if (kDebugMode)
         stream.log.listen(((PlayerLog log) {
+          if (!isCurrent()) return;
+          final safePrefix = PlPlayerSourceErrorPolicy.sanitize(log.prefix);
+          final safeText = PlPlayerSourceErrorPolicy.sanitize(log.text);
           if (log.level == 'error' || log.level == 'fatal') {
-            Utils.reportError('${log.level}: ${log.prefix}: ${log.text}', null);
+            Utils.reportError('${log.level}: $safePrefix: $safeText', null);
           } else {
-            debugPrint(log.toString());
+            debugPrint('${log.level}: $safePrefix: $safeText');
           }
         })),
       stream.error.listen((String event) {
-        if (dataSource is FileSource &&
-            event.startsWith("Failed to open file")) {
+        if (!sourceLease.isCurrent(_videoPlayerController)) return;
+        if (!isCurrent()) {
+          onOpeningError?.call(event);
           return;
         }
-        if (_shouldSilenceRecoverableError(event)) {
-          if (kDebugMode) {
-            debugPrint('PlPlayerController: ignore recoverable error: $event');
-          }
-          return;
-        }
-        if (isLive) {
-          if (event.startsWith('tcp: ffurl_read returned ') ||
-              event.startsWith("Failed to open https://") ||
-              event.startsWith("Can not open external file https://")) {
-            Future.delayed(const Duration(milliseconds: 3000), refreshPlayer);
-          }
-          return;
-        }
-        if (event.startsWith("Failed to open https://") ||
-            event.startsWith("Can not open external file https://") ||
-            //tcp: ffurl_read returned 0xdfb9b0bb
-            //tcp: ffurl_read returned 0xffffff99
-            event.startsWith('tcp: ffurl_read returned ')) {
-          EasyThrottle.throttle(
-            'controllerStream.error.listen',
-            const Duration(milliseconds: 10000),
-            () {
-              Future.delayed(const Duration(milliseconds: 3000), () {
-                if (isBuffering.value && buffered.value == 0) {
-                  SmartDialog.showToast(
-                    '视频链接打开失败，重试中',
-                    displayTime: const Duration(milliseconds: 500),
-                  );
-                  refreshPlayer();
-                }
-              });
-            },
-          );
-        } else if (event.startsWith('Could not open codec')) {
-          if (Platform.isAndroid) {
-            try {
-              if (dataSource.onCodecOpenError?.call(event) == true) {
-                return;
-              }
-            } catch (err, stackTrace) {
-              if (kDebugMode) {
-                debugPrint(stackTrace.toString());
-                debugPrint('codec open error handler failed: $err');
-              }
-            }
-          }
-          SmartDialog.showToast('无法加载解码器, $event，可能会切换至软解');
-        } else if (!onlyPlayAudio.value) {
-          if (event.startsWith("error running") ||
-              event.startsWith("Failed to open .") ||
-              event.startsWith("Cannot open") ||
-              event.startsWith("Can not open")) {
-            return;
-          }
-          if (_hasPlaybackProgress && _isTransientNetworkError(event)) {
-            if (kDebugMode) {
-              debugPrint(
-                'PlPlayerController: suppress transient playback error: $event',
-              );
-            }
-            return;
-          }
-          Utils.reportError(event);
-          // SmartDialog.showToast('视频加载错误, $event');
-        }
+        _handleSourceError(
+          event,
+          sourceLease,
+          sourceErrorContext,
+          sourceDataSource,
+        );
       }),
     ];
   }
 
-  /// 移除事件监听
-  void _removeListeners() {
-    _subscriptions?.forEach((e) => e.cancel());
-    _subscriptions?.clear();
-    _subscriptions = null;
+  bool _handleSourceError(
+    String event,
+    PlPlayerSourceLease<Player> sourceLease,
+    PlPlayerSourceErrorContext sourceErrorContext,
+    DataSource sourceDataSource, {
+    PlPlayerSourceErrorAction? disposition,
+    bool fromOpening = false,
+  }) {
+    final resolvedDisposition =
+        disposition ??
+        PlPlayerSourceErrorPolicy.classify(
+          event: event,
+          context: sourceErrorContext,
+          phase: PlPlayerSourceErrorPhase.active,
+          silenceRecoverable: _shouldSilenceRecoverableError(event),
+          hasPlaybackProgress: _hasPlaybackProgress,
+        );
+    final safeEvent = PlPlayerSourceErrorPolicy.sanitize(event);
+    switch (resolvedDisposition) {
+      case PlPlayerSourceErrorAction.ignore:
+        return true;
+      case PlPlayerSourceErrorAction.fatalOpen:
+        Utils.reportError(safeEvent);
+        return false;
+      case PlPlayerSourceErrorAction.retryLive:
+        _sourceCoordinator.scheduleRetry(
+          sourceLease,
+          const Duration(seconds: 3),
+          (lease) async {
+            await _refreshSourceForRetry(
+              lease,
+              fromOpening: fromOpening,
+            );
+          },
+          onError: _reportSourceOperationError,
+        );
+        return true;
+      case PlPlayerSourceErrorAction.retryVod:
+        _sourceCoordinator.scheduleRetry(
+          sourceLease,
+          const Duration(seconds: 3),
+          (lease) async {
+            if (lease.isCurrent(
+                  _videoPlayerController,
+                  requireActive: true,
+                ) &&
+                PlPlayerSourceErrorPolicy.shouldRunVodRetry(
+                  phase: fromOpening
+                      ? PlPlayerSourceErrorPhase.opening
+                      : PlPlayerSourceErrorPhase.active,
+                  isBuffering: isBuffering.value,
+                  bufferedSeconds: buffered.value,
+                )) {
+              SmartDialog.showToast(
+                '视频链接打开失败，重试中',
+                displayTime: const Duration(milliseconds: 500),
+              );
+              await _refreshSourceForRetry(
+                lease,
+                fromOpening: fromOpening,
+              );
+            }
+          },
+          onError: _reportSourceOperationError,
+        );
+        return true;
+      case PlPlayerSourceErrorAction.codecFallback:
+        if (Platform.isAndroid) {
+          try {
+            if (sourceDataSource.onCodecOpenError?.call(safeEvent) == true) {
+              return false;
+            }
+          } catch (err, stackTrace) {
+            if (kDebugMode) {
+              debugPrint(stackTrace.toString());
+              debugPrint(
+                'Codec open error handler failed (${err.runtimeType})',
+              );
+            }
+          }
+        }
+        SmartDialog.showToast(
+          '无法加载解码器, $safeEvent，可能会切换至软解',
+        );
+        return true;
+      case PlPlayerSourceErrorAction.report:
+        Utils.reportError(safeEvent);
+        return true;
+    }
   }
 
+  Future<void> _refreshSourceForRetry(
+    PlPlayerSourceLease<Player> lease, {
+    required bool fromOpening,
+  }) async {
+    var refreshed = false;
+    try {
+      refreshed = await refreshPlayer(generation: lease.generation);
+    } finally {
+      if (fromOpening && !refreshed) {
+        await _failOpeningRetry(lease);
+      }
+    }
+  }
+
+  Future<void> _failOpeningRetry(
+    PlPlayerSourceLease<Player> lease,
+  ) async {
+    if (!lease.isCurrent(
+      _videoPlayerController,
+      requireActive: true,
+    )) {
+      return;
+    }
+    final player = lease.player;
+    if (!identical(_videoPlayerController, player)) return;
+    _videoPlayerController = null;
+    _videoController = null;
+    final failedGeneration = lease.generation + 1;
+    _sourceCoordinator.invalidate();
+    if (_sourceCoordinator.currentGeneration == failedGeneration &&
+        _videoPlayerController == null) {
+      dataStatus.value = DataStatus.error;
+    }
+    try {
+      await player.dispose().timeout(_sourceCoordinator.timeouts.abort);
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint(stackTrace.toString());
+        debugPrint(
+          'PlPlayer opening retry cleanup failed (${error.runtimeType})',
+        );
+      }
+    }
+  }
+
+  void _reportSourceOperationError(Object error, StackTrace stackTrace) {
+    Utils.reportError(
+      PlPlayerSourceErrorPolicy.sanitize(error.toString()),
+      stackTrace,
+    );
+  }
+
+  /// 移除事件监听
   void _cancelSubForSeek() {
     if (_subForSeek != null) {
-      _subForSeek!.cancel();
+      _sourceCoordinator.releaseSourceSubscription(
+        _subForSeek,
+        cancel: true,
+      );
       _subForSeek = null;
     }
   }
 
   /// 跳转至指定位置
   Future<void> seekTo(Duration position, {bool isSeek = true}) async {
-    if (_playerCount == 0) {
+    final generation = _activeSourceGeneration;
+    final player = _videoPlayerController;
+    if (_playerCount == 0 || generation == null || player == null) {
       return;
     }
+    bool isCurrent() => _isPlayerOperationCurrent(
+      generation,
+      player,
+      requireActive: true,
+    );
     if (position < Duration.zero) {
       position = Duration.zero;
     }
@@ -1273,46 +1645,78 @@ class PlPlayerController with BlockConfigMixin {
     _heartDuration = position.inSeconds;
 
     Future<void> seek() async {
-      if (isSeek) {
-        /// 拖动进度条调节时，不等待第一帧，防止抖动
-        await _videoPlayerController?.stream.buffer.first;
-      }
-      danmakuController?.clear();
       try {
-        await _videoPlayerController?.seek(position);
+        if (isSeek) {
+          /// 拖动进度条调节时，不等待第一帧，防止抖动
+          await player.stream.buffer.first;
+        }
+        if (!isCurrent()) return;
+        danmakuController?.clear();
+        await player.seek(position);
       } catch (e) {
         if (kDebugMode) debugPrint('seek failed: $e');
       }
     }
 
     if (duration.value != 0) {
-      seek();
+      await seek();
     } else {
       // if (kDebugMode) debugPrint('seek duration else');
-      _subForSeek?.cancel();
-      _subForSeek = duration.listen((_) {
-        seek();
-        _cancelSubForSeek();
-      });
+      _cancelSubForSeek();
+      _subForSeek = _sourceCoordinator.trackSourceSubscription(
+        duration.listen((_) {
+          if (isCurrent()) {
+            unawaited(seek());
+          }
+          _cancelSubForSeek();
+        }),
+      );
     }
   }
 
   /// 设置倍速
   Future<void> setPlaybackSpeed(double speed) async {
-    lastPlaybackSpeed = playbackSpeed;
+    final generation = _activeSourceGeneration;
+    final player = _videoPlayerController;
+    if (generation == null || player == null) return;
+    await _sourceCoordinator.runActive(
+      generation: generation,
+      operation: (lease) => _setPlaybackSpeedForSource(speed, lease),
+    );
+  }
 
-    if (speed == _videoPlayerController?.state.rate) {
-      return;
-    }
+  Future<bool> _setPlaybackSpeedForSource(
+    double speed,
+    PlPlayerSourceLease<Player> sourceLease,
+  ) async {
+    final player = sourceLease.player;
+    bool isCurrent() => sourceLease.isCurrent(
+      _videoPlayerController,
+      requireActive: true,
+    );
+    if (!isCurrent()) return false;
+    if (speed == player.state.rate) return true;
 
-    await _videoPlayerController?.setRate(speed);
+    final previousSpeed = _playbackSpeed.value;
+    await player.setRate(speed);
+    if (!isCurrent()) return false;
+
+    _publishPlaybackSpeed(speed: speed, previousSpeed: previousSpeed);
+    return true;
+  }
+
+  void _publishPlaybackSpeed({
+    required double speed,
+    required double previousSpeed,
+  }) {
+    lastPlaybackSpeed = previousSpeed;
     _playbackSpeed.value = speed;
     if (danmakuController != null) {
       try {
         DanmakuOption currentOption = danmakuController!.option;
-        double defaultDuration = currentOption.duration * lastPlaybackSpeed;
+        double defaultDuration = currentOption.duration * previousSpeed;
         double defaultStaticDuration =
-            currentOption.staticDuration * lastPlaybackSpeed;
+            currentOption.staticDuration * previousSpeed;
         DanmakuOption updatedOption = currentOption.copyWith(
           duration: defaultDuration / speed,
           staticDuration: defaultStaticDuration / speed,
@@ -1325,8 +1729,7 @@ class PlPlayerController with BlockConfigMixin {
   // 还原默认速度
   double playSpeedDefault = Pref.playSpeedDefault;
   Future<void> setDefaultSpeed() async {
-    await _videoPlayerController?.setRate(playSpeedDefault);
-    _playbackSpeed.value = playSpeedDefault;
+    await setPlaybackSpeed(playSpeedDefault);
   }
 
   bool _showControlsOnNextPlay = false;
@@ -1345,17 +1748,26 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 播放视频
   Future<void> play({bool repeat = false, bool hideControls = true}) async {
-    if (_playerCount == 0) return;
+    final generation = _activeSourceGeneration;
+    final player = _videoPlayerController;
+    if (_playerCount == 0 || generation == null || player == null) return;
+    bool isCurrent() => _isPlayerOperationCurrent(
+      generation,
+      player,
+      requireActive: true,
+    );
     // 播放时自动隐藏控制条
     final showControlsOnNextPlay = _consumeShowControlsOnNextPlay();
-    controls = !hideControls || showControlsOnNextPlay;
     // repeat为true，将从头播放
     if (repeat) {
       await seekTo(Duration.zero, isSeek: false);
+      if (!isCurrent()) return;
     }
 
-    await _videoPlayerController?.play();
+    await player.play();
+    if (!isCurrent()) return;
 
+    controls = !hideControls || showControlsOnNextPlay;
     audioSessionHandler?.setActive(true);
 
     playerStatus.value = PlayerStatus.playing;
@@ -1364,7 +1776,14 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 暂停播放
   Future<void> pause({bool notify = true, bool isInterrupt = false}) async {
-    await _videoPlayerController?.pause();
+    final player = _videoPlayerController;
+    if (player == null) return;
+    final lease = _sourceCoordinator.currentLease(player);
+    if (lease == null) return;
+
+    await player.pause();
+    unawaited(WakelockPlus.disable());
+    if (!lease.isCurrent(_videoPlayerController)) return;
     playerStatus.value = PlayerStatus.paused;
 
     // 主动暂停时让出音频焦点
@@ -1377,13 +1796,18 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 隐藏控制条
   void hideTaskControls() {
-    _timer?.cancel();
-    _timer = Timer(showControlDuration, () {
+    _sourceCoordinator.releaseSourceTimer(_timer, cancel: true);
+    late final Timer timer;
+    timer = Timer(showControlDuration, () {
       if (!isSeeking.value && !tripling) {
         controls = false;
       }
-      _timer = null;
+      _sourceCoordinator.releaseSourceTimer(timer);
+      if (identical(_timer, timer)) {
+        _timer = null;
+      }
     });
+    _timer = _sourceCoordinator.trackSourceTimer(timer);
   }
 
   void onSeekEnd() {
@@ -1399,7 +1823,16 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   final RxBool volumeIndicator = false.obs;
-  Timer? volumeTimer;
+  Timer? _volumeTimer;
+  Timer? get volumeTimer => _volumeTimer;
+  set volumeTimer(Timer? value) {
+    _sourceCoordinator.releaseSourceTimer(_volumeTimer);
+    _volumeTimer = value;
+    if (value != null) {
+      _sourceCoordinator.trackSourceTimer(value);
+    }
+  }
+
   bool volumeInterceptEventStream = false;
 
   double get maxVolume => PlatformUtils.isDesktop
@@ -1573,13 +2006,23 @@ class PlPlayerController with BlockConfigMixin {
 
   set controls(bool visible) {
     showControls.value = visible;
-    _timer?.cancel();
+    _sourceCoordinator.releaseSourceTimer(_timer, cancel: true);
+    _timer = null;
     if (visible) {
       hideTaskControls();
     }
   }
 
-  Timer? longPressTimer;
+  Timer? _longPressTimer;
+  Timer? get longPressTimer => _longPressTimer;
+  set longPressTimer(Timer? value) {
+    _sourceCoordinator.releaseSourceTimer(_longPressTimer);
+    _longPressTimer = value;
+    if (value != null) {
+      _sourceCoordinator.trackSourceTimer(value);
+    }
+  }
+
   void cancelLongPressTimer() {
     longPressTimer?.cancel();
     longPressTimer = null;
@@ -1900,6 +2343,7 @@ class PlPlayerController with BlockConfigMixin {
     }
 
     _playerCount = 0;
+    _sourceCoordinator.dispose();
     if (removeSafeArea) {
       showSystemBar();
     }
@@ -1915,7 +2359,6 @@ class PlPlayerController with BlockConfigMixin {
       AndroidHelper$ToDart.onUserLeaveHint?.release();
       AndroidHelper$ToDart.onUserLeaveHint = null;
     }
-    _timer?.cancel();
     // _position.close();
     // _playerEventSubs?.cancel();
     // _sliderPosition.close();
@@ -1933,7 +2376,6 @@ class PlPlayerController with BlockConfigMixin {
       windowManager.setAlwaysOnTop(false);
     }
 
-    _removeListeners();
     _positionListeners.clear();
     _seekListeners.clear();
     _statusListeners.clear();
@@ -1943,9 +2385,24 @@ class PlPlayerController with BlockConfigMixin {
     if (kDebugMode) {
       debugPrint('dispose player');
     }
-    _videoPlayerController?.dispose();
+    final player = _videoPlayerController;
     _videoPlayerController = null;
     _videoController = null;
+    if (player != null) {
+      unawaited(
+        Future<void>.sync(player.dispose).then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stackTrace) {
+            if (kDebugMode) {
+              debugPrint(stackTrace.toString());
+              debugPrint(
+                'PlPlayer final dispose failed (${error.runtimeType})',
+              );
+            }
+          },
+        ),
+      );
+    }
     _activeVideoContextKey = null;
     _instance = null;
     videoPlayerServiceHandler?.clear();
@@ -1988,10 +2445,17 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   late final Map<String, ui.Image?> previewCache = {};
+  final PreviewRequestEpoch _previewRequestEpoch = PreviewRequestEpoch();
   LoadingState<VideoShotData>? videoShot;
   late final RxBool showPreview = false.obs;
   late final showSeekPreview = Pref.showSeekPreview;
   late final previewIndex = RxnInt();
+
+  PreviewRequestToken capturePreviewRequest(String url) =>
+      _previewRequestEpoch.capture(url);
+
+  bool isPreviewRequestCurrent(PreviewRequestToken token) =>
+      _previewRequestEpoch.isCurrent(token);
 
   void updatePreviewIndex(int seconds) {
     if (videoShot == null) {
@@ -2009,6 +2473,7 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _clearPreview() {
+    _previewRequestEpoch.invalidate();
     showPreview.value = false;
     previewIndex.value = null;
     videoShot = null;
@@ -2019,57 +2484,125 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   Future<void> getVideoShot() async {
-    videoShot = await VideoHttp.videoshot(bvid: bvid, cid: cid!);
+    final generation = _activeSourceGeneration;
+    final sourceBvid = _bvid;
+    final sourceCid = cid;
+    if (generation == null || sourceBvid == null || sourceCid == null) {
+      videoShot = null;
+      return;
+    }
+
+    final result = await VideoHttp.videoshot(
+      bvid: sourceBvid,
+      cid: sourceCid,
+    );
+    if (_sourceCoordinator.isActive(generation) &&
+        _bvid == sourceBvid &&
+        cid == sourceCid) {
+      videoShot = result;
+    }
+  }
+
+  BuildContext? _screenshotDialogContext;
+  int? _screenshotDialogGeneration;
+
+  void _dismissSourceScopedScreenshot() {
+    final context = _screenshotDialogContext;
+    _screenshotDialogContext = null;
+    _screenshotDialogGeneration = null;
+    if (context != null && context.mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> takeScreenshot() async {
+    final generation = _activeSourceGeneration;
+    final player = videoPlayerController;
+    final sourceCid = cid;
+    if (generation == null || player == null) {
+      SmartDialog.showToast('截图失败');
+      return;
+    }
+    _dismissSourceScopedScreenshot();
     SmartDialog.showToast('截图中');
     final time = DurationUtils.formatDuration(
       positionInMilliseconds / 1000,
     ).replaceAll(':', '-');
-    final image = await videoPlayerController?.screenshot();
+    final image = await player.screenshot();
+    if (!_sourceCoordinator.isActive(generation) ||
+        !identical(videoPlayerController, player)) {
+      image?.dispose();
+      return;
+    }
     if (image != null) {
       SmartDialog.showToast('点击弹窗保存截图');
-      showDialog(
-        context: Get.context!,
-        builder: (context) => GestureDetector(
-          onTap: () async {
-            final bytes = await image.toByteData(
-              format: ui.ImageByteFormat.png,
-            );
-            if (bytes != null) {
-              ImageUtils.saveByteImg(
-                bytes: bytes.buffer.asUint8List(),
-                fileName: 'screenshot_${cid}_$time',
-              );
+      final rootContext = Get.context;
+      if (rootContext == null || !rootContext.mounted) {
+        image.dispose();
+        return;
+      }
+      try {
+        await showDialog<void>(
+          context: rootContext,
+          builder: (context) {
+            if (!_sourceCoordinator.isActive(generation)) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              });
+              return const SizedBox.shrink();
             }
-            Get.back();
-          },
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: min(MediaQuery.widthOf(context) / 3, 350),
-                ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      width: 5,
-                      color: ColorScheme.of(context).surface,
+            _screenshotDialogContext = context;
+            _screenshotDialogGeneration = generation;
+            return GestureDetector(
+              onTap: () async {
+                final bytes = await image.toByteData(
+                  format: ui.ImageByteFormat.png,
+                );
+                if (bytes != null && _sourceCoordinator.isActive(generation)) {
+                  ImageUtils.saveByteImg(
+                    bytes: bytes.buffer.asUint8List(),
+                    fileName: 'screenshot_${sourceCid}_$time',
+                  );
+                }
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: min(MediaQuery.widthOf(context) / 3, 350),
                     ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(5),
-                    child: RawImage(image: image),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          width: 5,
+                          color: ColorScheme.of(context).surface,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(5),
+                        child: RawImage(image: image),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        ),
-      ).whenComplete(image.dispose);
+            );
+          },
+        );
+      } finally {
+        if (_screenshotDialogGeneration == generation) {
+          _screenshotDialogContext = null;
+          _screenshotDialogGeneration = null;
+        }
+        image.dispose();
+      }
     } else {
       SmartDialog.showToast('截图失败');
     }

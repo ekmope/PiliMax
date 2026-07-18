@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:PiliMax/common/widgets/appbar/appbar.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
@@ -13,7 +11,6 @@ import 'package:PiliMax/pages/download/detail/widgets/item.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/storage.dart';
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart'
     hide SliverGridDelegateWithMaxCrossAxisExtent;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -37,10 +34,10 @@ class DownloadDetailPage extends StatefulWidget {
 
 class _DownloadDetailPageState extends State<DownloadDetailPage>
     with BaseMultiSelectMixin<BiliDownloadEntryInfo>, GridMixin {
-  StreamSubscription? _sub;
   final _downloadItems = RxList<BiliDownloadEntryInfo>();
   final _controller = Get.find<DownloadPageController>();
   final _downloadService = Get.find<DownloadService>();
+  bool _isListening = false;
   @override
   RxList<BiliDownloadEntryInfo> get list => _downloadItems;
   @override
@@ -50,35 +47,28 @@ class _DownloadDetailPageState extends State<DownloadDetailPage>
   void initState() {
     super.initState();
     _loadList();
-    _sub = _controller.flag.listen((_) {
-      _loadList();
-    });
+    _controller.collectionService.flagNotifier.add(_loadList);
+    _isListening = true;
   }
 
-  Future<void> _closeSub() async {
-    if (_sub != null) {
-      await _sub?.cancel();
-      _sub = null;
+  void _stopListening() {
+    if (!_isListening) {
+      return;
     }
+    _controller.collectionService.flagNotifier.remove(_loadList);
+    _isListening = false;
   }
 
   @override
   void dispose() {
-    _closeSub();
+    _stopListening();
     super.dispose();
   }
 
   void _loadList() {
-    final list =
-        _controller.pages
-            .firstWhereOrNull((e) => e.pageId == widget.pageId)
-            ?.entries
-          ?..sort((a, b) => a.sortKey.compareTo(b.sortKey));
-    if (list != null) {
-      _downloadItems.value = list;
-    } else {
-      _downloadItems.clear();
-    }
+    final list = _controller.resolveFolderEntries(widget.pageId)
+      ..sort((a, b) => a.sortKey.compareTo(b.sortKey));
+    _downloadItems.value = list;
   }
 
   @override
@@ -159,7 +149,7 @@ class _DownloadDetailPageState extends State<DownloadDetailPage>
                           showTitle: false,
                           onDelete: () async {
                             if (_downloadItems.length == 1) {
-                              await _closeSub();
+                              _stopListening();
                               await _downloadService.deletePage(
                                 pageDirPath: entry.pageDirPath,
                               );
@@ -199,8 +189,10 @@ class _DownloadDetailPageState extends State<DownloadDetailPage>
         SmartDialog.showLoading();
         final allChecked = this.allChecked.toList();
         final isDeleteAll = allChecked.length == _downloadItems.length;
+        if (isDeleteAll) {
+          _stopListening();
+        }
         await Future.wait([
-          if (isDeleteAll) _closeSub(),
           GStorage.watchProgress.deleteAll(
             allChecked.map((e) => e.cid.toString()),
           ),

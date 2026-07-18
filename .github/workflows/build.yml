@@ -78,22 +78,70 @@ jobs:
                   flutter-version-file: pubspec.yaml
                   cache: true
 
+            - name: Validate setting defaults
+              run: dart tool/check_setting_bool_defaults.dart
+
             - name: Apply Patch
               shell: pwsh
               run: lib/scripts/patch.ps1 android
 
             - name: Write key
               if: github.event_name == 'workflow_dispatch'
+              shell: bash
+              env:
+                  SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
+                  KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+                  KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+                  KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
               run: |
-                  if [ -z "${{ secrets.SIGN_KEYSTORE_BASE64 }}" ] || [ -z "${{ secrets.KEYSTORE_PASSWORD }}" ] || [ -z "${{ secrets.KEY_ALIAS }}" ] || [ -z "${{ secrets.KEY_PASSWORD }}" ]; then
+                  set -euo pipefail
+                  if [ -z "$SIGN_KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
                     echo "::error::Missing Android signing secrets. Configure SIGN_KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD in GitHub repository secrets."
                     exit 1
                   fi
-                  echo "${{ secrets.SIGN_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
-                  echo storeFile='key.jks' >> android/key.properties
-                  echo storePassword='${{ secrets.KEYSTORE_PASSWORD }}' >> android/key.properties
-                  echo keyAlias='${{ secrets.KEY_ALIAS }}' >> android/key.properties
-                  echo keyPassword='${{ secrets.KEY_PASSWORD }}' >> android/key.properties
+                  printf '%s' "$SIGN_KEYSTORE_BASE64" | base64 --decode > android/app/key.jks
+                  python3 - <<'PY'
+                  import os
+                  from pathlib import Path
+
+                  def escape_property(value: str) -> str:
+                      escaped = []
+                      for char in value:
+                          code = ord(char)
+                          if char == '\\':
+                              escaped.append('\\\\')
+                          elif char == '\t':
+                              escaped.append('\\t')
+                          elif char == '\n':
+                              escaped.append('\\n')
+                          elif char == '\r':
+                              escaped.append('\\r')
+                          elif char == '\f':
+                              escaped.append('\\f')
+                          elif char in ' =:#!':
+                              escaped.append('\\' + char)
+                          elif 0x20 <= code <= 0x7e:
+                              escaped.append(char)
+                          elif code <= 0xffff:
+                              escaped.append(f'\\u{code:04x}')
+                          else:
+                              code -= 0x10000
+                              escaped.append(f'\\u{0xd800 + (code >> 10):04x}')
+                              escaped.append(f'\\u{0xdc00 + (code & 0x3ff):04x}')
+                      return ''.join(escaped)
+
+                  properties = {
+                      'storeFile': 'key.jks',
+                      'storePassword': os.environ['KEYSTORE_PASSWORD'],
+                      'keyAlias': os.environ['KEY_ALIAS'],
+                      'keyPassword': os.environ['KEY_PASSWORD'],
+                  }
+                  content = ''.join(
+                      f'{key}={escape_property(value)}\n'
+                      for key, value in properties.items()
+                  )
+                  Path('android/key.properties').write_text(content, encoding='ascii')
+                  PY
 
             - name: Set and Extract version
               if: ${{ github.event_name == 'workflow_dispatch' }}

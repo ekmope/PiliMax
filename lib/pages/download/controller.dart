@@ -7,7 +7,6 @@ import 'package:PiliMax/pages/download/utils/cache_delete_confirm.dart';
 import 'package:PiliMax/services/download/download_collection_service.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/storage.dart';
-import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart' show Text;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

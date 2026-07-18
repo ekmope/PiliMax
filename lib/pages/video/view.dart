@@ -13,7 +13,6 @@ import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliMax/common/widgets/route_aware_mixin.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
-import 'package:PiliMax/common/widgets/sliver/sliver_pinned_dynamic_header.dart';
 import 'package:PiliMax/common/widgets/sliver/video_header.dart';
 import 'package:PiliMax/common/widgets/svg/play_icon.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
@@ -67,7 +66,6 @@ import 'package:PiliMax/services/shutdown_timer_service.dart'
     show shutdownTimerService;
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/android/bindings.g.dart';
-import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/image_utils.dart';
@@ -160,9 +158,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   Animation<double>? _pendingPipRouteAnimation;
   AnimationStatusListener? _pendingPipRouteListener;
   VoidCallback? _pendingPipStart;
-
-  // 标志位：是否刚从 PiP 返回（用于触发 UI 重建）
-  bool _justReturnedFromPip = false;
 
   // 从 PiP 恢复时提前取出的 additional controllers（在 stopPip 清空前保存）
   dynamic _savedIntroControllerFromPip;
@@ -518,7 +513,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     _videoArgs[videoDetailExitVisualProviderKey] = _exitVisualProvider;
 
     if (_fromPip) {
-      _justReturnedFromPip = true;
       _allowPlayerMount = true;
       _initialHeroTransitionCompleted = true;
       _initialVideoSourceReady = true;
@@ -557,9 +551,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
       // 立即调用 setState 触发 build
       if (mounted) {
-        setState(() {
-          _justReturnedFromPip = false;
-        });
+        setState(() {});
       }
 
       // 然后在下一帧刷新所有 observable
@@ -570,7 +562,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
         videoDetailController.videoState.value = true;
         videoDetailController.videoState.refresh();
-        if (wasPlaying && !plPlayerController!.playerStatus.isPlaying) {
+        if (wasPlaying &&
+            videoDetailController.isCurrentPlayerSource &&
+            !plPlayerController!.playerStatus.isPlaying) {
           plPlayerController!.play();
         }
         videoDetailController.cid.refresh();
@@ -793,11 +787,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   }
 
   void positionListener(Duration position) {
-    final plPlayerController = videoDetailController.plPlayerController;
-    if (!plPlayerController.isCurrentVideoSource(
-      bvid: videoDetailController.bvid,
-      cid: videoDetailController.cid.value,
-    )) {
+    if (!videoDetailController.isCurrentPlayerSource) {
       return;
     }
     videoDetailController.playedTime = position;
@@ -2747,14 +2737,16 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                                         tapTargetSize:
                                             MaterialTapTargetSize.shrinkWrap,
                                       ),
-                                      onPressed: () {
-                                        ugcIntroController.onChangeEpisode(
-                                          item,
-                                          isStein: true,
-                                        );
-                                        videoDetailController.getSteinEdgeInfo(
-                                          item.id,
-                                        );
+                                      onPressed: () async {
+                                        final changed = await ugcIntroController
+                                            .onChangeEpisode(
+                                              item,
+                                              isStein: true,
+                                            );
+                                        if (changed) {
+                                          await videoDetailController
+                                              .getSteinEdgeInfo(item.id);
+                                        }
                                       },
                                       child: Text(item.option!),
                                     );

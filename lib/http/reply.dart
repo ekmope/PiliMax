@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/init.dart';
@@ -17,6 +19,79 @@ abstract final class ReplyHttp {
     headers: {...Constants.baseHeaders, 'cookie': ''},
     extra: {'account': const NoAccount()},
   );
+
+  static Future<LoadingState<ReplyData>> antifraudMainPage({
+    required Account account,
+    required int oid,
+    required int type,
+    required String nextOffset,
+    int? seekRpid,
+  }) async {
+    final res = await Request().get(
+      '${Api.replyList}/main',
+      queryParameters: {
+        'oid': oid,
+        'type': type,
+        'pagination_str': jsonEncode({'offset': nextOffset}),
+        'mode': 2,
+        'seek_rpid': ?seekRpid,
+      },
+      options: Options(extra: {'account': account}),
+    );
+    return _decodeResponse(res, ReplyData.fromJson, '评论主列表');
+  }
+
+  static Future<LoadingState<ReplyReplyData>> antifraudReplyDetail({
+    required Account account,
+    required int oid,
+    required int type,
+    required int root,
+  }) async {
+    final res = await Request().get(
+      Api.replyReplyList,
+      queryParameters: {
+        'oid': oid,
+        'root': root,
+        'pn': 1,
+        'ps': 20,
+        'type': type,
+        'sort': 0,
+        if (account.isLogin) 'csrf': account.csrf,
+      },
+      options: Options(extra: {'account': account}),
+    );
+    return _decodeResponse(res, ReplyReplyData.fromJson, '评论详情');
+  }
+
+  static LoadingState<T> _decodeResponse<T>(
+    Response response,
+    T Function(Map<String, dynamic> json) decode,
+    String operation,
+  ) {
+    final raw = response.data;
+    if (raw is! Map) {
+      return Error('$operation响应格式异常', code: response.statusCode);
+    }
+    final map = Map<String, dynamic>.from(raw);
+    final rawCode = map['code'];
+    final code = rawCode is int
+        ? rawCode
+        : rawCode is num
+        ? rawCode.toInt()
+        : int.tryParse(rawCode?.toString() ?? '');
+    if (code != 0) {
+      return Error(map['message']?.toString() ?? '$operation失败', code: code);
+    }
+    final data = map['data'];
+    if (data is! Map) {
+      return Error('$operation响应缺少数据', code: code);
+    }
+    try {
+      return Success(decode(Map<String, dynamic>.from(data)));
+    } catch (e) {
+      return Error('$operation响应解析失败：${e.runtimeType}', code: code);
+    }
+  }
 
   static Future<LoadingState<ReplyData>> replyList({
     required bool isLogin,

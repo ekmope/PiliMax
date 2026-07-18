@@ -15,6 +15,7 @@
  * along with PiliMax.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+import 'dart:async';
 import 'dart:math';
 
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
@@ -551,6 +552,7 @@ class RichTextEditingController extends TextEditingController {
     if (items != null && items.isNotEmpty) {
       this.items.addAll(items);
     }
+    _history.add(_snapshot(value));
   }
 
   final VoidCallback? onMention;
@@ -558,6 +560,146 @@ class RichTextEditingController extends TextEditingController {
   TextSelection newSelection = const TextSelection.collapsed(offset: 0);
 
   final List<RichTextItem> items = <RichTextItem>[];
+
+  static const _historyThrottleDuration = Duration(milliseconds: 500);
+  static const _maxHistoryEntries = 100;
+
+  final List<_RichTextEditingSnapshot> _history = <_RichTextEditingSnapshot>[];
+  int _historyIndex = 0;
+  Timer? _historyTimer;
+  TextEditingValue? _pendingHistoryValue;
+  bool _structuredEditPending = false;
+  bool _restoringHistory = false;
+
+  @override
+  set value(TextEditingValue newValue) {
+    final oldValue = value;
+    super.value = newValue;
+    if (_restoringHistory) {
+      return;
+    }
+
+    final shouldRecord =
+        oldValue.text != newValue.text || _structuredEditPending;
+    _structuredEditPending = false;
+    if (shouldRecord) {
+      _scheduleHistorySnapshot(newValue);
+      return;
+    }
+
+    // TextEditingController starts with an invalid selection. Keep the initial
+    // history entry useful once the field receives focus without turning every
+    // caret move into an undo step.
+    if (_history.length == 1 &&
+        !_history.first.value.selection.isValid &&
+        newValue.selection.isValid &&
+        _history.first.value.text == newValue.text) {
+      _history[0] = _snapshot(newValue);
+    }
+  }
+
+  void _scheduleHistorySnapshot(TextEditingValue newValue) {
+    _pendingHistoryValue = newValue;
+    if (_historyTimer?.isActive ?? false) {
+      return;
+    }
+    _historyTimer = Timer(_historyThrottleDuration, _commitPendingHistory);
+  }
+
+  _RichTextEditingSnapshot _snapshot(TextEditingValue editingValue) {
+    return _RichTextEditingSnapshot(
+      value: editingValue.copyWith(composing: TextRange.empty),
+      items: _copyItems(items),
+    );
+  }
+
+  static List<RichTextItem> _copyItems(Iterable<RichTextItem> source) {
+    return source
+        .map((item) {
+          final emote = item.emote;
+          return RichTextItem(
+            type: item.type,
+            text: item.text,
+            rawText: item._rawText,
+            range: item.range,
+            emote: emote == null
+                ? null
+                : Emote(
+                    url: emote.url,
+                    width: emote.width,
+                    height: emote.height,
+                  ),
+            id: item.id,
+          );
+        })
+        .toList(growable: true);
+  }
+
+  bool undoRichEdit() {
+    if (_pendingHistoryValue != null) {
+      _commitPendingHistory();
+    }
+    if (_historyIndex == 0) {
+      return false;
+    }
+    return _restoreHistoryEntry(_historyIndex - 1);
+  }
+
+  bool redoRichEdit() {
+    if (_pendingHistoryValue != null) {
+      _commitPendingHistory();
+    }
+    if (_historyIndex >= _history.length - 1) {
+      return false;
+    }
+    return _restoreHistoryEntry(_historyIndex + 1);
+  }
+
+  void _commitPendingHistory() {
+    final pendingValue = _pendingHistoryValue;
+    _historyTimer?.cancel();
+    _historyTimer = null;
+    _pendingHistoryValue = null;
+    _structuredEditPending = false;
+    if (pendingValue == null) {
+      return;
+    }
+    if (_historyIndex < _history.length - 1) {
+      _history.removeRange(_historyIndex + 1, _history.length);
+    }
+    final next = _snapshot(value);
+    if (_history[_historyIndex].hasSameState(next)) {
+      return;
+    }
+    _history.add(next);
+    if (_history.length > _maxHistoryEntries) {
+      final overflow = _history.length - _maxHistoryEntries;
+      _history.removeRange(0, overflow);
+    }
+    _historyIndex = _history.length - 1;
+  }
+
+  bool _restoreHistoryEntry(int index) {
+    final snapshot = _history[index];
+    final changed =
+        value != snapshot.value ||
+        !_RichTextEditingSnapshot.sameItems(items, snapshot.items);
+    if (!changed) {
+      return false;
+    }
+    _historyIndex = index;
+    _restoringHistory = true;
+    try {
+      items
+        ..clear()
+        ..addAll(_copyItems(snapshot.items));
+      newSelection = snapshot.value.selection;
+      super.value = snapshot.value;
+    } finally {
+      _restoringHistory = false;
+    }
+    return true;
+  }
 
   String get plainText {
     if (items.isEmpty) {
@@ -585,7 +727,350 @@ class RichTextEditingController extends TextEditingController {
     return buffer.toString();
   }
 
+  /// Reconciles an edit produced by Flutter's public [TextField].
+  ///
+  /// The old forked EditableText exposed framework text deltas directly. The
+  /// public widget API only exposes the value before and after formatting, so
+  /// derive the equivalent delta here and keep rich items authoritative.
+  TextEditingValue reconcileUserEdit(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (oldValue == newValue) {
+      return newValue;
+    }
+    final edits = _editsAroundPreservedRichItems(oldValue.text, newValue.text);
+    if (edits == null) {
+      syncRichText(_deltaBetween(oldValue, newValue));
+    } else {
+      var workingValue = oldValue;
+      for (var index = edits.length - 1; index >= 0; index--) {
+        final edit = edits[index];
+        final isFinalEdit = index == 0;
+        final resultLength =
+            workingValue.text.length -
+            (edit.oldRange.end - edit.oldRange.start) +
+            edit.text.length;
+        final selection = isFinalEdit
+            ? newValue.selection
+            : TextSelection.collapsed(
+                offset: (edit.oldRange.start + edit.text.length)
+                    .clamp(
+                      0,
+                      resultLength,
+                    )
+                    .toInt(),
+              );
+        final composing = isFinalEdit ? newValue.composing : TextRange.empty;
+        final insertsComposingText =
+            newValue.composing.isValid &&
+            edit.newRange.start < newValue.composing.end &&
+            edit.newRange.end > newValue.composing.start;
+        final delta = _deltaForEdit(
+          oldValue: workingValue,
+          edit: edit,
+          selection: selection,
+          composing: composing,
+          insertedType: insertsComposingText
+              ? RichTextType.composing
+              : RichTextType.text,
+        );
+        syncRichText(delta);
+        workingValue = delta.apply(workingValue);
+      }
+      assert(workingValue.text == newValue.text);
+    }
+    if (!newValue.composing.isValid) {
+      _finishComposingItems();
+    }
+    return _canonicalValue(newValue);
+  }
+
+  void _finishComposingItems() {
+    var changed = false;
+    for (final item in items) {
+      if (item.type == RichTextType.composing) {
+        item.type = RichTextType.text;
+        changed = true;
+      }
+    }
+    if (changed) {
+      _structuredEditPending = true;
+    }
+  }
+
+  /// Applies a programmatic rich edit while preserving atomic rich nodes.
+  void applyRichDelta(TextEditingDelta delta) {
+    final candidate = delta.apply(value);
+    syncRichText(delta);
+    value = _canonicalValue(candidate);
+  }
+
+  TextEditingDelta _deltaBetween(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (oldValue.text == newValue.text) {
+      return TextEditingDeltaNonTextUpdate(
+        oldText: oldValue.text,
+        selection: newValue.selection,
+        composing: newValue.composing,
+      );
+    }
+
+    final oldText = oldValue.text;
+    final newText = newValue.text;
+    var start = 0;
+    final shortestLength = min(oldText.length, newText.length);
+    while (start < shortestLength &&
+        oldText.codeUnitAt(start) == newText.codeUnitAt(start)) {
+      start += 1;
+    }
+
+    var oldEnd = oldText.length;
+    var newEnd = newText.length;
+    while (oldEnd > start &&
+        newEnd > start &&
+        oldText.codeUnitAt(oldEnd - 1) == newText.codeUnitAt(newEnd - 1)) {
+      oldEnd -= 1;
+      newEnd -= 1;
+    }
+
+    return _deltaForEdit(
+      oldValue: oldValue,
+      edit: _RichTextPlainEdit(
+        oldRange: TextRange(start: start, end: oldEnd),
+        newRange: TextRange(start: start, end: newEnd),
+        text: newText.substring(start, newEnd),
+      ),
+      selection: newValue.selection,
+      composing: newValue.composing,
+    );
+  }
+
+  TextEditingDelta _deltaForEdit({
+    required TextEditingValue oldValue,
+    required _RichTextPlainEdit edit,
+    required TextSelection selection,
+    required TextRange composing,
+    RichTextType? insertedType,
+  }) {
+    if (edit.oldRange.isCollapsed) {
+      return RichTextEditingDeltaInsertion(
+        oldText: oldValue.text,
+        textInserted: edit.text,
+        insertionOffset: edit.oldRange.start,
+        selection: selection,
+        composing: composing,
+        type: insertedType,
+      );
+    }
+    if (edit.text.isEmpty) {
+      return TextEditingDeltaDeletion(
+        oldText: oldValue.text,
+        deletedRange: edit.oldRange,
+        selection: selection,
+        composing: composing,
+      );
+    }
+    return RichTextEditingDeltaReplacement(
+      oldText: oldValue.text,
+      replacementText: edit.text,
+      replacedRange: edit.oldRange,
+      selection: selection,
+      composing: composing,
+      type: insertedType,
+    );
+  }
+
+  /// Returns multiple disjoint plain-text edits when an unchanged rich node
+  /// can safely anchor the text between them. A single broad replacement would
+  /// otherwise erase that node's metadata.
+  List<_RichTextPlainEdit>? _editsAroundPreservedRichItems(
+    String oldText,
+    String newText,
+  ) {
+    final anchors = <_PreservedRichAnchor>[];
+    for (final item in items) {
+      final range = item.range;
+      if (!item.isRich ||
+          item.text.isEmpty ||
+          range.start < 0 ||
+          range.end > oldText.length ||
+          oldText.substring(range.start, range.end) != item.text) {
+        continue;
+      }
+      final mappedStart = _mapRichItemStart(
+        oldText: oldText,
+        newText: newText,
+        item: item,
+      );
+      if (mappedStart == null) {
+        continue;
+      }
+      anchors.add(
+        _PreservedRichAnchor(
+          oldRange: range,
+          newRange: TextRange(
+            start: mappedStart,
+            end: mappedStart + item.text.length,
+          ),
+        ),
+      );
+    }
+    if (anchors.isEmpty) {
+      return null;
+    }
+    anchors.sort((left, right) => left.oldRange.start - right.oldRange.start);
+
+    final orderedAnchors = <_PreservedRichAnchor>[];
+    var previousOldEnd = 0;
+    var previousNewEnd = 0;
+    for (final anchor in anchors) {
+      if (anchor.oldRange.start < previousOldEnd ||
+          anchor.newRange.start < previousNewEnd) {
+        continue;
+      }
+      orderedAnchors.add(anchor);
+      previousOldEnd = anchor.oldRange.end;
+      previousNewEnd = anchor.newRange.end;
+    }
+    if (orderedAnchors.isEmpty) {
+      return null;
+    }
+
+    final edits = <_RichTextPlainEdit>[];
+    var oldCursor = 0;
+    var newCursor = 0;
+    for (final anchor in orderedAnchors) {
+      _addPlainEditIfChanged(
+        edits,
+        oldText: oldText,
+        newText: newText,
+        oldRange: TextRange(start: oldCursor, end: anchor.oldRange.start),
+        newRange: TextRange(start: newCursor, end: anchor.newRange.start),
+      );
+      oldCursor = anchor.oldRange.end;
+      newCursor = anchor.newRange.end;
+    }
+    _addPlainEditIfChanged(
+      edits,
+      oldText: oldText,
+      newText: newText,
+      oldRange: TextRange(start: oldCursor, end: oldText.length),
+      newRange: TextRange(start: newCursor, end: newText.length),
+    );
+    return edits.length > 1 ? edits : null;
+  }
+
+  static void _addPlainEditIfChanged(
+    List<_RichTextPlainEdit> edits, {
+    required String oldText,
+    required String newText,
+    required TextRange oldRange,
+    required TextRange newRange,
+  }) {
+    final replacement = newText.substring(newRange.start, newRange.end);
+    if (oldText.substring(oldRange.start, oldRange.end) == replacement) {
+      return;
+    }
+    edits.add(
+      _RichTextPlainEdit(
+        oldRange: oldRange,
+        newRange: newRange,
+        text: replacement,
+      ),
+    );
+  }
+
+  static int? _mapRichItemStart({
+    required String oldText,
+    required String newText,
+    required RichTextItem item,
+  }) {
+    final start = item.range.start;
+    if (start + item.text.length <= newText.length &&
+        newText.startsWith(item.text, start)) {
+      return start;
+    }
+
+    final oldOccurrences = _textOccurrences(oldText, item.text);
+    final oldOrdinal = oldOccurrences.indexOf(start);
+    if (oldOrdinal == -1) {
+      return null;
+    }
+    final newOccurrences = _textOccurrences(newText, item.text);
+    if (oldOccurrences.length != newOccurrences.length ||
+        oldOrdinal >= newOccurrences.length) {
+      return null;
+    }
+    return newOccurrences[oldOrdinal];
+  }
+
+  static List<int> _textOccurrences(String text, String pattern) {
+    final result = <int>[];
+    var start = 0;
+    while (start <= text.length - pattern.length) {
+      final index = text.indexOf(pattern, start);
+      if (index == -1) {
+        break;
+      }
+      result.add(index);
+      start = index + pattern.length;
+    }
+    return result;
+  }
+
+  TextEditingValue _canonicalValue(TextEditingValue candidate) {
+    final text = plainText;
+    final selection = _clampSelection(newSelection, text.length);
+    final composing =
+        candidate.composing.isValid &&
+            candidate.composing.start <= text.length &&
+            candidate.composing.end <= text.length
+        ? candidate.composing
+        : TextRange.empty;
+    return candidate.copyWith(
+      text: text,
+      selection: selection,
+      composing: composing,
+    );
+  }
+
+  static TextSelection _clampSelection(TextSelection selection, int length) {
+    if (!selection.isValid) {
+      return TextSelection.collapsed(offset: length);
+    }
+    return selection.copyWith(
+      baseOffset: selection.baseOffset.clamp(0, length).toInt(),
+      extentOffset: selection.extentOffset.clamp(0, length).toInt(),
+    );
+  }
+
+  /// Keeps the caret and selection handles outside atomic rich nodes.
+  TextSelection normalizeSelection(TextSelection selection) {
+    if (!selection.isValid || items.isEmpty) {
+      return selection;
+    }
+    if (selection.isCollapsed) {
+      final position = dragOffset(selection.base);
+      return selection.copyWith(
+        baseOffset: position.offset,
+        extentOffset: position.offset,
+      );
+    }
+    final normalized = selection.baseOffset <= selection.extentOffset;
+    final offsets = longPressOffset(selection.start, selection.end);
+    return selection.copyWith(
+      baseOffset: normalized ? offsets.startOffset : offsets.endOffset,
+      extentOffset: normalized ? offsets.endOffset : offsets.startOffset,
+    );
+  }
+
   void syncRichText(TextEditingDelta delta) {
+    if (delta is! TextEditingDeltaNonTextUpdate) {
+      _structuredEditPending = true;
+    }
     int? addIndex;
     List<RichTextItem>? toAdd;
 
@@ -822,6 +1307,9 @@ class RichTextEditingController extends TextEditingController {
 
   @override
   void dispose() {
+    _historyTimer?.cancel();
+    _pendingHistoryValue = null;
+    _history.clear();
     items.clear();
     super.dispose();
   }
@@ -944,7 +1432,27 @@ class RichTextEditingController extends TextEditingController {
   }
 
   TextSelection keyboardOffset(TextSelection newSelection) {
-    final offset = newSelection.baseOffset;
+    final offset = _keyboardBoundaryOffset(
+      newSelection.extentOffset,
+      selection.extentOffset,
+    );
+    return newSelection.copyWith(baseOffset: offset, extentOffset: offset);
+  }
+
+  TextSelection keyboardOffsets(TextSelection newSelection) {
+    return newSelection.copyWith(
+      baseOffset: _keyboardBoundaryOffset(
+        newSelection.baseOffset,
+        selection.baseOffset,
+      ),
+      extentOffset: _keyboardBoundaryOffset(
+        newSelection.extentOffset,
+        selection.extentOffset,
+      ),
+    );
+  }
+
+  int _keyboardBoundaryOffset(int offset, int previousOffset) {
     for (final e in items) {
       final range = e.range;
       if (offset >= range.end) {
@@ -953,74 +1461,17 @@ class RichTextEditingController extends TextEditingController {
       if (offset <= range.start) {
         break;
       }
-      if (offset > range.start && offset < range.end) {
-        if (e.isRich) {
-          if (offset < selection.baseOffset) {
-            return newSelection.copyWith(
-              baseOffset: range.start,
-              extentOffset: range.start,
-            );
-          } else {
-            return newSelection.copyWith(
-              baseOffset: range.end,
-              extentOffset: range.end,
-            );
-          }
+      if (e.isRich) {
+        if (offset > previousOffset) {
+          return range.end;
         }
+        if (offset < previousOffset) {
+          return range.start;
+        }
+        return offset * 2 > range.start + range.end ? range.end : range.start;
       }
     }
-    return newSelection;
-  }
-
-  TextSelection keyboardOffsets(TextSelection newSelection) {
-    final startOffset = newSelection.start;
-    final endOffset = newSelection.end;
-    final isNormalized = newSelection.baseOffset < newSelection.extentOffset;
-    for (final e in items) {
-      final range = e.range;
-      if (startOffset >= range.end) {
-        continue;
-      }
-      if (endOffset <= range.start) {
-        break;
-      }
-      if (isNormalized) {
-        if (startOffset <= range.start &&
-            endOffset > range.start &&
-            endOffset < range.end) {
-          if (e.isRich) {
-            if (endOffset < selection.extentOffset) {
-              return newSelection.copyWith(
-                baseOffset: startOffset,
-                extentOffset: range.start,
-              );
-            } else {
-              return newSelection.copyWith(
-                baseOffset: startOffset,
-                extentOffset: range.end,
-              );
-            }
-          }
-        }
-      } else {
-        if (startOffset < range.end && startOffset > range.start) {
-          if (e.isRich) {
-            if (startOffset > selection.extentOffset) {
-              return newSelection.copyWith(
-                baseOffset: endOffset,
-                extentOffset: range.end,
-              );
-            } else {
-              return newSelection.copyWith(
-                baseOffset: endOffset,
-                extentOffset: range.start,
-              );
-            }
-          }
-        }
-      }
-    }
-    return newSelection;
+    return offset;
   }
 
   String? getSelectionText(TextSelection selection) {
@@ -1055,4 +1506,62 @@ class RichTextEditingController extends TextEditingController {
       return null;
     }
   }
+}
+
+class _RichTextEditingSnapshot {
+  const _RichTextEditingSnapshot({required this.value, required this.items});
+
+  final TextEditingValue value;
+  final List<RichTextItem> items;
+
+  bool hasSameState(_RichTextEditingSnapshot other) {
+    return value == other.value && sameItems(items, other.items);
+  }
+
+  static bool sameItems(List<RichTextItem> left, List<RichTextItem> right) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (var index = 0; index < left.length; index++) {
+      final leftItem = left[index];
+      final rightItem = right[index];
+      final leftEmote = leftItem.emote;
+      final rightEmote = rightItem.emote;
+      if (leftItem.type != rightItem.type ||
+          leftItem.text != rightItem.text ||
+          leftItem._rawText != rightItem._rawText ||
+          leftItem.range != rightItem.range ||
+          leftItem.id != rightItem.id ||
+          (leftEmote == null) != (rightEmote == null) ||
+          (leftEmote != null &&
+              (leftEmote.url != rightEmote!.url ||
+                  leftEmote.width != rightEmote.width ||
+                  leftEmote.height != rightEmote.height))) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+class _RichTextPlainEdit {
+  const _RichTextPlainEdit({
+    required this.oldRange,
+    required this.newRange,
+    required this.text,
+  });
+
+  final TextRange oldRange;
+  final TextRange newRange;
+  final String text;
+}
+
+class _PreservedRichAnchor {
+  const _PreservedRichAnchor({
+    required this.oldRange,
+    required this.newRange,
+  });
+
+  final TextRange oldRange;
+  final TextRange newRange;
 }

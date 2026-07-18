@@ -105,7 +105,7 @@ abstract final class DynamicsHttp {
     }
   }
 
-  // 动态点�?
+  // 动态点赞
   // static Future likeDynamic({
   //   required String? dynamicId,
   //   required int? up,
@@ -128,7 +128,7 @@ abstract final class DynamicsHttp {
   //   }
   // }
 
-  // 动态点�?
+  // 动态点赞
   static Future<LoadingState<void>> thumbDynamic({
     required String? dynamicId,
     required int? up,

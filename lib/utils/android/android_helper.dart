@@ -9,7 +9,7 @@ abstract final class PiliAndroidHelper {
   @pragma('vm:prefer-inline')
   static void back() => AndroidHelper.back();
 
-  static void biliSendCommAntifraud(
+  static bool biliSendCommAntifraud(
     int action,
     int oid,
     int type,
@@ -21,11 +21,12 @@ abstract final class PiliAndroidHelper {
     List pictures,
     String sourceId,
     int uid,
-    String cookie,
   ) {
     final jCommentText = commentText.toJString();
     final jSourceId = sourceId.toJString();
-    final jCookie = cookie.toJString();
+    // The external helper must manage its own account. Never bridge PiliMax
+    // login cookies across the application boundary.
+    final jCookie = ''.toJString();
     final jPictures = pictures.isEmpty
         ? null
         : jsonEncode(pictures).toJString();
@@ -45,8 +46,10 @@ abstract final class PiliAndroidHelper {
         uid,
         jCookie,
       );
+      return true;
     } catch (e) {
       Utils.reportError(e);
+      return false;
     } finally {
       jCommentText.release();
       jSourceId.release();

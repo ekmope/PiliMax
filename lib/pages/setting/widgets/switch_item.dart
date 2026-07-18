@@ -10,7 +10,6 @@ class SetSwitchItem extends StatefulWidget {
   final String title;
   final String? subtitle;
   final String setKey;
-  final bool defaultVal;
   final ValueChanged<bool>? onChanged;
   final bool needReboot;
   final Widget? leading;
@@ -24,7 +23,6 @@ class SetSwitchItem extends StatefulWidget {
     required this.title,
     this.subtitle,
     required this.setKey,
-    this.defaultVal = false,
     this.onChanged,
     this.needReboot = false,
     this.leading,
@@ -42,14 +40,7 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
   late bool val;
 
   void setVal() {
-    if (widget.setKey == SettingBoxKey.appFontWeight) {
-      val = Pref.appFontWeight != -1;
-    } else {
-      val = GStorage.setting.get(
-        widget.setKey,
-        defaultValue: widget.defaultVal,
-      );
-    }
+    val = Pref.settingBool(widget.setKey);
   }
 
   @override

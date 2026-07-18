@@ -1,130 +1,207 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
-import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/http/reply.dart';
-import 'package:PiliMax/models/common/reply/reply_sort_type.dart';
+import 'package:PiliMax/services/comment_antifraud/comment_antifraud_result.dart';
+import 'package:PiliMax/services/comment_antifraud/comment_antifraud_service.dart';
+import 'package:PiliMax/services/comment_antifraud/reply_http_comment_antifraud_gateway.dart';
 import 'package:PiliMax/utils/accounts.dart';
-import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
-import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 abstract final class ReplyUtils {
-  static void onCheckReply({
+  static Future<void> _checkQueue = Future<void>.value();
+
+  static Future<void> onCheckReply({
     required ReplyInfo replyInfo,
+    required bool enableCommAntifraud,
     required bool biliSendCommAntifraud,
-    required sourceId,
+    required Object? sourceId,
     required bool isManual,
-  }) {
+  }) async {
     try {
-      _checkReply(
+      final account = Accounts.main;
+      final pictures = replyInfo.content.pictures
+          .map((item) => item.toProto3Json())
+          .toList();
+      final request = CommentAntifraudRequest(
         oid: replyInfo.oid.toInt(),
         type: replyInfo.type.toInt(),
-        id: replyInfo.id.toInt(),
-        message: replyInfo.content.message,
-        //
+        rpid: replyInfo.id.toInt(),
         root: replyInfo.root.toInt(),
         parent: replyInfo.parent.toInt(),
         ctime: replyInfo.ctime.toInt(),
-        pictures: replyInfo.content.pictures
-            .map((item) => item.toProto3Json())
-            .toList(),
-        mid: replyInfo.mid.toInt(),
-        //
-        isManual: isManual,
-        biliSendCommAntifraud: biliSendCommAntifraud,
-        sourceId: sourceId,
+        uid: replyInfo.mid.toInt(),
+        message: replyInfo.content.message,
+        hasPictures: pictures.isNotEmpty,
       );
-    } catch (e) {
-      SmartDialog.showToast(e.toString());
+      final normalizedSourceId = sourceId?.toString() ?? request.oid.toString();
+      final useExternalAutoMode =
+          !isManual &&
+          !enableCommAntifraud &&
+          Platform.isAndroid &&
+          biliSendCommAntifraud;
+
+      if (useExternalAutoMode) {
+        await _checkReply(
+          request: request,
+          pictures: pictures,
+          accountMid: account.mid,
+          accountIsLoggedIn: account.isLogin,
+          accountGateway: ReplyHttpCommentAntifraudGateway(
+            loginAccount: account,
+          ),
+          enableCommAntifraud: enableCommAntifraud,
+          biliSendCommAntifraud: biliSendCommAntifraud,
+          sourceId: normalizedSourceId,
+          isManual: isManual,
+          waitForProcessing: true,
+        );
+        return;
+      }
+
+      if (!isManual) {
+        await Future<void>.delayed(
+          request.hasPictures
+              ? CommentAntifraudService.defaultPictureProcessingDelay
+              : CommentAntifraudService.defaultTextProcessingDelay,
+        );
+      }
+
+      final task = _checkQueue.then(
+        (_) => _checkReply(
+          request: request,
+          pictures: pictures,
+          accountMid: account.mid,
+          accountIsLoggedIn: account.isLogin,
+          accountGateway: ReplyHttpCommentAntifraudGateway(
+            loginAccount: account,
+          ),
+          enableCommAntifraud: enableCommAntifraud,
+          biliSendCommAntifraud: biliSendCommAntifraud,
+          sourceId: normalizedSourceId,
+          isManual: isManual,
+          waitForProcessing: false,
+        ),
+      );
+      _checkQueue = task.catchError((Object _, StackTrace _) {});
+      await task;
+    } catch (error, stackTrace) {
+      Utils.reportError(error, stackTrace);
+      SmartDialog.showNotify(
+        msg: '评论检查启动失败，本次不作吞评判断。',
+        notifyType: .warning,
+      );
     }
   }
 
-  // ref https://github.com/freedom-introvert/biliSendCommAntifraud
   static Future<void> _checkReply({
-    required int oid,
-    required int type,
-    required int id,
-    required String message,
-    required int root,
-    required int parent,
-    required int ctime,
-    required List pictures,
-    required int mid,
-    bool isManual = false,
+    required CommentAntifraudRequest request,
+    required List<Object?> pictures,
+    required int accountMid,
+    required bool accountIsLoggedIn,
+    required CommentAntifraudGateway accountGateway,
+    required bool enableCommAntifraud,
     required bool biliSendCommAntifraud,
-    required sourceId,
+    required String sourceId,
+    required bool isManual,
+    required bool waitForProcessing,
   }) async {
-    // biliSendCommAntifraud
-    if (Platform.isAndroid && biliSendCommAntifraud) {
-      try {
-        final cookieString = Accounts.main.cookieJar
-            .toJson()
-            .entries
-            .map((i) => '${i.key}=${i.value}')
-            .join(';');
-        PiliAndroidHelper.biliSendCommAntifraud(
-          0,
-          oid,
-          type,
-          id,
-          root,
-          parent,
-          ctime,
-          message,
-          pictures,
-          sourceId,
-          mid,
-          cookieString,
-        );
-      } catch (e) {
-        if (kDebugMode) debugPrint('biliSendCommAntifraud: $e');
+    if (!isManual &&
+        !enableCommAntifraud &&
+        Platform.isAndroid &&
+        biliSendCommAntifraud) {
+      final launched = PiliAndroidHelper.biliSendCommAntifraud(
+        0,
+        request.oid,
+        request.type,
+        request.rpid,
+        request.root,
+        request.parent,
+        request.ctime,
+        request.message,
+        pictures,
+        sourceId,
+        request.uid,
+      );
+      if (launched) {
+        return;
       }
+      SmartDialog.showToast('外部反诈不可用，已回退到 PiliMax 内部检查');
+    }
+
+    final service = CommentAntifraudService(
+      gateway: accountGateway,
+      accountMid: accountMid,
+      isLoggedIn: accountIsLoggedIn,
+    );
+
+    late final CommentAntifraudResult result;
+    try {
+      result = await service.check(
+        request,
+        waitForProcessing: waitForProcessing,
+      );
+    } catch (e, s) {
+      Utils.reportError(e, s);
+      result = const CommentAntifraudResult.unknown(
+        '检查过程中发生未预期错误，本次不作吞评判断。',
+      );
+    }
+    _showReplyCheckResult(
+      result: result,
+      request: request,
+      sourceId: sourceId,
+      isManual: isManual,
+    );
+  }
+
+  static void _showReplyCheckResult({
+    required CommentAntifraudResult result,
+    required CommentAntifraudRequest request,
+    required String sourceId,
+    required bool isManual,
+  }) {
+    if (!isManual && result.status == CommentAntifraudStatus.normal) {
+      SmartDialog.showToast('评论检查通过：无账号状态下可见');
+      return;
+    }
+    if (!isManual && result.isWarning) {
+      SmartDialog.showNotify(
+        msg: result.detail,
+        notifyType: .warning,
+      );
       return;
     }
 
-    // CommAntifraud
-    if (!isManual) {
-      await Future.delayed(const Duration(seconds: 8));
+    final context = Get.context;
+    if (context == null) {
+      SmartDialog.showNotify(
+        msg: result.detail,
+        notifyType: result.isProblem ? .failure : .warning,
+      );
+      return;
     }
-    void showReplyCheckResult(
-      String message, {
-      bool isBan = false,
-      bool isWarning = false,
-    }) {
-      if (!isBan) {
-        if (isWarning) {
-          SmartDialog.showNotify(
-            msg: message,
-            notifyType: .warning,
-          );
-        } else {
-          SmartDialog.showToast('评论检查通过：无账号状态下可见');
-        }
-        return;
-      }
-      final theme = ThemeUtils.theme;
-      final actions = [
+
+    final theme = ThemeUtils.theme;
+    final actions = <Widget>[
+      if (_canAppeal(result.status))
         TextButton(
           onPressed: () {
             Get.back();
-            String? uri;
-            switch (type) {
-              case 1:
-                uri = IdUtils.av2bv(oid);
-              case 17:
-                uri = 'https://www.bilibili.com/opus/$oid';
-            }
-            if (uri != null) {
+            final uri = switch (request.type) {
+              1 => IdUtils.av2bv(request.oid),
+              17 => 'https://www.bilibili.com/opus/${request.oid}',
+              _ => sourceId,
+            };
+            if (uri.isNotEmpty) {
               Utils.copyText(uri);
             }
             Get.toNamed(
@@ -137,159 +214,32 @@ abstract final class ReplyUtils {
           },
           child: const Text('申诉'),
         ),
-        if (!isManual)
-          TextButton(
-            onPressed: Get.back,
-            child: Text(
-              '关闭',
-              style: TextStyle(color: theme.colorScheme.outline),
-            ),
-          ),
-      ];
-      showDialog(
-        context: Get.context!,
-        barrierDismissible: isManual,
-        builder: (context) => AlertDialog(
-          title: const Text('评论检查结果'),
-          content: SelectableText(message),
-          actions: actions.isEmpty ? null : actions,
+      TextButton(
+        onPressed: Get.back,
+        child: Text(
+          '关闭',
+          style: TextStyle(color: theme.colorScheme.outline),
         ),
-      );
-    }
+      ),
+    ];
 
-    // root reply
-    if (root == 0) {
-      // no cookie check
-      final res = await ReplyHttp.replyList(
-        isLogin: false,
-        oid: oid,
-        nextOffset: '',
-        type: type,
-        sort: ReplySortType.time.index,
-        page: 1,
-      );
-
-      if (res case Error(:final errMsg)) {
-        SmartDialog.showToast('获取评论主列表时发生错误：$errMsg');
-        return;
-      } else if (res case Success(:final response)) {
-        final index =
-            response.replies?.indexWhere((item) => item.rpid == id) ?? -1;
-        if (index != -1) {
-          // found
-          showReplyCheckResult('无账号状态下找到了你的评论，评论正常！\n\n你的评论：$message');
-        } else {
-          // not found
-
-          // cookie check
-          final res1 = await ReplyHttp.replyReplyList(
-            isLogin: true,
-            oid: oid,
-            root: id,
-            pageNum: 1,
-            type: type,
-          );
-
-          if (res1 is Error) {
-            // not found
-            showReplyCheckResult('无法找到你的评论。\n\n你的评论：$message', isBan: true);
-          } else {
-            // found
-
-            // no cookie check
-            final res2 = await ReplyHttp.replyReplyList(
-              isLogin: false,
-              oid: oid,
-              root: id,
-              pageNum: 1,
-              type: type,
-              isCheck: true,
-            );
-
-            if (res2 is Error) {
-              // not found
-              showReplyCheckResult(
-                res2.errMsg?.startsWith('12022') == true
-                    ? '你的评论被shadow ban（仅自己可见）！\n\n你的评论: $message'
-                    : '评论不可见(${res2.errMsg}): $message',
-                isBan: true,
-              );
-            } else {
-              // found
-              showReplyCheckResult(
-                isManual
-                    ? '无账号状态下找到了你的评论，评论正常！\n\n你的评论：$message'
-                    : '''
-你评论状态有点可疑，虽然无账号翻找评论区获取不到你的评论，但是无账号可通过
-https://api.bilibili.com/x/v2/reply/reply?oid=$oid&pn=1&ps=20&root=$id&type=$type
-获取你的评论，疑似评论区被戒严或者这是你的视频。
-
-你的评论：$message''',
-                isWarning: !isManual,
-              );
-            }
-          }
-        }
-      }
-    } else {
-      for (int i = 1; ; i++) {
-        final res3 = await ReplyHttp.replyReplyList(
-          isLogin: false,
-          oid: oid,
-          root: root,
-          pageNum: i,
-          type: type,
-          isCheck: true,
-        );
-        if (res3 is Error) {
-          break;
-        } else {
-          final data = res3.data;
-          if (data.replies.isNullOrEmpty) {
-            break;
-          }
-          int index = data.replies?.indexWhere((item) => item.rpid == id) ?? -1;
-          if (index == -1) {
-            // not found
-          } else {
-            // found
-            showReplyCheckResult('无账号状态下找到了你的评论，评论正常！\n\n你的评论：$message');
-            return;
-          }
-        }
-      }
-
-      for (int i = 1; ; i++) {
-        final res4 = await ReplyHttp.replyReplyList(
-          isLogin: true,
-          oid: oid,
-          root: root,
-          pageNum: i,
-          type: type,
-          isCheck: true,
-        );
-        if (res4 is Error) {
-          break;
-        } else {
-          final data = res4.data;
-          if (data.replies.isNullOrEmpty) {
-            break;
-          }
-          int index = data.replies?.indexWhere((item) => item.rpid == id) ?? -1;
-          if (index == -1) {
-            // not found
-          } else {
-            // found
-            showReplyCheckResult(
-              '你的评论被shadow ban（仅自己可见）！\n\n你的评论: $message',
-              isBan: true,
-            );
-            return;
-          }
-        }
-      }
-
-      showReplyCheckResult('评论不可见: $message', isBan: true);
-    }
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('评论检查结果'),
+        content: SelectableText(
+          '${result.detail}\n\n你的评论：${request.message}',
+        ),
+        actions: actions,
+      ),
+    );
   }
+
+  static bool _canAppeal(CommentAntifraudStatus status) => switch (status) {
+    CommentAntifraudStatus.invisible ||
+    CommentAntifraudStatus.underReview ||
+    CommentAntifraudStatus.shadowBan ||
+    CommentAntifraudStatus.deleted => true,
+    _ => false,
+  };
 }

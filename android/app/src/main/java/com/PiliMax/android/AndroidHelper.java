@@ -68,7 +68,7 @@ public final class AndroidHelper {
 
     public static void biliSendCommAntifraud(
             int action, long oid, int type, long rpId, long root, long parent, long ctime, @NonNull String commentText,
-            String pictures, @NonNull String sourceId, long uid, @NonNull String cookie
+            String pictures, @NonNull String sourceId, long uid, @NonNull String ignoredCookie
     ) {
         Intent intent = new Intent();
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -89,9 +89,8 @@ public final class AndroidHelper {
         }
         intent.putExtra("source_id", sourceId);
         intent.putExtra("uid", uid);
-        ArrayList<String> cookiesList = new ArrayList<>(1);
-        cookiesList.add(cookie);
-        intent.putStringArrayListExtra("cookies", cookiesList);
+        // The external app must manage its own account. Never place PiliMax
+        // login cookies in an exported cross-application Intent.
         getContext().startActivity(intent);
     }
 

@@ -43,7 +43,6 @@ List<SettingsModel> get dynamicsSettings => [
     subtitle: '过滤包含商品推广的动态',
     leading: const Icon(Icons.shopping_bag_outlined),
     setKey: SettingBoxKey.antiGoodsDyn,
-    defaultVal: false,
     onChanged: (value) {
       DynamicsDataModel.antiGoodsDyn = value;
     },
@@ -53,7 +52,6 @@ List<SettingsModel> get dynamicsSettings => [
     subtitle: '过滤当前账号无权查看的受限动态,如充电专属(文章,图文等)动态',
     leading: const Icon(Icons.visibility_off_outlined),
     setKey: SettingBoxKey.removeBlockedDyn,
-    defaultVal: false,
     onChanged: (value) {
       DynamicsDataModel.removeBlockedDyn = value;
     },
@@ -63,7 +61,6 @@ List<SettingsModel> get dynamicsSettings => [
     subtitle: '过滤充电专属视频动态',
     leading: const Icon(Icons.video_library_outlined),
     setKey: SettingBoxKey.removeOnlyFansVideoDyn,
-    defaultVal: false,
     onChanged: (value) {
       DynamicsDataModel.removeOnlyFansVideoDyn = value;
     },

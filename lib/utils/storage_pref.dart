@@ -56,6 +56,167 @@ abstract final class Pref {
   static final Box _video = GStorage.video;
   static final Box _localCache = GStorage.localCache;
 
+  /// Effective readers for every boolean setting rendered by the settings UI.
+  ///
+  /// The settings UI deliberately does not accept a separate default value.
+  /// Adding a new switch therefore requires registering the corresponding
+  /// [Pref] reader here, making the reader's default the single source of
+  /// truth for both runtime behavior and the switch's initial state.
+  static final Map<String, bool Function()> _boolSettingReaders =
+      Map.unmodifiable({
+        SettingBoxKey.alwaysExpandIntroPanel: () => alwaysExpandIntroPanel,
+        SettingBoxKey.antiGoodsDyn: () => antiGoodsDyn,
+        SettingBoxKey.antiGoodsReply: () => antiGoodsReply,
+        SettingBoxKey.appFontWeight: () => appFontWeight != -1,
+        SettingBoxKey.applyFilterToHotVideos: () => applyFilterToHotVideos,
+        SettingBoxKey.applyFilterToRankVideos: () => applyFilterToRankVideos,
+        SettingBoxKey.applyFilterToRelatedVideos: () =>
+            applyFilterToRelatedVideos,
+        SettingBoxKey.applyFilterToSearch: () => applyFilterToSearch,
+        SettingBoxKey.autoPiP: () => autoPiP,
+        SettingBoxKey.autoPlayEnable: () => autoPlayEnable,
+        SettingBoxKey.autoSideBar: () => autoSideBar,
+        SettingBoxKey.autoUpdate: () => autoUpdate,
+        SettingBoxKey.badCertificateCallback: () => badCertificateCallback,
+        SettingBoxKey.biliSendCommAntifraud: () => biliSendCommAntifraud,
+        SettingBoxKey.cdnSpeedTest: () => cdnSpeedTest,
+        SettingBoxKey.checkDynamic: () => checkDynamic,
+        SettingBoxKey.continuePlayInBackground: () => continuePlayInBackground,
+        SettingBoxKey.continuePlayingPart: () => continuePlayingPart,
+        SettingBoxKey.darkVideoPage: () => darkVideoPage,
+        SettingBoxKey.defaultShowComment: () => defaultShowComment,
+        SettingBoxKey.directExitOnBack: () => directExitOnBack,
+        SettingBoxKey.disableAudioCDN: () => disableAudioCDN,
+        SettingBoxKey.disableLikeMsg: () => disableLikeMsg,
+        SettingBoxKey.disableMobileDownload: () => disableMobileDownload,
+        SettingBoxKey.dynamicsShowAllFollowedUp: () =>
+            dynamicsShowAllFollowedUp,
+        SettingBoxKey.dynamicsShowSelfUp: () => dynamicsShowSelfUp,
+        SettingBoxKey.dynamicsWaterfallFlow: () => dynamicsWaterfallFlow,
+        SettingBoxKey.enableAi: () => enableAi,
+        SettingBoxKey.enableAndroidRouteRestore: () =>
+            enableAndroidRouteRestore,
+        SettingBoxKey.enableAppVolume: () => enableAppVolume,
+        SettingBoxKey.enableAutoEnter: () => autoEnterFullScreen,
+        SettingBoxKey.enableAutoExit: () => autoExitFullscreen,
+        SettingBoxKey.enableAutoLongPressSpeed: () => enableAutoLongPressSpeed,
+        SettingBoxKey.enableBackgroundPlay: () => enableBackgroundPlay,
+        SettingBoxKey.enableCommAntifraud: () => enableCommAntifraud,
+        SettingBoxKey.enableCreateDynAntifraud: () => enableCreateDynAntifraud,
+        SettingBoxKey.enableCustomDanmakuFont: () => enableCustomDanmakuFont,
+        SettingBoxKey.enableDragSubtitle: () => enableDragSubtitle,
+        SettingBoxKey.enableHA: () => enableHA,
+        SettingBoxKey.enableHotKey: () => enableTrending,
+        SettingBoxKey.enableHttp2: () => enableHttp2,
+        SettingBoxKey.enableImgMenu: () => enableImgMenu,
+        SettingBoxKey.enableInAppPip: () => enableInAppPip,
+        SettingBoxKey.enableInAppPipToSystemPip: () =>
+            enableInAppPipToSystemPip,
+        SettingBoxKey.enableLivePhoto: () => enableLivePhoto,
+        SettingBoxKey.enableLongShowControl: () => enableLongShowControl,
+        SettingBoxKey.enableMYBar: () => enableMYBar,
+        SettingBoxKey.enableOnlineTotal: () => enableOnlineTotal,
+        SettingBoxKey.enablePredictiveBack: () => enablePredictiveBack,
+        SettingBoxKey.enableQuickDouble: () => enableQuickDouble,
+        SettingBoxKey.enableSaveLastData: () => enableSaveLastData,
+        SettingBoxKey.enableSearchRcmd: () => enableSearchRcmd,
+        SettingBoxKey.enableSearchWord: () => enableSearchWord,
+        SettingBoxKey.enableShowDanmaku: () => enableShowDanmaku,
+        SettingBoxKey.enableShrinkVideoSize: () => enableShrinkVideoSize,
+        SettingBoxKey.enableSlideFS: () => enableSlideFS,
+        SettingBoxKey.enableSlideVolumeBrightness: () =>
+            enableSlideVolumeBrightness,
+        SettingBoxKey.enableSponsorBlock: () => enableSponsorBlock,
+        SettingBoxKey.enableSystemProxy: () => enableSystemProxy,
+        SettingBoxKey.enableTapDm: () => enableTapDm,
+        SettingBoxKey.enableVerticalExpand: () => enableVerticalExpand,
+        SettingBoxKey.enableVolumeBoost: () => enableVolumeBoost,
+        SettingBoxKey.enableWordRe: () => enableWordRe,
+        SettingBoxKey.exemptFilterForFollowed: () => exemptFilterForFollowed,
+        SettingBoxKey.expandDynLivePanel: () => expandDynLivePanel,
+        SettingBoxKey.expandIntroPanelH: () => expandIntroPanelH,
+        SettingBoxKey.feedBackEnable: () => feedBackEnable,
+        SettingBoxKey.floatingNavBar: () => floatingNavBar,
+        SettingBoxKey.fullScreenGestureReverse: () => fullScreenGestureReverse,
+        SettingBoxKey.hideBottomBar: () => hideBottomBar,
+        SettingBoxKey.hideTopBar: () => hideTopBar,
+        SettingBoxKey.horizontalMemberPage: () => horizontalMemberPage,
+        SettingBoxKey.horizontalPreview: () => horizontalPreview,
+        SettingBoxKey.horizontalScreen: () => horizontalScreen,
+        SettingBoxKey.horizontalSeasonPanel: () => horizontalSeasonPanel,
+        SettingBoxKey.isPureBlackTheme: () => isPureBlackTheme,
+        SettingBoxKey.keepUpLikeReply: () => keepUpLikeReply,
+        SettingBoxKey.keepUpOwnerReply: () => keepUpOwnerReply,
+        SettingBoxKey.keepUpReplyReply: () => keepUpReplyReply,
+        SettingBoxKey.keepUpTopReply: () => keepUpTopReply,
+        SettingBoxKey.keyboardControl: () => keyboardControl,
+        SettingBoxKey.mainTabBarView: () => mainTabBarView,
+        SettingBoxKey.minimizeOnExit: () => minimizeOnExit,
+        SettingBoxKey.mixWithOthers: () => mixWithOthers,
+        SettingBoxKey.openInBrowser: () => openInBrowser,
+        SettingBoxKey.optTabletNav: () => optTabletNav,
+        SettingBoxKey.p1080: () => p1080,
+        SettingBoxKey.pauseOnMinimize: () => pauseOnMinimize,
+        SettingBoxKey.pipNoDanmaku: () => pipNoDanmaku,
+        SettingBoxKey.preInitPlayer: () => preInitPlayer,
+        SettingBoxKey.preReleaseUpdate: () => preReleaseUpdate,
+        SettingBoxKey.recordSearchHistory: () => recordSearchHistory,
+        SettingBoxKey.removeBlockedDyn: () => removeBlockedDyn,
+        SettingBoxKey.removeOnlyFansVideoDyn: () => removeOnlyFansVideoDyn,
+        SettingBoxKey.removeSafeArea: () => removeSafeArea,
+        SettingBoxKey.reverseFromFirst: () => reverseFromFirst,
+        SettingBoxKey.savedRcmdTip: () => savedRcmdTip,
+        SettingBoxKey.saveReply: () => saveReply,
+        SettingBoxKey.searchSuggestion: () => searchSuggestion,
+        SettingBoxKey.setSystemBrightness: () => setSystemBrightness,
+        SettingBoxKey.showArgueMsg: () => showArgueMsg,
+        SettingBoxKey.showBangumiReply: () => showBangumiReply,
+        SettingBoxKey.showBatteryLevel: () => showBatteryLevel,
+        SettingBoxKey.showControlsOnManualEpisodeChange: () =>
+            showControlsOnManualEpisodeChange,
+        SettingBoxKey.showDecorate: () => showDecorate,
+        SettingBoxKey.showDynActionBar: () => showDynActionBar,
+        SettingBoxKey.showDynDispute: () => showDynDispute,
+        SettingBoxKey.showDynInteraction: () => showDynInteraction,
+        SettingBoxKey.showFSActionItem: () => showFSActionItem,
+        SettingBoxKey.showFsLockBtn: () => showFsLockBtn,
+        SettingBoxKey.showFsScreenshotBtn: () => showFsScreenshotBtn,
+        SettingBoxKey.showHotRcmd: () => showHotRcmd,
+        SettingBoxKey.showMedal: () => showMedal,
+        SettingBoxKey.showMemberShop: () => showMemberShop,
+        SettingBoxKey.showMoreDownloadButtons: () => showMoreDownloadButtons,
+        SettingBoxKey.showNavBarLabel: () => showNavBarLabel,
+        SettingBoxKey.showPgcTimeline: () => showPgcTimeline,
+        SettingBoxKey.showRcmdReason: () => showRcmdReason,
+        SettingBoxKey.showRelatedVideo: () => showRelatedVideo,
+        SettingBoxKey.showSeekPreview: () => showSeekPreview,
+        SettingBoxKey.showTrayIcon: () => showTrayIcon,
+        SettingBoxKey.showVideoReply: () => showVideoReply,
+        SettingBoxKey.showViewPoints: () => showViewPoints,
+        SettingBoxKey.showVipDanmaku: () => showVipDanmaku,
+        SettingBoxKey.showWindowTitleBar: () => showWindowTitleBar,
+        SettingBoxKey.silentDownImg: () => silentDownImg,
+        SettingBoxKey.slideDismissReplyPage: () => slideDismissReplyPage,
+        SettingBoxKey.swapReplyLikeDislike: () => swapReplyLikeDislike,
+        SettingBoxKey.tempPlayerConf: () => tempPlayerConf,
+        SettingBoxKey.useRelativeSlide: () => useRelativeSlide,
+        SettingBoxKey.useSideBar: () => useSideBar,
+      });
+
+  static Iterable<String> get settingBoolKeys => _boolSettingReaders.keys;
+
+  static bool settingBool(String key) {
+    final reader = _boolSettingReaders[key];
+    if (reader == null) {
+      throw ArgumentError.value(
+        key,
+        'key',
+        'Boolean setting is not registered in Pref._boolSettingReaders',
+      );
+    }
+    return reader();
+  }
+
   static UserInfoData? get userInfoCache =>
       GStorage.userInfo.get('userInfoCache');
 
@@ -717,7 +878,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.cdnSpeedTest, defaultValue: true);
 
   static bool get autoUpdate =>
-      _setting.get(SettingBoxKey.autoUpdate, defaultValue: false);
+      _setting.get(SettingBoxKey.autoUpdate, defaultValue: true);
 
   static bool get preReleaseUpdate =>
       _setting.get(SettingBoxKey.preReleaseUpdate, defaultValue: false);
@@ -840,14 +1001,14 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.showDmChart, defaultValue: false);
 
   static bool get enableCommAntifraud =>
-      _setting.get(SettingBoxKey.enableCommAntifraud, defaultValue: true);
+      _setting.get(SettingBoxKey.enableCommAntifraud, defaultValue: false);
 
   static bool get biliSendCommAntifraud =>
       Platform.isAndroid &&
-      _setting.get(SettingBoxKey.biliSendCommAntifraud, defaultValue: true);
+      _setting.get(SettingBoxKey.biliSendCommAntifraud, defaultValue: false);
 
   static bool get enableCreateDynAntifraud =>
-      _setting.get(SettingBoxKey.enableCreateDynAntifraud, defaultValue: true);
+      _setting.get(SettingBoxKey.enableCreateDynAntifraud, defaultValue: false);
 
   static bool get coinWithLike =>
       _setting.get(SettingBoxKey.coinWithLike, defaultValue: false);
@@ -856,16 +1017,16 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.isPureBlackTheme, defaultValue: false);
 
   static bool get antiGoodsDyn =>
-      _setting.get(SettingBoxKey.antiGoodsDyn, defaultValue: true);
+      _setting.get(SettingBoxKey.antiGoodsDyn, defaultValue: false);
 
   static bool get removeBlockedDyn =>
-      _setting.get(SettingBoxKey.removeBlockedDyn, defaultValue: true);
+      _setting.get(SettingBoxKey.removeBlockedDyn, defaultValue: false);
 
   static bool get removeOnlyFansVideoDyn =>
-      _setting.get(SettingBoxKey.removeOnlyFansVideoDyn, defaultValue: true);
+      _setting.get(SettingBoxKey.removeOnlyFansVideoDyn, defaultValue: false);
 
   static bool get antiGoodsReply =>
-      _setting.get(SettingBoxKey.antiGoodsReply, defaultValue: true);
+      _setting.get(SettingBoxKey.antiGoodsReply, defaultValue: false);
 
   static int get replyMinLevel =>
       _setting.get(SettingBoxKey.replyMinLevel, defaultValue: 0);
@@ -888,8 +1049,10 @@ abstract final class Pref {
   static bool get expandDynLivePanel =>
       _setting.get(SettingBoxKey.expandDynLivePanel, defaultValue: false);
 
-  static bool get slideDismissReplyPage =>
-      _setting.get(SettingBoxKey.slideDismissReplyPage, defaultValue: false);
+  static bool get slideDismissReplyPage => _setting.get(
+    SettingBoxKey.slideDismissReplyPage,
+    defaultValue: Platform.isIOS,
+  );
 
   static bool get showFSActionItem =>
       _setting.get(SettingBoxKey.showFSActionItem, defaultValue: true);
@@ -1138,7 +1301,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableAutoExit, defaultValue: true);
 
   static bool get autoPlayEnable =>
-      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: true);
+      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: false);
 
   static bool get pipNoDanmaku =>
       _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: false);
@@ -1245,11 +1408,11 @@ abstract final class Pref {
 
   static Transition get effectivePageTransition =>
       Platform.isAndroid && enablePredictiveBack
-          ? Transition.native
-          : pageTransition;
+      ? Transition.native
+      : pageTransition;
 
   static bool get enableQuickDouble =>
-      _setting.get(SettingBoxKey.enableQuickDouble, defaultValue: false);
+      _setting.get(SettingBoxKey.enableQuickDouble, defaultValue: true);
 
   static bool get fullScreenGestureReverse =>
       _setting.get(SettingBoxKey.fullScreenGestureReverse, defaultValue: false);
@@ -1258,18 +1421,18 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.autoPiP, defaultValue: false);
 
   static bool get enableInAppPip =>
-      _setting.get(SettingBoxKey.enableInAppPip, defaultValue: false);
+      _setting.get(SettingBoxKey.enableInAppPip, defaultValue: true);
 
   static bool get enableInAppPipToSystemPip => _setting.get(
     SettingBoxKey.enableInAppPipToSystemPip,
-    defaultValue: false,
+    defaultValue: true,
   );
 
   static bool get enableAndroidRouteRestore =>
       _setting.get(SettingBoxKey.enableAndroidRouteRestore, defaultValue: true);
 
   static bool get enableSponsorBlock =>
-      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: true);
+      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: false);
 
   static bool get enableHA =>
       _setting.get(SettingBoxKey.enableHA, defaultValue: true);
@@ -1342,13 +1505,13 @@ abstract final class Pref {
   );
 
   static bool get enableAi =>
-      _setting.get(SettingBoxKey.enableAi, defaultValue: true);
+      _setting.get(SettingBoxKey.enableAi, defaultValue: false);
 
   static bool get enablePredictiveBack =>
       _setting.get(SettingBoxKey.enablePredictiveBack, defaultValue: true);
 
   static bool get enableOnlineTotal =>
-      _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: true);
+      _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: false);
 
   static bool get autoEnterFullScreen =>
       _setting.get(SettingBoxKey.enableAutoEnter, defaultValue: false);
@@ -1552,7 +1715,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.saveReply, defaultValue: true);
 
   static bool get floatingNavBar =>
-      _setting.get(SettingBoxKey.floatingNavBar, defaultValue: true);
+      _setting.get(SettingBoxKey.floatingNavBar, defaultValue: false);
 
   static bool get removeSafeArea =>
       _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);

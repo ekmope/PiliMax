@@ -88,8 +88,12 @@ class PgcIntroController extends CommonIntroController {
   }
 
   // 获取点赞/投币/收藏状态
-  Future<void> queryPgcLikeCoinFav() async {
-    final result = await VideoHttp.pgcLikeCoinFav(epId: epId!);
+  Future<void> queryPgcLikeCoinFav({bool Function()? isCurrent}) async {
+    bool canApply() => !isClosed && (isCurrent?.call() ?? true);
+    if (!canApply()) return;
+    final requestEpId = epId!;
+    final result = await VideoHttp.pgcLikeCoinFav(epId: requestEpId);
+    if (!canApply() || epId != requestEpId) return;
     if (result case Success(:final response)) {
       final hasLike = response.like == 1;
       final hasFav = response.favorite == 1;
@@ -257,12 +261,18 @@ class PgcIntroController extends CommonIntroController {
     Duration? audioPosition,
     bool manual = false,
   }) async {
+    // Allocate the token before cid lookup so a slow, older selection cannot
+    // become current merely because its asynchronous lookup completed last.
+    final currentIntroGeneration = nextIntroRequestGeneration();
     try {
       final int epId = episode.epId ?? episode.id!;
       final String bvid = episode.bvid ?? this.bvid;
       final int aid = episode.aid ?? IdUtils.bv2av(bvid);
       final int? cid =
           episode.cid ?? await SearchHttp.ab2c(aid: aid, bvid: bvid);
+      if (!isCurrentIntroRequest(currentIntroGeneration)) {
+        return false;
+      }
       if (cid == null) {
         return false;
       }
@@ -273,7 +283,6 @@ class PgcIntroController extends CommonIntroController {
       }
 
       // 重新获取视频资源
-      final currentIntroGeneration = nextIntroRequestGeneration();
       this.epId = epId;
       this.bvid = bvid;
 
@@ -300,6 +309,9 @@ class PgcIntroController extends CommonIntroController {
       );
       if (fromAudioPage) {
         await queryVideoUrl;
+        if (!isCurrentIntroRequest(currentIntroGeneration)) {
+          return false;
+        }
       }
       if (cover != null && cover.isNotEmpty) {
         videoDetailCtr.cover.value = cover;
@@ -317,7 +329,9 @@ class PgcIntroController extends CommonIntroController {
       }
 
       if (isPgc && isLogin) {
-        queryPgcLikeCoinFav();
+        queryPgcLikeCoinFav(
+          isCurrent: () => isCurrentIntroRequest(currentIntroGeneration),
+        );
       }
 
       hasLater.value = videoDetailCtr.sourceType == SourceType.watchLater;

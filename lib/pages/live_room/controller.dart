@@ -116,6 +116,9 @@ class LiveRoomController extends GetxController {
   final disableAutoScroll = false.obs;
   bool autoScroll = true;
   LiveMessageStream? _msgStream;
+  Future<void>? _liveMsgInfoRequest;
+  int _liveMsgGeneration = 0;
+  bool _liveMsgDesired = false;
   late final ScrollController scrollController;
   late final RxInt pageIndex = 0.obs;
   PageController? pageController;
@@ -235,22 +238,14 @@ class LiveRoomController extends GetxController {
     return plPlayerController
         .setDataSource(
           NetworkSource(videoSource: videoUrl!, audioSource: null),
+          sourceOwner: this,
           isLive: true,
           autoplay: autoplay,
           isVertical: isPortrait.value,
           autoFullScreenFlag: autoFullScreenFlag,
           roomId: roomId,
         )
-        .then((_) async {
-          if (!autoplay) {
-            return;
-          }
-          final isActuallyPlaying =
-              plPlayerController.videoPlayerController?.state.playing == true;
-          if (!isActuallyPlaying) {
-            await plPlayerController.play();
-          }
-        });
+        .then<void>((_) {});
   }
 
   Future<void> toggleOnlyPlayAudio() {
@@ -590,6 +585,9 @@ class LiveRoomController extends GetxController {
   }
 
   void closeLiveMsg() {
+    _liveMsgDesired = false;
+    _liveMsgGeneration++;
+    _liveMsgInfoRequest = null;
     _msgStream?.close();
     _msgStream = null;
   }
@@ -621,6 +619,8 @@ class LiveRoomController extends GetxController {
   }
 
   void startLiveMsg() {
+    if (isClosed) return;
+    _liveMsgDesired = true;
     if (messages.isEmpty) {
       prefetch();
       if (showSuperChat) {
@@ -634,11 +634,35 @@ class LiveRoomController extends GetxController {
       initDm(dmInfo!);
       return;
     }
-    LiveHttp.liveRoomGetDanmakuToken(roomId: roomId).then((res) {
-      if (res case Success(:final response)) {
-        initDm(dmInfo = response);
-      }
-    });
+    if (_liveMsgInfoRequest != null) return;
+
+    final generation = ++_liveMsgGeneration;
+    late final Future<void> request;
+    request = LiveHttp.liveRoomGetDanmakuToken(roomId: roomId)
+        .then<void>(
+          (res) {
+            if (isClosed ||
+                !_liveMsgDesired ||
+                generation != _liveMsgGeneration) {
+              return;
+            }
+            if (res case Success(:final response)) {
+              dmInfo = response;
+              initDm(response);
+            }
+          },
+          onError: (Object _, StackTrace _) {
+            if (kDebugMode) {
+              Utils.reportError('Live danmaku token request failed');
+            }
+          },
+        )
+        .whenComplete(() {
+          if (identical(_liveMsgInfoRequest, request)) {
+            _liveMsgInfoRequest = null;
+          }
+        });
+    _liveMsgInfoRequest = request;
   }
 
   void listener() {
@@ -667,12 +691,12 @@ class LiveRoomController extends GetxController {
     // 蹇冭烦瀹氭椂鍣ㄦ槸闈欐€佺殑锛屾棤璁烘槸鍚﹀皬绐楅兘瑕佸彇娑?
     _stopSizeSub();
     LiveHttp.cancelLiveHeartbeat();
+    closeLiveMsg();
+    cancelLikeTimer();
+    cancelLiveTimer();
     // 濡傛灉鍦ㄥ皬绐楁ā寮忥紝涓嶆竻鐞嗚祫婧?
     if (!isInPipMode.value) {
       unawaited(audioSessionHandler?.setForceMixWithOthers(false));
-      closeLiveMsg();
-      cancelLikeTimer();
-      cancelLiveTimer();
       savedDanmaku?.clear();
       savedDanmaku = null;
       messages.clear();
@@ -701,20 +725,32 @@ class LiveRoomController extends GetxController {
   }
 
   void initDm(LiveDmInfoData info) {
-    if (info.hostList.isNullOrEmpty) {
+    if (isClosed || !_liveMsgDesired || _msgStream != null) {
       return;
     }
-    _msgStream =
-        LiveMessageStream(
-            streamToken: info.token,
-            roomId: roomId,
-            uid: Accounts.heartbeat.mid,
-            servers: info.hostList
-                .map((host) => 'wss://${host.host}:${host.wssPort}/sub')
-                .toList(),
-          )
-          ..addEventListener(_danmakuListener)
-          ..init();
+    if (info.hostList.isNullOrEmpty) {
+      dmInfo = null;
+      return;
+    }
+    late final LiveMessageStream stream;
+    stream = LiveMessageStream(
+      streamToken: info.token,
+      roomId: roomId,
+      uid: Accounts.heartbeat.mid,
+      servers: info.hostList
+          .map((host) => 'wss://${host.host}:${host.wssPort}/sub')
+          .toList(),
+      onReconnectExhausted: () {
+        if (identical(_msgStream, stream)) {
+          _msgStream = null;
+          // Authentication failures commonly mean the cached token/hosts are
+          // stale. A later user retry must fetch fresh connection metadata.
+          dmInfo = null;
+        }
+      },
+    )..addEventListener(_danmakuListener);
+    _msgStream = stream;
+    unawaited(stream.init());
   }
 
   void addDm(dynamic msg, [DanmakuContentItem<DanmakuExtra>? item]) {

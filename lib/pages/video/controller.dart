@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert' show jsonDecode;
 import 'dart:io';
-import 'dart:math' show Random, min;
+import 'dart:math' show min;
 import 'dart:ui';
 
 import 'package:PiliMax/common/style.dart';
@@ -55,6 +55,9 @@ import 'package:PiliMax/pages/video/note/view.dart';
 import 'package:PiliMax/pages/video/post_panel/view.dart';
 import 'package:PiliMax/pages/video/send_danmaku/view.dart';
 import 'package:PiliMax/pages/video/video_detail_args.dart';
+import 'package:PiliMax/pages/video/video_media_list_coordinator.dart';
+import 'package:PiliMax/pages/video/video_playback_session.dart';
+import 'package:PiliMax/pages/video/video_subtitle_coordinator.dart';
 import 'package:PiliMax/pages/video/widgets/header_control.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/data_source.dart';
@@ -93,6 +96,41 @@ import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart' hide Subtitle;
 import 'package:path/path.dart' as path;
 
+final class _MediaKitVideoSubtitlePlayer implements VideoSubtitlePlayer {
+  const _MediaKitVideoSubtitlePlayer(this._player);
+
+  final Player _player;
+
+  @override
+  Object get identity => _player;
+
+  @override
+  Future<void> setPrimarySubtitle(VideoSubtitleTrack? track) =>
+      _player.setSubtitleTrack(
+        track == null
+            ? SubtitleTrack.no()
+            : SubtitleTrack(
+                track.uri,
+                track.label,
+                track.language,
+                uri: true,
+              ),
+      );
+
+  @override
+  Future<void> setSecondarySubtitle(VideoSubtitleTrack? track) =>
+      _player.setSecondarySubtitleTrack(
+        track == null
+            ? SubtitleTrack.no()
+            : SubtitleTrack(
+                track.uri,
+                track.label,
+                track.language,
+                uri: true,
+              ),
+      );
+}
+
 class VideoDetailController extends GetxController
     with GetTickerProviderStateMixin, BlockMixin {
   /// 路由传参
@@ -117,12 +155,12 @@ class VideoDetailController extends GetxController
   late SourceType sourceType;
   late BiliDownloadEntryInfo entry;
   late bool isFileSource;
-  late ListOrder _listOrder = ListOrder.asc;
-  ListOrder get listOrder => _listOrder;
-  static final _random = Random();
-  List<int> _shuffledPages = [];
-  int _shufflePageIdx = 0;
-  late final RxList<MediaListItemModel> mediaList = <MediaListItemModel>[].obs;
+  final VideoMediaListCoordinator _mediaListCoordinator =
+      VideoMediaListCoordinator();
+  VideoMediaListRequest? _activeMediaListRequest;
+  Future<void>? _activeMediaListFuture;
+  ListOrder get listOrder => _mediaListCoordinator.order;
+  RxList<MediaListItemModel> get mediaList => _mediaListCoordinator.items;
   late String watchLaterTitle;
 
   // 是否正在进入应用内小窗
@@ -501,7 +539,9 @@ class VideoDetailController extends GetxController
       initFileSource(args['entry']);
     } else if (isPlayAll) {
       watchLaterTitle = args['favTitle'];
-      _listOrder = args['desc'] == true ? ListOrder.desc : ListOrder.asc;
+      _mediaListCoordinator.setInitialOrder(
+        args['desc'] == true ? ListOrder.desc : ListOrder.asc,
+      );
       getMediaList();
     }
 
@@ -520,131 +560,177 @@ class VideoDetailController extends GetxController
   Future<void> getMediaList({
     bool isReverse = false,
     bool isLoadPrevious = false,
-    int? pn,
-  }) async {
-    final count = args['count'];
-    if (!isReverse && !isLoadPrevious) {
-      if (_listOrder.isShuffle && pn == null) {
-        // shuffle mode load-more: use next page from shuffled sequence
-        pn = _nextShufflePage();
-        if (pn == null) return;
-      } else if (count != null && mediaList.length >= count) {
-        return;
+  }) {
+    if (isClosed) return Future<void>.value();
+    final activeRequest = _activeMediaListRequest;
+    final activeFuture = _activeMediaListFuture;
+    if (activeRequest != null &&
+        activeFuture != null &&
+        _mediaListCoordinator.isRequestGenerationCurrent(activeRequest)) {
+      if (activeRequest.isReverse == isReverse &&
+          activeRequest.isLoadPrevious == isLoadPrevious) {
+        return activeFuture;
       }
+      return activeFuture.then((_) {
+        if (!_mediaListCoordinator.isRequestGenerationCurrent(
+          activeRequest,
+        )) {
+          return Future<void>.value();
+        }
+        return getMediaList(
+          isReverse: isReverse,
+          isLoadPrevious: isLoadPrevious,
+        );
+      });
     }
-    final isShufflePn = pn != null;
-    final res = await UserHttp.getMediaList(
-      type: args['mediaType'] ?? sourceType.mediaType,
-      bizId: args['mediaId'] ?? -1,
-      ps: 20,
-      direction: isLoadPrevious ? true : false,
-      pn: pn,
-      oid: isShufflePn
-          ? null
-          : isReverse
-          ? null
-          : mediaList.isEmpty
-          ? args['isContinuePlaying'] == true
-                ? args['oid']
-                : null
-          : isLoadPrevious
-          ? mediaList.first.aid
-          : mediaList.last.aid,
-      otype: isShufflePn
-          ? null
-          : isReverse
-          ? null
-          : mediaList.isEmpty
-          ? null
-          : isLoadPrevious
-          ? mediaList.first.type
-          : mediaList.last.type,
-      desc: _listOrder.isDesc,
-      sortField: args['sortField'] ?? 1,
-      withCurrent: mediaList.isEmpty && args['isContinuePlaying'] == true
-          ? true
-          : false,
+
+    final future = _runMediaListChain(
+      isReverse: isReverse,
+      isLoadPrevious: isLoadPrevious,
+      playbackIdentity: _currentPlaybackIdentity(),
     );
-    if (res case Success(:final response)) {
-      if (response.mediaList.isNotEmpty) {
-        if (isReverse) {
-          mediaList.value = response.mediaList;
-          if (_listOrder.isShuffle) {
-            mediaList.shuffle();
-          }
-          for (final item in mediaList) {
-            if (item.cid != null) {
-              try {
-                Get.find<UgcIntroController>(
-                  tag: heroTag,
-                ).onChangeEpisode(item);
-              } catch (_) {}
-              break;
-            }
-          }
-        } else if (isLoadPrevious) {
-          mediaList.insertAll(0, response.mediaList);
-        } else if (_listOrder.isShuffle) {
-          _shuffleInsert(response.mediaList);
-        } else {
-          mediaList.addAll(response.mediaList);
+    _activeMediaListFuture = future;
+    unawaited(
+      future.then<void>(
+        (_) => _clearActiveMediaListFuture(future),
+        onError: (Object _, StackTrace _) =>
+            _clearActiveMediaListFuture(future),
+      ),
+    );
+    return future;
+  }
+
+  void _clearActiveMediaListFuture(Future<void> future) {
+    if (!identical(_activeMediaListFuture, future)) return;
+    _activeMediaListFuture = null;
+    _activeMediaListRequest = null;
+  }
+
+  Future<void> _runMediaListChain({
+    required bool isReverse,
+    required bool isLoadPrevious,
+    required Object playbackIdentity,
+  }) async {
+    while (!isClosed) {
+      final request = _mediaListCoordinator.beginRequest(
+        totalCount: args['count'],
+        isReverse: isReverse,
+        isLoadPrevious: isLoadPrevious,
+        playbackIdentity: playbackIdentity,
+      );
+      if (request == null) return;
+      _activeMediaListRequest = request;
+      final shouldContinue = await _executeMediaListRequest(
+        request: request,
+        currentItems: mediaList.toList(growable: false),
+        retryAttempt: 0,
+      );
+      if (!shouldContinue) return;
+    }
+  }
+
+  Future<bool> _executeMediaListRequest({
+    required VideoMediaListRequest request,
+    required List<MediaListItemModel> currentItems,
+    required int retryAttempt,
+  }) async {
+    final isShufflePage = request.page != null;
+    try {
+      final res = await UserHttp.getMediaList(
+        type: args['mediaType'] ?? sourceType.mediaType,
+        bizId: args['mediaId'] ?? -1,
+        ps: 20,
+        direction: request.isLoadPrevious,
+        pn: request.page,
+        oid: isShufflePage
+            ? null
+            : request.isReverse
+            ? null
+            : currentItems.isEmpty
+            ? args['isContinuePlaying'] == true
+                  ? args['oid']
+                  : null
+            : request.isLoadPrevious
+            ? currentItems.first.aid
+            : currentItems.last.aid,
+        otype: isShufflePage
+            ? null
+            : request.isReverse
+            ? null
+            : currentItems.isEmpty
+            ? null
+            : request.isLoadPrevious
+            ? currentItems.first.type
+            : currentItems.last.type,
+        desc: request.order.isDesc,
+        sortField: args['sortField'] ?? 1,
+        withCurrent: currentItems.isEmpty && args['isContinuePlaying'] == true,
+      );
+      if (res case Success(:final response)) {
+        if (response.mediaList.isEmpty && retryAttempt < 1) {
+          return _retryMediaListRequest(
+            request: request,
+            currentItems: currentItems,
+            retryAttempt: retryAttempt,
+          );
+        }
+        final applyResult = _mediaListCoordinator.applyFetchedItems(
+          request: request,
+          fetched: response.mediaList,
+          currentBvid: bvid,
+          currentPlaybackIdentity: _currentPlaybackIdentity(),
+        );
+        if (!applyResult.accepted) return false;
+        if (applyResult.nextEpisode case final nextEpisode?) {
+          try {
+            Get.find<UgcIntroController>(
+              tag: heroTag,
+            ).onChangeEpisode(nextEpisode);
+          } catch (_) {}
+        }
+        return response.mediaList.isEmpty && applyResult.hasMoreShufflePages;
+      } else if (_mediaListCoordinator.isRequestActive(request)) {
+        if (retryAttempt < 1) {
+          return _retryMediaListRequest(
+            request: request,
+            currentItems: currentItems,
+            retryAttempt: retryAttempt,
+          );
+        } else if (_mediaListCoordinator.abandonRequest(request)) {
+          res.toast();
         }
       }
-    } else {
-      res.toast();
-    }
-  }
-
-  void _shuffleInsert(List<MediaListItemModel> newItems) {
-    if (newItems.isEmpty) return;
-    final currentIdx = mediaList.indexWhere((e) => e.bvid == bvid);
-    final insertStart = currentIdx < 0 ? 0 : currentIdx + 1;
-    // Positions: insertStart..mediaList.length (inclusive, "append" is valid)
-    final available = mediaList.length - insertStart + 1;
-    final pickCount = newItems.length.clamp(0, available);
-    final range = List.generate(available, (i) => insertStart + i);
-    // Fisher-Yates partial shuffle for unique positions
-    for (int i = 0; i < pickCount; i++) {
-      final j = i + _random.nextInt(range.length - i);
-      final temp = range[i];
-      range[i] = range[j];
-      range[j] = temp;
-    }
-    final positions = range.sublist(0, pickCount)..sort();
-    // Insert back-to-front to preserve earlier indices
-    for (int i = pickCount - 1; i >= 0; i--) {
-      mediaList.insert(positions[i], newItems[i]);
-    }
-  }
-
-  void _initShufflePages() {
-    final count = args['count'];
-    if (count == null || count <= 0) {
-      _shuffledPages = [1];
-      _shufflePageIdx = 0;
-      return;
-    }
-    final totalPages = (count / 20).ceil();
-    _shuffledPages = List.generate(totalPages, (i) => i + 1);
-    _shuffledPages.shuffle(_random);
-    // Ensure first page has enough items to trigger load-more
-    final firstPageLastItem = count - (totalPages - 1) * 20;
-    if (_shuffledPages[0] == totalPages && firstPageLastItem < 2) {
-      for (int i = 1; i < _shuffledPages.length; i++) {
-        if (_shuffledPages[i] != totalPages) {
-          final temp = _shuffledPages[0];
-          _shuffledPages[0] = _shuffledPages[i];
-          _shuffledPages[i] = temp;
-          break;
+    } catch (error, stackTrace) {
+      if (_mediaListCoordinator.isRequestActive(request)) {
+        Utils.reportError(error, stackTrace);
+        if (retryAttempt < 1) {
+          return _retryMediaListRequest(
+            request: request,
+            currentItems: currentItems,
+            retryAttempt: retryAttempt,
+          );
+        } else if (_mediaListCoordinator.abandonRequest(request)) {
+          SmartDialog.showToast('播放列表加载失败，请重试');
         }
       }
     }
-    _shufflePageIdx = 0;
+    return false;
   }
 
-  int? _nextShufflePage() {
-    if (_shufflePageIdx >= _shuffledPages.length) return null;
-    return _shuffledPages[_shufflePageIdx++];
+  Future<bool> _retryMediaListRequest({
+    required VideoMediaListRequest request,
+    required List<MediaListItemModel> currentItems,
+    required int retryAttempt,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (isClosed || !_mediaListCoordinator.isRequestActive(request)) {
+      return false;
+    }
+    return _executeMediaListRequest(
+      request: request,
+      currentItems: currentItems,
+      retryAttempt: retryAttempt + 1,
+    );
   }
 
   // 稍后再看面板展开
@@ -664,18 +750,12 @@ class VideoDetailController extends GetxController
         bvid: bvid,
         count: args['count'],
         loadMoreMedia: getMediaList,
-        listOrder: _listOrder,
+        listOrder: listOrder,
         onReverse: () {
-          _listOrder = _listOrder.next;
-          if (_listOrder.isShuffle) {
-            _initShufflePages();
-            final pn = _nextShufflePage();
-            getMediaList(isReverse: true, pn: pn);
-          } else {
-            _shuffledPages = [];
-            _shufflePageIdx = 0;
-            getMediaList(isReverse: true);
-          }
+          _mediaListCoordinator.advanceOrder(
+            totalCount: args['count'],
+          );
+          getMediaList(isReverse: true);
         },
         loadPrevious: args['isContinuePlaying'] == true
             ? () => getMediaList(isLoadPrevious: true)
@@ -741,6 +821,13 @@ class VideoDetailController extends GetxController
   BlockConfigMixin get blockConfig => plPlayerController;
   @override
   Player? get player => plPlayerController.videoPlayerController;
+  bool get isCurrentPlayerSource => plPlayerController.isCurrentVideoSource(
+    bvid: bvid,
+    cid: cid.value,
+    sourceOwner: this,
+  );
+  @override
+  bool get isBlockSourceCurrent => isCurrentPlayerSource;
   @override
   bool get isFullScreen => plPlayerController.isFullScreen.value;
   @override
@@ -1060,13 +1147,24 @@ class VideoDetailController extends GetxController
     bool autoFullScreenFlag = false,
     bool Function()? isCurrentQuery,
   }) async {
+    final initSession = _playbackSession.begin(_currentPlaybackIdentity());
+    final requestIdentity = initSession.identity;
+    var sourceRequested = false;
+    bool isCurrentInit() =>
+        _playbackSession.isCurrent(
+          initSession,
+          isActive: () => !isClosed,
+          currentIdentity: _currentPlaybackIdentity,
+          additionalValidity: isCurrentQuery,
+        ) &&
+        (!sourceRequested || plPlayerController.isSourceOwnerActive(this));
     unawaited(
       DebugLogService.log(
         'video.player',
         'init player',
         extra: {
-          'bvid': bvid,
-          'cid': cid.value,
+          'bvid': requestIdentity.bvid,
+          'cid': requestIdentity.cid,
           'isFileSource': isFileSource,
           'autoplay': autoplay ?? _autoPlay.value,
           'autoFullScreenFlag': autoFullScreenFlag,
@@ -1074,19 +1172,21 @@ class VideoDetailController extends GetxController
         },
       ),
     );
+    if (!isCurrentInit()) return;
     // 如果播放器单例已被外部销毁（例如在二级页面关闭了小窗），重新获取一个新实例
     if (plPlayerController.videoPlayerController == null) {
       plPlayerController = PlPlayerController.ensureInstance();
     }
     if (isFileSource) {
-      await _loadLocalPlaybackMeta();
+      await _loadLocalPlaybackMeta(isCurrent: isCurrentInit);
+      if (!isCurrentInit()) return;
     }
     Duration? seek = defaultST ?? playedTime;
     if (seek == null || seek == Duration.zero) {
       seek = getFirstSegment();
     }
-    final currentQuery = isCurrentQuery;
-    Future<void> setDataSource() {
+    Future<bool> setDataSource() {
+      sourceRequested = true;
       return plPlayerController.setDataSource(
         isFileSource
             ? FileSource(
@@ -1100,21 +1200,22 @@ class VideoDetailController extends GetxController
                 audioSource: audioUrl,
                 onCodecOpenError: _handleCodecOpenError,
               ),
+        sourceOwner: this,
         seekTo: seek,
         duration: data.timeLength == null
             ? null
             : Duration(milliseconds: data.timeLength!),
         isVertical: isVertical.value,
-        aid: aid,
-        bvid: bvid,
-        cid: cid.value,
+        aid: requestIdentity.aid,
+        bvid: requestIdentity.bvid,
+        cid: requestIdentity.cid,
         autoplay: autoplay ?? _autoPlay.value,
-        epid: isUgc ? null : epId,
-        seasonId: isUgc ? null : seasonId,
+        epid: isUgc ? null : requestIdentity.epId,
+        seasonId: isUgc ? null : requestIdentity.seasonId,
         pgcType: isUgc ? null : pgcType,
         videoType: videoType,
         onInit: () {
-          if (currentQuery?.call() == false) return;
+          if (!isCurrentInit()) return;
           videoState.value = true;
           setSubtitle(vttSubtitlesIndex.value);
           if (isFileSource) {
@@ -1128,16 +1229,18 @@ class VideoDetailController extends GetxController
       );
     }
 
-    if (currentQuery?.call() == false) return;
-    if (currentQuery == null) {
-      await setDataSource();
-    } else {
-      await _queuePlayerInit(() async {
-        if (!currentQuery()) return;
-        await setDataSource();
-      });
-      if (!currentQuery()) return;
-    }
+    if (!isCurrentInit()) return;
+    var sourceApplied = false;
+    await _playbackSession.enqueueSourceSwitch(
+      initSession,
+      isActive: () => !isClosed,
+      currentIdentity: _currentPlaybackIdentity,
+      additionalValidity: isCurrentQuery,
+      action: () async {
+        sourceApplied = await setDataSource();
+      },
+    );
+    if (!sourceApplied || !isCurrentInit()) return;
 
     // 检查 controller 是否已关闭，如果已关闭则跳过后续的资源加载操作
     // （播放信息、弹幕趋势、SponsorBlock 等），避免已销毁的 controller
@@ -1177,8 +1280,16 @@ class VideoDetailController extends GetxController
 
   String? _lastQueryBvid;
   int? _lastQueryCid;
+  final VideoPlaybackSession _playbackSession = VideoPlaybackSession();
   int _videoUrlQueryGeneration = 0;
-  Future<void> _playerInitQueue = Future<void>.value();
+
+  VideoPlaybackIdentity _currentPlaybackIdentity() => VideoPlaybackIdentity(
+    aid: aid,
+    bvid: bvid,
+    cid: cid.value,
+    epId: epId,
+    seasonId: seasonId,
+  );
 
   bool _isCurrentVideoUrlQuery({
     required int generation,
@@ -1193,12 +1304,6 @@ class VideoDetailController extends GetxController
         this.cid.value == cid &&
         this.epId == epId &&
         this.seasonId == seasonId;
-  }
-
-  Future<void> _queuePlayerInit(Future<void> Function() action) {
-    final run = _playerInitQueue.then((_) => action());
-    _playerInitQueue = run.catchError((_) {});
-    return run;
   }
 
   final languages = Rxn<List<LanguageItem>>();
@@ -1239,14 +1344,13 @@ class VideoDetailController extends GetxController
     final requestCid = cid.value;
     final requestEpId = epId;
     final requestSeasonId = seasonId;
-    bool isCurrentVideoUrlQuery() =>
-        _isCurrentVideoUrlQuery(
-          generation: queryGeneration,
-          bvid: requestBvid,
-          cid: requestCid,
-          epId: requestEpId,
-          seasonId: requestSeasonId,
-        );
+    bool isCurrentVideoUrlQuery() => _isCurrentVideoUrlQuery(
+      generation: queryGeneration,
+      bvid: requestBvid,
+      cid: requestCid,
+      epId: requestEpId,
+      seasonId: requestSeasonId,
+    );
     bool isCurrentQuery() =>
         isCurrentVideoUrlQuery() && (isCurrentSwitch?.call() ?? true);
     isQuerying = true;
@@ -1262,14 +1366,18 @@ class VideoDetailController extends GetxController
         _lastQueryCid = requestCid;
       }
       if (plPlayerController.enableSponsorBlock && isBlock && !fromReset) {
-        querySponsorBlock(bvid: requestBvid, cid: requestCid);
+        unawaited(
+          querySponsorBlock(
+            bvid: requestBvid,
+            cid: requestCid,
+            isCurrent: isCurrentQuery,
+          ),
+        );
       }
       if (plPlayerController.cacheVideoQa == null) {
         final isWiFi = await ConnectivityUtils.isWiFi;
         if (!isCurrentQuery()) return;
-        final fsQa = isWiFi
-            ? Pref.defaultVideoQa
-            : Pref.defaultVideoQaCellular;
+        final fsQa = isWiFi ? Pref.defaultVideoQa : Pref.defaultVideoQaCellular;
         final halfScreenQa = Pref.defaultVideoQaHalfScreen;
         plPlayerController
           ..cacheVideoQa =
@@ -1319,7 +1427,9 @@ class VideoDetailController extends GetxController
         if (!isUgc && !fromReset && plPlayerController.enablePgcSkip) {
           if (data.clipInfoList case final clipInfoList?) {
             resetBlock();
-            handleSBData(clipInfoList);
+            unawaited(
+              handleSBData(clipInfoList, isCurrent: isCurrentQuery),
+            );
           }
         }
 
@@ -1356,7 +1466,9 @@ class VideoDetailController extends GetxController
             if (plPlayerController.enableSponsorBlock &&
                 segmentList.isNotEmpty) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                initSkip();
+                if (isCurrentQuery()) {
+                  initSkip();
+                }
               });
             }
           }
@@ -1455,7 +1567,9 @@ class VideoDetailController extends GetxController
           if (plPlayerController.enableSponsorBlock && segmentList.isNotEmpty) {
             // 等待播放器就绪
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              initSkip();
+              if (isCurrentQuery()) {
+                initSkip();
+              }
             });
           }
         }
@@ -1513,83 +1627,34 @@ class VideoDetailController extends GetxController
   }
 
   RxList<Subtitle> subtitles = RxList<Subtitle>();
-  final Map<int, ({bool isData, String id})> vttSubtitles = {};
+  final Map<int, VideoSubtitleSource> vttSubtitles = {};
 
   late final RxInt vttSubtitlesIndex = (-1).obs;
   late final RxInt vttSecondarySubtitlesIndex = 0.obs;
   int _playInfoQueryGeneration = 0;
-  int _subtitleContextGeneration = 0;
-  int _primarySubtitleSelectionGeneration = 0;
-  int _secondarySubtitleSelectionGeneration = 0;
-  int? _pendingPrimarySubtitleIndex;
-  int? _pendingSecondarySubtitleIndex;
-  static Future<void> _subtitleTrackUpdateQueue = Future<void>.value();
-  static int _appliedPrimarySubtitleIndex = 0;
-  static int _appliedSecondarySubtitleIndex = 0;
+  late final VideoSubtitleCoordinator _subtitleCoordinator =
+      VideoSubtitleCoordinator(
+        subtitles: () => subtitles,
+        sources: vttSubtitles,
+        primaryIndex: () => vttSubtitlesIndex.value,
+        setPrimaryIndex: (value) => vttSubtitlesIndex.value = value,
+        secondaryIndex: () => vttSecondarySubtitlesIndex.value,
+        setSecondaryIndex: (value) => vttSecondarySubtitlesIndex.value = value,
+        currentContext: () => VideoSubtitleContext(
+          bvid: bvid,
+          cid: cid.value,
+          epId: epId,
+          seasonId: seasonId,
+        ),
+        isCurrentSource: () => !isClosed && isCurrentPlayerSource,
+        playerProvider: () {
+          final player = plPlayerController.videoPlayerController;
+          return player == null ? null : _MediaKitVideoSubtitlePlayer(player);
+        },
+        loadVtt: VideoHttp.vttSubtitles,
+      );
 
-  Future<void> _queueSubtitleTrackUpdate(Future<void> Function() action) {
-    final run = _subtitleTrackUpdateQueue.then((_) => action());
-    _subtitleTrackUpdateQueue = run.catchError((_) {});
-    return run;
-  }
-
-  void _reconcilePrimarySubtitleIndex(
-    bool Function() isCurrent, {
-    int? loadingIndex,
-  }) {
-    if (!isCurrent()) return;
-    vttSubtitlesIndex.value = loadingIndex != null && loadingIndex < 0
-        ? loadingIndex
-        : _appliedPrimarySubtitleIndex;
-  }
-
-  void _reconcileSecondarySubtitleIndex(bool Function() isCurrent) {
-    if (!isCurrent()) return;
-    vttSecondarySubtitlesIndex.value = _appliedSecondarySubtitleIndex;
-  }
-
-  Future<void> _clearAppliedSecondaryConflict(
-    bool Function() isCurrent,
-  ) {
-    return _queueSubtitleTrackUpdate(() async {
-      if (_appliedPrimarySubtitleIndex <= 0 ||
-          _appliedPrimarySubtitleIndex != _appliedSecondarySubtitleIndex) {
-        return;
-      }
-      final player = plPlayerController.videoPlayerController;
-      if (player == null) {
-        _appliedSecondarySubtitleIndex = 0;
-      } else {
-        await player.setSecondarySubtitleTrack(.no());
-        _appliedSecondarySubtitleIndex = 0;
-      }
-      if (isCurrent()) {
-        vttSecondarySubtitlesIndex.value = 0;
-      }
-    });
-  }
-
-  void _invalidateSubtitleSelections() {
-    _subtitleContextGeneration++;
-    _primarySubtitleSelectionGeneration++;
-    _secondarySubtitleSelectionGeneration++;
-    _pendingPrimarySubtitleIndex = null;
-    _pendingSecondarySubtitleIndex = null;
-  }
-
-  bool _isCurrentSubtitleContext({
-    required int generation,
-    required String bvid,
-    required int cid,
-    required int? epId,
-    required int? seasonId,
-  }) =>
-      !isClosed &&
-      generation == _subtitleContextGeneration &&
-      bvid == this.bvid &&
-      cid == this.cid.value &&
-      epId == this.epId &&
-      seasonId == this.seasonId;
+  void _invalidateSubtitleSelections() => _subtitleCoordinator.invalidate();
 
   bool _isCurrentPlayInfoQuery({
     required int generation,
@@ -1600,6 +1665,7 @@ class VideoDetailController extends GetxController
   }) =>
       generation == _playInfoQueryGeneration &&
       !isClosed &&
+      isCurrentPlayerSource &&
       bvid == this.bvid &&
       cid == this.cid.value &&
       epId == this.epId &&
@@ -1634,7 +1700,9 @@ class VideoDetailController extends GetxController
     return null;
   }
 
-  Future<void> _loadLocalPlaybackMeta() async {
+  Future<void> _loadLocalPlaybackMeta({bool Function()? isCurrent}) async {
+    bool canApply() => !isClosed && (isCurrent?.call() ?? true);
+    if (!canApply()) return;
     viewPointList.clear();
     resetBlock();
     final metaFile = File(
@@ -1644,9 +1712,10 @@ class VideoDetailController extends GetxController
       return;
     }
     try {
+      final metaJson = await metaFile.readAsString();
+      if (!canApply()) return;
       final meta = DownloadPlaybackMeta.fromJson(
-        (jsonDecode(await metaFile.readAsString()) as Map)
-            .cast<String, dynamic>(),
+        (jsonDecode(metaJson) as Map).cast<String, dynamic>(),
       );
       final durationMs = data.timeLength ?? entry.totalTimeMilli;
       final chapters = meta.chapters;
@@ -1667,7 +1736,7 @@ class VideoDetailController extends GetxController
         );
       }
       if (_resolveLocalSkipSegments(meta) case final resolved?) {
-        await handleSBData(resolved.items);
+        await handleSBData(resolved.items, isCurrent: canApply);
       }
     } catch (e) {
       if (kDebugMode) {
@@ -1679,18 +1748,8 @@ class VideoDetailController extends GetxController
   Future<void> _loadFileSubtitles() async {
     _playInfoQueryGeneration++;
     _invalidateSubtitleSelections();
-    final contextGeneration = _subtitleContextGeneration;
-    final requestBvid = bvid;
-    final requestCid = cid.value;
-    final requestEpId = epId;
-    final requestSeasonId = seasonId;
-    bool isCurrentContext() => _isCurrentSubtitleContext(
-      generation: contextGeneration,
-      bvid: requestBvid,
-      cid: requestCid,
-      epId: requestEpId,
-      seasonId: requestSeasonId,
-    );
+    final context = _subtitleCoordinator.captureContext();
+    bool isCurrentContext() => _subtitleCoordinator.isCurrentContext(context);
 
     await setSubtitle(0);
     if (!isCurrentContext()) return;
@@ -1752,272 +1811,38 @@ class VideoDetailController extends GetxController
   }
 
   // 设定字幕轨道
-  Future<void> setSubtitle(int index) async {
-    final selectionGeneration = ++_primarySubtitleSelectionGeneration;
-    final contextGeneration = _subtitleContextGeneration;
-    final requestBvid = bvid;
-    final requestCid = cid.value;
-    final requestEpId = epId;
-    final requestSeasonId = seasonId;
-    bool isCurrentSelection() =>
-        selectionGeneration == _primarySubtitleSelectionGeneration &&
-        _isCurrentSubtitleContext(
-          generation: contextGeneration,
-          bvid: requestBvid,
-          cid: requestCid,
-          epId: requestEpId,
-          seasonId: requestSeasonId,
-        );
-    _pendingPrimarySubtitleIndex = null;
+  Future<void> setSubtitle(int index) =>
+      _subtitleCoordinator.selectPrimary(index);
 
-    if (index <= 0) {
-      _pendingPrimarySubtitleIndex = 0;
-      try {
-        await _queueSubtitleTrackUpdate(() async {
-          if (!isCurrentSelection()) return;
-          final player = plPlayerController.videoPlayerController;
-          if (player == null) {
-            _appliedPrimarySubtitleIndex = 0;
-          } else {
-            await player.setSubtitleTrack(.no());
-            _appliedPrimarySubtitleIndex = 0;
-          }
-        });
-        _reconcilePrimarySubtitleIndex(
-          isCurrentSelection,
-          loadingIndex: index,
-        );
-      } catch (_) {
-        _reconcilePrimarySubtitleIndex(
-          isCurrentSelection,
-          loadingIndex: index,
-        );
-        rethrow;
-      } finally {
-        if (selectionGeneration == _primarySubtitleSelectionGeneration) {
-          _pendingPrimarySubtitleIndex = null;
-        }
-      }
-      return;
-    }
-
-    final subIndex = index - 1;
-    if (subIndex < 0 || subIndex >= subtitles.length) {
-      _reconcilePrimarySubtitleIndex(isCurrentSelection);
-      return;
-    }
-    final sub = subtitles[subIndex];
-    _pendingPrimarySubtitleIndex = index;
-    try {
-      // Primary subtitles win same-track races; cancel any pending secondary.
-      if (index == vttSecondarySubtitlesIndex.value ||
-          index == _pendingSecondarySubtitleIndex ||
-          index == _appliedSecondarySubtitleIndex) {
-        await setSecondarySubtitle(0);
-        if (!isCurrentSelection()) return;
-      }
-
-      final subUri = await _resolveVttUri(
-        subIndex: subIndex,
-        subtitleItem: sub,
-        isCurrent: isCurrentSelection,
-      );
-      if (!isCurrentSelection()) return;
-      if (subUri == null) {
-        _reconcilePrimarySubtitleIndex(isCurrentSelection);
-        return;
-      }
-
-      // Recheck after the VTT request because the secondary choice may have
-      // changed while this selection was waiting on the network.
-      if (index == vttSecondarySubtitlesIndex.value ||
-          index == _pendingSecondarySubtitleIndex ||
-          index == _appliedSecondarySubtitleIndex) {
-        await setSecondarySubtitle(0);
-        if (!isCurrentSelection()) return;
-      }
-
-      await _queueSubtitleTrackUpdate(() async {
-        if (!isCurrentSelection()) return;
-        final pendingSecondary = _pendingSecondarySubtitleIndex;
-        if (pendingSecondary == index ||
-            (vttSecondarySubtitlesIndex.value == index &&
-                pendingSecondary != 0) ||
-            (_appliedSecondarySubtitleIndex == index &&
-                pendingSecondary != 0)) {
-          return;
-        }
-        final player = plPlayerController.videoPlayerController;
-        if (player == null) return;
-        await player.setSubtitleTrack(
-          SubtitleTrack(subUri, sub.lanDoc, sub.lan, uri: true),
-        );
-        _appliedPrimarySubtitleIndex = index;
-        final latestPendingSecondary = _pendingSecondarySubtitleIndex;
-        if (!isCurrentSelection() ||
-            latestPendingSecondary == index ||
-            (vttSecondarySubtitlesIndex.value == index &&
-                latestPendingSecondary != 0) ||
-            (_appliedSecondarySubtitleIndex == index &&
-                latestPendingSecondary != 0)) {
-          return;
-        }
-      });
-      await _clearAppliedSecondaryConflict(isCurrentSelection);
-      _reconcilePrimarySubtitleIndex(isCurrentSelection);
-      _reconcileSecondarySubtitleIndex(isCurrentSelection);
-    } catch (_) {
-      _reconcilePrimarySubtitleIndex(isCurrentSelection);
-      _reconcileSecondarySubtitleIndex(isCurrentSelection);
-      rethrow;
-    } finally {
-      if (selectionGeneration == _primarySubtitleSelectionGeneration) {
-        _pendingPrimarySubtitleIndex = null;
-      }
-    }
-  }
-
-  Future<void> setSecondarySubtitle(int index) async {
-    final selectionGeneration = ++_secondarySubtitleSelectionGeneration;
-    final contextGeneration = _subtitleContextGeneration;
-    final requestBvid = bvid;
-    final requestCid = cid.value;
-    final requestEpId = epId;
-    final requestSeasonId = seasonId;
-    bool isCurrentSelection() =>
-        selectionGeneration == _secondarySubtitleSelectionGeneration &&
-        _isCurrentSubtitleContext(
-          generation: contextGeneration,
-          bvid: requestBvid,
-          cid: requestCid,
-          epId: requestEpId,
-          seasonId: requestSeasonId,
-        );
-    _pendingSecondarySubtitleIndex = null;
-
-    // A track cannot be primary and secondary at the same time. Primary wins.
-    if (index <= 0 ||
-        index == vttSubtitlesIndex.value ||
-        index == _pendingPrimarySubtitleIndex ||
-        index == _appliedPrimarySubtitleIndex) {
-      _pendingSecondarySubtitleIndex = 0;
-      try {
-        await _queueSubtitleTrackUpdate(() async {
-          if (!isCurrentSelection()) return;
-          final player = plPlayerController.videoPlayerController;
-          if (player == null) {
-            _appliedSecondarySubtitleIndex = 0;
-          } else {
-            await player.setSecondarySubtitleTrack(.no());
-            _appliedSecondarySubtitleIndex = 0;
-          }
-        });
-        _reconcileSecondarySubtitleIndex(isCurrentSelection);
-      } catch (_) {
-        _reconcileSecondarySubtitleIndex(isCurrentSelection);
-        rethrow;
-      } finally {
-        if (selectionGeneration == _secondarySubtitleSelectionGeneration) {
-          _pendingSecondarySubtitleIndex = null;
-        }
-      }
-      return;
-    }
-
-    final subIndex = index - 1;
-    if (subIndex < 0 || subIndex >= subtitles.length) {
-      _reconcileSecondarySubtitleIndex(isCurrentSelection);
-      return;
-    }
-    final sub = subtitles[subIndex];
-    _pendingSecondarySubtitleIndex = index;
-    final player = plPlayerController.videoPlayerController;
-    if (player == null) {
-      _pendingSecondarySubtitleIndex = null;
-      _reconcileSecondarySubtitleIndex(isCurrentSelection);
-      return;
-    }
-    try {
-      final subUri = await _resolveVttUri(
-        subIndex: subIndex,
-        subtitleItem: sub,
-        isCurrent: isCurrentSelection,
-      );
-      if (!isCurrentSelection()) return;
-      if (subUri == null) {
-        _reconcileSecondarySubtitleIndex(isCurrentSelection);
-        return;
-      }
-
-      // Recheck after awaiting VTT data to close the in-flight same-track race.
-      if (index == vttSubtitlesIndex.value ||
-          index == _pendingPrimarySubtitleIndex ||
-          index == _appliedPrimarySubtitleIndex) {
-        await setSecondarySubtitle(0);
-        return;
-      }
-
-      await _queueSubtitleTrackUpdate(() async {
-        if (!isCurrentSelection()) return;
-        if (index == vttSubtitlesIndex.value ||
-            index == _pendingPrimarySubtitleIndex ||
-            index == _appliedPrimarySubtitleIndex) {
-          return;
-        }
-        await player.setSecondarySubtitleTrack(
-          SubtitleTrack(subUri, sub.lanDoc, sub.lan, uri: true),
-        );
-        _appliedSecondarySubtitleIndex = index;
-      });
-      await _clearAppliedSecondaryConflict(isCurrentSelection);
-      _reconcilePrimarySubtitleIndex(isCurrentSelection);
-      _reconcileSecondarySubtitleIndex(isCurrentSelection);
-    } catch (_) {
-      _reconcilePrimarySubtitleIndex(isCurrentSelection);
-      _reconcileSecondarySubtitleIndex(isCurrentSelection);
-      rethrow;
-    } finally {
-      if (selectionGeneration == _secondarySubtitleSelectionGeneration) {
-        _pendingSecondarySubtitleIndex = null;
-      }
-    }
-  }
-
-  Future<String?> _resolveVttUri({
-    required int subIndex,
-    required Subtitle subtitleItem,
-    required bool Function() isCurrent,
-  }) async {
-    if (!isCurrent()) return null;
-    ({bool isData, String id})? resolved = vttSubtitles[subIndex];
-    if (resolved == null) {
-      final subtitleUrl = subtitleItem.subtitleUrl;
-      if (subtitleUrl == null) return null;
-      final result = await VideoHttp.vttSubtitles(subtitleUrl);
-      if (!isCurrent()) return null;
-      if (result == null) return null;
-      resolved = (isData: true, id: result);
-      vttSubtitles[subIndex] = resolved;
-    }
-    return resolved.isData ? 'memory://${resolved.id}' : resolved.id;
-  }
+  Future<void> setSecondarySubtitle(int index) =>
+      _subtitleCoordinator.selectSecondary(index);
 
   // interactive video
   int? graphVersion;
   EdgeInfoData? steinEdgeInfo;
   late final RxBool showSteinEdgeInfo = false.obs;
+  int _steinEdgeQueryGeneration = 0;
 
   Future<void> getSteinEdgeInfo([int? edgeId]) async {
+    final queryGeneration = ++_steinEdgeQueryGeneration;
+    final requestBvid = bvid;
+    final requestGraphVersion = graphVersion;
+    bool isCurrentQuery() =>
+        !isClosed &&
+        queryGeneration == _steinEdgeQueryGeneration &&
+        requestBvid == bvid &&
+        requestGraphVersion == graphVersion;
     steinEdgeInfo = null;
     try {
       final res = await Request().get(
         '/x/stein/edgeinfo_v2',
         queryParameters: {
-          'bvid': bvid,
-          'graph_version': graphVersion,
+          'bvid': requestBvid,
+          'graph_version': requestGraphVersion,
           'edge_id': ?edgeId,
         },
       );
+      if (!isCurrentQuery()) return;
       if (res.data['code'] == 0) {
         steinEdgeInfo = EdgeInfoData.fromJson(res.data['data']);
       } else {
@@ -2224,81 +2049,20 @@ class VideoDetailController extends GetxController
   void updateMediaListHistory(int aid) {
     if (args['sortField'] != null) {
       VideoHttp.medialistHistory(
-        desc: _listOrder.isDesc ? 1 : 0,
+        desc: listOrder.isDesc ? 1 : 0,
         oid: aid,
         upperMid: args['mediaId'],
       );
     }
   }
 
-  int _currentVideoDurationSeconds({Duration? fallbackDuration}) {
-    final timeLength = data.timeLength;
-    if (timeLength != null && timeLength > 0) {
-      return (timeLength / Duration.millisecondsPerSecond).ceil();
-    }
-    if (fallbackDuration != null && fallbackDuration > Duration.zero) {
-      final seconds = fallbackDuration.inSeconds;
-      return seconds > 0 ? seconds : 1;
-    }
-    return 0;
-  }
-
-  int _heartBeatProgressSecondsForPosition(Duration position) {
-    final timeLength = data.timeLength;
-    if (plPlayerController.playerStatus.isCompleted ||
-        (timeLength != null &&
-            timeLength > 0 &&
-            (timeLength - position.inMilliseconds).abs() <= 1000)) {
-      return -1;
-    }
-    return position.inSeconds;
-  }
-
-  int _listProgressSecondsForPosition(Duration position) =>
-      plPlayerController.playerStatus.isCompleted ? -1 : position.inSeconds;
-
-  bool _matchesMediaListItem(
-    MediaListItemModel item,
-    int videoAid,
-    String videoBvid,
-    int videoCid,
-  ) {
-    if (item.aid != videoAid || item.bvid != videoBvid) return false;
-    final pages = item.pages;
-    if (pages == null || pages.isEmpty) return true;
-    return pages.any((page) => page.id == videoCid);
-  }
-
-  void _updateMediaListProgress({
-    required int videoAid,
-    required String videoBvid,
-    required int videoCid,
-    required int progressSeconds,
-    required int videoDuration,
-  }) {
-    if (sourceType == SourceType.normal) return;
-    final targetItem = mediaList.firstWhereOrNull(
-      (item) => _matchesMediaListItem(item, videoAid, videoBvid, videoCid),
-    );
-    if (targetItem == null) return;
-    final newProgress = progressSeconds == -1
-        ? -1
-        : progressSeconds
-              .clamp(0, videoDuration > 0 ? videoDuration : progressSeconds)
-              .toInt();
-    if (targetItem.progress != newProgress) {
-      targetItem.progress = newProgress;
-      mediaList.refresh();
-    }
-  }
-
   void syncCompletedProgressForCurrentVideo({Duration? fallbackDuration}) {
     if (sourceType == SourceType.normal) return;
-    final currentDuration = _currentVideoDurationSeconds(
+    final currentDuration = VideoMediaListCoordinator.resolveDurationSeconds(
+      timeLengthMilliseconds: data.timeLength,
       fallbackDuration: fallbackDuration,
     );
-    if (currentDuration <= 0) return;
-    _updateMediaListProgress(
+    _mediaListCoordinator.updateProgress(
       videoAid: aid,
       videoBvid: bvid,
       videoCid: cid.value,
@@ -2312,9 +2076,12 @@ class VideoDetailController extends GetxController
         !plPlayerController.playerStatus.isCompleted &&
         playedTime != null) {
       try {
-        final progressSeconds = _heartBeatProgressSecondsForPosition(
-          playedTime!,
-        );
+        final progressSeconds =
+            VideoMediaListCoordinator.heartBeatProgressSeconds(
+              position: playedTime!,
+              isCompleted: plPlayerController.playerStatus.isCompleted,
+              timeLengthMilliseconds: data.timeLength,
+            );
         plPlayerController.makeHeartBeat(
           progressSeconds,
           type: HeartBeatType.completed,
@@ -2328,12 +2095,15 @@ class VideoDetailController extends GetxController
           videoType: videoType,
         );
         if (sourceType != SourceType.normal) {
-          _updateMediaListProgress(
+          _mediaListCoordinator.updateProgress(
             videoAid: aid,
             videoBvid: bvid,
             videoCid: cid.value,
-            progressSeconds: _listProgressSecondsForPosition(playedTime!),
-            videoDuration: _currentVideoDurationSeconds(
+            progressSeconds: plPlayerController.playerStatus.isCompleted
+                ? -1
+                : playedTime!.inSeconds,
+            videoDuration: VideoMediaListCoordinator.resolveDurationSeconds(
+              timeLengthMilliseconds: data.timeLength,
               fallbackDuration: playedTime,
             ),
           );
@@ -2351,11 +2121,14 @@ class VideoDetailController extends GetxController
     // 页面 pop 后 GetX 才延迟触发 onClose，此时播放器单例可能已被下层视频页
     // 重新接管（didPopNext -> playerInit 恢复播放）；仅当单例仍持有本页内容时
     // 才暂停，否则会与下层页面的恢复播放竞速
-    if (plPlayerController.isCurrentVideoSource(bvid: bvid, cid: cid.value)) {
+    if (isCurrentPlayerSource) {
       plPlayerController.pause();
     }
     cancelBlockListener();
     _dmTrendTaskId++;
+    _mediaListCoordinator.invalidate();
+    _playbackSession.invalidate();
+    _steinEdgeQueryGeneration++;
     cid.close();
     if (isFileSource) {
       cacheLocalProgress();
@@ -2382,6 +2155,8 @@ class VideoDetailController extends GetxController
 
     playedTime = null;
     _dmTrendTaskId++;
+    _playbackSession.invalidate();
+    _steinEdgeQueryGeneration++;
     defaultST = null;
     videoUrl = null;
     audioUrl = null;
@@ -2552,51 +2327,6 @@ class VideoDetailController extends GetxController
     return false;
   }
 
-  List<Map<String, int>> _audioPlaylistProgressSnapshot() {
-    final snapshot = <Map<String, int>>[];
-    final seen = <String>{};
-
-    void addProgress({
-      required int? aid,
-      required int? cid,
-      required int? progress,
-    }) {
-      if (aid == null || aid <= 0 || cid == null || cid <= 0) return;
-      if (progress == null || progress <= 0) return;
-      final key = '$aid:$cid';
-      if (!seen.add(key)) return;
-      snapshot.add({
-        'aid': aid,
-        'cid': cid,
-        'progress': progress,
-      });
-    }
-
-    final currentProgress = playedTime?.inSeconds;
-    addProgress(
-      aid: aid,
-      cid: cid.value,
-      progress: currentProgress != null && currentProgress > 0
-          ? currentProgress
-          : null,
-    );
-
-    for (final item in mediaList) {
-      final aid = item.aid;
-      final progress = item.progress;
-      final pages = item.pages;
-      if (pages != null && pages.isNotEmpty) {
-        if (pages.length == 1) {
-          addProgress(aid: aid, cid: pages.first.id, progress: progress);
-        }
-      } else {
-        addProgress(aid: aid, cid: item.cid, progress: progress);
-      }
-    }
-
-    return snapshot;
-  }
-
   void toAudioPage() {
     int? id;
     int? extraId;
@@ -2625,7 +2355,15 @@ class VideoDetailController extends GetxController
       start: playedTime,
       audioUrl: audioUrl,
       extraId: extraId,
-      playlistProgress: _audioPlaylistProgressSnapshot(),
+      playlistProgress: _mediaListCoordinator.buildAudioProgressSnapshot(
+        currentAid: aid,
+        currentCid: cid.value,
+        currentProgress: playedTime?.inSeconds,
+        currentDuration: VideoMediaListCoordinator.resolveDurationSeconds(
+          timeLengthMilliseconds: data.timeLength,
+          fallbackDuration: playedTime,
+        ),
+      ),
     );
   }
 

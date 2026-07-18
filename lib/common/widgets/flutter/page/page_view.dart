@@ -1,95 +1,16 @@
-// Copyright 2014 The Flutter Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart' hide PageView;
+import 'package:flutter/material.dart' as material show PageView;
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
-// ignore_for_file: prefer_initializing_formals
-
-import 'package:PiliMax/common/widgets/flutter/page/scrollable.dart';
-import 'package:flutter/gestures.dart'
-    show DragStartBehavior, HorizontalDragGestureRecognizer;
-import 'package:flutter/material.dart'
-    hide PageView, Scrollable, ScrollableState;
-import 'package:flutter/rendering.dart';
-
-class _ForceImplicitScrollPhysics extends ScrollPhysics {
-  const _ForceImplicitScrollPhysics({
-    required this.allowImplicitScrolling,
-    super.parent,
-  });
-
-  @override
-  _ForceImplicitScrollPhysics applyTo(ScrollPhysics? ancestor) {
-    return _ForceImplicitScrollPhysics(
-      allowImplicitScrolling: allowImplicitScrolling,
-      parent: buildParent(ancestor),
-    );
-  }
-
-  @override
-  final bool allowImplicitScrolling;
-}
-
-const PageScrollPhysics _kPagePhysics = PageScrollPhysics();
-
-/// A scrollable list that works page by page.
+/// Flutter [material.PageView] driven by a PiliMax-provided horizontal drag
+/// recognizer.
 ///
-/// Each child of a page view is forced to be the same size as the viewport.
-///
-/// You can use a [PageController] to control which page is visible in the view.
-/// In addition to being able to control the pixel offset of the content inside
-/// the [PageView], a [PageController] also lets you control the offset in terms
-/// of pages, which are increments of the viewport size.
-///
-/// The [PageController] can also be used to control the
-/// [PageController.initialPage], which determines which page is shown when the
-/// [PageView] is first constructed, and the [PageController.viewportFraction],
-/// which determines the size of the pages as a fraction of the viewport size.
-///
-/// {@youtube 560 315 https://www.youtube.com/watch?v=J1gE9xvph-A}
-///
-/// {@tool dartpad}
-/// Here is an example of [PageView]. It creates a centered [Text] in each of the three pages
-/// which scroll horizontally.
-///
-/// ** See code in examples/api/lib/widgets/page_view/page_view.0.dart **
-/// {@end-tool}
-///
-/// ## Persisting the scroll position during a session
-///
-/// Scroll views attempt to persist their scroll position using [PageStorage].
-/// For a [PageView], this can be disabled by setting [PageController.keepPage]
-/// to false on the [controller]. If it is enabled, using a [PageStorageKey] for
-/// the [key] of this widget is recommended to help disambiguate different
-/// scroll views from each other.
-///
-/// See also:
-///
-///  * [PageController], which controls which page is visible in the view.
-///  * [SingleChildScrollView], when you need to make a single child scrollable.
-///  * [ListView], for a scrollable list of boxes.
-///  * [GridView], for a scrollable grid of boxes.
-///  * [ScrollNotification] and [NotificationListener], which can be used to watch
-///    the scroll position without using a [ScrollController].
+/// The framework page layout, position, accessibility and snapping remain in
+/// use. Only gesture admission is app-owned so diagonal drags and image-edge
+/// handoff keep their existing behavior without forking Scrollable.
 class PageView<T extends HorizontalDragGestureRecognizer>
     extends StatefulWidget {
-  /// Creates a scrollable list that works page by page from an explicit [List]
-  /// of widgets.
-  ///
-  /// This constructor is appropriate for page views with a small number of
-  /// children because constructing the [List] requires doing work for every
-  /// child that could possibly be displayed in the page view, instead of just
-  /// those children that are actually visible.
-  ///
-  /// Like other widgets in the framework, this widget expects that
-  /// the [children] list will not be mutated after it has been passed in here.
-  /// See the documentation at [SliverChildListDelegate.children] for more details.
-  ///
-  /// {@template flutter.widgets.PageView.allowImplicitScrolling}
-  /// If [allowImplicitScrolling] is true, the [PageView] will participate in
-  /// accessibility scrolling more like a [ListView], where implicit scroll
-  /// actions will move to the next page rather than into the contents of the
-  /// [PageView].
-  /// {@endtemplate}
   PageView({
     super.key,
     this.scrollDirection = Axis.horizontal,
@@ -98,55 +19,18 @@ class PageView<T extends HorizontalDragGestureRecognizer>
     this.physics,
     this.pageSnapping = true,
     this.onPageChanged,
-    List<Widget> children = const <Widget>[],
+    List<Widget> children = const [],
     this.dragStartBehavior = DragStartBehavior.start,
     this.allowImplicitScrolling = false,
-    ScrollCacheExtent? scrollCacheExtent,
+    this.scrollCacheExtent,
     this.restorationId,
     this.clipBehavior = Clip.hardEdge,
     this.hitTestBehavior = HitTestBehavior.opaque,
     this.scrollBehavior,
     this.padEnds = true,
     required this.horizontalDragGestureRecognizer,
-  }) : assert(
-         scrollCacheExtent == null ||
-             (scrollCacheExtent.value > 0.0) == allowImplicitScrolling,
-         'scrollCacheExtent and allowImplicitScrolling must be consistent: '
-         'scrollCacheExtent must be greater than 0.0 when allowImplicitScrolling is true, '
-         'and must be 0.0 when allowImplicitScrolling is false.',
-       ),
-       scrollCacheExtent =
-           scrollCacheExtent ??
-           ScrollCacheExtent.viewport(allowImplicitScrolling ? 1.0 : 0.0),
-       childrenDelegate = SliverChildListDelegate(children);
+  }) : childrenDelegate = SliverChildListDelegate(children);
 
-  final GestureRecognizerFactoryConstructor<T> horizontalDragGestureRecognizer;
-
-  /// Creates a scrollable list that works page by page using widgets that are
-  /// created on demand.
-  ///
-  /// This constructor is appropriate for page views with a large (or infinite)
-  /// number of children because the builder is called only for those children
-  /// that are actually visible.
-  ///
-  /// Providing a non-null [itemCount] lets the [PageView] compute the maximum
-  /// scroll extent.
-  ///
-  /// [itemBuilder] will be called only with indices greater than or equal to
-  /// zero and less than [itemCount].
-  ///
-  /// {@macro flutter.widgets.ListView.builder.itemBuilder}
-  ///
-  /// {@template flutter.widgets.PageView.findChildIndexCallback}
-  /// The [findChildIndexCallback] corresponds to the
-  /// [SliverChildBuilderDelegate.findChildIndexCallback] property. If null,
-  /// a child widget may not map to its existing [RenderObject] when the order
-  /// of children returned from the children builder changes.
-  /// This may result in state-loss. This callback needs to be implemented if
-  /// the order of the children may change at a later time.
-  /// {@endtemplate}
-  ///
-  /// {@macro flutter.widgets.PageView.allowImplicitScrolling}
   PageView.builder({
     super.key,
     this.scrollDirection = Axis.horizontal,
@@ -160,41 +44,20 @@ class PageView<T extends HorizontalDragGestureRecognizer>
     int? itemCount,
     this.dragStartBehavior = DragStartBehavior.start,
     this.allowImplicitScrolling = false,
-    ScrollCacheExtent? scrollCacheExtent,
+    this.scrollCacheExtent,
     this.restorationId,
     this.clipBehavior = Clip.hardEdge,
     this.hitTestBehavior = HitTestBehavior.opaque,
     this.scrollBehavior,
     this.padEnds = true,
     required this.horizontalDragGestureRecognizer,
-  }) : assert(
-         scrollCacheExtent == null ||
-             (scrollCacheExtent.value > 0.0) == allowImplicitScrolling,
-         'scrollCacheExtent and allowImplicitScrolling must be consistent: '
-         'scrollCacheExtent must be greater than 0.0 when allowImplicitScrolling is true, '
-         'and must be 0.0 when allowImplicitScrolling is false.',
-       ),
-       scrollCacheExtent =
-           scrollCacheExtent ??
-           ScrollCacheExtent.viewport(allowImplicitScrolling ? 1.0 : 0.0),
-       childrenDelegate = SliverChildBuilderDelegate(
+  }) : childrenDelegate = SliverChildBuilderDelegate(
          itemBuilder,
          findChildIndexCallback: findChildIndexCallback,
          childCount: itemCount,
        );
 
-  /// Creates a scrollable list that works page by page with a custom child
-  /// model.
-  ///
-  /// {@tool dartpad}
-  /// This example shows a [PageView] that uses a custom [SliverChildBuilderDelegate] to support child
-  /// reordering.
-  ///
-  /// ** See code in examples/api/lib/widgets/page_view/page_view.1.dart **
-  /// {@end-tool}
-  ///
-  /// {@macro flutter.widgets.PageView.allowImplicitScrolling}
-  PageView.custom({
+  const PageView.custom({
     super.key,
     this.scrollDirection = Axis.horizontal,
     this.reverse = false,
@@ -205,158 +68,31 @@ class PageView<T extends HorizontalDragGestureRecognizer>
     required this.childrenDelegate,
     this.dragStartBehavior = DragStartBehavior.start,
     this.allowImplicitScrolling = false,
-    ScrollCacheExtent? scrollCacheExtent,
+    this.scrollCacheExtent,
     this.restorationId,
     this.clipBehavior = Clip.hardEdge,
     this.hitTestBehavior = HitTestBehavior.opaque,
     this.scrollBehavior,
     this.padEnds = true,
     required this.horizontalDragGestureRecognizer,
-  }) : assert(
-         scrollCacheExtent == null ||
-             (scrollCacheExtent.value > 0.0) == allowImplicitScrolling,
-         'scrollCacheExtent and allowImplicitScrolling must be consistent: '
-         'scrollCacheExtent must be greater than 0.0 when allowImplicitScrolling is true, '
-         'and must be 0.0 when allowImplicitScrolling is false.',
-       ),
-       scrollCacheExtent =
-           scrollCacheExtent ??
-           ScrollCacheExtent.viewport(allowImplicitScrolling ? 1.0 : 0.0);
+  });
 
-  /// {@template flutter.widgets.PageView.allowImplicitScrolling}
-  /// Controls whether the widget's pages will respond to
-  /// [RenderObject.showOnScreen], which will allow for implicit accessibility
-  /// scrolling.
-  ///
-  /// With this flag set to false, when accessibility focus reaches the end of
-  /// the current page and the user attempts to move it to the next element, the
-  /// focus will traverse to the next widget outside of the page view.
-  ///
-  /// With this flag set to true, when accessibility focus reaches the end of
-  /// the current page and user attempts to move it to the next element, focus
-  /// will traverse to the next page in the page view.
-  /// {@endtemplate}
-  final bool allowImplicitScrolling;
-
-  /// {@macro flutter.rendering.RenderViewportBase.scrollCacheExtent}
-  ///
-  /// In [PageView], the default [scrollCacheExtent] uses
-  /// [ScrollCacheExtent.viewport], where the value represents the number of
-  /// viewport lengths to cache beyond the visible area.
-  ///
-  /// When [PageController.viewportFraction] is 1.0 (the default), this is
-  /// equivalent to the number of pages. For example,
-  /// `ScrollCacheExtent.viewport(2.0)` caches 2 pages before and after the
-  /// visible page.
-  ///
-  /// When [PageController.viewportFraction] is less than 1.0, multiple pages
-  /// may be visible in a single viewport, so `ScrollCacheExtent.viewport(1.0)`
-  /// may cache more than one additional page in each direction.
-  ///
-  /// [ScrollCacheExtent.pixels] can also be used to specify the cache extent
-  /// in logical pixels instead of viewport sizes.
-  ///
-  /// If [scrollCacheExtent] is specified, its value must be consistent with
-  /// [allowImplicitScrolling]: the value must be greater than 0.0 when
-  /// [allowImplicitScrolling] is true, and must be 0.0 when
-  /// [allowImplicitScrolling] is false.
-  ///
-  /// Defaults to `ScrollCacheExtent.viewport(1.0)` if
-  /// [allowImplicitScrolling] is true, and `ScrollCacheExtent.viewport(0.0)` if
-  /// [allowImplicitScrolling] is false.
-  final ScrollCacheExtent scrollCacheExtent;
-
-  /// {@macro flutter.widgets.scrollable.restorationId}
-  final String? restorationId;
-
-  /// The [Axis] along which the scroll view's offset increases with each page.
-  ///
-  /// For the direction in which active scrolling may be occurring, see
-  /// [ScrollDirection].
-  ///
-  /// Defaults to [Axis.horizontal].
   final Axis scrollDirection;
-
-  /// Whether the page view scrolls in the reading direction.
-  ///
-  /// For example, if the reading direction is left-to-right and
-  /// [scrollDirection] is [Axis.horizontal], then the page view scrolls from
-  /// left to right when [reverse] is false and from right to left when
-  /// [reverse] is true.
-  ///
-  /// Similarly, if [scrollDirection] is [Axis.vertical], then the page view
-  /// scrolls from top to bottom when [reverse] is false and from bottom to top
-  /// when [reverse] is true.
-  ///
-  /// Defaults to false.
   final bool reverse;
-
-  /// An object that can be used to control the position to which this page
-  /// view is scrolled.
   final PageController? controller;
-
-  /// How the page view should respond to user input.
-  ///
-  /// For example, determines how the page view continues to animate after the
-  /// user stops dragging the page view.
-  ///
-  /// The physics are modified to snap to page boundaries using
-  /// [PageScrollPhysics] prior to being used.
-  ///
-  /// If an explicit [ScrollBehavior] is provided to [scrollBehavior], the
-  /// [ScrollPhysics] provided by that behavior will take precedence after
-  /// [physics].
-  ///
-  /// Defaults to matching platform conventions.
   final ScrollPhysics? physics;
-
-  /// Set to false to disable page snapping, useful for custom scroll behavior.
-  ///
-  /// If the [padEnds] is false and [PageController.viewportFraction] < 1.0,
-  /// the page will snap to the beginning of the viewport; otherwise, the page
-  /// will snap to the center of the viewport.
   final bool pageSnapping;
-
-  /// Called whenever the page in the center of the viewport changes.
   final ValueChanged<int>? onPageChanged;
-
-  /// A delegate that provides the children for the [PageView].
-  ///
-  /// The [PageView.custom] constructor lets you specify this delegate
-  /// explicitly. The [PageView] and [PageView.builder] constructors create a
-  /// [childrenDelegate] that wraps the given [List] and [IndexedWidgetBuilder],
-  /// respectively.
   final SliverChildDelegate childrenDelegate;
-
-  /// {@macro flutter.widgets.scrollable.dragStartBehavior}
   final DragStartBehavior dragStartBehavior;
-
-  /// {@macro flutter.material.Material.clipBehavior}
-  ///
-  /// Defaults to [Clip.hardEdge].
+  final bool allowImplicitScrolling;
+  final ScrollCacheExtent? scrollCacheExtent;
+  final String? restorationId;
   final Clip clipBehavior;
-
-  /// {@macro flutter.widgets.scrollable.hitTestBehavior}
-  ///
-  /// Defaults to [HitTestBehavior.opaque].
   final HitTestBehavior hitTestBehavior;
-
-  /// {@macro flutter.widgets.scrollable.scrollBehavior}
-  ///
-  /// The [ScrollBehavior] of the inherited [ScrollConfiguration] will be
-  /// modified by default to not apply a [Scrollbar].
   final ScrollBehavior? scrollBehavior;
-
-  /// Whether to add padding to both ends of the list.
-  ///
-  /// If this is set to true and [PageController.viewportFraction] < 1.0, padding will be added
-  /// such that the first and last child slivers will be in the center of
-  /// the viewport when scrolled all the way to the start or end, respectively.
-  ///
-  /// If [PageController.viewportFraction] >= 1.0, this property has no effect.
-  ///
-  /// This property defaults to true.
   final bool padEnds;
+  final GestureRecognizerFactoryConstructor<T> horizontalDragGestureRecognizer;
 
   @override
   State<PageView<T>> createState() => _PageViewState<T>();
@@ -364,161 +100,149 @@ class PageView<T extends HorizontalDragGestureRecognizer>
 
 class _PageViewState<T extends HorizontalDragGestureRecognizer>
     extends State<PageView<T>> {
-  int _lastReportedPage = 0;
-
   late PageController _controller;
+  late bool _ownsController;
+  ScrollHoldController? _hold;
+  Drag? _drag;
 
   @override
   void initState() {
     super.initState();
     _initController();
-    _lastReportedPage = _controller.initialPage;
-  }
-
-  @override
-  void dispose() {
-    if (widget.controller == null) {
-      _controller.dispose();
-    }
-    super.dispose();
   }
 
   void _initController() {
+    _ownsController = widget.controller == null;
     _controller = widget.controller ?? PageController();
   }
 
   @override
   void didUpdateWidget(PageView<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
-      if (oldWidget.controller == null) {
+      _handleDragCancel();
+      if (_ownsController) {
         _controller.dispose();
       }
       _initController();
     }
-    super.didUpdateWidget(oldWidget);
   }
 
-  AxisDirection _getDirection(BuildContext context) {
-    switch (widget.scrollDirection) {
-      case Axis.horizontal:
-        assert(debugCheckHasDirectionality(context));
-        final TextDirection textDirection = Directionality.of(context);
-        final AxisDirection axisDirection = textDirectionToAxisDirection(
-          textDirection,
-        );
-        return widget.reverse
-            ? flipAxisDirection(axisDirection)
-            : axisDirection;
-      case Axis.vertical:
-        return widget.reverse ? AxisDirection.up : AxisDirection.down;
+  void _handleDragDown(DragDownDetails details) {
+    if (!_controller.hasClients) return;
+    _hold?.cancel();
+    _drag?.cancel();
+    _hold = _controller.position.hold(() => _hold = null);
+  }
+
+  void _handleDragStart(DragStartDetails details) {
+    if (!_controller.hasClients) {
+      return;
     }
+    _drag = _controller.position.drag(details, () => _drag = null);
+    _hold?.cancel();
+    _hold = null;
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) => _drag?.update(details);
+
+  void _handleDragEnd(DragEndDetails details) {
+    _drag?.end(details);
+    _drag = null;
+  }
+
+  void _handleDragCancel() {
+    _hold?.cancel();
+    _hold = null;
+    _drag?.cancel();
+    _drag = null;
+  }
+
+  void _handlePageChanged(int index) {
+    widget.onPageChanged?.call(index);
+  }
+
+  bool _allowsUserScrolling(ScrollPhysics physics) {
+    ScrollPhysics? current = physics;
+    while (current != null) {
+      if (!current.allowUserScrolling) return false;
+      current = current.parent;
+    }
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
-    final AxisDirection axisDirection = _getDirection(context);
-    final ScrollPhysics physics =
-        _ForceImplicitScrollPhysics(
-          allowImplicitScrolling: widget.allowImplicitScrolling,
-        ).applyTo(
-          widget.pageSnapping
-              ? _kPagePhysics.applyTo(
-                  widget.physics ??
-                      widget.scrollBehavior?.getScrollPhysics(context),
-                )
-              : widget.physics ??
-                    widget.scrollBehavior?.getScrollPhysics(context),
-        );
-
-    final child = Scrollable<T>(
-      dragStartBehavior: widget.dragStartBehavior,
-      axisDirection: axisDirection,
-      controller: _controller,
-      physics: physics,
-      restorationId: widget.restorationId,
-      hitTestBehavior: widget.hitTestBehavior,
-      scrollBehavior:
-          widget.scrollBehavior ??
-          ScrollConfiguration.of(context).copyWith(scrollbars: false),
-      viewportBuilder: (BuildContext context, ViewportOffset position) {
-        return Viewport(
-          scrollCacheExtent: widget.scrollCacheExtent,
-          axisDirection: axisDirection,
-          offset: position,
-          clipBehavior: widget.clipBehavior,
-          slivers: <Widget>[
-            SliverFillViewport(
-              viewportFraction: _controller.viewportFraction,
-              delegate: widget.childrenDelegate,
-              padEnds: widget.padEnds,
-              allowImplicitScrolling: widget.allowImplicitScrolling,
-            ),
-          ],
-        );
-      },
-      horizontalDragGestureRecognizer: widget.horizontalDragGestureRecognizer,
+    assert(
+      widget.scrollDirection == Axis.horizontal,
+      'Custom recognizer PageView currently supports horizontal paging only.',
     );
-    if (widget.onPageChanged != null) {
-      return NotificationListener<ScrollEndNotification>(
-        onNotification: (notification) {
-          if (notification.depth == 0) {
-            final metrics = notification.metrics as PageMetrics;
-            final int currentPage = metrics.page!.round();
-            if (currentPage != _lastReportedPage) {
-              _lastReportedPage = currentPage;
-              widget.onPageChanged!(currentPage);
+    final scrollBehavior =
+        widget.scrollBehavior ?? ScrollConfiguration.of(context);
+    final frameworkScrollBehavior = scrollBehavior.copyWith(
+      dragDevices: const <PointerDeviceKind>{},
+    );
+    final dragPhysics = const PageScrollPhysics().applyTo(
+      widget.physics ?? scrollBehavior.getScrollPhysics(context),
+    );
+    Widget child = material.PageView.custom(
+      scrollDirection: widget.scrollDirection,
+      reverse: widget.reverse,
+      controller: _controller,
+      physics: widget.physics,
+      pageSnapping: widget.pageSnapping,
+      onPageChanged: _handlePageChanged,
+      childrenDelegate: widget.childrenDelegate,
+      dragStartBehavior: widget.dragStartBehavior,
+      allowImplicitScrolling: widget.allowImplicitScrolling,
+      scrollCacheExtent: widget.scrollCacheExtent,
+      restorationId: widget.restorationId,
+      clipBehavior: widget.clipBehavior,
+      hitTestBehavior: widget.hitTestBehavior,
+      scrollBehavior: frameworkScrollBehavior,
+      padEnds: widget.padEnds,
+    );
+    final dragEnabled = _allowsUserScrolling(dragPhysics);
+    return RawGestureDetector(
+      behavior: widget.hitTestBehavior,
+      excludeFromSemantics: true,
+      gestures: dragEnabled
+          ? <Type, GestureRecognizerFactory>{
+              T: GestureRecognizerFactoryWithHandlers<T>(
+                widget.horizontalDragGestureRecognizer,
+                (recognizer) {
+                  recognizer
+                    ..onDown = _handleDragDown
+                    ..dragStartBehavior = widget.dragStartBehavior
+                    ..onStart = _handleDragStart
+                    ..onUpdate = _handleDragUpdate
+                    ..onEnd = _handleDragEnd
+                    ..onCancel = _handleDragCancel
+                    ..minFlingDistance = dragPhysics.minFlingDistance
+                    ..minFlingVelocity = dragPhysics.minFlingVelocity
+                    ..maxFlingVelocity = dragPhysics.maxFlingVelocity
+                    ..velocityTrackerBuilder = scrollBehavior
+                        .velocityTrackerBuilder(context)
+                    ..multitouchDragStrategy = scrollBehavior
+                        .getMultitouchDragStrategy(context)
+                    ..gestureSettings = MediaQuery.maybeGestureSettingsOf(
+                      context,
+                    )
+                    ..supportedDevices = scrollBehavior.dragDevices;
+                },
+              ),
             }
-          }
-          return false;
-        },
-        child: child,
-      );
-    }
-    return child;
+          : const <Type, GestureRecognizerFactory>{},
+      child: child,
+    );
   }
 
   @override
-  void debugFillProperties(DiagnosticPropertiesBuilder description) {
-    super.debugFillProperties(description);
-    description
-      ..add(EnumProperty<Axis>('scrollDirection', widget.scrollDirection))
-      ..add(FlagProperty('reverse', value: widget.reverse, ifTrue: 'reversed'))
-      ..add(
-        DiagnosticsProperty<PageController>(
-          'controller',
-          _controller,
-          showName: false,
-        ),
-      )
-      ..add(
-        DiagnosticsProperty<ScrollPhysics>(
-          'physics',
-          widget.physics,
-          showName: false,
-        ),
-      )
-      ..add(
-        FlagProperty(
-          'pageSnapping',
-          value: widget.pageSnapping,
-          ifFalse: 'snapping disabled',
-        ),
-      )
-      ..add(
-        FlagProperty(
-          'allowImplicitScrolling',
-          value: widget.allowImplicitScrolling,
-          ifTrue: 'allow implicit scrolling',
-        ),
-      )
-      ..add(
-        DiagnosticsProperty<ScrollCacheExtent>(
-          'scrollCacheExtent',
-          widget.scrollCacheExtent,
-          defaultValue: ScrollCacheExtent.viewport(
-            widget.allowImplicitScrolling ? 1.0 : 0.0,
-          ),
-        ),
-      );
+  void dispose() {
+    _handleDragCancel();
+    if (_ownsController) {
+      _controller.dispose();
+    }
+    super.dispose();
   }
 }

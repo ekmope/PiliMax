@@ -1,4 +1,3 @@
-import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/models/common/enum_with_label.dart';
 import 'package:PiliMax/pages/setting/widgets/normal_item.dart';
 import 'package:PiliMax/pages/setting/widgets/popup_item.dart';
@@ -57,7 +56,6 @@ class SplitModel extends SettingsModel {
     title: effectiveTitle,
     subtitle: effectiveSubtitle,
     setKey: switchModel.setKey,
-    defaultVal: switchModel.defaultVal,
     onChanged: switchModel.onChanged,
     needReboot: switchModel.needReboot,
     leading: normalModel.leading,
@@ -161,7 +159,6 @@ class SwitchModel extends SettingsModel {
   @override
   final String? title;
   final String setKey;
-  final bool defaultVal;
   final ValueChanged<bool>? onChanged;
   final bool needReboot;
   final void Function(BuildContext context)? onTap;
@@ -173,7 +170,6 @@ class SwitchModel extends SettingsModel {
     super.titleStyle,
     required String this.title,
     required this.setKey,
-    this.defaultVal = false,
     this.onChanged,
     this.needReboot = false,
     this.onTap,
@@ -181,7 +177,6 @@ class SwitchModel extends SettingsModel {
 
   const SwitchModel.split({
     required this.setKey,
-    this.defaultVal = false,
     this.needReboot = false,
     this.onChanged,
     this.onTap,
@@ -197,7 +192,6 @@ class SwitchModel extends SettingsModel {
     title: title!,
     subtitle: subtitle,
     setKey: setKey,
-    defaultVal: defaultVal,
     onChanged: onChanged,
     needReboot: needReboot,
     leading: leading,

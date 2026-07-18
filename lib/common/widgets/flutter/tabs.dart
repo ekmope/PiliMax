@@ -1,76 +1,28 @@
-// Copyright 2014 The Flutter Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+import 'dart:async' show unawaited;
+import 'dart:ui' show SemanticsRole, clampDouble;
 
-import 'dart:ui' show SemanticsRole;
-
-import 'package:flutter/foundation.dart' show clampDouble;
-import 'package:flutter/gestures.dart' show DragStartBehavior;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' hide TabBarView;
 
-/// A page view that displays the widget which corresponds to the currently
-/// selected tab.
-///
-/// This widget is typically used in conjunction with a [TabBar].
-///
-/// {@youtube 560 315 https://www.youtube.com/watch?v=POtoEH-5l40}
-///
-/// If a [TabController] is not provided, then there must be a [DefaultTabController]
-/// ancestor.
-///
-/// The tab controller's [TabController.length] must equal the length of the
-/// [children] list and the length of the [TabBar.tabs] list.
-///
-/// To see a sample implementation, visit the [TabController] documentation.
+/// Tab-controlled page view that also supports a vertical page axis.
 class CustomTabBarView extends StatefulWidget {
-  /// Creates a page view with one child per tab.
-  ///
-  /// The length of [children] must be the same as the [controller]'s length.
   const CustomTabBarView({
     super.key,
     required this.children,
     this.controller,
     this.physics,
     this.dragStartBehavior = DragStartBehavior.start,
-    this.viewportFraction = 1.0,
+    this.viewportFraction = 1,
     this.clipBehavior = Clip.hardEdge,
     this.scrollDirection = Axis.horizontal,
   });
 
-  /// This widget's selection and animation state.
-  ///
-  /// If [TabController] is not provided, then the value of [DefaultTabController.of]
-  /// will be used.
-  final TabController? controller;
-
-  /// One widget per tab.
-  ///
-  /// Its length must match the length of the [TabBar.tabs]
-  /// list, as well as the [controller]'s [TabController.length].
   final List<Widget> children;
-
-  /// How the page view should respond to user input.
-  ///
-  /// For example, determines how the page view continues to animate after the
-  /// user stops dragging the page view.
-  ///
-  /// The physics are modified to snap to page boundaries using
-  /// [PageScrollPhysics] prior to being used.
-  ///
-  /// Defaults to matching platform conventions.
+  final TabController? controller;
   final ScrollPhysics? physics;
-
-  /// {@macro flutter.widgets.scrollable.dragStartBehavior}
   final DragStartBehavior dragStartBehavior;
-
-  /// {@macro flutter.widgets.pageview.viewportFraction}
   final double viewportFraction;
-
-  /// {@macro flutter.material.Material.clipBehavior}
-  ///
-  /// Defaults to [Clip.hardEdge].
   final Clip clipBehavior;
-
   final Axis scrollDirection;
 
   @override
@@ -79,135 +31,196 @@ class CustomTabBarView extends StatefulWidget {
 
 class _CustomTabBarViewState extends State<CustomTabBarView> {
   TabController? _controller;
+  Animation<double>? _controllerAnimation;
   PageController? _pageController;
-  late List<Widget> _childrenWithKey;
-  int? _currentIndex;
+  List<Widget>? _childrenWithKey;
+  late int _currentIndex;
   int _warpUnderwayCount = 0;
+  int _warpGeneration = 0;
   int _scrollUnderwayCount = 0;
   bool _hasScheduledChildrenUpdate = false;
-  bool _debugHasScheduledValidChildrenCountCheck = false;
 
-  // If the TabBarView is rebuilt with a new tab controller, the caller should
-  // dispose the old one. In that case the old controller's animation will be
-  // null and should not be accessed.
-  bool get _controllerIsValid => _controller?.animation != null;
-
-  void _updateTabController() {
-    final TabController? newController =
-        widget.controller ?? DefaultTabController.maybeOf(context);
-    assert(() {
-      if (newController == null) {
-        throw FlutterError(
-          'No TabController for ${widget.runtimeType}.\n'
-          'When creating a ${widget.runtimeType}, you must either provide an explicit '
-          'TabController using the "controller" property, or you must ensure that there '
-          'is a DefaultTabController above the ${widget.runtimeType}.\n'
-          'In this case, there was neither an explicit controller nor a default controller.',
-        );
-      }
-      return true;
-    }());
-
-    if (newController == _controller) {
-      return;
+  bool _updateController() {
+    final next = widget.controller ?? DefaultTabController.maybeOf(context);
+    if (next == null) {
+      throw FlutterError('CustomTabBarView requires a TabController.');
+    }
+    if (next == _controller) {
+      return false;
     }
 
-    if (_controllerIsValid) {
-      _controller!.animation!.removeListener(_handleTabControllerAnimationTick);
-    }
-    _controller = newController;
-    if (_controller != null) {
-      _controller!.animation!.addListener(_handleTabControllerAnimationTick);
-    }
+    _controllerAnimation?.removeListener(_handleControllerChanged);
+    _controller = next;
+    _controllerAnimation = next.animation;
+    _controllerAnimation?.addListener(_handleControllerChanged);
+    _currentIndex = next.index;
+    return true;
   }
 
-  void _jumpToPage(int page) {
-    _warpUnderwayCount += 1;
-    _pageController!.jumpToPage(page);
-    _warpUnderwayCount -= 1;
-  }
-
-  Future<void> _animateToPage(
-    int page, {
-    required Duration duration,
-    required Curve curve,
-  }) async {
-    _warpUnderwayCount += 1;
-    await _pageController!.animateToPage(
-      page,
-      duration: duration,
-      curve: curve,
+  void _initPageController() {
+    _pageController?.dispose();
+    _pageController = PageController(
+      initialPage: _currentIndex,
+      viewportFraction: widget.viewportFraction,
     );
-    _warpUnderwayCount -= 1;
   }
 
-  @override
-  void initState() {
-    super.initState();
+  void _syncPageToController() {
+    if (_pageController?.hasClients ?? false) {
+      _jumpToPage(_currentIndex);
+    } else {
+      _initPageController();
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _updateTabController();
-    _currentIndex = _controller!.index;
-    if (_pageController == null) {
-      _pageController = PageController(
-        initialPage: _currentIndex!,
-        viewportFraction: widget.viewportFraction,
-      );
-    } else {
-      _pageController!.jumpToPage(_currentIndex!);
+    final controllerChanged = _updateController();
+    if (controllerChanged) {
+      _warpGeneration += 1;
     }
-    _updateChildren();
+    if (_pageController == null) {
+      _initPageController();
+    } else if (controllerChanged) {
+      _syncPageToController();
+    }
+    if (_childrenWithKey == null || controllerChanged) {
+      _updateChildren();
+    }
   }
 
   @override
   void didUpdateWidget(CustomTabBarView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.controller != oldWidget.controller) {
-      _updateTabController();
-      _currentIndex = _controller!.index;
-      _jumpToPage(_currentIndex!);
+    final controllerChanged =
+        oldWidget.controller != widget.controller && _updateController();
+    final viewportChanged =
+        oldWidget.viewportFraction != widget.viewportFraction;
+    final childrenChanged = oldWidget.children != widget.children;
+    if (controllerChanged || viewportChanged || childrenChanged) {
+      _warpGeneration += 1;
+    }
+    if (viewportChanged) {
+      _initPageController();
+    } else if (controllerChanged) {
+      _syncPageToController();
+    }
+    if (controllerChanged || viewportChanged || childrenChanged) {
       _updateChildren();
     }
-    if (widget.viewportFraction != oldWidget.viewportFraction) {
-      _pageController?.dispose();
-      _pageController = PageController(
-        initialPage: _currentIndex!,
-        viewportFraction: widget.viewportFraction,
+  }
+
+  void _handleControllerChanged() {
+    final controller = _controller;
+    if (_scrollUnderwayCount > 0 || controller == null) {
+      return;
+    }
+
+    final index = controller.index;
+    if (index == _currentIndex) {
+      return;
+    }
+    _currentIndex = index;
+    if (!_pageController!.hasClients) {
+      _warpGeneration += 1;
+      _initPageController();
+      setState(_updateChildren);
+      return;
+    }
+
+    final generation = ++_warpGeneration;
+    if (_pageController!.page == index.toDouble()) {
+      setState(_updateChildren);
+    } else if (!controller.indexIsChanging ||
+        controller.animationDuration == Duration.zero) {
+      _jumpToPage(index);
+      setState(_updateChildren);
+    } else if ((index - controller.previousIndex).abs() == 1) {
+      setState(_updateChildren);
+      unawaited(
+        _warpToAdjacentPage(
+          index,
+          controller.animationDuration,
+          generation,
+        ),
+      );
+    } else {
+      _warpToNonAdjacentPage(
+        index,
+        controller.previousIndex,
+        controller.animationDuration,
+        generation,
       );
     }
-    // While a warp is under way, we stop updating the tab page contents.
-    // This is tracked in https://github.com/flutter/flutter/issues/31269.
-    if (widget.children != oldWidget.children && _warpUnderwayCount == 0) {
+  }
+
+  Future<void> _warpToAdjacentPage(
+    int index,
+    Duration duration,
+    int generation,
+  ) async {
+    await _animateToPage(index, duration);
+    if (mounted && generation == _warpGeneration) {
+      setState(_updateChildren);
+    }
+  }
+
+  void _warpToNonAdjacentPage(
+    int index,
+    int previousIndex,
+    Duration duration,
+    int generation,
+  ) {
+    final initialPage = index > previousIndex ? index - 1 : index + 1;
+    setState(() {
       _updateChildren();
+      _childrenWithKey = List<Widget>.of(
+        _childrenWithKey!,
+        growable: false,
+      );
+      final previousChild = _childrenWithKey![previousIndex];
+      _childrenWithKey![previousIndex] = _childrenWithKey![initialPage];
+      _childrenWithKey![initialPage] = previousChild;
+    });
+    _jumpToPage(initialPage);
+    unawaited(_finishNonAdjacentWarp(index, duration, generation));
+  }
+
+  Future<void> _finishNonAdjacentWarp(
+    int index,
+    Duration duration,
+    int generation,
+  ) async {
+    await _animateToPage(index, duration);
+    if (mounted && generation == _warpGeneration) {
+      setState(_updateChildren);
     }
   }
 
-  @override
-  void dispose() {
-    if (_controllerIsValid) {
-      _controller!.animation!.removeListener(_handleTabControllerAnimationTick);
+  void _jumpToPage(int index) {
+    _warpUnderwayCount += 1;
+    try {
+      _pageController!.jumpToPage(index);
+    } finally {
+      _warpUnderwayCount -= 1;
     }
-    _controller = null;
-    _pageController?.dispose();
-    // We don't own the _controller Animation, so it's not disposed here.
-    super.dispose();
   }
 
-  void _updateChildren() {
-    _childrenWithKey = KeyedSubtree.ensureUniqueKeysForList(
-      widget.children.asMap().entries.map<Widget>((entry) {
-        return HeroMode(
-          enabled: entry.key == _currentIndex,
-          child: Semantics(role: SemanticsRole.tabPanel, child: entry.value),
-        );
-      }).toList(),
-    );
+  Future<void> _animateToPage(int index, Duration duration) async {
+    _warpUnderwayCount += 1;
+    try {
+      await _pageController!.animateToPage(
+        index,
+        duration: duration,
+        curve: Curves.ease,
+      );
+    } finally {
+      _warpUnderwayCount -= 1;
+    }
   }
 
-  void _scheduleUpdateChildren() {
+  void _scheduleChildrenUpdate() {
     if (_hasScheduledChildrenUpdate || !mounted) {
       return;
     }
@@ -220,177 +233,89 @@ class _CustomTabBarViewState extends State<CustomTabBarView> {
     }, debugLabel: 'CustomTabBarView.updateChildren');
   }
 
-  void _handleTabControllerAnimationTick() {
-    if (_scrollUnderwayCount > 0 || !_controller!.indexIsChanging) {
-      return;
-    } // This widget is driving the controller's animation.
-
-    if (_controller!.index != _currentIndex) {
-      _currentIndex = _controller!.index;
-      _warpToCurrentIndex();
-    }
-  }
-
-  void _warpToCurrentIndex() {
-    if (!mounted || _pageController!.page == _currentIndex!.toDouble()) {
-      return;
-    }
-
-    final bool adjacentDestination =
-        (_currentIndex! - _controller!.previousIndex).abs() == 1;
-    if (adjacentDestination) {
-      _warpToAdjacentTab(_controller!.animationDuration);
-    } else {
-      _warpToNonAdjacentTab(_controller!.animationDuration);
-    }
-  }
-
-  Future<void> _warpToAdjacentTab(Duration duration) async {
-    if (duration == Duration.zero) {
-      _jumpToPage(_currentIndex!);
-    } else {
-      await _animateToPage(
-        _currentIndex!,
-        duration: duration,
-        curve: Curves.ease,
-      );
-    }
-    if (mounted) {
-      setState(_updateChildren);
-    }
-    return Future<void>.value();
-  }
-
-  Future<void> _warpToNonAdjacentTab(Duration duration) async {
-    final int previousIndex = _controller!.previousIndex;
-    assert((_currentIndex! - previousIndex).abs() > 1);
-
-    // initialPage defines which page is shown when starting the animation.
-    // This page is adjacent to the destination page.
-    final int initialPage = _currentIndex! > previousIndex
-        ? _currentIndex! - 1
-        : _currentIndex! + 1;
-
-    setState(() {
-      // Needed for `RenderSliverMultiBoxAdaptor.move` and kept alive children.
-      // For motivation, see https://github.com/flutter/flutter/pull/29188 and
-      // https://github.com/flutter/flutter/issues/27010#issuecomment-486475152.
-      _childrenWithKey = List<Widget>.of(_childrenWithKey, growable: false);
-      final Widget temp = _childrenWithKey[initialPage];
-      _childrenWithKey[initialPage] = _childrenWithKey[previousIndex];
-      _childrenWithKey[previousIndex] = temp;
-    });
-
-    // Make a first jump to the adjacent page.
-    _jumpToPage(initialPage);
-
-    // Jump or animate to the destination page.
-    if (duration == Duration.zero) {
-      _jumpToPage(_currentIndex!);
-    } else {
-      await _animateToPage(
-        _currentIndex!,
-        duration: duration,
-        curve: Curves.ease,
-      );
-    }
-
-    if (mounted) {
-      setState(_updateChildren);
-    }
-  }
-
-  void _syncControllerOffset() {
-    _controller!.offset = clampDouble(
-      _pageController!.page! - _controller!.index,
-      -1.0,
-      1.0,
+  void _updateChildren() {
+    _childrenWithKey = KeyedSubtree.ensureUniqueKeysForList(
+      widget.children.indexed.map((entry) {
+        return HeroMode(
+          enabled: entry.$1 == _currentIndex,
+          child: Semantics(role: SemanticsRole.tabPanel, child: entry.$2),
+        );
+      }).toList(),
     );
   }
 
-  // Called when the PageView scrolls
+  void _syncControllerOffset(double page) {
+    final controller = _controller!;
+    controller.offset = clampDouble(page - controller.index, -1, 1);
+  }
+
   bool _handleScrollNotification(ScrollNotification notification) {
-    if (_warpUnderwayCount > 0 || _scrollUnderwayCount > 0) {
+    if (_warpUnderwayCount > 0 ||
+        _scrollUnderwayCount > 0 ||
+        notification.depth != 0 ||
+        _controllerAnimation == null ||
+        !(_pageController?.hasClients ?? false)) {
       return false;
     }
 
-    if (notification.depth != 0) {
-      return false;
-    }
-
-    if (!_controllerIsValid) {
+    final page = _pageController!.page;
+    if (page == null) {
       return false;
     }
 
     _scrollUnderwayCount += 1;
-    final double page = _pageController!.page!;
-    if (notification is ScrollUpdateNotification &&
-        !_controller!.indexIsChanging) {
-      final bool pageChanged = (page - _controller!.index).abs() > 1.0;
-      if (pageChanged) {
-        final int newIndex = page.round();
-        _controller!.index = newIndex;
-        if (_currentIndex != newIndex) {
-          _currentIndex = newIndex;
-          _scheduleUpdateChildren();
+    try {
+      final controller = _controller!;
+      if (notification is ScrollUpdateNotification &&
+          !controller.indexIsChanging) {
+        if ((page - controller.index).abs() > 1) {
+          controller.index = page.round();
+          _currentIndex = controller.index;
+          _scheduleChildrenUpdate();
+        }
+        _syncControllerOffset(page);
+      } else if (notification is ScrollEndNotification) {
+        final index = page.round();
+        if (controller.index != index) {
+          controller.index = index;
+        }
+        if (_currentIndex != index) {
+          _currentIndex = index;
+          _scheduleChildrenUpdate();
+        }
+        if (!controller.indexIsChanging) {
+          _syncControllerOffset(page);
         }
       }
-      _syncControllerOffset();
-    } else if (notification is ScrollEndNotification) {
-      final int newIndex = page.round();
-      _controller!.index = newIndex;
-      if (_currentIndex != newIndex) {
-        _currentIndex = newIndex;
-        _scheduleUpdateChildren();
-      }
-      if (!_controller!.indexIsChanging) {
-        _syncControllerOffset();
-      }
+    } finally {
+      _scrollUnderwayCount -= 1;
     }
-    _scrollUnderwayCount -= 1;
-
     return false;
-  }
-
-  bool _debugScheduleCheckHasValidChildrenCount() {
-    if (_debugHasScheduledValidChildrenCountCheck) {
-      return true;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((Duration duration) {
-      _debugHasScheduledValidChildrenCountCheck = false;
-      if (!mounted) {
-        return;
-      }
-      assert(() {
-        if (_controller!.length != widget.children.length) {
-          throw FlutterError(
-            "Controller's length property (${_controller!.length}) does not match the "
-            "number of children (${widget.children.length}) present in TabBarView's children property.",
-          );
-        }
-        return true;
-      }());
-    }, debugLabel: 'TabBarView.validChildrenCountCheck');
-    _debugHasScheduledValidChildrenCountCheck = true;
-    return true;
   }
 
   @override
   Widget build(BuildContext context) {
-    assert(_debugScheduleCheckHasValidChildrenCount());
-
+    assert(_controller!.length == widget.children.length);
     return NotificationListener<ScrollNotification>(
       onNotification: _handleScrollNotification,
       child: PageView(
         scrollDirection: widget.scrollDirection,
+        controller: _pageController,
+        physics: widget.physics,
         dragStartBehavior: widget.dragStartBehavior,
         clipBehavior: widget.clipBehavior,
-        controller: _pageController,
-        physics: widget.physics == null
-            ? const PageScrollPhysics().applyTo(const ClampingScrollPhysics())
-            : const PageScrollPhysics().applyTo(widget.physics),
-        children: _childrenWithKey,
+        children: _childrenWithKey!,
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _warpGeneration += 1;
+    _controllerAnimation?.removeListener(_handleControllerChanged);
+    _controllerAnimation = null;
+    _controller = null;
+    _pageController?.dispose();
+    super.dispose();
   }
 }

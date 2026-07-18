@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
-rm /usr/bin/pilimax
+
+# postinst creates this unmanaged convenience symlink. Remove it only for an
+# actual uninstall (not an upgrade), and only while it still points to PiliMax,
+# so package maintenance cannot delete a replacement file.
+if [ "$1" = "remove" ] || [ "$1" = "purge" ] || [ "$1" = "disappear" ]; then
+    if [ -L /usr/bin/pilimax ] &&
+        [ "$(readlink /usr/bin/pilimax)" = "/opt/PiliMax/pilimax" ]; then
+        rm -f -- /usr/bin/pilimax
+    fi
+fi
+
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
     if [ -x /usr/bin/update-desktop-database ]; then
         echo "updating desktop database..."
@@ -17,10 +27,12 @@ if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
     fi
 fi
 
-if [ $1 = "purge" ]; then
-    echo "Removing user data..."
-    rm -rf /home/*/.local/share/com.PiliMax.android || true
-    rm -rf /root/.local/share/com.PiliMax.android || true
+if [ "$1" = "purge" ]; then
+    # Debian maintainer scripts run as root and must not enumerate home
+    # directories or remove per-user application data. Users may remove their
+    # own data explicitly after uninstalling if they no longer need it.
+    echo "PiliMax user data was preserved."
+    echo "To remove it, each user may delete ~/.local/share/com.PiliMax.android manually."
 fi
 
 exit 0

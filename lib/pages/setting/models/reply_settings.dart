@@ -38,7 +38,6 @@ List<SettingsModel> get replySettings => [
     subtitle: '过滤包含商品推广的评论',
     leading: const Icon(CustomIcons.shopping_bag_not_interested),
     setKey: SettingBoxKey.antiGoodsReply,
-    defaultVal: false,
     onChanged: (value) => ReplyGrpc.antiGoodsReply = value,
   ),
   SwitchModel(
@@ -46,7 +45,6 @@ List<SettingsModel> get replySettings => [
     subtitle: '保留 UP 主发布的评论，黑名单和带货屏蔽仍会生效',
     leading: const Icon(Icons.person_outline),
     setKey: SettingBoxKey.keepUpOwnerReply,
-    defaultVal: true,
     onChanged: (value) => ReplyGrpc.keepUpOwnerReply = value,
   ),
   SwitchModel(
@@ -54,7 +52,6 @@ List<SettingsModel> get replySettings => [
     subtitle: '保留 UP 主置顶的评论，黑名单和带货屏蔽仍会生效',
     leading: const Icon(Icons.vertical_align_top_outlined),
     setKey: SettingBoxKey.keepUpTopReply,
-    defaultVal: true,
     onChanged: (value) => ReplyGrpc.keepUpTopReply = value,
   ),
   SwitchModel(
@@ -62,7 +59,6 @@ List<SettingsModel> get replySettings => [
     subtitle: '保留 UP 主点赞的评论，黑名单和带货屏蔽仍会生效',
     leading: const Icon(Icons.thumb_up_outlined),
     setKey: SettingBoxKey.keepUpLikeReply,
-    defaultVal: false,
     onChanged: (value) => ReplyGrpc.keepUpLikeReply = value,
   ),
   SwitchModel(
@@ -70,7 +66,6 @@ List<SettingsModel> get replySettings => [
     subtitle: '保留 UP 主回复过的评论，黑名单和带货屏蔽仍会生效',
     leading: const Icon(Icons.mark_chat_read_outlined),
     setKey: SettingBoxKey.keepUpReplyReply,
-    defaultVal: false,
     onChanged: (value) => ReplyGrpc.keepUpReplyReply = value,
   ),
 ];

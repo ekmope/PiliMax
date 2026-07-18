@@ -27,7 +27,6 @@ List<SettingsModel> get recommendSettings => [
     subtitle: '下拉刷新时保留上次内容',
     leading: const Icon(Icons.refresh),
     setKey: SettingBoxKey.enableSaveLastData,
-    defaultVal: true,
     onChanged: (value) {
       try {
         Get.find<RcmdController>()
@@ -43,7 +42,6 @@ List<SettingsModel> get recommendSettings => [
     subtitle: '保留上次推荐时，在上次刷新位置显示提示',
     leading: const Icon(Icons.tips_and_updates_outlined),
     setKey: SettingBoxKey.savedRcmdTip,
-    defaultVal: true,
     onChanged: (value) {
       try {
         Get.find<RcmdController>()
@@ -150,7 +148,6 @@ List<SettingsModel> get recommendSettings => [
     subtitle: '推荐中已关注用户发布的内容不会被过滤',
     leading: const Icon(Icons.favorite_border_outlined),
     setKey: SettingBoxKey.exemptFilterForFollowed,
-    defaultVal: true,
     onChanged: (value) => RecommendFilter.exemptFilterForFollowed = value,
   ),
   SwitchModel(
@@ -158,7 +155,6 @@ List<SettingsModel> get recommendSettings => [
     subtitle: '其它（如热门视频、搜索等）均不受过滤器影响，无法豁免相关视频中的已关注UP',
     leading: const Icon(Icons.explore_outlined),
     setKey: SettingBoxKey.applyFilterToRelatedVideos,
-    defaultVal: true,
     onChanged: (value) => RecommendFilter.applyFilterToRelatedVideos = value,
   ),
   SwitchModel(
@@ -166,7 +162,6 @@ List<SettingsModel> get recommendSettings => [
     subtitle: '开启后对热门视频应用完整过滤（标题关键词、时长、播放量、点赞率、屏蔽用户）',
     leading: const Icon(Icons.local_fire_department_outlined),
     setKey: SettingBoxKey.applyFilterToHotVideos,
-    defaultVal: false,
     onChanged: (value) => RecommendFilter.applyFilterToHotVideos = value,
   ),
   SwitchModel(
@@ -174,7 +169,6 @@ List<SettingsModel> get recommendSettings => [
     subtitle: '开启后对 UGC 分区视频应用完整过滤；番剧等 PGC 内容仅过滤标题关键词',
     leading: const Icon(Icons.leaderboard_outlined),
     setKey: SettingBoxKey.applyFilterToRankVideos,
-    defaultVal: false,
     onChanged: (value) => RecommendFilter.applyFilterToRankVideos = value,
   ),
   SwitchModel(
@@ -182,7 +176,6 @@ List<SettingsModel> get recommendSettings => [
     subtitle: '对视频、专栏、用户搜索生效，仅过滤标题关键词和屏蔽用户',
     leading: const Icon(Icons.search_off_outlined),
     setKey: SettingBoxKey.applyFilterToSearch,
-    defaultVal: false,
     onChanged: (value) => RecommendFilter.applyFilterToSearch = value,
   ),
   WidgetModel(

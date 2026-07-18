@@ -143,7 +143,6 @@ class _VolumeButtonState extends State<VolumeButton> {
                         min: 0.0,
                         max: Pref.maxVolume,
                         value: volume,
-                        showValueIndicator: .never,
                         onChanged: widget.controller.setVolume,
                         onChangeEnd: widget.controller.syncVolume,
                       ),

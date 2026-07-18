@@ -56,6 +56,7 @@ mixin BlockMixin on GetxController {
   bool get autoPlay;
   int? get timeLength;
   bool get preInitPlayer;
+  bool get isBlockSourceCurrent => true;
   int get currPosInMilliseconds;
   bool get isFullScreen => false;
 
@@ -65,13 +66,18 @@ mixin BlockMixin on GetxController {
   Future<void> querySponsorBlock({
     required String bvid,
     required int cid,
+    bool Function()? isCurrent,
   }) async {
+    bool canApply() =>
+        !isClosed && isBlockSourceCurrent && (isCurrent?.call() ?? true);
+    if (!canApply()) return;
     resetBlock();
 
     final result = await SponsorBlock.getSkipSegments(bvid: bvid, cid: cid);
+    if (!canApply()) return;
     switch (result) {
       case Success<List<SegmentItemModel>>(:final response):
-        handleSBData(response);
+        await handleSBData(response, isCurrent: canApply);
       case Error(:final code) when code != 404:
         if (kDebugMode) {
           result.toast();
@@ -81,11 +87,15 @@ mixin BlockMixin on GetxController {
   }
 
   void initSkip() {
-    if (isClosed) return;
+    if (isClosed || !isBlockSourceCurrent) {
+      cancelBlockListener();
+      return;
+    }
     if (_segmentList.isNotEmpty) {
       _blockListener?.cancel();
       final skipWhenSeekIntoSegment = blockConfig.blockSkipWhenSeekIntoSegment;
       _blockListener = player?.stream.position.listen((position) {
+        if (!isBlockSourceCurrent) return;
         int currentPos = position.inSeconds;
         if (currentPos != _lastBlockPos) {
           _lastBlockPos = currentPos;
@@ -129,8 +139,12 @@ mixin BlockMixin on GetxController {
     }
   }
 
-  Future<void> handleSBData(List<SegmentItemModel> list) async {
-    if (list.isNotEmpty) {
+  Future<void> handleSBData(
+    List<SegmentItemModel> list, {
+    bool Function()? isCurrent,
+  }) async {
+    bool canApply() => !isClosed && (isCurrent?.call() ?? true);
+    if (list.isNotEmpty && canApply()) {
       try {
         Future<void>? future;
         final duration = list.first.videoDuration ?? timeLength!;
@@ -152,7 +166,10 @@ mixin BlockMixin on GetxController {
                       '${videoLabel!.value.isNotEmpty ? '/' : ''}${segmentModel.segmentType.title}';
                 }
 
-                if (_blockListener == null && autoPlay && player != null) {
+                if (_blockListener == null &&
+                    autoPlay &&
+                    player != null &&
+                    isBlockSourceCurrent) {
                   final currPos = currPosInMilliseconds;
 
                   if (segmentModel.segment.contains(currPos)) {
@@ -169,6 +186,9 @@ mixin BlockMixin on GetxController {
                           );
                         } else {
                           player!.stream.playing.firstWhere((e) {
+                            if (!canApply()) {
+                              return true;
+                            }
                             if (e) {
                               future = onSkip(
                                 segmentModel,
@@ -208,7 +228,9 @@ mixin BlockMixin on GetxController {
 
         if (_blockListener == null && (autoPlay || preInitPlayer)) {
           await future;
-          initSkip();
+          if (canApply()) {
+            initSkip();
+          }
         }
       } catch (e) {
         if (kDebugMode) debugPrint('failed to parse sponsorblock: $e');
@@ -278,11 +300,13 @@ mixin BlockMixin on GetxController {
     BlockSkipSource skipSource = BlockSkipSource.manual,
   }) async {
     try {
+      if (!isBlockSourceCurrent) return;
       await seekTo(
         Duration(milliseconds: item.segment.$2),
         isSeek: isSeek,
         skipSource: skipSource,
       );
+      if (!isBlockSourceCurrent) return;
       if (isSkip) {
         _skipToast(item);
       } else {

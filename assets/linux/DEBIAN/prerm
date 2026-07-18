@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 
 if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
-    echo "Stopping PiliMax if running..."
-    pkill -x pilimax || true
+    # Do not use pkill here: maintainer scripts run as root, and matching by
+    # process name would terminate every user's process (or an unrelated
+    # process with the same name). A running instance can exit normally after
+    # the package files are removed.
+    echo "PiliMax processes are left running; users may close them normally."
 fi
 
 exit 0

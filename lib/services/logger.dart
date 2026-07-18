@@ -21,6 +21,16 @@ class PiliLogger extends Logger {
           level: .trace,
         );
 
+  bool _isLoggingEnabled() {
+    try {
+      return Pref.enableLog;
+    } catch (_) {
+      // Logging must not break startup, background isolates, or isolated
+      // tests that run before the settings box has been initialized.
+      return kDebugMode;
+    }
+  }
+
   @override
   void log(
     Level level,
@@ -29,12 +39,13 @@ class PiliLogger extends Logger {
     StackTrace? stackTrace,
     DateTime? time,
   }) {
+    final enableLog = _isLoggingEnabled();
     // 如果日志开关关闭，且不是调试模式，则直接返回，不处理任何逻辑（节省性能）
-    if (!Pref.enableLog && !kDebugMode) {
+    if (!enableLog && !kDebugMode) {
       return;
     }
 
-    if (Pref.enableLog && (level == Level.error || level == Level.fatal)) {
+    if (enableLog && (level == Level.error || level == Level.fatal)) {
       try {
         Catcher2.reportCheckedError(error ?? message ?? 'Unknown error', stackTrace);
       } catch (e) {

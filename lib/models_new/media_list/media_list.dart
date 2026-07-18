@@ -14,7 +14,7 @@ class MediaListItemModel extends BaseEpisodeItem {
   int? type;
   Owner? upper;
   @override
-  int? get cid => pages?.firstOrNull?.id;
+  int? get cid => pages?.firstOrNull?.id ?? super.cid;
 
   MediaListItemModel({
     super.aid,
@@ -34,6 +34,7 @@ class MediaListItemModel extends BaseEpisodeItem {
 
   MediaListItemModel.fromJson(Map<String, dynamic> json) {
     aid = json['id'] as int?;
+    cid = json['cid'] as int?;
     intro = json['intro'] as String?;
     cntInfo = json['cnt_info'] == null
         ? null

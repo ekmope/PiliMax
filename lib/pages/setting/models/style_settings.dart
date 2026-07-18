@@ -52,14 +52,12 @@ List<SettingsModel> get styleSettings => [
       title: '显示窗口标题栏',
       leading: Icon(Icons.window),
       setKey: SettingBoxKey.showWindowTitleBar,
-      defaultVal: true,
       needReboot: true,
     ),
     const SwitchModel(
       title: '显示托盘图标',
       leading: Icon(Icons.donut_large_rounded),
       setKey: SettingBoxKey.showTrayIcon,
-      defaultVal: true,
       needReboot: true,
     ),
   ],
@@ -69,7 +67,6 @@ List<SettingsModel> get styleSettings => [
     subtitle: '启用横屏布局与逻辑，平板、折叠屏等可开启；建议全屏方向设为【不改变当前方向】',
     leading: const Icon(Icons.phonelink_outlined),
     setKey: SettingBoxKey.horizontalScreen,
-    defaultVal: Pref.horizontalScreen,
     onChanged: (value) {
       if (value) {
         fullMode();
@@ -83,15 +80,13 @@ List<SettingsModel> get styleSettings => [
     subtitle: '开启后底栏与顶栏被替换，且相关设置失效',
     leading: Icon(Icons.chrome_reader_mode_outlined),
     setKey: SettingBoxKey.useSideBar,
-    defaultVal: false,
     needReboot: true,
   ),
-  SwitchModel(
+  const SwitchModel(
     title: '自动侧边栏切换',
     subtitle: '屏幕较宽时（如折叠屏展开）自动改用侧边栏。点击自定义触发宽度。',
-    leading: const Icon(Icons.vertical_split_outlined),
+    leading: Icon(Icons.vertical_split_outlined),
     setKey: SettingBoxKey.autoSideBar,
-    defaultVal: false,
     onTap: _showSideBarThresholdDialog,
   ),
   SplitModel(
@@ -101,7 +96,6 @@ List<SettingsModel> get styleSettings => [
       leading: Icon(Icons.text_fields),
     ),
     switchModel: SwitchModel.split(
-      defaultVal: false,
       setKey: SettingBoxKey.appFontWeight,
       onChanged: (_) => Get.updateMyAppTheme(),
       onTap: _showFontWeightDialog,
@@ -117,7 +111,6 @@ List<SettingsModel> get styleSettings => [
     title: '自定义弹幕字体',
     subtitle: '开启后点击可跟随全局或设置独立字体，关闭即恢复系统字体',
     setKey: SettingBoxKey.enableCustomDanmakuFont,
-    defaultVal: false,
     leading: const Icon(Icons.subtitles_outlined),
     onChanged: (val) {
       if (!val) {
@@ -163,14 +156,12 @@ List<SettingsModel> get styleSettings => [
       subtitle: '开启后侧滑返回可原生预览上一页及桌面，并自动使用Native页面过渡',
       leading: Icon(Icons.swipe_left_outlined),
       setKey: SettingBoxKey.enablePredictiveBack,
-      defaultVal: true,
       needReboot: true,
     ),
   const SwitchModel(
     title: '优化平板导航栏',
     leading: Icon(Icons.auto_fix_high),
     setKey: SettingBoxKey.optTabletNav,
-    defaultVal: true,
     needReboot: true,
   ),
   const SwitchModel(
@@ -178,14 +169,12 @@ List<SettingsModel> get styleSettings => [
     subtitle: 'Material You设计规范底栏，关闭可变窄',
     leading: Icon(Icons.design_services_outlined),
     setKey: SettingBoxKey.enableMYBar,
-    defaultVal: true,
     needReboot: true,
   ),
   const SwitchModel(
     title: '悬浮底栏',
     leading: Icon(MdiIcons.soundbar),
     setKey: SettingBoxKey.floatingNavBar,
-    defaultVal: false,
     needReboot: true,
   ),
   SwitchModel(
@@ -193,7 +182,6 @@ List<SettingsModel> get styleSettings => [
     subtitle: 'Navbar按钮是否显示文字标签',
     leading: const Icon(Icons.text_fields),
     setKey: SettingBoxKey.showNavBarLabel,
-    defaultVal: true,
     onChanged: (val) => Get.find<MainController>().showNavBarLabel.value = val,
   ),
   NormalModel(
@@ -207,20 +195,17 @@ List<SettingsModel> get styleSettings => [
     title: '播放页移除安全边距',
     leading: Icon(Icons.fit_screen_outlined),
     setKey: SettingBoxKey.removeSafeArea,
-    defaultVal: false,
   ),
   const SwitchModel(
     title: '视频播放页使用深色主题',
     leading: Icon(Icons.dark_mode_outlined),
     setKey: SettingBoxKey.darkVideoPage,
-    defaultVal: false,
   ),
-  SwitchModel(
+  const SwitchModel(
     title: '动态页启用瀑布流',
     subtitle: '关闭会显示为单列',
-    leading: const Icon(Icons.view_array_outlined),
+    leading: Icon(Icons.view_array_outlined),
     setKey: SettingBoxKey.dynamicsWaterfallFlow,
-    defaultVal: Pref.horizontalScreen,
     needReboot: true,
   ),
   NormalModel(
@@ -234,20 +219,17 @@ List<SettingsModel> get styleSettings => [
     subtitle: '用于快速查看个人的动态',
     leading: Icon(Icons.push_pin_outlined),
     setKey: SettingBoxKey.dynamicsShowSelfUp,
-    defaultVal: true,
   ),
   const SwitchModel(
     title: '动态页显示所有已关注UP主',
     leading: Icon(Icons.people_alt_outlined),
     setKey: SettingBoxKey.dynamicsShowAllFollowedUp,
-    defaultVal: false,
     needReboot: true,
   ),
   const SwitchModel(
     title: '动态页展开正在直播UP列表',
     leading: Icon(Icons.live_tv),
     setKey: SettingBoxKey.expandDynLivePanel,
-    defaultVal: false,
     needReboot: true,
   ),
   NormalModel(
@@ -275,20 +257,18 @@ List<SettingsModel> get styleSettings => [
     leading: const Icon(MdiIcons.arrowExpandVertical),
     getSubtitle: () => '当前：${Pref.barHideType.label}',
   ),
-  SwitchModel(
+  const SwitchModel(
     title: '首页顶栏收起',
     subtitle: '首页列表滑动时，收起顶栏',
-    leading: const Icon(Icons.vertical_align_top_outlined),
+    leading: Icon(Icons.vertical_align_top_outlined),
     setKey: SettingBoxKey.hideTopBar,
-    defaultVal: PlatformUtils.isMobile,
     needReboot: true,
   ),
-  SwitchModel(
+  const SwitchModel(
     title: '首页底栏收起',
     subtitle: '首页列表滑动时，收起底栏',
-    leading: const Icon(Icons.vertical_align_bottom_outlined),
+    leading: Icon(Icons.vertical_align_bottom_outlined),
     setKey: SettingBoxKey.hideBottomBar,
-    defaultVal: PlatformUtils.isMobile,
     needReboot: true,
   ),
   NormalModel(
@@ -358,7 +338,6 @@ List<SettingsModel> get styleSettings => [
     leading: const Icon(Icons.invert_colors),
     title: '纯黑主题',
     setKey: SettingBoxKey.isPureBlackTheme,
-    defaultVal: false,
     onChanged: (value) {
       if (ThemeUtils.isDarkMode || Pref.darkVideoPage) {
         Get.updateMyAppTheme();
@@ -451,7 +430,6 @@ List<SettingsModel> get styleSettings => [
     subtitle: '开启后在主页任意tab按返回键都直接退出，关闭则先回到Navbar的第一个tab',
     leading: const Icon(Icons.exit_to_app_outlined),
     setKey: SettingBoxKey.directExitOnBack,
-    defaultVal: false,
     onChanged: (value) =>
         Get.find<MainController>().directExitOnBack.value = value,
   ),

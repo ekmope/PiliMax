@@ -29,14 +29,12 @@ List<SettingsModel> get videoSettings => [
     subtitle: '以较低功耗播放视频，若异常卡死请关闭',
     leading: Icon(Icons.flash_on_outlined),
     setKey: SettingBoxKey.enableHA,
-    defaultVal: true,
   ),
   const SwitchModel(
     title: '免登录1080P',
     subtitle: '免登录查看1080P视频',
     leading: Icon(Icons.hd_outlined),
     setKey: SettingBoxKey.p1080,
-    defaultVal: true,
   ),
   NormalModel(
     title: 'B站定向流量支持',
@@ -74,14 +72,12 @@ List<SettingsModel> get videoSettings => [
     leading: Icon(Icons.speed),
     subtitle: '测速通过模拟加载视频实现，注意流量消耗，结果仅供参考',
     setKey: SettingBoxKey.cdnSpeedTest,
-    defaultVal: true,
   ),
   SwitchModel(
     title: '音频不跟随 CDN 设置',
     subtitle: '直接采用备用 URL，可解决部分视频无声',
     leading: const Icon(MdiIcons.musicNotePlus),
     setKey: SettingBoxKey.disableAudioCDN,
-    defaultVal: false,
     onChanged: (value) => VideoUtils.disableAudioCDN = value,
   ),
   if (Platform.isAndroid || Platform.isIOS)
@@ -170,7 +166,6 @@ List<SettingsModel> get videoSettings => [
         '${Platform.isIOS ? '\n开启后锁屏/通知栏/控制中心/车载不会显示正在播放的歌曲且不支持线控和Siri切歌（测试功能）' : ''}',
     leading: const Icon(Icons.compare_arrows_outlined),
     setKey: SettingBoxKey.mixWithOthers,
-    defaultVal: false,
     onChanged: (value) {
       audioSessionHandler?.reconfigure();
     },

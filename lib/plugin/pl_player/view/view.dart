@@ -45,6 +45,7 @@ import 'package:PiliMax/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliMax/plugin/pl_player/models/gesture_type.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/plugin/pl_player/models/video_fit_type.dart';
+import 'package:PiliMax/plugin/pl_player/preview_request_coordinator.dart';
 import 'package:PiliMax/plugin/pl_player/widgets/app_bar_ani.dart';
 import 'package:PiliMax/plugin/pl_player/widgets/backward_seek.dart';
 import 'package:PiliMax/plugin/pl_player/widgets/bottom_control.dart';
@@ -568,7 +569,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
               // Use TextPainter to manually truncate the string to ensure the Text widget
               // tight-wraps the text, avoiding the layout padding caused by TextOverflow.ellipsis
-              final textStyle = const TextStyle(
+              const textStyle = TextStyle(
                 color: Colors.white,
                 fontSize: 12,
               );

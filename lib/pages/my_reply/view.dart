@@ -132,9 +132,11 @@ class _MyReplyState extends State<MyReply> with DynMixin {
     final oid = replyInfo.oid.toInt();
     ReplyUtils.onCheckReply(
       replyInfo: replyInfo,
+      enableCommAntifraud: Pref.enableCommAntifraud,
       biliSendCommAntifraud: Pref.biliSendCommAntifraud,
-      sourceId: switch (oid) {
+      sourceId: switch (replyInfo.type.toInt()) {
         1 => IdUtils.av2bv(oid),
+        12 => 'cv$oid',
         _ => oid.toString(),
       },
       isManual: true,

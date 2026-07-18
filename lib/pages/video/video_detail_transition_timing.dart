@@ -10,12 +10,12 @@ const videoDetailProfileTransitionDuration = Duration(milliseconds: 120);
 const videoDetailMaximumPostTransitionHold = Duration(milliseconds: 600);
 
 /// Programmatic Android back stays deliberate but is shorter than entry.
-const videoDetailProgrammaticExitDuration = Duration(milliseconds: 320);
+const videoDetailProgrammaticExitDuration = Duration(milliseconds: 360);
 
-const videoDetailCommitTailMinDuration = Duration(milliseconds: 120);
-const videoDetailCommitTailMaxDuration = Duration(milliseconds: 240);
-const videoDetailCancelTailMinDuration = Duration(milliseconds: 100);
-const videoDetailCancelTailMaxDuration = Duration(milliseconds: 220);
+const videoDetailCommitTailMinDuration = Duration(milliseconds: 160);
+const videoDetailCommitTailMaxDuration = Duration(milliseconds: 280);
+const videoDetailCancelTailMinDuration = Duration(milliseconds: 140);
+const videoDetailCancelTailMaxDuration = Duration(milliseconds: 240);
 
 /// The outgoing detail surface hands off during the final 15% of its path.
 const videoDetailSourceHandoffStart = 0.85;

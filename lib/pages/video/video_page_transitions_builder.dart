@@ -733,10 +733,29 @@ class VideoPageExitTransition extends StatelessWidget {
         }
         final target = returnTarget;
         final hasSharedTarget = target != null && !target.rect.isEmpty;
+        final visual = exitVisual;
+        final texture = exitTexture;
+        final splitMedia =
+            hasSharedTarget &&
+            target.hasMediaTarget &&
+            visual != null &&
+            texture != null;
         final geometry = hasSharedTarget
-            ? _sharedElementGeometry(size, target)
+            ? _sharedElementGeometry(
+                size,
+                target,
+                splitMedia: splitMedia,
+              )
             : _fallbackGeometry(size);
-        return _livePageLayer(geometry);
+        if (splitMedia) {
+          return _splitPageLayers(
+            geometry: geometry,
+            target: target,
+            visual: visual,
+            texture: texture,
+          );
+        }
+        return _combinedPageLayer(geometry);
       },
     );
   }
@@ -757,17 +776,29 @@ class VideoPageExitTransition extends StatelessWidget {
         ..translateByDouble(currentRect.left, currentRect.top, 0, 1)
         ..scaleByDouble(scale, scale, 1, 1),
       borderRadius: 24 * progress,
-      liveOpacity: opacity,
+      bodyHandoff: 1 - opacity,
     );
   }
 
   _VideoExitGeometry _sharedElementGeometry(
     Size size,
-    VideoReturnTarget target,
-  ) {
+    VideoReturnTarget target, {
+    required bool splitMedia,
+  }) {
     final screenRect = Offset.zero & size;
     final currentRect = Rect.lerp(screenRect, target.rect, progress)!;
-    final sourceHandoff = _sourceHandoffForExitProgress(progress);
+    final bodyHandoff = switch (target.layout) {
+      VideoTransitionSourceLayout.horizontalRow =>
+        _sourceHandoffForExitProgress(progress),
+      VideoTransitionSourceLayout.verticalCard =>
+        splitMedia
+            ? _sourceHandoffForExitProgress(progress)
+            : _geometryHandoff(currentRect, target.rect),
+      VideoTransitionSourceLayout.embedded =>
+        splitMedia
+            ? _sourceHandoffForExitProgress(progress)
+            : _geometryHandoff(currentRect, target.rect),
+    };
     final radius = _maxRadius(target.borderRadius);
     final contentScale = math.max(
       currentRect.width / size.width,
@@ -788,11 +819,11 @@ class VideoPageExitTransition extends StatelessWidget {
         ..translateByDouble(contentLeft, currentRect.top, 0, 1)
         ..scaleByDouble(contentScale, contentScale, 1, 1),
       borderRadius: lerpDouble(0, radius, progress)!,
-      liveOpacity: 1 - sourceHandoff,
+      bodyHandoff: bodyHandoff,
     );
   }
 
-  Widget _livePageLayer(_VideoExitGeometry geometry) {
+  Widget _combinedPageLayer(_VideoExitGeometry geometry) {
     return ClipRect(
       clipper: _VideoExitRectClipper(geometry.visibleClipRect),
       clipBehavior: progress <= 0 ? Clip.none : Clip.hardEdge,
@@ -800,7 +831,7 @@ class VideoPageExitTransition extends StatelessWidget {
         clipper: _VideoExitClipper(geometry.clipRRect),
         clipBehavior: progress <= 0 ? Clip.none : Clip.antiAlias,
         child: Opacity(
-          opacity: geometry.liveOpacity,
+          opacity: geometry.bodyOpacity,
           child: Transform(
             alignment: Alignment.topLeft,
             transform: geometry.contentTransform,
@@ -854,6 +885,273 @@ class VideoPageExitTransition extends StatelessWidget {
     );
   }
 
+  Widget _splitPageLayers({
+    required _VideoExitGeometry geometry,
+    required VideoReturnTarget target,
+    required VideoDetailExitVisual visual,
+    required Widget texture,
+  }) {
+    final targetMediaRect = target.mediaRect!;
+    final targetMediaVisibleRect = target.mediaVisibleRect!;
+    final transformedPlayerRect = MatrixUtils.transformRect(
+      geometry.contentTransform,
+      visual.clipRect,
+    );
+    final transformedVisibleRect = transformedPlayerRect.intersect(
+      geometry.visibleClipRect,
+    );
+    final mediaMorph = Curves.easeInOutCubic.transform(
+      _interval(
+        progress,
+        videoDetailMediaMorphStart,
+        videoDetailMediaMorphEnd,
+      ),
+    );
+    final mediaRect = Rect.lerp(
+      transformedPlayerRect,
+      targetMediaRect,
+      mediaMorph,
+    )!;
+    final mediaVisibleRect = Rect.lerp(
+      transformedVisibleRect,
+      targetMediaVisibleRect,
+      mediaMorph,
+    )!.intersect(mediaRect);
+    final mediaBorderRadius = BorderRadius.lerp(
+      BorderRadius.zero,
+      target.mediaBorderRadius ?? BorderRadius.zero,
+      mediaMorph,
+    )!;
+    final mediaHandoff = _mediaHandoff(mediaRect, targetMediaRect);
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _bodyPageLayer(geometry, visual),
+        if (!mediaRect.isEmpty && !mediaVisibleRect.isEmpty)
+          _mediaPageLayer(
+            visual: visual,
+            texture: texture,
+            rect: mediaRect,
+            visibleRect: mediaVisibleRect,
+            borderRadius: mediaBorderRadius,
+            opacity: 1 - mediaHandoff,
+          ),
+        if (visual.foregrounds.any(
+          (foreground) => foreground.role == VideoDetailExitForegroundRole.body,
+        ))
+          _bodyForegroundLayer(geometry, visual),
+      ],
+    );
+  }
+
+  Widget _bodyPageLayer(
+    _VideoExitGeometry geometry,
+    VideoDetailExitVisual visual,
+  ) {
+    return ClipRect(
+      clipper: _VideoExitRectClipper(geometry.visibleClipRect),
+      clipBehavior: progress <= 0 ? Clip.none : Clip.hardEdge,
+      child: ClipRRect(
+        clipper: _VideoExitClipper(geometry.clipRRect),
+        clipBehavior: progress <= 0 ? Clip.none : Clip.antiAlias,
+        child: Opacity(
+          opacity: geometry.bodyOpacity,
+          child: Transform(
+            alignment: Alignment.topLeft,
+            transform: geometry.contentTransform,
+            transformHitTests: false,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                child,
+                Positioned.fromRect(
+                  rect: visual.clipRect,
+                  child: const ColoredBox(color: Colors.black),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _bodyForegroundLayer(
+    _VideoExitGeometry geometry,
+    VideoDetailExitVisual visual,
+  ) {
+    return ClipRect(
+      clipper: _VideoExitRectClipper(geometry.visibleClipRect),
+      clipBehavior: progress <= 0 ? Clip.none : Clip.hardEdge,
+      child: ClipRRect(
+        clipper: _VideoExitClipper(geometry.clipRRect),
+        clipBehavior: progress <= 0 ? Clip.none : Clip.antiAlias,
+        child: Opacity(
+          opacity: geometry.bodyOpacity,
+          child: Transform(
+            alignment: Alignment.topLeft,
+            transform: geometry.contentTransform,
+            transformHitTests: false,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                for (final foreground in visual.foregrounds)
+                  if (foreground.role == VideoDetailExitForegroundRole.body)
+                    _foregroundLayer(foreground),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _mediaPageLayer({
+    required VideoDetailExitVisual visual,
+    required Widget texture,
+    required Rect rect,
+    required Rect visibleRect,
+    required BorderRadius borderRadius,
+    required double opacity,
+  }) {
+    final textureRect = _mapRect(
+      visual.playerRect,
+      from: visual.clipRect,
+      to: rect,
+    );
+    return ClipRect(
+      clipper: _VideoExitRectClipper(visibleRect),
+      clipBehavior: Clip.hardEdge,
+      child: ClipRRect(
+        clipper: _VideoExitClipper(borderRadius.toRRect(rect)),
+        clipBehavior: Clip.antiAlias,
+        child: Opacity(
+          opacity: opacity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned.fromRect(
+                rect: rect,
+                child: const ColoredBox(color: Colors.black),
+              ),
+              Positioned.fromRect(rect: textureRect, child: texture),
+              for (final foreground in visual.foregrounds)
+                if (foreground.role == VideoDetailExitForegroundRole.media)
+                  _mappedForegroundLayer(
+                    foreground,
+                    from: visual.clipRect,
+                    to: rect,
+                  ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _foregroundLayer(VideoDetailExitForeground foreground) {
+    return ClipRect(
+      clipper: _VideoExitRectClipper(foreground.clipRect),
+      clipBehavior: Clip.hardEdge,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fromRect(
+            rect: foreground.rect,
+            child: foreground.build(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mappedForegroundLayer(
+    VideoDetailExitForeground foreground, {
+    required Rect from,
+    required Rect to,
+  }) {
+    final mappedRect = _mapRect(foreground.rect, from: from, to: to);
+    final mappedClipRect = _mapRect(
+      foreground.clipRect,
+      from: from,
+      to: to,
+    ).intersect(to);
+    return ClipRect(
+      clipper: _VideoExitRectClipper(mappedClipRect),
+      clipBehavior: Clip.hardEdge,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fromRect(
+            rect: mappedRect,
+            child: foreground.build(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _mediaHandoff(Rect current, Rect target) {
+    final timeline = Curves.easeInOutCubic.transform(
+      _interval(progress, videoDetailMediaHandoffStart, 1),
+    );
+    final geometry = Curves.easeInOutCubic.transform(
+      _inverseInterval(_rectError(current, target), 0.08, 0.015),
+    );
+    return math.min(timeline, geometry);
+  }
+
+  static double _geometryHandoff(Rect current, Rect target) {
+    if (target.width <= 0 || target.height <= 0) {
+      return 0;
+    }
+    final sizeRatio = math.max(
+      current.width / target.width,
+      current.height / target.height,
+    );
+    return Curves.easeInOutCubic.transform(
+      _inverseInterval(sizeRatio, 1.08, 1.02),
+    );
+  }
+
+  static double _rectError(Rect current, Rect target) {
+    if (target.width <= 0 || target.height <= 0) {
+      return double.infinity;
+    }
+    final horizontal =
+        math.max(
+          (current.left - target.left).abs(),
+          (current.right - target.right).abs(),
+        ) /
+        target.width;
+    final vertical =
+        math.max(
+          (current.top - target.top).abs(),
+          (current.bottom - target.bottom).abs(),
+        ) /
+        target.height;
+    return math.max(horizontal, vertical);
+  }
+
+  static Rect _mapRect(
+    Rect rect, {
+    required Rect from,
+    required Rect to,
+  }) {
+    if (from.width <= 0 || from.height <= 0) {
+      return to;
+    }
+    final scaleX = to.width / from.width;
+    final scaleY = to.height / from.height;
+    return Rect.fromLTRB(
+      to.left + (rect.left - from.left) * scaleX,
+      to.top + (rect.top - from.top) * scaleY,
+      to.left + (rect.right - from.left) * scaleX,
+      to.top + (rect.bottom - from.top) * scaleY,
+    );
+  }
+
   static double _maxRadius(BorderRadius radius) => [
     radius.topLeft.x,
     radius.topRight.x,
@@ -870,6 +1168,16 @@ class VideoPageExitTransition extends StatelessWidget {
     }
     return (value - begin) / (end - begin);
   }
+
+  static double _inverseInterval(double value, double begin, double end) {
+    if (value >= begin) {
+      return 0;
+    }
+    if (value <= end) {
+      return 1;
+    }
+    return (begin - value) / (begin - end);
+  }
 }
 
 final class _VideoExitGeometry {
@@ -878,14 +1186,16 @@ final class _VideoExitGeometry {
     required this.visibleClipRect,
     required this.contentTransform,
     required this.borderRadius,
-    required this.liveOpacity,
+    required this.bodyHandoff,
   });
 
   final Rect clipRect;
   final Rect visibleClipRect;
   final Matrix4 contentTransform;
   final double borderRadius;
-  final double liveOpacity;
+  final double bodyHandoff;
+
+  double get bodyOpacity => 1 - bodyHandoff;
 
   RRect get clipRRect => RRect.fromRectAndRadius(
     clipRect,

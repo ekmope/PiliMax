@@ -58,13 +58,17 @@ final class VideoDetailExitVisual {
   }
 }
 
+enum VideoDetailExitForegroundRole { media, body }
+
 final class VideoDetailExitForeground {
   const VideoDetailExitForeground({
+    required this.role,
     required this.rect,
     required this.clipRect,
     required this.image,
   });
 
+  final VideoDetailExitForegroundRole role;
   final Rect rect;
   final Rect clipRect;
   final ui.Image image;
@@ -123,6 +127,7 @@ double _exitCapturePixelRatio({
 }
 
 VideoDetailExitForeground? captureVideoDetailExitForeground({
+  required VideoDetailExitForegroundRole role,
   required GlobalKey boundaryKey,
   required RenderBox transitionRoot,
   required double devicePixelRatio,
@@ -151,6 +156,7 @@ VideoDetailExitForeground? captureVideoDetailExitForeground({
       return null;
     }
     return VideoDetailExitForeground(
+      role: role,
       rect: rect,
       clipRect: rect.intersect(clipRect),
       image: image,

@@ -174,30 +174,32 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       return VideoDetailExitMode.errorFallback;
     }
 
-    // While the entry presentation is still authoritative, let the route,
-    // Hero, and external overlay reverse along their original animation.
-    if (_showEntryLayer && !_revealingDetail && _usesExternalEntryOverlay) {
-      setState(() {
-        _preparedExitMode = VideoDetailExitMode.entryReverse;
-      });
-      _entryOverlay?.beginReversibleExit();
-      return VideoDetailExitMode.entryReverse;
-    }
+    if (!_showDetail) {
+      // While the entry presentation is still authoritative, let the route,
+      // Hero, and external overlay reverse along their original animation.
+      if (_showEntryLayer && !_revealingDetail && _usesExternalEntryOverlay) {
+        setState(() {
+          _preparedExitMode = VideoDetailExitMode.entryReverse;
+        });
+        _entryOverlay?.beginReversibleExit();
+        return VideoDetailExitMode.entryReverse;
+      }
 
-    // A route without an external overlay still owns a complete skeleton and
-    // cover. Keep that composite intact instead of replacing it with a solid
-    // surface while the shared geometry returns to the source card.
-    if (_showEntryLayer && !_revealingDetail) {
-      _preparedExitMode = VideoDetailExitMode.routeComposite;
-      setState(() {
-        _showStaticEntryCover = _hasVideoTransition;
-        _useHeroTarget = false;
-      });
-      return VideoDetailExitMode.routeComposite;
+      // A route without an external overlay still owns a complete skeleton
+      // and cover. Keep that composite intact instead of replacing it with a
+      // solid surface while the shared geometry returns to the source card.
+      if (_showEntryLayer && !_revealingDetail) {
+        _preparedExitMode = VideoDetailExitMode.routeComposite;
+        setState(() {
+          _showStaticEntryCover = _hasVideoTransition;
+          _useHeroTarget = false;
+        });
+        return VideoDetailExitMode.routeComposite;
+      }
     }
 
     _entryOverlay?.abort();
-    if (!_showEntryLayer) {
+    if (!_showDetail) {
       return _preparedExitMode = VideoDetailExitMode.detail;
     }
     _detailRevealController.stop();
@@ -208,6 +210,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _showDetail = true;
       _showEntryLayer = false;
       _useHeroTarget = false;
+      _showStaticEntryCover = false;
       _revealingDetail = true;
       _orientationSettling = false;
       _pendingEntryOrientation = null;
@@ -240,6 +243,13 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         _resumeDeferredEntryHandoff();
         break;
       case VideoDetailExitMode.detail:
+        if (_showEntryLayer || _useHeroTarget || _showStaticEntryCover) {
+          setState(() {
+            _showEntryLayer = false;
+            _useHeroTarget = false;
+            _showStaticEntryCover = false;
+          });
+        }
         break;
     }
   }
@@ -294,9 +304,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _startSession();
       if (_needsImmediatePipTakeover) {
         _showDetail = true;
+        _useHeroTarget = false;
         if (_fromPip) {
           _showEntryLayer = false;
-          _useHeroTarget = false;
         }
       }
     }
@@ -398,9 +408,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       if (_needsImmediatePipTakeover) {
         setState(() {
           _showDetail = true;
+          _useHeroTarget = false;
           if (_fromPip) {
             _showEntryLayer = false;
-            _useHeroTarget = false;
           }
         });
       }
@@ -643,7 +653,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         return;
       }
       if (!_showDetail) {
-        setState(() => _showDetail = true);
+        setState(() {
+          _showDetail = true;
+          _useHeroTarget = false;
+          _showStaticEntryCover = false;
+        });
         WidgetsBinding.instance.addPostFrameCallback((_) => _tryMountDetail());
         return;
       }
@@ -668,7 +682,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     }
     _fallbackTimer?.cancel();
     _fallbackTimer = null;
-    setState(() => _showDetail = true);
+    setState(() {
+      _showDetail = true;
+      _useHeroTarget = false;
+      _showStaticEntryCover = false;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _beginDetailReveal());
   }
 
@@ -690,8 +708,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       expectedDuration: _entryOverlay?.revealDuration ?? _detailRevealDuration,
     );
     setState(() {
-      // Removing the Hero target here prevents any reverse skeleton flight.
+      // Keep this defensive assignment for sessions mounted before reveal.
       _useHeroTarget = false;
+      _showStaticEntryCover = false;
       _revealingDetail = true;
     });
     final entryOverlay = _entryOverlay;
@@ -728,6 +747,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _error = error;
       _showEntryLayer = false;
       _useHeroTarget = false;
+      _showStaticEntryCover = false;
     });
   }
 

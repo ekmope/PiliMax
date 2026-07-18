@@ -95,11 +95,22 @@ final class VideoReturnTarget {
     required this.rect,
     required this.visibleRect,
     required this.borderRadius,
+    required this.layout,
+    this.mediaRect,
+    this.mediaVisibleRect,
+    this.mediaBorderRadius,
   });
 
   final Rect rect;
   final Rect visibleRect;
   final BorderRadius borderRadius;
+  final VideoTransitionSourceLayout layout;
+  final Rect? mediaRect;
+  final Rect? mediaVisibleRect;
+  final BorderRadius? mediaBorderRadius;
+
+  bool get hasMediaTarget =>
+      mediaRect?.isEmpty == false && mediaVisibleRect?.isEmpty == false;
 }
 
 final class VideoTransitionRegistration {
@@ -213,6 +224,15 @@ final class _VideoTransitionSource {
 
   Rect? currentMediaRect() {
     return _rectFor(mediaContext);
+  }
+
+  Rect? currentMediaVisibleRect() {
+    final rect = currentMediaRect();
+    final currentContext = mediaContext;
+    if (rect == null || currentContext == null) {
+      return null;
+    }
+    return VideoTransitionRegistry._visiblePortion(currentContext, rect);
   }
 
   Rect? currentVisibleRect() {
@@ -444,6 +464,8 @@ abstract final class VideoTransitionRegistry {
     );
     final rect = source?.currentRect();
     final visibleRect = source?.currentVisibleRect();
+    final currentMediaRect = source?.currentMediaRect();
+    final currentMediaVisibleRect = source?.currentMediaVisibleRect();
     final launchAspectRatio = token.launchRect.width / token.launchRect.height;
     final returnAspectRatio = rect == null ? 0 : rect.width / rect.height;
     final aspectRatioChanged =
@@ -459,10 +481,25 @@ abstract final class VideoTransitionRegistry {
         !_isVisibleRect(rect, visibleRect)) {
       return null;
     }
+    final mediaRect =
+        currentMediaRect != null && _isValidMediaRect(rect, currentMediaRect)
+        ? currentMediaRect
+        : null;
+    final mediaVisibleRect =
+        mediaRect == null || currentMediaVisibleRect == null
+        ? null
+        : currentMediaVisibleRect.intersect(visibleRect);
+    final hasVisibleMediaRect = mediaVisibleRect?.isEmpty == false;
     return VideoReturnTarget(
       rect: rect,
       visibleRect: visibleRect,
       borderRadius: source.resolvedBorderRadius(),
+      layout: source.layout,
+      mediaRect: hasVisibleMediaRect ? mediaRect : null,
+      mediaVisibleRect: hasVisibleMediaRect ? mediaVisibleRect : null,
+      mediaBorderRadius: hasVisibleMediaRect
+          ? source.resolvedMediaBorderRadius()
+          : null,
     );
   }
 

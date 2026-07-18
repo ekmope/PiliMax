@@ -2310,6 +2310,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       );
       final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
       final playerForeground = captureVideoDetailExitForeground(
+        role: VideoDetailExitForegroundRole.media,
         boundaryKey: _transitionPlayerForegroundKey,
         transitionRoot: transitionRoot,
         devicePixelRatio: devicePixelRatio,
@@ -2327,6 +2328,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           videoDetailController.showSteinEdgeInfo.value;
       if (shouldCapturePageForeground) {
         final pageForeground = captureVideoDetailExitForeground(
+          role: VideoDetailExitForegroundRole.media,
           boundaryKey: _transitionPageForegroundKey,
           transitionRoot: transitionRoot,
           devicePixelRatio: devicePixelRatio,
@@ -2339,6 +2341,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
       if (videoDetailController.scrollRatio.value > 0) {
         final headerForeground = captureVideoDetailExitForeground(
+          role: VideoDetailExitForegroundRole.body,
           boundaryKey: _transitionHeaderForegroundKey,
           transitionRoot: transitionRoot,
           devicePixelRatio: devicePixelRatio,

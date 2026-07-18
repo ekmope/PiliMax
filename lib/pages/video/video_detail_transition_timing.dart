@@ -21,6 +21,15 @@ const videoDetailCancelTailMaxDuration = Duration(milliseconds: 240);
 const videoDetailSourceHandoffStart = 0.85;
 const videoDetailSourceHandoffEnd = 0.98;
 
+/// The live player follows the outgoing page first, then separates from the
+/// card body and settles into the source media rectangle.
+const videoDetailMediaMorphStart = 0.70;
+const videoDetailMediaMorphEnd = 0.98;
+
+/// Keep the live frame authoritative until the media geometry is nearly at
+/// rest. The geometry gate in the transition can delay this handoff further.
+const videoDetailMediaHandoffStart = 0.94;
+
 Duration videoDetailCommitTailDuration(double exitProgress) {
   final remaining = 1 - _unitInterval(exitProgress);
   final scaledMilliseconds =

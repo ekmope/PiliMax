@@ -36,7 +36,11 @@ class DynamicsController extends GetxController
   Set<UpItem>? _cacheUpList;
   late final _showAllUp = Pref.dynamicsShowAllFollowedUp;
   late bool showLiveUp = Pref.expandDynLivePanel;
-  bool _clearUpUpdatesOnNextResponse = false;
+  bool _clearAllUpUpdatesOnNextResponse = false;
+  final Set<int> _clearUpUpdateMidsOnNextResponse = <int>{};
+  bool isQuerying = false;
+  bool _pendingFollowUpRefresh = false;
+  bool _isClosing = false;
 
   final upPanelPosition = Pref.upPanelPosition;
 
@@ -95,16 +99,58 @@ class DynamicsController extends GetxController
     return index;
   }
 
-  void _markUpAsRead(int mid) {
+  bool _clearUpUpdateForMid(Iterable<UpItem>? items, int mid) {
     var changed = false;
-    for (final item in upPageItems) {
+    if (items == null) {
+      return changed;
+    }
+    for (final item in items) {
       if (item.mid == mid && item.hasUpdate == true) {
         item.hasUpdate = false;
         changed = true;
       }
     }
-    if (changed) {
+    return changed;
+  }
+
+  bool _clearFollowUpUpdateForMid(FollowUpModel? data, int mid) {
+    final upChanged = _clearUpUpdateForMid(data?.upList, mid);
+    final liveChanged = _clearUpUpdateForMid(data?.liveUsers?.items, mid);
+    return upChanged || liveChanged;
+  }
+
+  void _markUpAsRead(int mid) {
+    if (_clearFollowUpUpdateForMid(upState.value.dataOrNull, mid)) {
       upState.refresh();
+    }
+  }
+
+  void _markUpAsReadAndClearNextResponse(int mid) {
+    _markUpAsRead(mid);
+    if (!_clearAllUpUpdatesOnNextResponse) {
+      _clearUpUpdateMidsOnNextResponse.add(mid);
+    }
+  }
+
+  void _applyPendingUpUpdateClears(FollowUpModel data) {
+    if (_clearAllUpUpdatesOnNextResponse) {
+      _clearFollowUpUpdates(data);
+      _clearAllUpUpdatesOnNextResponse = false;
+      _clearUpUpdateMidsOnNextResponse.clear();
+      return;
+    }
+
+    for (final mid in _clearUpUpdateMidsOnNextResponse) {
+      _clearFollowUpUpdateForMid(data, mid);
+    }
+    _clearUpUpdateMidsOnNextResponse.clear();
+  }
+
+  void _markNavigationSelectionAsRead() {
+    if (isAllUpPage) {
+      _markAllUpAsReadAndClearNextResponse();
+    } else {
+      _markUpAsReadAndClearNextResponse(currentMid.value);
     }
   }
 
@@ -136,7 +182,14 @@ class DynamicsController extends GetxController
 
   void _markAllUpAsReadAndClearNextResponse() {
     _markAllUpAsRead();
-    _clearUpUpdatesOnNextResponse = true;
+    _clearAllUpUpdatesOnNextResponse = true;
+    _clearUpUpdateMidsOnNextResponse.clear();
+  }
+
+  void _refreshNavigationSelection() {
+    // Keep the immediate UI update and the next follow-up response in sync.
+    // A response already in flight may still contain the old red dot.
+    _markNavigationSelectionAsRead();
   }
 
   @override
@@ -162,112 +215,115 @@ class DynamicsController extends GetxController
   }
 
   Future<void> queryUpList() async {
-    if (isQuerying || _upEnd) return;
+    if (_isClosing || isQuerying || _upEnd) return;
     isQuerying = true;
 
-    final res = await DynamicsHttp.dynUpList(upState.value.data.offset);
+    try {
+      final res = await DynamicsHttp.dynUpList(upState.value.data.offset);
 
-    if (res case Success(:final response)) {
-      if (response.hasMore == false || response.offset.isNullOrEmpty) {
-        _upEnd = true;
+      if (res case Success(:final response)) {
+        if (response.hasMore == false || response.offset.isNullOrEmpty) {
+          _upEnd = true;
+        }
+        final upData = upState.value.data
+          ..hasMore = response.hasMore
+          ..offset = response.offset;
+        final list = response.upList;
+        if (list != null && list.isNotEmpty) {
+          upData.upList.addAll(list);
+          upState.refresh();
+        }
       }
-      final upData = upState.value.data
-        ..hasMore = response.hasMore
-        ..offset = response.offset;
-      final list = response.upList;
-      if (list != null && list.isNotEmpty) {
-        upData.upList.addAll(list);
-        upState.refresh();
-      }
+    } finally {
+      _completeUpQuery();
     }
-
-    isQuerying = false;
   }
 
   Future<void> queryAllUp() async {
-    if (isQuerying || _upEnd) return;
+    if (_isClosing || isQuerying || _upEnd) return;
     isQuerying = true;
 
-    final res = await FollowHttp.followings(
-      vmid: Accounts.main.mid,
-      pn: _upPage,
-      orderType: 'attention',
-      ps: 50,
-    );
+    try {
+      final res = await FollowHttp.followings(
+        vmid: Accounts.main.mid,
+        pn: _upPage,
+        orderType: 'attention',
+        ps: 50,
+      );
 
-    if (res case Success(:final response)) {
-      _upPage++;
-      final list = response.list;
-      if (list.isEmpty) {
-        _upEnd = true;
+      if (res case Success(:final response)) {
+        _upPage++;
+        final list = response.list;
+        if (list.isEmpty) {
+          _upEnd = true;
+        }
+        upState
+          ..value.data.upList.addAll(
+            list..removeWhere((e) => _cacheUpList?.contains(e) == true),
+          )
+          ..refresh();
       }
-      upState
-        ..value.data.upList.addAll(
-          list..removeWhere((e) => _cacheUpList?.contains(e) == true),
-        )
-        ..refresh();
+    } finally {
+      _completeUpQuery();
     }
-
-    isQuerying = false;
   }
 
-  late bool isQuerying = false;
   Future<void> queryFollowUp() async {
-    if (isQuerying) return;
+    if (_isClosing || isQuerying) return;
     isQuerying = true;
 
-    if (!accountService.isLogin.value) {
-      upState.value = const Error(null);
-      isQuerying = false;
-      return;
-    }
+    try {
+      if (!accountService.isLogin.value) {
+        upState.value = const Error(null);
+        return;
+      }
 
-    // reset
-    _upEnd = false;
-    if (_showAllUp) _upPage = 1;
+      // reset
+      _upEnd = false;
+      if (_showAllUp) _upPage = 1;
 
-    final res = await Future.wait([
-      DynamicsHttp.followUp(),
-      if (_showAllUp)
-        FollowHttp.followings(
-          vmid: Accounts.main.mid,
-          pn: _upPage,
-          orderType: 'attention',
-          ps: 50,
-        ),
-    ]);
+      final res = await Future.wait([
+        DynamicsHttp.followUp(),
+        if (_showAllUp)
+          FollowHttp.followings(
+            vmid: Accounts.main.mid,
+            pn: _upPage,
+            orderType: 'attention',
+            ps: 50,
+          ),
+      ]);
 
-    final first = res.first;
-    if (first case final Success<FollowUpModel> i) {
-      final data = i.response;
-      final second = res.elementAtOrNull(1);
-      if (second case final Success<FollowData> j) {
-        final data1 = j.response;
-        final list1 = data1.list;
+      final first = res.first;
+      if (first case final Success<FollowUpModel> i) {
+        final data = i.response;
+        final second = res.elementAtOrNull(1);
+        if (second case final Success<FollowData> j) {
+          final data1 = j.response;
+          final list1 = data1.list;
 
-        _upPage++;
-        if (list1.isEmpty || list1.length >= (data1.total ?? 0)) {
-          _upEnd = true;
+          _upPage++;
+          if (list1.isEmpty || list1.length >= (data1.total ?? 0)) {
+            _upEnd = true;
+          }
+
+          final list = data.upList;
+          list.addAll(
+            list1..removeWhere((_cacheUpList = list.toSet()).contains),
+          );
         }
-
-        final list = data.upList;
-        list.addAll(list1..removeWhere((_cacheUpList = list.toSet()).contains));
-      }
-      if (!_showAllUp) {
-        if (data.hasMore == false || data.offset.isNullOrEmpty) {
-          _upEnd = true;
+        if (!_showAllUp) {
+          if (data.hasMore == false || data.offset.isNullOrEmpty) {
+            _upEnd = true;
+          }
         }
+        _applyPendingUpUpdateClears(data);
+        upState.value = Success(data);
+      } else {
+        upState.value = const Error(null);
       }
-      if (_clearUpUpdatesOnNextResponse) {
-        _clearFollowUpUpdates(data);
-        _clearUpUpdatesOnNextResponse = false;
-      }
-      upState.value = Success(data);
-    } else {
-      upState.value = const Error(null);
+    } finally {
+      _completeUpQuery();
     }
-
-    isQuerying = false;
   }
 
   void onSelectUp(int mid) {
@@ -320,16 +376,42 @@ class DynamicsController extends GetxController
   }
 
   Future<void> onNavigationRefresh() {
-    _markAllUpAsReadAndClearNextResponse();
+    _refreshNavigationSelection();
+    animateToTop();
     return onRefresh();
   }
 
   void _refreshFollowUp() {
+    if (_isClosing) {
+      return;
+    }
+    if (isQuerying) {
+      _pendingFollowUpRefresh = true;
+      return;
+    }
+    _startFollowUpRefresh();
+  }
+
+  void _startFollowUpRefresh() {
     if (_showAllUp) {
       _upPage = 1;
       _cacheUpList = null;
     }
-    queryFollowUp();
+    unawaited(queryFollowUp());
+  }
+
+  void _completeUpQuery() {
+    isQuerying = false;
+    final shouldRefresh = _pendingFollowUpRefresh;
+    _pendingFollowUpRefresh = false;
+    if (!shouldRefresh || _isClosing) {
+      return;
+    }
+    if (!accountService.isLogin.value) {
+      upState.value = const Error(null);
+      return;
+    }
+    _startFollowUpRefresh();
   }
 
   @override
@@ -357,12 +439,14 @@ class DynamicsController extends GetxController
   }
 
   void navigationToTopOrRefresh() {
-    _markAllUpAsReadAndClearNextResponse();
+    _refreshNavigationSelection();
     toTopOrRefresh();
   }
 
   @override
   void onClose() {
+    _isClosing = true;
+    _pendingFollowUpRefresh = false;
     tabController.dispose();
     upPageController.dispose();
     scrollController.dispose();

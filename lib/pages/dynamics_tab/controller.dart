@@ -32,7 +32,7 @@ class DynamicsTabController
   @override
   Future<void> onRefresh() {
     if (dynamicsType == .all) {
-      mainController.setDynCount();
+      mainController.clearDynCount();
     }
     offset = '';
     return super.onRefresh();

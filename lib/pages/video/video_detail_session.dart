@@ -12,7 +12,19 @@ const videoDetailSessionKey = '_videoDetailSession';
 const videoDetailPrepareForExitKey = '_videoDetailPrepareForExit';
 const videoDetailCancelPreparedExitKey = '_videoDetailCancelPreparedExit';
 
-typedef VideoDetailPrepareForExit = bool Function();
+enum VideoDetailExitMode {
+  /// The entry overlay and Hero still own the visible presentation, so the
+  /// route animation itself must reverse without another page transform.
+  entryReverse,
+
+  /// The route-owned skeleton and cover form one outgoing surface.
+  routeComposite,
+
+  /// The real detail page is visible and can use the shared/snapshot exit.
+  detail,
+}
+
+typedef VideoDetailPrepareForExit = VideoDetailExitMode Function();
 
 final class VideoDetailSkeletonProfile {
   const VideoDetailSkeletonProfile({

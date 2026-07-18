@@ -43,6 +43,7 @@ class MainController extends GetxController
   late bool checkDynamic = Pref.checkDynamic;
   late int dynamicPeriod = Pref.dynamicPeriod * 60 * 1000;
   late int _lastCheckDynamicAt = 0;
+  int _dynCountEpoch = 0;
   late bool hasDyn = false;
   late final dynamicController = Get.putOrFind(DynamicsController.new);
 
@@ -195,8 +196,9 @@ class MainController extends GetxController
     if (!accountService.isLogin.value || !hasDyn) {
       return;
     }
+    final requestEpoch = _dynCountEpoch;
     DynGrpc.dynRed().then((res) {
-      if (res != null) {
+      if (res != null && requestEpoch == _dynCountEpoch) {
         setDynCount(res);
       }
     });
@@ -205,6 +207,11 @@ class MainController extends GetxController
   void setDynCount([int count = 0]) {
     if (!hasDyn) return;
     dynCount.value = count;
+  }
+
+  void clearDynCount() {
+    _dynCountEpoch++;
+    setDynCount();
   }
 
   void checkUnreadDynamic() {
@@ -301,10 +308,14 @@ class MainController extends GetxController
         checkDefaultSearch();
         checkUnread();
       } else if (currentNav == NavigationBarType.dynamics) {
-        setDynCount();
+        clearDynCount();
       }
     } else {
       int now = DateTime.now().millisecondsSinceEpoch;
+      if (currentNav == NavigationBarType.dynamics &&
+          dynamicController.isAllUpPage) {
+        clearDynCount();
+      }
       if (now - _lastSelectTime < 500) {
         EasyThrottle.throttle(
           'topOrRefresh',
@@ -355,7 +366,7 @@ class MainController extends GetxController
     if (isLogin) {
       getUnreadDynamic();
     } else {
-      setDynCount();
+      clearDynCount();
     }
   }
 }

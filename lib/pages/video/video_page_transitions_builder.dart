@@ -225,6 +225,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   VideoReturnTarget? _returnTarget;
   VideoDetailExitVisual? _exitVisual;
   Widget? _exitTexture;
+  VideoDetailExitMode? _exitMode;
   bool _routeCompleted = false;
   double _lastProgress = 0;
   double _commitStartProgress = 0;
@@ -286,6 +287,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     }
     if (!identical(oldWidget.token, widget.token) && _progress.value == 0) {
       _returnTarget = null;
+      _exitMode = null;
     }
   }
 
@@ -384,9 +386,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
       }
       return;
     }
-    if (status == AnimationStatus.reverse &&
-        _routeCompleted &&
-        _phase == _VideoPopPhase.idle) {
+    if (status == AnimationStatus.reverse && _phase == _VideoPopPhase.idle) {
       _phase = _VideoPopPhase.programmatic;
       _finishBackDiagnostic('superseded');
       _backDiagnosticId = VideoTransitionDiagnostics.begin(
@@ -399,8 +399,24 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   void _finishCancel() {
     _phase = _VideoPopPhase.idle;
+    _cancelPreparedExit();
     _setProgress(0);
     _finishBackDiagnostic('canceled');
+  }
+
+  void _cancelPreparedExit() {
+    if (_exitMode == null) {
+      return;
+    }
+    final cancelPreparedExit =
+        _arguments?[videoDetailCancelPreparedExitKey] as VoidCallback?;
+    cancelPreparedExit?.call();
+    _exitMode = null;
+    _returnTarget = null;
+    _endSnapshotExit();
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _finishForwardDiagnostic(String outcome) {
@@ -449,29 +465,32 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   void _setProgress(double value) {
     final next = value.clamp(0.0, 1.0);
-    if (_lastProgress == 0 && next > 0) {
+    if (_exitMode == null && next > 0) {
       final prepareForExit =
           _arguments?[videoDetailPrepareForExitKey]
               as VideoDetailPrepareForExit?;
-      final preparedForSharedElement = prepareForExit?.call() ?? true;
-      final session = _session;
-      final token = widget.token;
-      final canReturnToSource =
-          preparedForSharedElement &&
-          token != null &&
-          (session == null ||
-              (session.matchesLaunchContent &&
-                  session.launchContentKey == token.contentKey));
-      _returnTarget = canReturnToSource
-          ? VideoTransitionRegistry.resolveReturn(token)
-          : null;
-      _prepareSnapshotExit();
-    } else if (next == 0) {
-      final cancelPreparedExit =
-          _arguments?[videoDetailCancelPreparedExitKey] as VoidCallback?;
-      cancelPreparedExit?.call();
-      _returnTarget = null;
-      _endSnapshotExit();
+      final exitMode = prepareForExit?.call() ?? VideoDetailExitMode.detail;
+      _exitMode = exitMode;
+      if (exitMode == VideoDetailExitMode.entryReverse) {
+        _returnTarget = null;
+        _endSnapshotExit();
+      } else {
+        final session = _session;
+        final token = widget.token;
+        final canReturnToSource =
+            token != null &&
+            (session == null ||
+                (session.matchesLaunchContent &&
+                    session.launchContentKey == token.contentKey));
+        _returnTarget = canReturnToSource
+            ? VideoTransitionRegistry.resolveReturn(token)
+            : null;
+        if (exitMode == VideoDetailExitMode.detail) {
+          _prepareSnapshotExit();
+        } else {
+          _endSnapshotExit();
+        }
+      }
     }
     _lastProgress = next;
     if (_progress.value != next) {
@@ -542,6 +561,12 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
         ),
       ),
       builder: (context, progress, child) {
+        final reversesWithRouteAnimation =
+            _exitMode == VideoDetailExitMode.entryReverse ||
+            (widget.token == null && !_routeCompleted);
+        if (reversesWithRouteAnimation) {
+          return child!;
+        }
         return VideoPageExitTransition(
           progress: progress,
           returnTarget: _returnTarget,

@@ -16,7 +16,8 @@ const videoDetailEntryOverlayKey = '_videoDetailEntryOverlay';
 ///
 /// Create the controller and call [insert] before pushing the detail route,
 /// then bind the route animation as soon as it becomes available. The entry is
-/// deliberately non-interactive and is removed as soon as the route reverses.
+/// deliberately non-interactive and follows a reversible route transition
+/// until the route is dismissed or real detail content takes over.
 final class VideoDetailEntryOverlayController {
   factory VideoDetailEntryOverlayController({
     required OverlayState overlay,
@@ -91,7 +92,7 @@ final class VideoDetailEntryOverlayController {
   _VideoDetailEntryOverlayState? _presentation;
   Completer<void>? _revealCompleter;
   bool _revealRequested = false;
-  bool _routeCompleted = false;
+  bool _reversibleExitInProgress = false;
   bool _removed = false;
   bool _disposed = false;
   bool _didCompleteReveal = false;
@@ -138,7 +139,7 @@ final class VideoDetailEntryOverlayController {
     int? actionCount,
     bool? hasEpisodePanel,
   }) {
-    if (!isActive || _revealRequested) {
+    if (!isActive || _revealRequested || _reversibleExitInProgress) {
       return;
     }
     final orientationChanged = isVertical != null && isVertical != _isVertical;
@@ -173,13 +174,23 @@ final class VideoDetailEntryOverlayController {
     animation
       ..addListener(_onRouteAnimationTick)
       ..addStatusListener(_onRouteAnimationStatus);
-    _routeCompleted = animation.status == AnimationStatus.completed;
-    if (animation.status == AnimationStatus.dismissed ||
-        (animation.status == AnimationStatus.reverse && _routeCompleted)) {
+    if (animation.status == AnimationStatus.dismissed) {
       abort();
       return;
     }
     _routeProgressNotifier.value = animation.value;
+  }
+
+  /// Keeps the entry presentation alive while predictive back reverses it.
+  void beginReversibleExit() {
+    if (isActive) {
+      _reversibleExitInProgress = true;
+    }
+  }
+
+  /// Resumes entry handoff after a predictive-back gesture is canceled.
+  void cancelReversibleExit() {
+    _reversibleExitInProgress = false;
   }
 
   /// Fades the skeleton away while the real detail content becomes visible.
@@ -231,9 +242,8 @@ final class VideoDetailEntryOverlayController {
 
   void _onRouteAnimationStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
-      _routeCompleted = true;
-    } else if (status == AnimationStatus.dismissed ||
-        (status == AnimationStatus.reverse && _routeCompleted)) {
+      cancelReversibleExit();
+    } else if (status == AnimationStatus.dismissed) {
       abort();
     }
   }
@@ -271,6 +281,7 @@ final class VideoDetailEntryOverlayController {
       return;
     }
     _removed = true;
+    _reversibleExitInProgress = false;
     if (identical(_activeController, this)) {
       _activeController = null;
     }

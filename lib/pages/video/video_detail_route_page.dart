@@ -61,10 +61,13 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   bool _useHeroTarget = true;
   bool _revealingDetail = false;
   bool _orientationSettling = false;
-  bool _showEarlyExitSurface = false;
+  bool _showStaticEntryCover = false;
+  bool _pendingPresentationReady = false;
   bool _isResolving = false;
   Object? _error;
+  Object? _pendingResolutionError;
   int? _detailRevealDiagnosticId;
+  VideoDetailExitMode? _preparedExitMode;
 
   bool get _hasPendingLaunch =>
       _arguments[PageUtils.videoPendingLaunchKey] is VideoPendingLaunchType;
@@ -96,6 +99,22 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           as VideoDetailEntryOverlayController?;
 
   bool get _usesExternalEntryOverlay => _entryOverlay?.isActive == true;
+
+  bool get _entryExitInProgress =>
+      _preparedExitMode == VideoDetailExitMode.entryReverse ||
+      _preparedExitMode == VideoDetailExitMode.routeComposite;
+
+  bool get _entryReverseInProgress =>
+      _preparedExitMode == VideoDetailExitMode.entryReverse;
+
+  bool get _externalEntryOwnsPresentation =>
+      _usesExternalEntryOverlay ||
+      (_showEntryLayer &&
+          _entryOverlay != null &&
+          (_entryReverseInProgress ||
+              (_preparedExitMode == null &&
+                  (_routeAnimation?.status == AnimationStatus.reverse ||
+                      _routeAnimation?.status == AnimationStatus.dismissed))));
 
   VideoDetailSkeletonVariant get _skeletonVariant => _entryVariant;
 
@@ -133,22 +152,41 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     }
   }
 
-  bool _prepareForExit() {
+  VideoDetailExitMode _prepareForExit() {
     if (!mounted) {
-      return false;
+      return VideoDetailExitMode.detail;
+    }
+    final preparedExitMode = _preparedExitMode;
+    if (preparedExitMode != null) {
+      return preparedExitMode;
     }
     _finishDetailRevealDiagnostic('interrupted');
-    _entryOverlay?.abort();
-    if (!_showEntryLayer) {
-      return true;
-    }
-    if (!_showDetail) {
+
+    // While the entry presentation is still authoritative, let the route,
+    // Hero, and external overlay reverse along their original animation.
+    if (_showEntryLayer && !_revealingDetail && _usesExternalEntryOverlay) {
       setState(() {
-        _showEarlyExitSurface = true;
-        _showEntryLayer = false;
+        _preparedExitMode = VideoDetailExitMode.entryReverse;
+      });
+      _entryOverlay?.beginReversibleExit();
+      return VideoDetailExitMode.entryReverse;
+    }
+
+    // A route without an external overlay still owns a complete skeleton and
+    // cover. Keep that composite intact instead of replacing it with a solid
+    // surface while the shared geometry returns to the source card.
+    if (_showEntryLayer && !_revealingDetail) {
+      _preparedExitMode = VideoDetailExitMode.routeComposite;
+      setState(() {
+        _showStaticEntryCover = _hasVideoTransition;
         _useHeroTarget = false;
       });
-      return true;
+      return VideoDetailExitMode.routeComposite;
+    }
+
+    _entryOverlay?.abort();
+    if (!_showEntryLayer) {
+      return _preparedExitMode = VideoDetailExitMode.detail;
     }
     _detailRevealController.stop();
     _orientationSettleTimer?.cancel();
@@ -164,12 +202,58 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _pendingEntryVariant = null;
       _pendingContentProfile = null;
     });
-    return true;
+    return _preparedExitMode = VideoDetailExitMode.detail;
   }
 
   void _cancelPreparedExit() {
-    if (mounted && _showEarlyExitSurface) {
-      setState(() => _showEarlyExitSurface = false);
+    final preparedExitMode = _preparedExitMode;
+    _preparedExitMode = null;
+    if (!mounted || preparedExitMode == null) {
+      return;
+    }
+    switch (preparedExitMode) {
+      case VideoDetailExitMode.entryReverse:
+        setState(() {});
+        _entryOverlay?.cancelReversibleExit();
+        _resumeDeferredEntryHandoff();
+        break;
+      case VideoDetailExitMode.routeComposite:
+        setState(() {
+          _showStaticEntryCover = false;
+          _useHeroTarget = true;
+        });
+        _resumeDeferredEntryHandoff();
+        break;
+      case VideoDetailExitMode.detail:
+        break;
+    }
+  }
+
+  void _resumeDeferredEntryHandoff() {
+    if (!mounted || _entryExitInProgress) {
+      return;
+    }
+    final pendingResolutionError = _pendingResolutionError;
+    if (pendingResolutionError != null) {
+      _pendingResolutionError = null;
+      _showResolutionError(pendingResolutionError);
+      return;
+    }
+    if (_pendingPresentationReady) {
+      _pendingPresentationReady = false;
+      _presentationReady = true;
+    }
+    if (_pendingEntryOrientation != null ||
+        _pendingEntryVariant != null ||
+        _pendingContentProfile != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _applyPendingEntryProfile(),
+      );
+      return;
+    }
+    if (_showDetail && _showEntryLayer && !_usesExternalEntryOverlay) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _beginDetailReveal());
+    } else {
       _tryMountDetail();
     }
   }
@@ -307,12 +391,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       }
     } catch (error) {
       if (mounted) {
-        _entryOverlay?.abort();
-        setState(() {
-          _error = error;
-          _showEntryLayer = false;
-          _useHeroTarget = false;
-        });
+        if (_entryExitInProgress) {
+          _pendingResolutionError = error;
+        } else {
+          _showResolutionError(error);
+        }
       }
     } finally {
       _isResolving = false;
@@ -350,6 +433,10 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         _revealingDetail) {
       return;
     }
+    if (_entryExitInProgress) {
+      _pendingEntryOrientation = orientation;
+      return;
+    }
     _stageEntryOrientation(orientation);
   }
 
@@ -362,6 +449,10 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         !identical(session, _session) ||
         _sameContentProfile(profile, _entryContentProfile) ||
         _revealingDetail) {
+      return;
+    }
+    if (_entryExitInProgress) {
+      _pendingContentProfile = profile;
       return;
     }
     _stageContentProfile(profile);
@@ -381,7 +472,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (orientation == null || orientation == _entryIsVertical) {
       return;
     }
-    if (!_routeAnimationCompleted) {
+    if (_entryExitInProgress || !_routeAnimationCompleted) {
       _pendingEntryOrientation = orientation;
       return;
     }
@@ -392,7 +483,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (variant == _entryVariant) {
       return;
     }
-    if (!_routeAnimationCompleted) {
+    if (_entryExitInProgress || !_routeAnimationCompleted) {
       _pendingEntryVariant = variant;
       return;
     }
@@ -407,7 +498,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (_sameContentProfile(profile, _entryContentProfile)) {
       return;
     }
-    if (!_routeAnimationCompleted) {
+    if (_entryExitInProgress || !_routeAnimationCompleted) {
       _pendingContentProfile = profile;
       return;
     }
@@ -419,7 +510,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   }
 
   void _applyPendingEntryProfile() {
-    if (!mounted) {
+    if (!mounted || _entryExitInProgress) {
       return;
     }
     final orientation = _pendingEntryOrientation ?? _entryIsVertical;
@@ -456,6 +547,12 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     required VideoDetailSkeletonVariant variant,
     required VideoDetailSkeletonProfile contentProfile,
   }) {
+    if (_entryExitInProgress) {
+      _pendingEntryOrientation = orientation;
+      _pendingEntryVariant = variant;
+      _pendingContentProfile = contentProfile;
+      return;
+    }
     _orientationSettleTimer?.cancel();
     _orientationSettleTimer = null;
     setState(() {
@@ -507,11 +604,18 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       return;
     }
     _markContentProfile(session, profile);
+    if (_entryExitInProgress) {
+      _pendingPresentationReady = true;
+      return;
+    }
     _presentationReady = true;
     _tryMountDetail();
   }
 
   void _tryMountDetail() {
+    if (_entryExitInProgress) {
+      return;
+    }
     if (_usesExternalEntryOverlay) {
       if (!mounted ||
           !_argumentsResolved ||
@@ -555,6 +659,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   void _beginDetailReveal() {
     if (!mounted ||
+        _entryExitInProgress ||
         !_showDetail ||
         !_showEntryLayer ||
         _pendingEntryOrientation != null ||
@@ -602,7 +707,19 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     WidgetsBinding.instance.addPostFrameCallback((_) => _resolveArguments());
   }
 
-  Widget _heroTarget(BuildContext context) {
+  void _showResolutionError(Object error) {
+    _entryOverlay?.abort();
+    setState(() {
+      _error = error;
+      _showEntryLayer = false;
+      _useHeroTarget = false;
+    });
+  }
+
+  Widget _entryCoverLayer(
+    BuildContext context, {
+    required bool enableHero,
+  }) {
     final viewport = MediaQuery.sizeOf(context);
     final topInset = Pref.removeSafeArea
         ? 0.0
@@ -613,6 +730,17 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       topInset: topInset,
     );
     final cover = _entryCover;
+    final coverLayer = cover == null
+        ? const ColoredBox(color: Colors.black)
+        : NetworkImgLayer(
+            src: cover,
+            width: playerRect.width,
+            height: playerRect.height,
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+            borderRadius: BorderRadius.zero,
+            clip: false,
+          );
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -623,19 +751,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           top: playerRect.top,
           width: playerRect.width,
           height: playerRect.height,
-          child: VideoDetailHero.target(
-            tag: _heroTag,
-            child: cover == null
-                ? const ColoredBox(color: Colors.black)
-                : NetworkImgLayer(
-                    src: cover,
-                    width: playerRect.width,
-                    height: playerRect.height,
-                    fadeInDuration: Duration.zero,
-                    fadeOutDuration: Duration.zero,
-                    borderRadius: BorderRadius.zero,
-                    clip: false,
-                  ),
+          child: HeroMode(
+            enabled: enableHero,
+            child: VideoDetailHero.target(tag: _heroTag, child: coverLayer),
           ),
         ),
       ],
@@ -752,21 +870,24 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    if (_showEarlyExitSurface) {
-      return ColoredBox(color: colorScheme.surface);
-    }
     final showHeroTarget = _useHeroTarget && _hasVideoTransition;
+    final showStaticEntryCover =
+        _showStaticEntryCover && _showEntryLayer && !showHeroTarget;
+    final hideDetail = _hideDetailDuringHeroFlight || _entryReverseInProgress;
     if (!_showDetail) {
       return Scaffold(
-        backgroundColor: showHeroTarget || _usesExternalEntryOverlay
+        backgroundColor: showHeroTarget || _externalEntryOwnsPresentation
             ? Colors.transparent
             : colorScheme.surface,
         body: Stack(
           fit: StackFit.expand,
           children: [
-            if (!_usesExternalEntryOverlay)
+            if (!_externalEntryOwnsPresentation)
               IgnorePointer(child: _animatedEntryShell()),
-            if (showHeroTarget) IgnorePointer(child: _heroTarget(context)),
+            if (showHeroTarget || showStaticEntryCover)
+              IgnorePointer(
+                child: _entryCoverLayer(context, enableHero: showHeroTarget),
+              ),
             if (_error case final error?) _errorOverlay(context, error),
           ],
         ),
@@ -777,13 +898,13 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       fit: StackFit.expand,
       children: [
         IgnorePointer(
-          ignoring: _hideDetailDuringHeroFlight,
+          ignoring: hideDetail,
           child: Opacity(
-            opacity: _hideDetailDuringHeroFlight ? 0 : 1,
+            opacity: hideDetail ? 0 : 1,
             child: VideoDetailPageV(session: _session),
           ),
         ),
-        if (_showEntryLayer && !_usesExternalEntryOverlay)
+        if (_showEntryLayer && !_externalEntryOwnsPresentation)
           Positioned.fill(
             child: IgnorePointer(
               child: AnimatedBuilder(
@@ -792,9 +913,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
               ),
             ),
           ),
-        if (showHeroTarget)
+        if (showHeroTarget || showStaticEntryCover)
           Positioned.fill(
-            child: IgnorePointer(child: _heroTarget(context)),
+            child: IgnorePointer(
+              child: _entryCoverLayer(context, enableHero: showHeroTarget),
+            ),
           ),
       ],
     );

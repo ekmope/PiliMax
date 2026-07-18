@@ -20,6 +20,10 @@ enum VideoDetailExitMode {
   /// The route-owned skeleton and cover form one outgoing surface.
   routeComposite,
 
+  /// Argument resolution failed before a real detail page was mounted. The
+  /// error page exits independently instead of returning to the launch card.
+  errorFallback,
+
   /// The real detail page is visible and can use the shared/snapshot exit.
   detail,
 }

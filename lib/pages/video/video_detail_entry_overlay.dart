@@ -3,6 +3,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
+import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -22,6 +23,7 @@ final class VideoDetailEntryOverlayController {
   factory VideoDetailEntryOverlayController({
     required OverlayState overlay,
     required VideoTransitionToken transitionToken,
+    required VideoDetailBackProgressController backProgress,
     required bool? isVertical,
     required VideoDetailSkeletonVariant variant,
     String? title,
@@ -32,10 +34,11 @@ final class VideoDetailEntryOverlayController {
     int tabCount = VideoDetailLayoutMetrics.defaultTabCount,
     int actionCount = VideoDetailLayoutMetrics.ugcActionCount,
     bool hasEpisodePanel = false,
-    Duration revealDuration = videoDetailTransitionDuration,
+    Duration revealDuration = videoDetailRevealDuration,
   }) => VideoDetailEntryOverlayController._(
     overlay: overlay,
     transitionToken: transitionToken,
+    backProgress: backProgress,
     isVertical: isVertical,
     variant: variant,
     title: title,
@@ -52,6 +55,7 @@ final class VideoDetailEntryOverlayController {
   VideoDetailEntryOverlayController._({
     required this._overlay,
     required this.transitionToken,
+    required VideoDetailBackProgressController backProgress,
     required this._isVertical,
     required this._variant,
     required this._title,
@@ -63,7 +67,7 @@ final class VideoDetailEntryOverlayController {
     required this._actionCount,
     required this._hasEpisodePanel,
     required this.revealDuration,
-  }) {
+  }) : backProgress = backProgress.retain() {
     _activeController?.abort();
     _activeController = this;
   }
@@ -74,6 +78,7 @@ final class VideoDetailEntryOverlayController {
 
   final OverlayState _overlay;
   final VideoTransitionToken transitionToken;
+  final VideoDetailBackProgressController backProgress;
   bool? _isVertical;
   VideoDetailSkeletonVariant _variant;
   String? _title;
@@ -175,7 +180,12 @@ final class VideoDetailEntryOverlayController {
       ..addListener(_onRouteAnimationTick)
       ..addStatusListener(_onRouteAnimationStatus);
     if (animation.status == AnimationStatus.dismissed) {
-      abort();
+      if (_reversibleExitInProgress ||
+          backProgress.value.phase == VideoDetailBackPhase.predicting) {
+        _routeProgressNotifier.value = animation.value;
+      } else {
+        abort();
+      }
       return;
     }
     _routeProgressNotifier.value = animation.value;
@@ -185,12 +195,14 @@ final class VideoDetailEntryOverlayController {
   void beginReversibleExit() {
     if (isActive) {
       _reversibleExitInProgress = true;
+      _presentation?._pauseProfileForExit();
     }
   }
 
   /// Resumes entry handoff after a predictive-back gesture is canceled.
   void cancelReversibleExit() {
     _reversibleExitInProgress = false;
+    _presentation?._resumeProfileAfterExit();
   }
 
   /// Fades the skeleton away while the real detail content becomes visible.
@@ -244,7 +256,10 @@ final class VideoDetailEntryOverlayController {
     if (status == AnimationStatus.completed) {
       cancelReversibleExit();
     } else if (status == AnimationStatus.dismissed) {
-      abort();
+      if (!_reversibleExitInProgress &&
+          backProgress.value.phase != VideoDetailBackPhase.predicting) {
+        abort();
+      }
     }
   }
 
@@ -294,6 +309,8 @@ final class VideoDetailEntryOverlayController {
         ..remove()
         ..dispose();
     }
+    _routeProgressNotifier.dispose();
+    backProgress.release();
     _completeRevealFuture();
   }
 
@@ -317,21 +334,29 @@ class _VideoDetailEntryOverlay extends StatefulWidget {
 
 class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     with TickerProviderStateMixin {
+  // Cross-fade the first/last 80 ms of the shared 400 ms route timeline. Keep
+  // the copied title anchored briefly so it cannot ghost against the real one.
+  static const _horizontalSourceHandoffFraction = 0.20;
+  static const _horizontalTitleMorphStart = 0.12;
+
   late final AnimationController _revealController = AnimationController(
     vsync: this,
     duration: widget.controller.revealDuration,
   )..addStatusListener(_onRevealStatus);
   late final AnimationController _profileController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 180),
+    duration: videoDetailProfileTransitionDuration,
   );
   late final Listenable _animation = Listenable.merge([
     widget.controller._routeProgressNotifier,
+    widget.controller.backProgress,
     _revealController,
     _profileController,
   ]);
+  late final Widget? _sourceTitle = _buildSourceTitle();
 
   bool _revealStarted = false;
+  bool _resumeProfileAfterReversibleExit = false;
   double? _profileFromPlayerBottom;
   Object? _ugcTitleHeightSignature;
   double _ugcTitleHeight = 38;
@@ -365,6 +390,21 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
             Curves.easeInOutCubic.transform(_profileController.value),
           );
     _profileController.forward(from: 0);
+  }
+
+  void _pauseProfileForExit() {
+    if (_profileController.isAnimating) {
+      _resumeProfileAfterReversibleExit = true;
+      _profileController.stop(canceled: false);
+    }
+  }
+
+  void _resumeProfileAfterExit() {
+    if (!_resumeProfileAfterReversibleExit || !mounted) {
+      return;
+    }
+    _resumeProfileAfterReversibleExit = false;
+    _profileController.forward();
   }
 
   void _profileUpdated() {
@@ -457,20 +497,55 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     return _ugcTitleHeight;
   }
 
+  Widget? _buildSourceTitle() {
+    final title = widget.controller.transitionToken.title;
+    if (title == null || title.text.isEmpty) {
+      return null;
+    }
+    final textSpan = title.textSpan;
+    final child = textSpan != null
+        ? Text.rich(
+            textSpan,
+            style: title.style,
+            maxLines: title.maxLines,
+            textAlign: title.textAlign,
+            overflow: title.overflow,
+            textDirection: title.textDirection,
+            textScaler: title.textScaler,
+          )
+        : Text(
+            title.text,
+            style: title.style,
+            maxLines: title.maxLines,
+            textAlign: title.textAlign,
+            overflow: title.overflow,
+            textDirection: title.textDirection,
+            textScaler: title.textScaler,
+          );
+    return RepaintBoundary(
+      child: SizedBox.fromSize(size: title.rect.size, child: child),
+    );
+  }
+
   Widget _buildMorphingTitle({
     required Rect morphRect,
     required Size viewport,
     required double playerBottom,
     required double progress,
+    required double sourcePresentationOpacity,
     required double revealOpacity,
   }) {
     final title = widget.controller.transitionToken.title;
-    if (title == null || title.text.isEmpty) {
+    final sourceTitle = _sourceTitle;
+    if (title == null || sourceTitle == null) {
       return const SizedBox.shrink();
     }
     final targetRect = _targetTitleRect(viewport, playerBottom);
     final rect = Rect.lerp(title.rect, targetRect ?? title.rect, progress)!;
-    final sourceFontSize = title.style.fontSize ?? 14;
+    final sourceFontSize = switch (title.style.fontSize) {
+      final size? when size > 0 => size,
+      _ => 14.0,
+    };
     final fontSize = lerpDouble(sourceFontSize, 16, progress)!;
     final fontScale = fontSize / sourceFontSize;
     final handoffBegin = targetRect == null ? 0.20 : 0.52;
@@ -479,71 +554,27 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
         ((progress - handoffBegin) / (handoffEnd - handoffBegin))
             .clamp(0.0, 1.0)
             .toDouble();
-    final titleEntryOpacity =
-        widget.controller.transitionToken.sourceLayout ==
-            VideoTransitionSourceLayout.horizontalRow
-        ? 1.0
-        : progress;
     final titleOpacity =
-        titleEntryOpacity *
+        sourcePresentationOpacity *
         revealOpacity *
         (1 - Curves.easeInOutCubic.transform(handoffProgress));
     if (titleOpacity <= 0) {
       return const SizedBox.shrink();
     }
-    final textSpan = title.textSpan;
     return Positioned(
       left: rect.left - morphRect.left,
       top: rect.top - morphRect.top,
-      width: rect.width,
-      height: rect.height,
+      width: title.rect.width,
+      height: title.rect.height,
       child: Opacity(
         opacity: titleOpacity,
-        child: textSpan != null
-            ? Text.rich(
-                _scaleInlineSpan(textSpan, fontScale),
-                style: title.style.copyWith(fontSize: fontSize),
-                maxLines: title.maxLines,
-                textAlign: title.textAlign,
-                overflow: title.overflow,
-                textDirection: title.textDirection,
-                textScaler: title.textScaler,
-              )
-            : Text(
-                title.text,
-                style: title.style.copyWith(fontSize: fontSize),
-                maxLines: title.maxLines,
-                textAlign: title.textAlign,
-                overflow: title.overflow,
-                textDirection: title.textDirection,
-                textScaler: title.textScaler,
-              ),
+        child: Transform.scale(
+          alignment: Alignment.topLeft,
+          scale: fontScale,
+          filterQuality: FilterQuality.medium,
+          child: sourceTitle,
+        ),
       ),
-    );
-  }
-
-  static InlineSpan _scaleInlineSpan(InlineSpan span, double scale) {
-    if (scale == 1 || span is! TextSpan) {
-      return span;
-    }
-    final style = span.style;
-    final fontSize = style?.fontSize;
-    return TextSpan(
-      text: span.text,
-      children: span.children
-          ?.map((child) => _scaleInlineSpan(child, scale))
-          .toList(growable: false),
-      style: fontSize == null
-          ? style
-          : style?.copyWith(fontSize: fontSize * scale),
-      recognizer: span.recognizer,
-      mouseCursor: span.mouseCursor,
-      onEnter: span.onEnter,
-      onExit: span.onExit,
-      semanticsLabel: span.semanticsLabel,
-      semanticsIdentifier: span.semanticsIdentifier,
-      locale: span.locale,
-      spellOut: span.spellOut,
     );
   }
 
@@ -551,6 +582,13 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     if (status == AnimationStatus.completed) {
       widget.controller.complete();
     }
+  }
+
+  static double _revealFade(double value, double begin, double end) {
+    final normalized = ((value - begin) / (end - begin))
+        .clamp(0.0, 1.0)
+        .toDouble();
+    return 1 - Curves.easeInOutCubic.transform(normalized);
   }
 
   @override
@@ -578,14 +616,36 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
               targetPlayerBottom,
               Curves.easeInOutCubic.transform(_profileController.value),
             )!;
-      final progress = Curves.easeOutCubic.transform(
-        widget.controller._routeProgress,
-      );
+      final routeProgress = widget.controller._routeProgress;
+      final backSnapshot = widget.controller.backProgress.value;
+      final isBackMotion = backSnapshot.phase != VideoDetailBackPhase.idle;
+      final progress = isBackMotion
+          ? backSnapshot.entryProgress
+          : Curves.easeOutCubic.transform(routeProgress);
+      final sourceTimelineProgress = isBackMotion
+          ? backSnapshot.sourcePresentationProgress
+          : routeProgress;
+      final revealProgress = _revealController.value;
       final revealOpacity =
           1 -
           Curves.easeInOutCubic.transform(
-            _revealController.value,
+            revealProgress,
           );
+      final navigationRevealOpacity = _revealFade(
+        revealProgress,
+        0,
+        0.50,
+      );
+      final detailRevealOpacity = _revealFade(
+        revealProgress,
+        0.16,
+        0.84,
+      );
+      final recommendationRevealOpacity = _revealFade(
+        revealProgress,
+        0.38,
+        1,
+      );
       final profileOffset = playerBottom - targetPlayerBottom;
       final morphRect = Rect.lerp(
         widget.controller.transitionToken.launchRect,
@@ -618,16 +678,30 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
           : Theme.of(context).colorScheme;
       final surfaceColor = targetColorScheme.surface;
       final token = widget.controller.transitionToken;
-      final sourceSurfaceOpacity =
-          token.sourceLayout == VideoTransitionSourceLayout.horizontalRow
-          ? 1.0
+      final isHorizontalSource =
+          token.sourceLayout == VideoTransitionSourceLayout.horizontalRow;
+      final sourcePresentationOpacity = isHorizontalSource
+          ? Curves.easeInOutCubic.transform(
+              (sourceTimelineProgress / _horizontalSourceHandoffFraction)
+                  .clamp(0.0, 1.0)
+                  .toDouble(),
+            )
           : progress;
-      final skeletonOpacity = progress * revealOpacity;
+      final titleMorphProgress = isHorizontalSource
+          ? Curves.easeInOutCubic.transform(
+              ((sourceTimelineProgress - _horizontalTitleMorphStart) /
+                      (1 - _horizontalTitleMorphStart))
+                  .clamp(0.0, 1.0)
+                  .toDouble(),
+            )
+          : progress;
+      final playerTopSurfaceOpacity =
+          progress * _revealFade(revealProgress, 0, 0.34);
       final transitionSurfaceColor = Color.lerp(
         token.sourceSurfaceColor,
         surfaceColor,
         progress,
-      )!.withValues(alpha: sourceSurfaceOpacity * revealOpacity);
+      )!.withValues(alpha: sourcePresentationOpacity * revealOpacity);
       final sceneClipRect = Rect.lerp(
         token.sourceVisibleRect,
         Offset.zero & viewport,
@@ -651,7 +725,7 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
                         color: transitionSurfaceColor,
                         mediaRect: localMediaRect,
                         mediaBorderRadius: mediaBorderRadius,
-                        playerTopSurfaceOpacity: skeletonOpacity,
+                        playerTopSurfaceOpacity: playerTopSurfaceOpacity,
                       ),
                       child: Stack(
                         fit: StackFit.expand,
@@ -660,9 +734,12 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
                             offset: Offset(0, profileOffset),
                             child: VideoDetailHeroShell(
                               playerSurfaceOpacity: 0,
-                              navigationSurfaceOpacity: skeletonOpacity,
-                              detailSurfaceOpacity: skeletonOpacity,
-                              recommendationSurfaceOpacity: skeletonOpacity,
+                              navigationSurfaceOpacity:
+                                  progress * navigationRevealOpacity,
+                              detailSurfaceOpacity:
+                                  progress * detailRevealOpacity,
+                              recommendationSurfaceOpacity:
+                                  progress * recommendationRevealOpacity,
                               isVertical: widget.controller._isVertical,
                               playerBottomOverride:
                                   localMediaRect.bottom - profileOffset,
@@ -688,7 +765,9 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
                             morphRect: morphRect,
                             viewport: viewport,
                             playerBottom: playerBottom,
-                            progress: progress,
+                            progress: titleMorphProgress,
+                            sourcePresentationOpacity:
+                                sourcePresentationOpacity,
                             revealOpacity: revealOpacity,
                           ),
                         ],

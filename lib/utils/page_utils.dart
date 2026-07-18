@@ -20,6 +20,7 @@ import 'package:PiliMax/pages/common/publish/publish_route.dart';
 import 'package:PiliMax/pages/contact/view.dart';
 import 'package:PiliMax/pages/fav_panel/view.dart';
 import 'package:PiliMax/pages/share/view.dart';
+import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pages/video/video_detail_page_route.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
@@ -816,6 +817,7 @@ abstract final class PageUtils {
             !PipOverlayService.isInPipMode &&
             !LivePipOverlayService.isInPipMode;
         if (canUseEntryOverlay) {
+          final backProgress = ensureVideoDetailBackProgress(arguments);
           final variant =
               arguments['sourceType'] == video_source.SourceType.file
               ? VideoDetailSkeletonVariant.local
@@ -833,6 +835,7 @@ abstract final class PageUtils {
             overlay: rootOverlay!,
             transitionToken:
                 arguments[videoTransitionTokenKey] as VideoTransitionToken,
+            backProgress: backProgress,
             isVertical:
                 arguments['videoOrientationKnown'] == true &&
                     rawIsVertical is bool

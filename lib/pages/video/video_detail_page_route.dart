@@ -1,3 +1,4 @@
+import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
 
 import 'package:flutter/material.dart';
@@ -21,13 +22,103 @@ final class VideoDetailPageRoute<T> extends GetPageRoute<T> {
          title: definition.title,
          maintainState: definition.maintainState,
          middlewares: definition.middlewares,
-       );
+       ) {
+    _backProgress = ensureVideoDetailBackProgress(arguments).retain();
+  }
+
+  late final VideoDetailBackProgressController _backProgress;
 
   @override
   Duration get transitionDuration => videoDetailTransitionDuration;
 
   @override
-  Duration get reverseTransitionDuration => videoDetailTransitionDuration;
+  Duration get reverseTransitionDuration => videoDetailProgrammaticExitDuration;
+
+  @override
+  void handleCancelBackGesture() {
+    final animationController = controller;
+    final navigatorState = navigator;
+    if (animationController == null || !isCurrent) {
+      navigatorState?.didStopUserGesture();
+      return;
+    }
+    final exitProgress = 1 - animationController.value;
+    // The transition driver owns the visual ease; keep route time linear so
+    // Hero/overlay consumers can use the published progress without re-easing.
+    final tail = animationController.animateTo(
+      animationController.upperBound,
+      duration: videoDetailCancelTailDuration(exitProgress),
+      curve: Curves.linear,
+    );
+    _stopUserGestureWhenComplete(navigatorState, tail);
+  }
+
+  @override
+  void handleCommitBackGesture() {
+    final animationController = controller;
+    final navigatorState = navigator;
+    if (animationController == null || !isCurrent) {
+      navigatorState?.didStopUserGesture();
+      return;
+    }
+    final exitProgress = 1 - animationController.value;
+    final duration = videoDetailCommitTailDuration(exitProgress);
+
+    if (popDisposition == RoutePopDisposition.doNotPop) {
+      onPopInvokedWithResult(false, null);
+      final restore = animationController.animateTo(
+        animationController.upperBound,
+        duration: videoDetailCancelTailDuration(exitProgress),
+        curve: Curves.linear,
+      );
+      _stopUserGestureWhenComplete(navigatorState, restore);
+      return;
+    }
+
+    navigatorState?.pop();
+    final popAccepted = !isCurrent || animationController.isAnimating;
+    if (!popAccepted) {
+      final restore = animationController.animateTo(
+        animationController.upperBound,
+        duration: videoDetailCancelTailDuration(exitProgress),
+        curve: Curves.linear,
+      );
+      _stopUserGestureWhenComplete(navigatorState, restore);
+      return;
+    }
+    if (animationController.isDismissed) {
+      navigatorState?.didStopUserGesture();
+      return;
+    }
+    final tail = animationController.animateBack(
+      animationController.lowerBound,
+      duration: duration,
+      curve: Curves.linear,
+    );
+    _stopUserGestureWhenComplete(navigatorState, tail);
+  }
+
+  void _stopUserGestureWhenComplete(
+    NavigatorState? navigatorState,
+    TickerFuture future,
+  ) {
+    var stopped = false;
+    void stop() {
+      if (stopped) {
+        return;
+      }
+      stopped = true;
+      navigatorState?.didStopUserGesture();
+    }
+
+    future.whenCompleteOrCancel(stop);
+  }
+
+  @override
+  void dispose() {
+    _backProgress.release();
+    super.dispose();
+  }
 
   @override
   Widget buildTransitions(

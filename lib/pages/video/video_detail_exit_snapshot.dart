@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -38,11 +39,12 @@ final class VideoDetailExitVisual {
   final List<VideoDetailExitForeground> foregrounds;
 
   bool get isUsable {
+    // Foregrounds are optional. The frozen page plus the existing live video
+    // texture still form a valid exit visual when a decorative capture fails.
     return !playerRect.isEmpty &&
         playerRect.isFinite &&
         !clipRect.isEmpty &&
         clipRect.isFinite &&
-        foregrounds.isNotEmpty &&
         controller.id.value != null &&
         controller.rect.value?.isEmpty == false;
   }
@@ -97,20 +99,49 @@ class VideoDetailExitCaptureRenderBox extends RenderRepaintBoundary {
   }
 }
 
+// Keep synchronous captures small enough for the first predictive-back frame.
+// A 600k RGBA image is about 2.3 MiB before engine-side overhead.
+const double _maxExitCapturePixelRatio = 1.25;
+const double _maxExitCapturePhysicalPixels = 600000;
+
+double _exitCapturePixelRatio({
+  required Size logicalSize,
+  required double devicePixelRatio,
+}) {
+  final safeDevicePixelRatio = devicePixelRatio.isFinite
+      ? devicePixelRatio.clamp(1.0, _maxExitCapturePixelRatio).toDouble()
+      : 1.0;
+  final logicalPixels = logicalSize.width * logicalSize.height;
+  if (!logicalPixels.isFinite || logicalPixels <= 0) {
+    return 1.0;
+  }
+  final budgetedPixelRatio = math
+      .sqrt(_maxExitCapturePhysicalPixels / logicalPixels)
+      .clamp(1.0, _maxExitCapturePixelRatio)
+      .toDouble();
+  return math.min(safeDevicePixelRatio, budgetedPixelRatio);
+}
+
 VideoDetailExitForeground? captureVideoDetailExitForeground({
   required GlobalKey boundaryKey,
   required RenderBox transitionRoot,
-  required double pixelRatio,
+  required double devicePixelRatio,
   required Rect clipRect,
 }) {
   final renderObject = boundaryKey.currentContext?.findRenderObject();
   if (renderObject is! VideoDetailExitCaptureRenderBox ||
       !renderObject.attached ||
       !transitionRoot.attached ||
-      renderObject.size.isEmpty) {
+      renderObject.size.isEmpty ||
+      clipRect.isEmpty ||
+      !clipRect.isFinite) {
     return null;
   }
   try {
+    final pixelRatio = _exitCapturePixelRatio(
+      logicalSize: renderObject.size,
+      devicePixelRatio: devicePixelRatio,
+    );
     final rect = MatrixUtils.transformRect(
       renderObject.getTransformTo(transitionRoot),
       Offset.zero & renderObject.size,

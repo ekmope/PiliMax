@@ -5,6 +5,7 @@ import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
+import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pages/video/video_detail_args.dart';
 import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
@@ -31,9 +32,11 @@ class VideoDetailRoutePage extends StatefulWidget {
 
 class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     with SingleTickerProviderStateMixin {
-  static const _maximumPostTransitionHold = Duration(milliseconds: 1200);
-  static const _detailRevealDuration = videoDetailTransitionDuration;
-  static const _orientationTransitionDuration = Duration(milliseconds: 180);
+  static const _maximumPostTransitionHold =
+      videoDetailMaximumPostTransitionHold;
+  static const _detailRevealDuration = videoDetailRevealDuration;
+  static const _orientationTransitionDuration =
+      videoDetailProfileTransitionDuration;
 
   late final Map<dynamic, dynamic> _arguments = VideoDetailArgs.normalize(
     Get.arguments,
@@ -94,6 +97,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   bool get _hasVideoTransition =>
       _arguments[videoTransitionTokenKey] is VideoTransitionToken;
 
+  VideoDetailBackProgress? get _backProgress =>
+      _arguments[videoDetailBackProgressKey] as VideoDetailBackProgress?;
+
   VideoDetailEntryOverlayController? get _entryOverlay =>
       _arguments[videoDetailEntryOverlayKey]
           as VideoDetailEntryOverlayController?;
@@ -102,7 +108,8 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   bool get _entryExitInProgress =>
       _preparedExitMode == VideoDetailExitMode.entryReverse ||
-      _preparedExitMode == VideoDetailExitMode.routeComposite;
+      _preparedExitMode == VideoDetailExitMode.routeComposite ||
+      _preparedExitMode == VideoDetailExitMode.errorFallback;
 
   bool get _entryReverseInProgress =>
       _preparedExitMode == VideoDetailExitMode.entryReverse;
@@ -161,6 +168,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       return preparedExitMode;
     }
     _finishDetailRevealDiagnostic('interrupted');
+
+    if (_error != null) {
+      _preparedExitMode = VideoDetailExitMode.errorFallback;
+      return VideoDetailExitMode.errorFallback;
+    }
 
     // While the entry presentation is still authoritative, let the route,
     // Hero, and external overlay reverse along their original animation.
@@ -222,6 +234,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           _showStaticEntryCover = false;
           _useHeroTarget = true;
         });
+        _resumeDeferredEntryHandoff();
+        break;
+      case VideoDetailExitMode.errorFallback:
         _resumeDeferredEntryHandoff();
         break;
       case VideoDetailExitMode.detail:
@@ -753,7 +768,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           height: playerRect.height,
           child: HeroMode(
             enabled: enableHero,
-            child: VideoDetailHero.target(tag: _heroTag, child: coverLayer),
+            child: VideoDetailHero.target(
+              tag: _heroTag,
+              backProgress: _backProgress,
+              child: coverLayer,
+            ),
           ),
         ),
       ],
@@ -840,6 +859,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     );
   }
 
+  Widget _errorFallback(BuildContext context, Object error) => Scaffold(
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    body: _errorOverlay(context, error),
+  );
+
   @override
   void dispose() {
     _finishDetailRevealDiagnostic('disposed');
@@ -870,6 +894,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    if (_error case final error?) {
+      return _errorFallback(context, error);
+    }
     final showHeroTarget = _useHeroTarget && _hasVideoTransition;
     final showStaticEntryCover =
         _showStaticEntryCover && _showEntryLayer && !showHeroTarget;
@@ -888,7 +915,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
               IgnorePointer(
                 child: _entryCoverLayer(context, enableHero: showHeroTarget),
               ),
-            if (_error case final error?) _errorOverlay(context, error),
           ],
         ),
       );

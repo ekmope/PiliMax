@@ -2308,42 +2308,45 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         videoRenderObject.getTransformTo(transitionRoot),
         Offset.zero & videoRenderObject.size,
       );
-      final pixelRatio = min(2.0, MediaQuery.devicePixelRatioOf(context));
+      final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
       final playerForeground = captureVideoDetailExitForeground(
         boundaryKey: _transitionPlayerForegroundKey,
         transitionRoot: transitionRoot,
-        pixelRatio: pixelRatio,
+        devicePixelRatio: devicePixelRatio,
         clipRect: playerRect.intersect(rootRect),
       );
-      if (playerForeground == null) {
-        return null;
+      if (playerForeground != null) {
+        foregrounds.add(playerForeground);
       }
-      foregrounds.add(playerForeground);
-      final pageForeground = captureVideoDetailExitForeground(
-        boundaryKey: _transitionPageForegroundKey,
-        transitionRoot: transitionRoot,
-        pixelRatio: pixelRatio,
-        clipRect: playerRect.intersect(rootRect),
-      );
-      if (pageForeground == null) {
-        playerForeground.image.dispose();
-        return null;
+
+      final shouldCapturePageForeground =
+          !videoDetailController.autoPlay ||
+          ((playerController.enableBlock ||
+                  videoDetailController.continuePlayingPart) &&
+              videoDetailController.listData.isNotEmpty) ||
+          videoDetailController.showSteinEdgeInfo.value;
+      if (shouldCapturePageForeground) {
+        final pageForeground = captureVideoDetailExitForeground(
+          boundaryKey: _transitionPageForegroundKey,
+          transitionRoot: transitionRoot,
+          devicePixelRatio: devicePixelRatio,
+          clipRect: playerRect.intersect(rootRect),
+        );
+        if (pageForeground != null) {
+          foregrounds.add(pageForeground);
+        }
       }
-      foregrounds.add(pageForeground);
+
       if (videoDetailController.scrollRatio.value > 0) {
         final headerForeground = captureVideoDetailExitForeground(
           boundaryKey: _transitionHeaderForegroundKey,
           transitionRoot: transitionRoot,
-          pixelRatio: pixelRatio,
+          devicePixelRatio: devicePixelRatio,
           clipRect: rootRect,
         );
-        if (headerForeground == null) {
-          for (final foreground in foregrounds) {
-            foreground.image.dispose();
-          }
-          return null;
+        if (headerForeground != null) {
+          foregrounds.add(headerForeground);
         }
-        foregrounds.add(headerForeground);
       }
       final videoFit = playerController.videoFit.value;
       final visual = VideoDetailExitVisual(

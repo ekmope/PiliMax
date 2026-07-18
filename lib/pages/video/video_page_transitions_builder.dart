@@ -3,9 +3,11 @@ import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
+import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
 import 'package:PiliMax/pages/video/video_detail_exit_snapshot.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
+import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
 import 'package:PiliMax/services/video_transition_diagnostics.dart';
 
 import 'package:flutter/material.dart';
@@ -194,7 +196,14 @@ abstract final class _VideoRouteAnimations {
   }
 }
 
-enum _VideoPopPhase { idle, predicting, canceling, committing, programmatic }
+double _sourceHandoffForExitProgress(double progress) {
+  final normalized =
+      ((progress - videoDetailSourceHandoffStart) /
+              (videoDetailSourceHandoffEnd - videoDetailSourceHandoffStart))
+          .clamp(0.0, 1.0)
+          .toDouble();
+  return Curves.easeInOutCubic.transform(normalized);
+}
 
 class _VideoPredictiveBackDriver extends StatefulWidget {
   const _VideoPredictiveBackDriver({
@@ -221,7 +230,8 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   final ValueNotifier<double> _progress = ValueNotifier(0);
   final SnapshotController _snapshotController = SnapshotController();
   final GlobalKey _transitionRootKey = GlobalKey();
-  _VideoPopPhase _phase = _VideoPopPhase.idle;
+  late final VideoDetailBackProgressController _backProgress;
+  VideoDetailBackPhase _phase = VideoDetailBackPhase.idle;
   VideoReturnTarget? _returnTarget;
   VideoDetailExitVisual? _exitVisual;
   Widget? _exitTexture;
@@ -229,7 +239,11 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   bool _routeCompleted = false;
   double _lastProgress = 0;
   double _commitStartProgress = 0;
+  double _commitRouteStartValue = 1;
+  bool _installingCommitTail = false;
   double _cancelStartProgress = 0;
+  double _programmaticStartProgress = 0;
+  double _programmaticStartRouteValue = 1;
   int? _forwardDiagnosticId;
   int? _backDiagnosticId;
 
@@ -247,6 +261,10 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   @override
   void initState() {
     super.initState();
+    final arguments = _arguments;
+    _backProgress = arguments == null
+        ? VideoDetailBackProgressController().retain()
+        : ensureVideoDetailBackProgress(arguments).retain();
     _VideoRouteAnimations.register(widget.animation);
     _routeCompleted =
         !widget.route.offstage &&
@@ -263,6 +281,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (widget.enablePredictiveBack) {
       WidgetsBinding.instance.addObserver(this);
     }
+    _publishBackProgress(0);
   }
 
   @override
@@ -298,6 +317,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     }
     _endSnapshotExit();
     _returnTarget = null;
+    _publishBackProgress(_lastProgress);
     if (mounted) {
       setState(() {});
     }
@@ -314,7 +334,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     _backDiagnosticId = VideoTransitionDiagnostics.begin(
       VideoTransitionDiagnosticKind.predictiveBack,
     );
-    _phase = _VideoPopPhase.predicting;
+    _phase = VideoDetailBackPhase.predicting;
     _setProgress(backEvent.progress);
     widget.route.handleStartBackGesture(progress: 1 - backEvent.progress);
     return true;
@@ -322,7 +342,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   @override
   void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
-    if (_phase != _VideoPopPhase.predicting) {
+    if (_phase != VideoDetailBackPhase.predicting) {
       return;
     }
     VideoTransitionDiagnostics.recordInputEvent(_backDiagnosticId);
@@ -334,11 +354,12 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   @override
   void handleCancelBackGesture() {
-    if (_phase != _VideoPopPhase.predicting) {
+    if (_phase != VideoDetailBackPhase.predicting) {
       return;
     }
     _cancelStartProgress = _lastProgress;
-    _phase = _VideoPopPhase.canceling;
+    _phase = VideoDetailBackPhase.canceling;
+    _publishBackProgress(_lastProgress);
     widget.route.handleCancelBackGesture();
     if (!mounted) {
       return;
@@ -352,12 +373,51 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   @override
   void handleCommitBackGesture() {
-    if (_phase != _VideoPopPhase.predicting) {
+    if (_phase != VideoDetailBackPhase.predicting) {
       return;
     }
     _commitStartProgress = _lastProgress;
-    _phase = _VideoPopPhase.committing;
-    widget.route.handleCommitBackGesture();
+    _phase = VideoDetailBackPhase.committing;
+    _publishBackProgress(_lastProgress);
+    _commitRouteStartValue = widget.animation.value;
+    _installingCommitTail = true;
+    try {
+      widget.route.handleCommitBackGesture();
+    } finally {
+      _commitRouteStartValue = widget.animation.value;
+      _installingCommitTail = false;
+    }
+    if (!mounted) {
+      return;
+    }
+    if (widget.route.isCurrent) {
+      // A PopScope may veto after Android has already committed the gesture.
+      // Treat that outcome exactly like a cancellation and restore the page.
+      _cancelStartProgress = _commitStartProgress;
+      _phase = VideoDetailBackPhase.canceling;
+      _publishBackProgress(_lastProgress);
+      if (!widget.animation.isAnimating) {
+        // The route's commit handler already ended the Navigator gesture. Set
+        // its public transition progress back to the completed position
+        // without issuing a second didStopUserGesture notification.
+        widget.route.handleUpdateBackGestureProgress(progress: 1);
+        if (_phase == VideoDetailBackPhase.canceling &&
+            widget.animation.isCompleted) {
+          _finishCancel();
+          return;
+        }
+      }
+      if (mounted) {
+        _handleAnimationTick();
+      }
+      return;
+    }
+    if (widget.animation.isDismissed) {
+      _phase = VideoDetailBackPhase.dismissed;
+      _setProgress(1);
+      _finishBackDiagnostic('committed');
+      return;
+    }
     if (mounted) {
       _handleAnimationTick();
     }
@@ -366,7 +426,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   void _handleAnimationStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
       _finishForwardDiagnostic('completed');
-      if (_phase == _VideoPopPhase.canceling) {
+      if (_phase == VideoDetailBackPhase.canceling) {
         _finishCancel();
         return;
       }
@@ -376,18 +436,35 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
           setState(() {});
         }
       }
+      _publishBackProgress(_lastProgress);
       return;
     }
     if (status == AnimationStatus.dismissed) {
-      if (_phase == _VideoPopPhase.committing) {
+      if (_phase == VideoDetailBackPhase.predicting) {
+        // A fully dragged Android gesture is still reversible until the
+        // platform reports commit or cancel.
+        _setProgress(1);
+        return;
+      }
+      if (_phase == VideoDetailBackPhase.committing) {
         _finishBackDiagnostic('committed');
-      } else if (_phase == _VideoPopPhase.programmatic) {
+      } else if (_phase == VideoDetailBackPhase.programmatic) {
         _finishBackDiagnostic('completed');
       }
+      _phase = VideoDetailBackPhase.dismissed;
+      _setProgress(1);
       return;
     }
-    if (status == AnimationStatus.reverse && _phase == _VideoPopPhase.idle) {
-      _phase = _VideoPopPhase.programmatic;
+    if (status == AnimationStatus.reverse &&
+        _phase == VideoDetailBackPhase.idle) {
+      _programmaticStartRouteValue = widget.animation.value;
+      _programmaticStartProgress = _routeCompleted
+          ? 0
+          : 1 -
+                Curves.easeOutCubic.transform(
+                  _programmaticStartRouteValue.clamp(0.0, 1.0).toDouble(),
+                );
+      _phase = VideoDetailBackPhase.programmatic;
       _finishBackDiagnostic('superseded');
       _backDiagnosticId = VideoTransitionDiagnostics.begin(
         VideoTransitionDiagnosticKind.programmaticBack,
@@ -398,7 +475,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   }
 
   void _finishCancel() {
-    _phase = _VideoPopPhase.idle;
+    _phase = VideoDetailBackPhase.idle;
     _cancelPreparedExit();
     _setProgress(0);
     _finishBackDiagnostic('canceled');
@@ -433,45 +510,73 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   void _handleAnimationTick() {
     switch (_phase) {
-      case _VideoPopPhase.canceling:
-        final rawProgress = 1 - widget.animation.value;
-        final normalized = _cancelStartProgress <= 0
-            ? 0.0
-            : (rawProgress / _cancelStartProgress).clamp(0.0, 1.0);
-        _setProgress(
-          _cancelStartProgress * Curves.easeInOutCubic.transform(normalized),
-        );
+      case VideoDetailBackPhase.canceling:
+        _setProgress(_cancelTailProgress(1 - widget.animation.value));
         break;
-      case _VideoPopPhase.programmatic:
-        _setProgress(
-          Curves.easeInOutCubic.transform(1 - widget.animation.value),
-        );
+      case VideoDetailBackPhase.programmatic:
+        _setProgress(_programmaticProgress(widget.animation.value));
         break;
-      case _VideoPopPhase.committing:
-        final leg = 1 - widget.animation.value;
-        _setProgress(
-          lerpDouble(
-            _commitStartProgress,
-            1,
-            Curves.easeOutCubic.transform(leg.clamp(0, 1)),
-          )!,
-        );
+      case VideoDetailBackPhase.committing:
+        if (!_installingCommitTail) {
+          _setProgress(_commitTailProgress(widget.animation.value));
+        }
         break;
-      case _VideoPopPhase.idle:
-      case _VideoPopPhase.predicting:
+      case VideoDetailBackPhase.idle:
+      case VideoDetailBackPhase.predicting:
+      case VideoDetailBackPhase.dismissed:
         break;
     }
   }
 
+  double _cancelTailProgress(double routeExitProgress) {
+    final normalized = _cancelStartProgress <= 0
+        ? 1.0
+        : (1 - routeExitProgress / _cancelStartProgress)
+              .clamp(0.0, 1.0)
+              .toDouble();
+    return lerpDouble(
+      _cancelStartProgress,
+      0,
+      Curves.easeOutCubic.transform(normalized),
+    )!;
+  }
+
+  double _commitTailProgress(double routeValue) {
+    final normalized = _commitRouteStartValue <= 0
+        ? 1.0
+        : (1 - routeValue / _commitRouteStartValue).clamp(0.0, 1.0).toDouble();
+    return lerpDouble(
+      _commitStartProgress,
+      1,
+      Curves.easeOutCubic.transform(normalized),
+    )!;
+  }
+
+  double _programmaticProgress(double routeValue) {
+    final normalized = _programmaticStartRouteValue <= 0
+        ? 1.0
+        : (1 - routeValue / _programmaticStartRouteValue)
+              .clamp(0.0, 1.0)
+              .toDouble();
+    return lerpDouble(
+      _programmaticStartProgress,
+      1,
+      Curves.easeInOutCubic.transform(normalized),
+    )!;
+  }
+
   void _setProgress(double value) {
-    final next = value.clamp(0.0, 1.0);
+    final next = value.clamp(0.0, 1.0).toDouble();
+    var preparedExit = false;
     if (_exitMode == null && next > 0) {
       final prepareForExit =
           _arguments?[videoDetailPrepareForExitKey]
               as VideoDetailPrepareForExit?;
       final exitMode = prepareForExit?.call() ?? VideoDetailExitMode.detail;
       _exitMode = exitMode;
-      if (exitMode == VideoDetailExitMode.entryReverse) {
+      preparedExit = true;
+      if (exitMode == VideoDetailExitMode.entryReverse ||
+          exitMode == VideoDetailExitMode.errorFallback) {
         _returnTarget = null;
         _endSnapshotExit();
       } else {
@@ -493,9 +598,28 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
       }
     }
     _lastProgress = next;
+    _publishBackProgress(next);
+    if (preparedExit && mounted) {
+      setState(() {});
+    }
     if (_progress.value != next) {
       _progress.value = next;
     }
+  }
+
+  void _publishBackProgress(double exitProgress) {
+    final routeValue = _phase == VideoDetailBackPhase.predicting
+        ? 1 - exitProgress
+        : widget.animation.value;
+    _backProgress.update(
+      phase: _phase,
+      exitProgress: exitProgress,
+      routeValue: routeValue,
+      sourceHandoff: _returnTarget == null
+          ? 0
+          : _sourceHandoffForExitProgress(exitProgress),
+      hasSourceTarget: _returnTarget != null,
+    );
   }
 
   void _prepareSnapshotExit() {
@@ -542,12 +666,16 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     _exitTexture = null;
     _snapshotController.dispose();
     _progress.dispose();
+    _backProgress.release();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final page = widget.token == null && !_routeCompleted
+    final routeDrivenTokenlessExit =
+        widget.token == null &&
+        (!_routeCompleted || _exitMode == VideoDetailExitMode.routeComposite);
+    final page = routeDrivenTokenlessExit
         ? FadeTransition(opacity: widget.animation, child: widget.child)
         : widget.child;
     return ValueListenableBuilder<double>(
@@ -563,7 +691,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
       builder: (context, progress, child) {
         final reversesWithRouteAnimation =
             _exitMode == VideoDetailExitMode.entryReverse ||
-            (widget.token == null && !_routeCompleted);
+            routeDrivenTokenlessExit;
         if (reversesWithRouteAnimation) {
           return child!;
         }
@@ -639,7 +767,7 @@ class VideoPageExitTransition extends StatelessWidget {
   ) {
     final screenRect = Offset.zero & size;
     final currentRect = Rect.lerp(screenRect, target.rect, progress)!;
-    final sourceHandoff = _sourceHandoff(currentRect, target.rect);
+    final sourceHandoff = _sourceHandoffForExitProgress(progress);
     final radius = _maxRadius(target.borderRadius);
     final contentScale = math.max(
       currentRect.width / size.width,
@@ -732,29 +860,6 @@ class VideoPageExitTransition extends StatelessWidget {
     radius.bottomLeft.x,
     radius.bottomRight.x,
   ].reduce((a, b) => a > b ? a : b);
-
-  static double _sourceHandoff(Rect current, Rect target) {
-    if (target.width <= 0 || target.height <= 0) {
-      return 0;
-    }
-    final sizeRatio = math.max(
-      current.width / target.width,
-      current.height / target.height,
-    );
-    return Curves.easeInOutCubic.transform(
-      _inverseInterval(sizeRatio, 1.08, 1.02),
-    );
-  }
-
-  static double _inverseInterval(double value, double begin, double end) {
-    if (value >= begin) {
-      return 0;
-    }
-    if (value <= end) {
-      return 1;
-    }
-    return (begin - value) / (begin - end);
-  }
 
   static double _interval(double value, double begin, double end) {
     if (value <= begin) {

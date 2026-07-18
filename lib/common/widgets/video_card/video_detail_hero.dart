@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/video_card/video_card_h_layout_metrics.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
+import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -237,6 +238,7 @@ class VideoDetailHero extends StatelessWidget {
     this.flightOverlays = const <VideoDetailHeroFlightOverlay>[],
     this.borderRadius = Style.mdRadius,
   }) : tag = null,
+       backProgress = null,
        _isDetailTarget = false;
 
   const VideoDetailHero.target({
@@ -244,11 +246,13 @@ class VideoDetailHero extends StatelessWidget {
     required this.tag,
     this.child = const VideoDetailHeroShell(),
     this.borderRadius = BorderRadius.zero,
+    this.backProgress,
   }) : flightChild = null,
        flightOverlays = const <VideoDetailHeroFlightOverlay>[],
        _isDetailTarget = true;
 
   final Object? tag;
+  final VideoDetailBackProgress? backProgress;
 
   /// The complete source/target content shown while no Hero flight is active.
   final Widget child;
@@ -279,6 +283,7 @@ class VideoDetailHero extends StatelessWidget {
     final fromChild = _heroChild(fromHero.child);
     final toChild = _heroChild(toHero.child);
     final sourceChild = fromChild.isDetailTarget ? toChild : fromChild;
+    final detailChild = fromChild.isDetailTarget ? fromChild : toChild;
     final sourceContext = fromChild.isDetailTarget
         ? toHeroContext
         : fromHeroContext;
@@ -289,9 +294,11 @@ class VideoDetailHero extends StatelessWidget {
       sourceChild.registration,
     );
 
-    final sourceFlightChild = _FixedSizeFlightChild(
-      layoutSize: sourceSize,
-      child: sourceChild.flightChild ?? sourceChild.child,
+    final sourceFlightChild = RepaintBoundary(
+      child: _FixedSizeFlightChild(
+        layoutSize: sourceSize,
+        child: sourceChild.flightChild ?? sourceChild.child,
+      ),
     );
     return AnimatedBuilder(
       animation: animation,
@@ -325,19 +332,23 @@ class VideoDetailHero extends StatelessWidget {
                       overlay,
                       flightProgress: flightProgress,
                       isPop: isPop,
+                      backSnapshot: switch (detailChild.backProgress?.value) {
+                        final snapshot?
+                            when snapshot.phase != VideoDetailBackPhase.idle =>
+                          snapshot,
+                        _ => null,
+                      },
                     ),
                 ],
               );
 
-        return RepaintBoundary(
-          child: ClipRect(
-            clipper: _NormalizedRectClipper(visibleRect),
-            clipBehavior: Clip.hardEdge,
-            child: ClipRRect(
-              borderRadius: radius,
-              clipBehavior: Clip.antiAlias,
-              child: flightBody,
-            ),
+        return ClipRect(
+          clipper: _NormalizedRectClipper(visibleRect),
+          clipBehavior: Clip.hardEdge,
+          child: ClipRRect(
+            borderRadius: radius,
+            clipBehavior: Clip.antiAlias,
+            child: flightBody,
           ),
         );
       },
@@ -351,6 +362,7 @@ class VideoDetailHero extends StatelessWidget {
     return _VideoDetailHeroChild(
       borderRadius: BorderRadius.zero,
       isDetailTarget: false,
+      backProgress: null,
       registration: null,
       child: child,
     );
@@ -360,11 +372,13 @@ class VideoDetailHero extends StatelessWidget {
     VideoDetailHeroFlightOverlay overlay, {
     required double flightProgress,
     required bool isPop,
+    required VideoDetailBackSnapshot? backSnapshot,
   }) {
     final opacity = _flightOverlayOpacity(
       overlay,
       flightProgress: flightProgress,
       isPop: isPop,
+      backSnapshot: backSnapshot,
     );
     return Positioned(
       top: overlay.top ?? (overlay.bottom == null ? 0.0 : null),
@@ -373,7 +387,10 @@ class VideoDetailHero extends StatelessWidget {
       left: overlay.left ?? (overlay.right == null ? 0.0 : null),
       child: IgnorePointer(
         child: ExcludeSemantics(
-          child: Opacity(opacity: opacity, child: overlay.child),
+          child: Opacity(
+            opacity: opacity,
+            child: RepaintBoundary(child: overlay.child),
+          ),
         ),
       ),
     );
@@ -383,11 +400,13 @@ class VideoDetailHero extends StatelessWidget {
     VideoDetailHeroFlightOverlay overlay, {
     required double flightProgress,
     required bool isPop,
+    required VideoDetailBackSnapshot? backSnapshot,
   }) {
     final fraction = overlay.fadeFraction;
     final rawProgress = _rawFlightProgress(
       flightProgress,
       isPop: isPop,
+      backSnapshot: backSnapshot,
     );
     if (!isPop) {
       if (rawProgress <= 0) {
@@ -414,8 +433,13 @@ class VideoDetailHero extends StatelessWidget {
   static double _rawFlightProgress(
     double flightProgress, {
     required bool isPop,
+    required VideoDetailBackSnapshot? backSnapshot,
   }) {
     final easedProgress = flightProgress.clamp(0.0, 1.0).toDouble();
+    if (backSnapshot != null) {
+      final sourceProgress = backSnapshot.sourcePresentationProgress;
+      return isPop ? 1 - sourceProgress : sourceProgress;
+    }
     if (isPop) {
       // The reversed easeOutCubic flight reaches the source as easeInCubic.
       return math.pow(easedProgress, 1 / 3).toDouble();
@@ -495,6 +519,7 @@ class VideoDetailHero extends StatelessWidget {
       rawTag: tag!,
       borderRadius: borderRadius,
       isDetailTarget: true,
+      backProgress: backProgress,
       child: child,
     );
   }
@@ -504,17 +529,19 @@ class VideoDetailHero extends StatelessWidget {
     required Object rawTag,
     required BorderRadiusGeometry borderRadius,
     required bool isDetailTarget,
+    VideoDetailBackProgress? backProgress,
     VideoTransitionRegistration? registration,
     required Widget child,
     Widget? flightChild,
     List<VideoDetailHeroFlightOverlay> flightOverlays =
         const <VideoDetailHeroFlightOverlay>[],
   }) {
+    final transitionCurve = _VideoDetailHeroCurve(backProgress);
     return Hero(
       key: key,
       tag: _VideoDetailMediaHeroTag(rawTag),
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeOutCubic,
+      curve: transitionCurve,
+      reverseCurve: transitionCurve,
       createRectTween: VideoDetailHero._createRectTween,
       flightShuttleBuilder: VideoDetailHero._flightShuttleBuilder,
       transitionOnUserGestures: true,
@@ -522,12 +549,28 @@ class VideoDetailHero extends StatelessWidget {
       child: _VideoDetailHeroChild(
         borderRadius: borderRadius,
         isDetailTarget: isDetailTarget,
+        backProgress: backProgress,
         registration: registration,
         flightChild: flightChild,
         flightOverlays: flightOverlays,
         child: child,
       ),
     );
+  }
+}
+
+final class _VideoDetailHeroCurve extends Curve {
+  const _VideoDetailHeroCurve(this.backProgress);
+
+  final VideoDetailBackProgress? backProgress;
+
+  @override
+  double transformInternal(double t) {
+    final snapshot = backProgress?.value;
+    if (snapshot != null && snapshot.phase != VideoDetailBackPhase.idle) {
+      return snapshot.entryProgress;
+    }
+    return Curves.easeOutCubic.transform(t);
   }
 }
 
@@ -599,6 +642,7 @@ class _VideoDetailMediaHeroSourceState
       rawTag: scope.tag,
       borderRadius: widget.borderRadius,
       isDetailTarget: false,
+      backProgress: null,
       registration: scope.registration,
       child: widget.child,
       flightChild: widget.flightChild,
@@ -779,6 +823,7 @@ class _VideoDetailHeroChild extends StatelessWidget {
   const _VideoDetailHeroChild({
     required this.borderRadius,
     required this.isDetailTarget,
+    required this.backProgress,
     required this.registration,
     required this.child,
     this.flightChild,
@@ -787,6 +832,7 @@ class _VideoDetailHeroChild extends StatelessWidget {
 
   final BorderRadiusGeometry borderRadius;
   final bool isDetailTarget;
+  final VideoDetailBackProgress? backProgress;
   final VideoTransitionRegistration? registration;
   final Widget child;
   final Widget? flightChild;

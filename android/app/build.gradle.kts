@@ -27,7 +27,7 @@ if (!isBuiltInKotlinEnabled) {
 
 android {
     namespace = "com.PiliMax.android"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -42,8 +42,8 @@ android {
             "com.PiliMax.android"
         }
         manifestPlaceholders["enableImpeller"] = isDiagnosticImpellerEnabled.toString()
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 31
+        targetSdk = 37
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

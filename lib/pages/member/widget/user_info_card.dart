@@ -4,6 +4,7 @@ import 'package:PiliMax/common/widgets/avatars.dart';
 import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
 import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
 import 'package:PiliMax/common/widgets/pendant_avatar.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';

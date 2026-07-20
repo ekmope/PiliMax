@@ -1,11 +1,13 @@
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SelectedContent;
 
-typedef SelectionTextContextMenuBuilder = Widget Function(
-  BuildContext context,
-  SelectableRegionState selectableRegionState,
-  String? selectedText,
-);
+typedef SelectionTextContextMenuBuilder =
+    Widget Function(
+      BuildContext context,
+      SelectableRegionState selectableRegionState,
+      String? selectedText,
+    );
 
 class SelectionText extends StatefulWidget {
   const SelectionText(

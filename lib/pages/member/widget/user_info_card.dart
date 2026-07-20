@@ -4,7 +4,7 @@ import 'package:PiliMax/common/widgets/avatars.dart';
 import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
 import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
 import 'package:PiliMax/common/widgets/pendant_avatar.dart';
-import 'package:PiliMax/common/widgets/scroll_physics.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/models/common/member/user_info_type.dart';
@@ -319,7 +319,7 @@ class UserInfoCard extends StatelessWidget {
   Widget _buildSign() {
     return Padding(
       padding: const .only(left: 20, top: 6, right: 20),
-      child: SelectableText(
+      child: SelectionText(
         card.sign!.trim().replaceAll(RegExp(r'\n{2,}'), '\n'),
         style: const TextStyle(fontSize: 14),
       ),
@@ -478,7 +478,9 @@ class UserInfoCard extends StatelessWidget {
             ),
           Expanded(
             child: FilledButton.tonal(
-              onPressed: isFollowLoading ? null : onFollow,
+              onPressed: isFollowLoading || (!isOwner && relation == -1)
+                  ? null
+                  : onFollow,
               style: FilledButton.styleFrom(
                 backgroundColor: relation != 0
                     ? colorScheme.onInverseSurface
@@ -489,12 +491,22 @@ class UserInfoCard extends StatelessWidget {
               child: LoadingButtonChild(
                 isLoading: isFollowLoading,
                 child: Text.rich(
-                  style: TextStyle(
-                    color: relation != 0 ? colorScheme.outline : null,
-                  ),
+                  style: relation != 0
+                      ? TextStyle(color: colorScheme.outline)
+                      : null,
                   TextSpan(
                     children: [
-                      if (relation != 0 && relation != 128) ...[
+                      if (relation == -1) ...[
+                        WidgetSpan(
+                          alignment: .middle,
+                          child: Icon(
+                            Icons.block,
+                            size: 16,
+                            color: colorScheme.outline,
+                          ),
+                        ),
+                        const TextSpan(text: ' '),
+                      ] else if (relation != 0 && relation != 128) ...[
                         WidgetSpan(
                           alignment: .middle,
                           child: Icon(
@@ -509,7 +521,7 @@ class UserInfoCard extends StatelessWidget {
                         text: isOwner
                             ? '编辑资料'
                             : switch (relation) {
-                                0 => '关注',
+                                0 || -1 => '关注',
                                 1 => '悄悄关注',
                                 2 => '已关注',
                                 // 3 => '回关',

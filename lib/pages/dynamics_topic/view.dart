@@ -6,6 +6,7 @@ import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -259,7 +260,7 @@ class _DynTopicPageState extends State<DynTopicPage>
                 ),
               ),
               const SizedBox(height: 6),
-              SelectableText(
+              SelectionText(
                 response.topicItem!.description!,
                 style: TextStyle(color: colorScheme.onSurfaceVariant),
               ),

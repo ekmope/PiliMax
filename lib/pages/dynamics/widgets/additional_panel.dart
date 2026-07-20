@@ -1,6 +1,7 @@
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
@@ -692,7 +693,7 @@ Widget? addWidget(
   } catch (e) {
     return Padding(
       padding: const EdgeInsets.all(12),
-      child: SelectableText(
+      child: SelectionText(
         '''
 additional panel error
 id: $idStr

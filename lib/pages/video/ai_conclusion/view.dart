@@ -35,7 +35,7 @@ class AiConclusionPanel extends CommonSlidePage {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: selectableText(
+              child: SelectionText(
                 res.summary!,
                 style: const TextStyle(
                   fontSize: 15,

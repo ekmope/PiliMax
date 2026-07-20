@@ -5,6 +5,7 @@ import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -377,7 +378,7 @@ class _ReportCard extends StatelessWidget {
             borderRadius: const .all(.circular(8)),
             border: .all(color: colorScheme.outline.withValues(alpha: 0.5)),
           ),
-          child: SelectableText(
+          child: SelectionText(
             report.item.error.toString(),
             style: TextStyle(
               fontFamily: 'Monospace',
@@ -404,7 +405,7 @@ class _ReportCard extends StatelessWidget {
               borderRadius: const .all(.circular(8)),
               border: .all(color: colorScheme.outline.withValues(alpha: 0.5)),
             ),
-            child: SelectableText.rich(
+            child: SelectionText.rich(
               TextSpan(
                 children: stackTrace
                     .map(

@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/services/comment_antifraud/comment_antifraud_result.dart';
 import 'package:PiliMax/services/comment_antifraud/comment_antifraud_service.dart';
 import 'package:PiliMax/services/comment_antifraud/reply_http_comment_antifraud_gateway.dart';
@@ -227,8 +228,10 @@ abstract final class ReplyUtils {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('评论检查结果'),
-        content: SelectableText(
-          '${result.detail}\n\n你的评论：${request.message}',
+        content: SingleChildScrollView(
+          child: SelectionText(
+            '${result.detail}\n\n你的评论：${request.message}',
+          ),
         ),
         actions: actions,
       ),

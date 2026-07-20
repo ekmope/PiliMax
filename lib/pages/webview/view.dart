@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/main.dart';
 import 'package:PiliMax/models/common/webview_menu_type.dart';
@@ -269,7 +270,7 @@ class _WebviewPageState extends State<WebviewPage> {
                           '下载文件: $suggestedFilename ?',
                           style: const TextStyle(fontSize: 18),
                         ),
-                        content: SelectableText(request.url.toString()),
+                        content: SelectionText(request.url.toString()),
                         actions: [
                           TextButton(
                             onPressed: Get.back,

@@ -8,6 +8,9 @@ import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/common/widgets/pendant_avatar.dart';
 import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart'
     show Session, SessionId, SessionPageType, SessionType, UnreadStyle;
+import 'package:PiliMax/grpc/im.dart';
+import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/msg.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/pages/whisper_secondary/view.dart';
 import 'package:PiliMax/utils/date_utils.dart';
@@ -33,6 +36,28 @@ class WhisperSessionItem extends StatelessWidget {
   final Function(bool isTop, SessionId id) onSetTop;
   final Function(bool isMuted, Int64 talkerUid) onSetMute;
   final ValueChanged<int> onRemove;
+
+  Future<void> _updateAck(BuildContext context) async {
+    final talkerUid = item.id.privateId.talkerUid;
+    final res = await ImGrpc.sessionDetail(talkerId: talkerUid, sessionType: 1);
+    if (res case Success(:final response)) {
+      final ack = await MsgHttp.ackSessionMsg(
+        talkerId: talkerUid.toInt(),
+        ackSeqno: response.ackSeqno.toInt(),
+      );
+      if (ack.isSuccess) {
+        SmartDialog.showToast('已标为已读');
+        item.clearUnread();
+        if (context.mounted) {
+          (context as Element).markNeedsBuild();
+        }
+      } else {
+        ack.toast();
+      }
+    } else {
+      res.toast();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +94,15 @@ class WhisperSessionItem extends StatelessWidget {
               child: Text(item.isPinned ? '移除置顶' : '置顶'),
             ),
             if (item.id.privateId.hasTalkerUid())
+              if (item.hasUnread())
+                DialogOption(
+                  onPressed: () {
+                    Get.back();
+                    _updateAck(context);
+                  },
+                  child: const Text('标为已读'),
+                ),
+            if (item.id.privateId.hasTalkerUid())
               DialogOption(
                 onPressed: () {
                   Get.back();
@@ -102,6 +136,13 @@ class WhisperSessionItem extends StatelessWidget {
                   onTap: () => onSetTop(item.isPinned, item.id),
                   child: Text(item.isPinned ? '移除置顶' : '置顶'),
                 ),
+                if (item.id.privateId.hasTalkerUid())
+                  if (item.hasUnread())
+                    PopupMenuItem(
+                      height: 42,
+                      onTap: () => _updateAck(context),
+                      child: const Text('标为已读'),
+                    ),
                 if (item.id.privateId.hasTalkerUid())
                   PopupMenuItem(
                     height: 42,

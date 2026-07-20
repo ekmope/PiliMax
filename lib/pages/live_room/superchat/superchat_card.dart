@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models/common/super_chat_time_type.dart';
 import 'package:PiliMax/models_new/live/live_superchat/item.dart';
@@ -248,7 +249,9 @@ class _SuperChatCardState extends State<SuperChatCard> {
                           ),
                         ),
                       Text(
-                        _formatTime(item.ts),
+                        _formatTime(
+                          item.startTime > 0 ? item.startTime : item.ts,
+                        ),
                         style: TextStyle(
                           fontSize: 11,
                           color: ColourUtils.parseColor(
@@ -278,8 +281,12 @@ class _SuperChatCardState extends State<SuperChatCard> {
             color: bottomColor,
           ),
           padding: const EdgeInsets.all(8),
-          child: SelectionArea(
-            child: Text(
+          child: TextSelectionTheme(
+            data: TextSelectionThemeData(
+              selectionColor: Color.lerp(bottomColor, Colors.black, .26),
+              selectionHandleColor: Color.lerp(bottomColor, Colors.white, .26),
+            ),
+            child: SelectionText(
               item.message,
               style: TextStyle(
                 color: ColourUtils.parseColor(item.messageFontColor),

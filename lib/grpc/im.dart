@@ -1,4 +1,4 @@
-import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart';
+import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart' hide SessionInfo;
 import 'package:PiliMax/grpc/bilibili/im/interfaces/v1.pb.dart';
 import 'package:PiliMax/grpc/bilibili/im/type.pb.dart';
 import 'package:PiliMax/grpc/grpc_req.dart';
@@ -210,6 +210,18 @@ abstract final class ImGrpc {
       GrpcUrl.getTotalUnread,
       ReqTotalUnread(unreadType: unreadType, showUnfollowList: 1),
       RspTotalUnread.fromBuffer,
+    );
+  }
+
+  static Future<LoadingState<SessionInfo>> sessionDetail({
+    Int64? talkerId,
+    int? sessionType,
+    Int64? uid,
+  }) {
+    return GrpcReq.request(
+      GrpcUrl.sessionDetail,
+      ReqSessionDetail(talkerId: talkerId, sessionType: sessionType, uid: uid),
+      SessionInfo.fromBuffer,
     );
   }
 }

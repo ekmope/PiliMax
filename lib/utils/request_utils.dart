@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/grpc/bilibili/im/type.pbenum.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
@@ -381,8 +382,10 @@ abstract final class RequestUtils {
             barrierDismissible: isManual,
             builder: (context) => AlertDialog(
               title: const Text('动态检查结果'),
-              content: SelectableText(
-                '你的动态被shadow ban（仅自己可见）！${dynText != null ? ' \n\n动态内容: $dynText' : ''}',
+              content: SingleChildScrollView(
+                child: SelectionText(
+                  '你的动态被shadow ban（仅自己可见）！${dynText != null ? ' \n\n动态内容: $dynText' : ''}',
+                ),
               ),
               actions: actions.isEmpty ? null : actions,
             ),
@@ -598,7 +601,7 @@ abstract final class RequestUtils {
       showDialog(
         context: Get.context!,
         builder: (context) => AlertDialog(
-          title: SelectableText(
+          title: SelectionText(
             show ? response.name! : response.rejectPage?.title ?? '',
           ),
           content: show ? null : Text(response.rejectPage?.text ?? ''),

@@ -7,6 +7,7 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/grpc/bilibili/im/interfaces/v1.pb.dart'
     show EmotionInfo;
@@ -881,7 +882,7 @@ class ChatItem extends StatelessWidget {
         return '';
       },
     );
-    return SelectableText.rich(TextSpan(children: children));
+    return SelectionText.rich(TextSpan(children: children));
   }
 
   Widget msgTypeNotifyMsg_10(ThemeData theme, content) {
@@ -923,7 +924,7 @@ class ChatItem extends StatelessWidget {
             ),
             Divider(color: theme.colorScheme.primary.withValues(alpha: 0.05)),
             if ((content['text'] as String?)?.isNotEmpty == true)
-              SelectableText(content['text']),
+              SelectionText(content['text']),
             if (modules != null && modules.isNotEmpty) ...[
               const SizedBox(height: 4),
               ...modules.map(

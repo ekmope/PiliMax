@@ -306,7 +306,7 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
     ),
     if (videoDetail.descV2 case final descV2? when descV2.isNotEmpty) ...[
       const SizedBox(height: 8),
-      selectableRichText(
+      SelectionText.rich(
         style: const TextStyle(height: 1.4),
         buildContent(descV2),
       ),

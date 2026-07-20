@@ -6,6 +6,7 @@ import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/image_type.dart';
@@ -287,7 +288,7 @@ class _PgcReviewChildPageState extends State<PgcReviewChildPage>
                   style: const TextStyle(height: 1.75),
                 )
               else
-                SelectableText(
+                SelectionText(
                   item.content!,
                   style: const TextStyle(height: 1.75),
                 ),

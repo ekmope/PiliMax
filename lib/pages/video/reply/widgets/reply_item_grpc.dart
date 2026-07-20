@@ -13,6 +13,7 @@ import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/image_grid/image_grid_view.dart';
 import 'package:PiliMax/common/widgets/pendant_avatar.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, ReplyControl, Content, Url, ReplyControl_VoteOption;
 import 'package:PiliMax/grpc/reply.dart';
@@ -1233,11 +1234,13 @@ class ReplyItemGrpc extends StatelessWidget {
                 builder: (context) => Dialog(
                   child: Padding(
                     padding: const .symmetric(horizontal: 20, vertical: 16),
-                    child: SelectableText(
-                      message,
-                      style: const TextStyle(fontSize: 15, height: 1.7),
-                      contextMenuBuilder: (_, editableTextState) =>
-                          _filterMenuBuilder(context, editableTextState),
+                    child: SingleChildScrollView(
+                      child: SelectionText(
+                        message,
+                        style: const TextStyle(fontSize: 15, height: 1.7),
+                        contextMenuBuilder: (context, state, selectedText) =>
+                            _filterMenuBuilder(context, state, selectedText),
+                      ),
                     ),
                   ),
                 ),
@@ -1273,10 +1276,11 @@ class ReplyItemGrpc extends StatelessWidget {
 
   static Widget _filterMenuBuilder(
     BuildContext context,
-    EditableTextState editableTextState,
+    SelectableRegionState state,
+    String? selectedText,
   ) {
-    final items = editableTextState.contextMenuButtonItems;
-    if (!editableTextState.textEditingValue.selection.isCollapsed) {
+    final items = state.contextMenuButtonItems;
+    if (selectedText != null && selectedText.isNotEmpty) {
       // 插入到第四个位置（索引3），即在"复制"、"全选"、"分享"等系统默认项之后
       // 这样在 Android 上可以让"加入过滤"更优先显示，减少被折叠的概率
       final insertIndex = items.length >= 3 ? 3 : items.length;
@@ -1284,11 +1288,8 @@ class ReplyItemGrpc extends StatelessWidget {
         insertIndex,
         ContextMenuButtonItem(
           onPressed: () {
-            Navigator.of(context).pop();
-            final select = editableTextState.textEditingValue;
-            final escapedText = RegExp.escape(
-              select.selection.textInside(select.text),
-            );
+            state.hideToolbar();
+            final escapedText = RegExp.escape(selectedText);
 
             showConfirmDialog(
               context: context,
@@ -1327,7 +1328,7 @@ class ReplyItemGrpc extends StatelessWidget {
     }
     return AdaptiveTextSelectionToolbar.buttonItems(
       buttonItems: items,
-      anchors: editableTextState.contextMenuAnchors,
+      anchors: state.contextMenuAnchors,
     );
   }
 }

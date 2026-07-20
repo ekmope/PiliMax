@@ -1,4 +1,5 @@
 import 'package:PiliMax/models/common/account_type.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/api_type.dart';
@@ -50,7 +51,7 @@ Widget _getAccountDetail(BuildContext context) {
 
     slivers
       ..add(Center(child: Text(i.title, style: theme.titleMedium)))
-      ..add(SelectableText(url.join('\n')));
+      ..add(SelectionText(url.join('\n')));
   }
   return Column(
     mainAxisSize: MainAxisSize.min,

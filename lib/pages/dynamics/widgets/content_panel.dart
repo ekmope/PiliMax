@@ -3,6 +3,7 @@ import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/text/text.dart' as custom_text;
 import 'package:PiliMax/common/widgets/image_grid/image_grid_view.dart';
+import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/widgets/rich_node_panel.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -75,14 +76,24 @@ Widget content(
           ),
         if (richNodes != null)
           isDetail && floor == 1
-              ? SelectableText.rich(
+              ? SelectionText.rich(
                   richNodes,
                   style: isSave
                       ? const TextStyle(fontSize: 15)
                       : const TextStyle(fontSize: 16),
-                  contextMenuBuilder: text == null || text.isEmpty
-                      ? null
-                      : (_, state) => _contextMenuBuilder(state, text),
+                  contextMenuBuilder: (context, state, selectedText) {
+                    if (text == null || text.isEmpty) {
+                      return AdaptiveTextSelectionToolbar.selectableRegion(
+                        selectableRegionState: state,
+                      );
+                    }
+                    return _contextMenuBuilder(
+                      context,
+                      state,
+                      selectedText,
+                      text,
+                    );
+                  },
                 )
               : custom_text.Text.rich(
                   style: floor == 1
@@ -112,22 +123,24 @@ Widget content(
   );
 }
 
-Widget _contextMenuBuilder(EditableTextState state, String text) {
+Widget _contextMenuBuilder(
+  BuildContext context,
+  SelectableRegionState state,
+  String? selectedText,
+  String text,
+) {
   final items = state.contextMenuButtonItems;
-  if (!state.textEditingValue.selection.isCollapsed) {
+  if (selectedText != null && selectedText.isNotEmpty) {
     final insertIndex = items.length >= 3 ? 3 : items.length;
     items.insert(
       insertIndex,
       ContextMenuButtonItem(
         onPressed: () {
-          Navigator.of(state.context).pop();
-          final select = state.textEditingValue;
-          final escapedText = RegExp.escape(
-            select.selection.textInside(select.text),
-          );
+          state.hideToolbar();
+          final escapedText = RegExp.escape(selectedText);
 
           showConfirmDialog(
-            context: state.context,
+            context: context,
             title: const Text('是否将以下内容加入动态过滤：'),
             content: Text(
               escapedText,
@@ -164,22 +177,31 @@ Widget _contextMenuBuilder(EditableTextState state, String text) {
   return AdaptiveTextSelectionToolbar.buttonItems(
     buttonItems: items
       ..add(
-        ContextMenuButtonItem(label: '文本', onPressed: () => _onCopyText(text)),
+        ContextMenuButtonItem(
+          label: '文本',
+          onPressed: () {
+            state.hideToolbar();
+            _onCopyText(context, text);
+          },
+        ),
       ),
     anchors: state.contextMenuAnchors,
   );
 }
 
-void _onCopyText(String text) {
+void _onCopyText(BuildContext context, String text) {
   showDialog(
-    context: Get.context!,
+    context: context,
     builder: (context) => Dialog(
       child: Padding(
         padding: const .symmetric(horizontal: 20, vertical: 16),
-        child: SelectableText(
-          text,
-          style: const TextStyle(fontSize: 15, height: 1.7),
-          contextMenuBuilder: (_, state) => _contextMenuBuilder(state, text),
+        child: SingleChildScrollView(
+          child: SelectionText(
+            text,
+            style: const TextStyle(fontSize: 15, height: 1.7),
+            contextMenuBuilder: (context, state, selectedText) =>
+                _contextMenuBuilder(context, state, selectedText, text),
+          ),
         ),
       ),
     ),

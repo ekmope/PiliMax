@@ -318,6 +318,63 @@ class HeaderControl extends StatefulWidget {
     }
   }
 
+  static Future<void> plusOneVideoDanmaku({
+    required PlPlayerController ctr,
+    required String msg,
+  }) async {
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('请先登录');
+      return;
+    }
+
+    final cid = ctr.cid;
+    if (cid == null) return;
+    if (ctr.dmState.contains(cid)) {
+      SmartDialog.showToast('UP主已关闭弹幕');
+      return;
+    }
+
+    final res = await DanmakuHttp.shootDanmaku(
+      oid: cid,
+      bvid: ctr.bvid,
+      progress: ctr.positionInMilliseconds,
+      msg: msg,
+    );
+    if (res case Success(:final response)) {
+      SmartDialog.showToast('发送成功');
+      VideoDanmaku? extra;
+      if (response.dmid case final dmid?) {
+        extra = VideoDanmaku(id: dmid, mid: ctr.midHash);
+      }
+      ctr.danmakuController?.addDanmaku(
+        DanmakuContentItem(
+          msg,
+          selfSend: true,
+          extra: extra,
+        ),
+      );
+    } else {
+      res.toast();
+    }
+  }
+
+  static Future<void> plusOneLiveDanmaku({
+    required Object roomId,
+    required String msg,
+  }) async {
+    if (!Accounts.main.isLogin) {
+      SmartDialog.showToast('请先登录');
+      return;
+    }
+
+    final res = await LiveHttp.sendLiveMsg(roomId: roomId, msg: msg);
+    if (res.isSuccess) {
+      SmartDialog.showToast('发送成功');
+    } else {
+      res.toast();
+    }
+  }
+
   static Future<bool> deleteDanmaku(int id, int cid) async {
     final res = await DanmakuHttp.danmakuRecall(
       cid: cid,

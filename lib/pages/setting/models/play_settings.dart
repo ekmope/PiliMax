@@ -34,7 +34,7 @@ List<SettingsModel> get playSettings => [
   if (PlatformUtils.isMobile)
     const SwitchModel(
       title: '启用点击弹幕',
-      subtitle: '点击弹幕悬停，支持点赞、复制、举报操作',
+      subtitle: '点击弹幕悬停，支持点赞、复制、+1、举报等操作',
       leading: Icon(Icons.touch_app_outlined),
       setKey: SettingBoxKey.enableTapDm,
     ),

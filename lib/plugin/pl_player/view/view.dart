@@ -2447,6 +2447,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   static const _actionItemHeight = 35.0 - _triangleHeight;
 
   DanmakuItem<DanmakuExtra>? _suspendedDm;
+  bool _isPlusOneSending = false;
   late double dy = 0;
   late final Rxn<Offset> _dmOffset = Rxn<Offset>();
 
@@ -2455,6 +2456,17 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       _suspendedDm?.suspend = false;
       _suspendedDm = null;
       _dmOffset.value = null;
+    }
+  }
+
+  Future<void> _sendPlusOne(Future<void> Function() send) async {
+    if (_isPlusOneSending) return;
+    _isPlusOneSending = true;
+    _removeDmAction();
+    try {
+      await send();
+    } finally {
+      _isPlusOneSending = false;
     }
   }
 
@@ -2502,9 +2514,16 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       return const SizedBox.shrink();
     }
 
-    final seekOffset = _getValidOffset(item.content.text);
-
-    final overlayWidth = _actionItemWidth * (seekOffset == null ? 3 : 4);
+    final extra = item.content.extra;
+    final seekOffset = extra is VideoDanmaku
+        ? _getValidOffset(item.content.text)
+        : null;
+    final actionCount = switch (extra) {
+      VideoDanmaku() => seekOffset == null ? 4 : 5,
+      LiveDanmaku() => 4,
+      null => 0,
+    };
+    final overlayWidth = _actionItemWidth * actionCount;
 
     final top = dy + item.height + _triangleHeight + 2;
 
@@ -2522,8 +2541,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       _removeDmAction();
       return const SizedBox.shrink();
     }
-
-    final extra = item.content.extra;
 
     return Positioned(
       right: right,
@@ -2579,6 +2596,19 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 ),
                 onTap: () => Utils.copyText(item.content.text),
               ),
+              _dmActionItem(
+                const Icon(
+                  size: 20,
+                  Icons.plus_one,
+                  color: Colors.white,
+                ),
+                onTap: () => _sendPlusOne(
+                  () => HeaderControl.plusOneVideoDanmaku(
+                    ctr: plPlayerController,
+                    msg: item.content.text,
+                  ),
+                ),
+              ),
               if (item.content.selfSend)
                 _dmActionItem(
                   const Icon(
@@ -2633,6 +2663,21 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   color: Colors.white,
                 ),
                 onTap: () => Utils.copyText(item.content.text),
+              ),
+              _dmActionItem(
+                const Icon(
+                  size: 20,
+                  Icons.plus_one,
+                  color: Colors.white,
+                ),
+                onTap: () => _sendPlusOne(
+                  () => HeaderControl.plusOneLiveDanmaku(
+                    roomId: (widget.bottomControl as live_bottom.BottomControl)
+                        .liveRoomCtr
+                        .roomId,
+                    msg: item.content.text,
+                  ),
+                ),
               ),
               _dmActionItem(
                 const Icon(

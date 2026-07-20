@@ -9,11 +9,15 @@ import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:get/get.dart';
 
 abstract final class RouteRestoreService {
   static const _version = 1;
   static const _validDuration = Duration(hours: 24);
+  static const _lifecycleChannel = MethodChannel(
+    'com.PiliMax.android/route_restore_lifecycle',
+  );
   static const _restorableRoutes = {
     '/videoV',
     '/liveRoom',
@@ -35,7 +39,9 @@ abstract final class RouteRestoreService {
       Platform.isAndroid && Pref.enableAndroidRouteRestore;
 
   static void onRouteChanged(Routing? routing) {
-    if (!_enabled || _phase == _RouteRestorePhase.restoring || routing == null) {
+    if (!_enabled ||
+        _phase == _RouteRestorePhase.restoring ||
+        routing == null) {
       return;
     }
     if (routing.route is! GetPageRoute) return;
@@ -74,6 +80,16 @@ abstract final class RouteRestoreService {
     );
   }
 
+  static Future<void> markIntentionalExit() async {
+    await _markNativeLifecycleEvent('markIntentionalExit');
+    await _ignoreStorageErrors(clear());
+  }
+
+  static Future<void> handleTaskRemoved() async {
+    await _markNativeLifecycleEvent('markTaskRemoved');
+    await _ignoreStorageErrors(clear());
+  }
+
   static Future<void> saveVideoRoute(Map<dynamic, dynamic> arguments) {
     if (!_enabled || !_isCurrentVideoRoute(arguments)) {
       return Future<void>.value();
@@ -96,6 +112,10 @@ abstract final class RouteRestoreService {
     if (!_enabled) return;
 
     try {
+      if (!await _consumeNativeRestoreEligibility()) {
+        await _ignoreStorageErrors(clear());
+        return;
+      }
       if (Get.currentRoute != '/') return;
 
       final raw = GStorage.localCache.get(
@@ -175,6 +195,25 @@ abstract final class RouteRestoreService {
       _phase = _RouteRestorePhase.ready;
       await _ignoreStorageErrors(clear());
     }
+  }
+
+  static Future<bool> _consumeNativeRestoreEligibility() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final eligible = await _lifecycleChannel.invokeMethod<bool>(
+        'consumeRestoreEligibility',
+      );
+      return eligible == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> _markNativeLifecycleEvent(String method) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _lifecycleChannel.invokeMethod<void>(method);
+    } catch (_) {}
   }
 
   static String _normalizeRoute(String? route) => route?.split('?').first ?? '';
@@ -270,8 +309,7 @@ abstract final class RouteRestoreService {
           route: route,
           parameters: {
             'mediaId': mediaIdParam,
-            'heroTag':
-                parameters['heroTag'] ?? Utils.makeHeroTag(mediaIdParam),
+            'heroTag': parameters['heroTag'] ?? Utils.makeHeroTag(mediaIdParam),
           },
         );
       case '/history':
@@ -394,13 +432,11 @@ abstract final class RouteRestoreService {
 
   static bool _asBool(dynamic value) => value is bool && value;
 
-  static String _videoTypeName(dynamic value) =>
-      switch (value) {
-        VideoType() => value.name,
-        String() when VideoType.values.any((item) => item.name == value) =>
-          value,
-        _ => VideoType.ugc.name,
-      };
+  static String _videoTypeName(dynamic value) => switch (value) {
+    VideoType() => value.name,
+    String() when VideoType.values.any((item) => item.name == value) => value,
+    _ => VideoType.ugc.name,
+  };
 
   static VideoType _videoTypeFromName(dynamic value) =>
       VideoType.values.firstWhere(

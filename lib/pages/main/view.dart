@@ -53,6 +53,7 @@ class _MainAppState extends PopScopeState<MainApp>
   late EdgeInsets _padding;
   late ThemeData theme;
   Brightness? _brightness;
+  bool _navigationSyncScheduled = false;
 
   @override
   bool get initCanPop => _allowAndroidPredictiveExit;
@@ -93,6 +94,19 @@ class _MainAppState extends PopScopeState<MainApp>
     if (canPopNotifier.value != _allowAndroidPredictiveExit) {
       canPopNotifier.value = _allowAndroidPredictiveExit;
     }
+  }
+
+  void _scheduleNavigationPageSync() {
+    if (_navigationSyncScheduled) {
+      return;
+    }
+    _navigationSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _navigationSyncScheduled = false;
+      if (mounted) {
+        _mainController.syncNavigationPage();
+      }
+    });
   }
 
   @override
@@ -164,6 +178,7 @@ class _MainAppState extends PopScopeState<MainApp>
         _mainController.useBottomNav = size.isPortrait;
       }
     }
+    _scheduleNavigationPageSync();
   }
 
   @override
@@ -173,6 +188,7 @@ class _MainAppState extends PopScopeState<MainApp>
       ..checkUnreadDynamic()
       ..checkDefaultSearch(true)
       ..checkUnread(_mainController.useBottomNav);
+    _scheduleNavigationPageSync();
     super.didPopNext();
   }
 
@@ -356,7 +372,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
   static Future<void> _clearRouteRestoreAndBack() async {
     try {
-      await RouteRestoreService.clear();
+      await RouteRestoreService.markIntentionalExit();
     } finally {
       PiliAndroidHelper.back();
     }
@@ -572,6 +588,7 @@ class _MainAppState extends PopScopeState<MainApp>
     Widget child;
     if (_mainController.mainTabBarView) {
       child = CustomTabBarView(
+        key: const PageStorageKey<String>('main-navigation-tab-view'),
         scrollDirection: _mainController.useBottomNav ? .horizontal : .vertical,
         physics: const NeverScrollableScrollPhysics(),
         controller: _mainController.controller,
@@ -579,6 +596,7 @@ class _MainAppState extends PopScopeState<MainApp>
       );
     } else {
       child = PageView(
+        key: const PageStorageKey<String>('main-navigation-page-view'),
         physics: const NeverScrollableScrollPhysics(),
         controller: _mainController.controller,
         children: _navigationPages,

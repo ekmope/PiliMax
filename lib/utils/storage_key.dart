@@ -325,6 +325,7 @@ abstract final class LocalCacheKey {
       danmakuFilterRules = 'danmakuFilterRules',
       downloadCollections = 'downloadCollections',
       lastAutoClearCacheTime = 'lastAutoClearCacheTime',
+      dynamicUpReadState = 'dynamicUpReadState',
       lastAndroidRouteRestoreState = 'lastAndroidRouteRestoreState',
       lastAndroidRouteRestoreTime = 'lastAndroidRouteRestoreTime',
       mixinKey = 'mixinKey',

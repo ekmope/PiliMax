@@ -100,3 +100,13 @@ class UpItem {
   @override
   int get hashCode => mid.hashCode;
 }
+
+class UpDynamicMarker {
+  const UpDynamicMarker({
+    required this.idStr,
+    required this.pubTs,
+  });
+
+  final String idStr;
+  final int pubTs;
+}

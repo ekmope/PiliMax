@@ -81,6 +81,15 @@ class FloatingNavigationBar extends StatelessWidget {
         indicatorShape ??
         navigationBarTheme.indicatorShape ??
         _kNavigationShape;
+    final sourceOverlayColor = overlayColor ?? navigationBarTheme.overlayColor;
+    final effectiveOverlayColor = WidgetStateProperty.resolveWith<Color?>((
+      states,
+    ) {
+      if (states.contains(WidgetState.pressed)) {
+        return Colors.transparent;
+      }
+      return sourceOverlayColor?.resolve(states);
+    });
 
     return UnconstrainedBox(
       child: Padding(
@@ -169,7 +178,11 @@ class FloatingNavigationBar extends StatelessWidget {
                       indicatorColor: Colors.transparent,
                       height: _kNavigationHeight - 2 * _kIndicatorPadding,
                       labelBehavior: labelBehavior,
-                      overlayColor: overlayColor,
+                      // The floating bar already paints the complete destination
+                      // indicator behind both the icon and label. Keep the
+                      // framework's hover/focus feedback, but suppress its
+                      // icon-only pressed splash so there is only one effect.
+                      overlayColor: effectiveOverlayColor,
                       labelTextStyle: labelTextStyle,
                       labelPadding:
                           labelPadding ??

@@ -26,6 +26,7 @@ import 'package:PiliMax/models_new/dynamic/dyn_topic_top/top_details.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_topic_top/topic_item.dart';
 import 'package:PiliMax/models_new/followee_votes/vote.dart';
 import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/parse_int.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:PiliMax/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
@@ -103,6 +104,63 @@ abstract final class DynamicsHttp {
     } else {
       return Error(res.data['message']);
     }
+  }
+
+  static Future<LoadingState<UpDynamicMarker?>> latestUpDynamic(int mid) async {
+    try {
+      final res = await Request().get(
+        Api.followDynamic,
+        queryParameters: {
+          'host_mid': mid,
+          'offset': '',
+          'features': Constants.dynFeatures,
+        },
+      );
+      if (res.data['code'] != 0) {
+        return Error(res.data['message']);
+      }
+      final items = res.data['data']?['items'] as List?;
+      UpDynamicMarker? latest;
+      if (items == null) {
+        return const Success(null);
+      }
+      for (final item in items) {
+        if (item is! Map) {
+          continue;
+        }
+        final idStr = item['id_str']?.toString() ?? '';
+        final pubTs =
+            safeToInt(item['modules']?['module_author']?['pub_ts']) ?? 0;
+        if (idStr.isEmpty && pubTs <= 0) {
+          continue;
+        }
+        final marker = UpDynamicMarker(idStr: idStr, pubTs: pubTs);
+        if (_isNewerUpDynamicMarker(marker, latest)) {
+          latest = marker;
+        }
+      }
+      return Success(latest);
+    } catch (e, s) {
+      return Error('$e\n\n$s');
+    }
+  }
+
+  static bool _isNewerUpDynamicMarker(
+    UpDynamicMarker candidate,
+    UpDynamicMarker? current,
+  ) {
+    if (current == null) {
+      return true;
+    }
+    if (candidate.pubTs != current.pubTs) {
+      return candidate.pubTs > current.pubTs;
+    }
+    final candidateId = BigInt.tryParse(candidate.idStr);
+    final currentId = BigInt.tryParse(current.idStr);
+    if (candidateId != null && currentId != null) {
+      return candidateId > currentId;
+    }
+    return candidate.idStr.compareTo(current.idStr) > 0;
   }
 
   // 动态点赞

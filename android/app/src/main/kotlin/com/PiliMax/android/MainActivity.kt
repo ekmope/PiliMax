@@ -12,6 +12,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : AudioServiceActivity() {
     private lateinit var methodChannel: MethodChannel
+    private lateinit var routeRestoreMethodChannel: MethodChannel
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -20,6 +21,26 @@ class MainActivity : AudioServiceActivity() {
         methodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
                 "getDisplayRefreshRates" -> result.success(getDisplayRefreshRates())
+                else -> result.notImplemented()
+            }
+        }
+
+        routeRestoreMethodChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            RouteRestoreLifecycle.CHANNEL_NAME,
+        )
+        routeRestoreMethodChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "consumeRestoreEligibility" ->
+                    result.success(RouteRestoreLifecycle.consumeRestoreEligibility())
+                "markTaskRemoved" -> {
+                    RouteRestoreLifecycle.markTaskRemoved(this)
+                    result.success(null)
+                }
+                "markIntentionalExit" -> {
+                    RouteRestoreLifecycle.markIntentionalExit(this)
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -63,6 +84,7 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        RouteRestoreLifecycle.onActivityCreated(this, intent)
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode =
@@ -70,7 +92,28 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        RouteRestoreLifecycle.onActivityStarted(this)
+    }
+
+    override fun onStop() {
+        RouteRestoreLifecycle.onActivityStopped(this)
+        super.onStop()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        RouteRestoreLifecycle.onNewIntent(this, intent)
+    }
+
     override fun onDestroy() {
+        RouteRestoreLifecycle.onActivityDestroyed(
+            this,
+            isFinishing,
+            isChangingConfigurations,
+        )
         stopService(Intent(this, com.ryanheise.audioservice.AudioService::class.java))
         super.onDestroy()
     }

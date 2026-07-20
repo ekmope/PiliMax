@@ -289,6 +289,42 @@ class MainController extends GetxController
     }
   }
 
+  void syncNavigationPage() {
+    final targetIndex = selectedIndex.value;
+    if (targetIndex < 0 || targetIndex >= navigationBars.length) {
+      return;
+    }
+
+    if (mainTabBarView) {
+      final tabController = controller as TabController;
+      if (tabController.index != targetIndex) {
+        tabController.index = targetIndex;
+      }
+      return;
+    }
+
+    final pageController = controller as PageController;
+    if (!pageController.hasClients) {
+      return;
+    }
+    final page = pageController.page;
+    if (page == null || (page - targetIndex).abs() > 0.001) {
+      pageController.jumpToPage(targetIndex);
+    }
+  }
+
+  void toHomePage() {
+    var index = navigationBars.indexOf(NavigationBarType.home);
+    if (index == -1) {
+      index = 0;
+    }
+    if (selectedIndex.value == index) {
+      syncNavigationPage();
+    } else {
+      setIndex(index);
+    }
+  }
+
   void setIndex(int value) {
     feedBack();
 
@@ -298,11 +334,10 @@ class MainController extends GetxController
       if (mainTabBarView) {
         controller.animateTo(value);
       } else {
-        controller.animateToPage(
-          value,
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-        );
+        final pageController = controller as PageController;
+        if (pageController.hasClients) {
+          pageController.jumpToPage(value);
+        }
       }
       if (currentNav == NavigationBarType.home) {
         checkDefaultSearch();

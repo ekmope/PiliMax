@@ -18,6 +18,7 @@ import 'package:PiliMax/models/user/danmaku_rule.dart';
 import 'package:PiliMax/models/video/play/url.dart';
 import 'package:PiliMax/models_new/video/video_shot/data.dart';
 import 'package:PiliMax/pages/danmaku/danmaku_model.dart';
+import 'package:PiliMax/pages/main/controller.dart';
 import 'package:PiliMax/pages/setting/models/play_settings.dart'
     show kMaxVolume;
 import 'package:PiliMax/pages/sponsor_block/block_mixin.dart';
@@ -2327,6 +2328,9 @@ class PlPlayerController with BlockConfigMixin {
 
   void onCloseAll() {
     _isCloseAll = true;
+    try {
+      Get.find<MainController>().toHomePage();
+    } catch (_) {}
     dispose();
     Get.until((route) => route.isFirst);
   }

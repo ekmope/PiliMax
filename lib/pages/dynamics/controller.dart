@@ -9,6 +9,7 @@ import 'package:PiliMax/models_new/follow/data.dart';
 import 'package:PiliMax/pages/common/common_controller.dart';
 import 'package:PiliMax/pages/dynamics_tab/controller.dart';
 import 'package:PiliMax/services/account_service.dart';
+import 'package:PiliMax/services/dynamic_up_read_service.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
@@ -36,8 +37,10 @@ class DynamicsController extends GetxController
   Set<UpItem>? _cacheUpList;
   late final _showAllUp = Pref.dynamicsShowAllFollowedUp;
   late bool showLiveUp = Pref.expandDynLivePanel;
-  bool _clearAllUpUpdatesOnNextResponse = false;
-  final Set<int> _clearUpUpdateMidsOnNextResponse = <int>{};
+  final DynamicUpReadService _upReadService = DynamicUpReadService();
+  final Map<int, int> _upReadGenerations = <int, int>{};
+  final Map<int, int> _pendingSuppressedUpCounts = <int, int>{};
+  int _readAccountEpoch = 0;
   bool isQuerying = false;
   bool _pendingFollowUpRefresh = false;
   bool _isClosing = false;
@@ -99,11 +102,8 @@ class DynamicsController extends GetxController
     return index;
   }
 
-  bool _clearUpUpdateForMid(Iterable<UpItem>? items, int mid) {
+  bool _clearUpUpdateForMid(Iterable<UpItem> items, int mid) {
     var changed = false;
-    if (items == null) {
-      return changed;
-    }
     for (final item in items) {
       if (item.mid == mid && item.hasUpdate == true) {
         item.hasUpdate = false;
@@ -113,84 +113,163 @@ class DynamicsController extends GetxController
     return changed;
   }
 
-  bool _clearFollowUpUpdateForMid(FollowUpModel? data, int mid) {
-    final upChanged = _clearUpUpdateForMid(data?.upList, mid);
-    final liveChanged = _clearUpUpdateForMid(data?.liveUsers?.items, mid);
-    return upChanged || liveChanged;
-  }
-
   void _markUpAsRead(int mid) {
-    if (_clearFollowUpUpdateForMid(upState.value.dataOrNull, mid)) {
-      upState.refresh();
-    }
-  }
-
-  void _markUpAsReadAndClearNextResponse(int mid) {
-    _markUpAsRead(mid);
-    if (!_clearAllUpUpdatesOnNextResponse) {
-      _clearUpUpdateMidsOnNextResponse.add(mid);
-    }
-  }
-
-  void _applyPendingUpUpdateClears(FollowUpModel data) {
-    if (_clearAllUpUpdatesOnNextResponse) {
-      _clearFollowUpUpdates(data);
-      _clearAllUpUpdatesOnNextResponse = false;
-      _clearUpUpdateMidsOnNextResponse.clear();
+    if (mid <= 0) {
       return;
     }
-
-    for (final mid in _clearUpUpdateMidsOnNextResponse) {
-      _clearFollowUpUpdateForMid(data, mid);
+    final data = upState.value.dataOrNull;
+    final changed = data != null && _clearUpUpdateForMid(data.upList, mid);
+    if (!changed && !_hasPendingSuppressedUp(mid)) {
+      return;
     }
-    _clearUpUpdateMidsOnNextResponse.clear();
+    _incrementUpReadGeneration(mid);
+    if (changed) {
+      upState.refresh();
+    }
+    unawaited(_upReadService.markRead([mid]));
   }
 
   void _markNavigationSelectionAsRead() {
     if (isAllUpPage) {
-      _markAllUpAsReadAndClearNextResponse();
+      _markAllUpAsRead();
     } else {
-      _markUpAsReadAndClearNextResponse(currentMid.value);
+      _markUpAsRead(currentMid.value);
     }
   }
 
-  bool _clearUpUpdates(Iterable<UpItem>? items) {
+  (Set<int>, bool) _collectAndClearUpUpdates(Iterable<UpItem> items) {
+    final mids = <int>{};
     var changed = false;
-    if (items == null) {
-      return changed;
-    }
     for (final item in items) {
+      if (item.mid <= 0 ||
+          (item.hasUpdate != true && !_hasPendingSuppressedUp(item.mid))) {
+        continue;
+      }
+      mids.add(item.mid);
       if (item.hasUpdate == true) {
         item.hasUpdate = false;
         changed = true;
       }
     }
-    return changed;
-  }
-
-  bool _clearFollowUpUpdates(FollowUpModel? data) {
-    final upChanged = _clearUpUpdates(data?.upList);
-    final liveChanged = _clearUpUpdates(data?.liveUsers?.items);
-    return upChanged || liveChanged;
+    return (mids, changed);
   }
 
   void _markAllUpAsRead() {
-    if (_clearFollowUpUpdates(upState.value.dataOrNull)) {
+    final data = upState.value.dataOrNull;
+    if (data == null) {
+      return;
+    }
+    final (mids, changed) = _collectAndClearUpUpdates(data.upList);
+    if (mids.isNotEmpty) {
+      for (final mid in mids) {
+        _incrementUpReadGeneration(mid);
+      }
+      if (changed) {
+        upState.refresh();
+      }
+      unawaited(_upReadService.markRead(mids));
+    }
+  }
+
+  void _refreshNavigationSelection() {
+    _markNavigationSelectionAsRead();
+  }
+
+  void _applyStoredUpReadState(Iterable<UpItem> items) {
+    final accountMid = Accounts.main.mid;
+    final accountEpoch = _readAccountEpoch;
+    final suppressed = _upReadService.suppressReadUpdates(items);
+    if (suppressed.isNotEmpty) {
+      final generations = <int, int>{
+        for (final mid in suppressed) mid: _upReadGeneration(mid),
+      };
+      for (final mid in suppressed) {
+        _pendingSuppressedUpCounts.update(
+          mid,
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        );
+      }
+      unawaited(
+        _resolveSuppressedUpUpdates(
+          accountMid: accountMid,
+          accountEpoch: accountEpoch,
+          generations: generations,
+          mids: suppressed,
+        ),
+      );
+    }
+  }
+
+  Future<void> _resolveSuppressedUpUpdates({
+    required int accountMid,
+    required int accountEpoch,
+    required Map<int, int> generations,
+    required Set<int> mids,
+  }) async {
+    Set<int> newMids = const <int>{};
+    try {
+      newMids = await _upReadService.resolveSuppressedUpdates(
+        accountMid: accountMid,
+        mids: mids,
+      );
+    } catch (_) {
+      return;
+    } finally {
+      if (accountEpoch == _readAccountEpoch) {
+        for (final mid in mids) {
+          final count = _pendingSuppressedUpCounts[mid];
+          if (count == null || count <= 1) {
+            _pendingSuppressedUpCounts.remove(mid);
+          } else {
+            _pendingSuppressedUpCounts[mid] = count - 1;
+          }
+        }
+      }
+    }
+    if (_isClosing ||
+        accountEpoch != _readAccountEpoch ||
+        accountMid != Accounts.main.mid ||
+        newMids.isEmpty) {
+      return;
+    }
+    final data = upState.value.dataOrNull;
+    if (data == null) {
+      return;
+    }
+    var changed = false;
+    for (final item in data.upList) {
+      if (newMids.contains(item.mid) &&
+          generations[item.mid] == _upReadGeneration(item.mid) &&
+          item.hasUpdate != true) {
+        item.hasUpdate = true;
+        changed = true;
+      }
+    }
+    if (changed) {
       upState.refresh();
     }
   }
 
-  void _markAllUpAsReadAndClearNextResponse() {
-    _markAllUpAsRead();
-    _clearAllUpUpdatesOnNextResponse = true;
-    _clearUpUpdateMidsOnNextResponse.clear();
+  bool _hasPendingSuppressedUp(int mid) =>
+      (_pendingSuppressedUpCounts[mid] ?? 0) > 0;
+
+  int _upReadGeneration(int mid) => _upReadGenerations[mid] ?? 0;
+
+  void _incrementUpReadGeneration(int mid) {
+    _upReadGenerations[mid] = _upReadGeneration(mid) + 1;
   }
 
-  void _refreshNavigationSelection() {
-    // Keep the immediate UI update and the next follow-up response in sync.
-    // A response already in flight may still contain the old red dot.
-    _markNavigationSelectionAsRead();
+  void _resetUpReadResolutionState() {
+    _readAccountEpoch++;
+    _upReadGenerations.clear();
+    _pendingSuppressedUpCounts.clear();
   }
+
+  bool _isCurrentAccountRequest(int accountMid, int accountEpoch) =>
+      !_isClosing &&
+      accountMid == Accounts.main.mid &&
+      accountEpoch == _readAccountEpoch;
 
   @override
   void onInit() {
@@ -216,10 +295,15 @@ class DynamicsController extends GetxController
 
   Future<void> queryUpList() async {
     if (_isClosing || isQuerying || _upEnd) return;
+    final requestAccountMid = Accounts.main.mid;
+    final requestAccountEpoch = _readAccountEpoch;
     isQuerying = true;
 
     try {
       final res = await DynamicsHttp.dynUpList(upState.value.data.offset);
+      if (!_isCurrentAccountRequest(requestAccountMid, requestAccountEpoch)) {
+        return;
+      }
 
       if (res case Success(:final response)) {
         if (response.hasMore == false || response.offset.isNullOrEmpty) {
@@ -230,6 +314,7 @@ class DynamicsController extends GetxController
           ..offset = response.offset;
         final list = response.upList;
         if (list != null && list.isNotEmpty) {
+          _applyStoredUpReadState(list);
           upData.upList.addAll(list);
           upState.refresh();
         }
@@ -241,15 +326,20 @@ class DynamicsController extends GetxController
 
   Future<void> queryAllUp() async {
     if (_isClosing || isQuerying || _upEnd) return;
+    final requestAccountMid = Accounts.main.mid;
+    final requestAccountEpoch = _readAccountEpoch;
     isQuerying = true;
 
     try {
       final res = await FollowHttp.followings(
-        vmid: Accounts.main.mid,
+        vmid: requestAccountMid,
         pn: _upPage,
         orderType: 'attention',
         ps: 50,
       );
+      if (!_isCurrentAccountRequest(requestAccountMid, requestAccountEpoch)) {
+        return;
+      }
 
       if (res case Success(:final response)) {
         _upPage++;
@@ -270,6 +360,8 @@ class DynamicsController extends GetxController
 
   Future<void> queryFollowUp() async {
     if (_isClosing || isQuerying) return;
+    final requestAccountMid = Accounts.main.mid;
+    final requestAccountEpoch = _readAccountEpoch;
     isQuerying = true;
 
     try {
@@ -286,12 +378,15 @@ class DynamicsController extends GetxController
         DynamicsHttp.followUp(),
         if (_showAllUp)
           FollowHttp.followings(
-            vmid: Accounts.main.mid,
+            vmid: requestAccountMid,
             pn: _upPage,
             orderType: 'attention',
             ps: 50,
           ),
       ]);
+      if (!_isCurrentAccountRequest(requestAccountMid, requestAccountEpoch)) {
+        return;
+      }
 
       final first = res.first;
       if (first case final Success<FollowUpModel> i) {
@@ -316,7 +411,7 @@ class DynamicsController extends GetxController
             _upEnd = true;
           }
         }
-        _applyPendingUpUpdateClears(data);
+        _applyStoredUpReadState(data.upList);
         upState.value = Success(data);
       } else {
         upState.value = const Error(null);
@@ -332,7 +427,7 @@ class DynamicsController extends GetxController
       currentMid.value = mid;
       tabController.index = DynamicsTabType.all.index;
       if (mid == -1) {
-        _markAllUpAsReadAndClearNextResponse();
+        _markAllUpAsRead();
         unawaited(queryFollowUp());
       } else {
         _markUpAsRead(mid);
@@ -344,7 +439,9 @@ class DynamicsController extends GetxController
     this.mid.value = mid;
     currentMid.value = mid;
     tabController.index = DynamicsTabType.all.index;
-    _markUpAsRead(mid);
+    if (mid != -1) {
+      _markUpAsRead(mid);
+    }
     if (upPageController.hasClients) {
       upPageController.animateToPage(
         pageIndex,
@@ -363,7 +460,9 @@ class DynamicsController extends GetxController
     this.mid.value = mid;
     currentMid.value = mid;
     tabController.index = DynamicsTabType.all.index;
-    _markUpAsRead(mid);
+    if (mid != -1) {
+      _markUpAsRead(mid);
+    }
     if (index >= items.length - 3) {
       onLoadMoreUp();
     }
@@ -446,6 +545,7 @@ class DynamicsController extends GetxController
   @override
   void onClose() {
     _isClosing = true;
+    _resetUpReadResolutionState();
     _pendingFollowUpRefresh = false;
     tabController.dispose();
     upPageController.dispose();
@@ -454,5 +554,8 @@ class DynamicsController extends GetxController
   }
 
   @override
-  void onChangeAccount(bool isLogin) => _refreshFollowUp();
+  void onChangeAccount(bool isLogin) {
+    _resetUpReadResolutionState();
+    _refreshFollowUp();
+  }
 }

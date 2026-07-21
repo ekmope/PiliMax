@@ -24,7 +24,6 @@ import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/page.dart';
-import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';

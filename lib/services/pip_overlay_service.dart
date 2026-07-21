@@ -307,9 +307,9 @@ class PipOverlayService {
     // TabController/ScrollController 仍会被旧页面再次使用。
     // 若 controller 已由 GetX 关闭，页面已离栈，此时再执行完整清理。
     if (shouldResetState && _savedController is VideoDetailController) {
-      final ctrl = _savedController as VideoDetailController;
-      ctrl.isEnteringPip = false;
-      ctrl.cancelBlockListener();
+      final ctrl = (_savedController as VideoDetailController)
+        ..isEnteringPip = false
+        ..cancelBlockListener();
       if (ctrl.isClosed) {}
       for (final controller in _savedControllers.values) {
         _setEnteringPipFlag(controller, false);
@@ -500,7 +500,7 @@ class _PipWidgetState extends State<PipWidget> with WidgetsBindingObserver {
       // 系统 PiP 模式下，直接铺满窗口，不执行任何自定义尺寸或位置计算
       if (isNative) {
         return Positioned.fill(
-          child: Container(
+          child: ColoredBox(
             color: Colors.black,
             child: AbsorbPointer(
               child: widget.videoPlayerBuilder(

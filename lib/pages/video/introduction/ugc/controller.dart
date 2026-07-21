@@ -52,7 +52,9 @@ import 'package:get/get.dart';
 class UgcIntroController extends CommonIntroController with ReloadMixin {
   UgcIntroController({
     Future<LoadingState<VideoDetailData>>? initialVideoIntro,
-  }) : _initialVideoIntro = initialVideoIntro;
+  }) : // Keep the public constructor argument name stable for call sites.
+       // ignore: prefer_initializing_formals
+       _initialVideoIntro = initialVideoIntro;
 
   Future<LoadingState<VideoDetailData>>? _initialVideoIntro;
   int _introRequestsInFlight = 0;

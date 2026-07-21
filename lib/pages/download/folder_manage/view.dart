@@ -30,9 +30,6 @@ class _DownloadFolderManagePageState extends State<DownloadFolderManagePage> {
       widget.collectionService.resolveFolderEntries(folderId);
 
   void _onReorder(int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
-    }
     final item = _folders.removeAt(oldIndex);
     _folders.insert(newIndex, item);
     setState(() {});
@@ -92,7 +89,7 @@ class _DownloadFolderManagePageState extends State<DownloadFolderManagePage> {
       ),
       body: ReorderableListView.builder(
         itemCount: _folders.length,
-        onReorder: _onReorder,
+        onReorderItem: _onReorder,
         physics: const AlwaysScrollableScrollPhysics(),
         padding:
             MediaQuery.viewPaddingOf(context).copyWith(top: 0) +

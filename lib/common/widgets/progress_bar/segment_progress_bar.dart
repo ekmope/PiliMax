@@ -387,19 +387,15 @@ class ViewPointDividerBar extends LeafRenderObjectWidget {
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return _RenderViewPointDividerBar(
-      segments: segments,
-      progress: progress,
-      dotRadius: dotRadius,
-    );
+    return _RenderViewPointDividerBar(segments, progress, dotRadius);
   }
 
   @override
   void updateRenderObject(
     BuildContext context,
-    _RenderViewPointDividerBar renderObject,
+    RenderObject renderObject,
   ) {
-    renderObject
+    (renderObject as _RenderViewPointDividerBar)
       ..segments = segments
       ..progress = progress
       ..dotRadius = dotRadius;
@@ -407,13 +403,7 @@ class ViewPointDividerBar extends LeafRenderObjectWidget {
 }
 
 class _RenderViewPointDividerBar extends RenderBox {
-  _RenderViewPointDividerBar({
-    required List<ViewPointSegment> segments,
-    required double progress,
-    required double dotRadius,
-  }) : _segments = segments,
-       _progress = progress,
-       _dotRadius = dotRadius;
+  _RenderViewPointDividerBar(this._segments, this._progress, this._dotRadius);
 
   List<ViewPointSegment> _segments;
   set segments(List<ViewPointSegment> value) {

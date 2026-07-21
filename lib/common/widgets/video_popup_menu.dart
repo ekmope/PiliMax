@@ -366,14 +366,12 @@ class VideoPopupMenu extends StatelessWidget {
       }
 
       int? cid = videoItem.cid;
-      if (cid == null) {
-        cid = await SearchHttp.ab2c(
-          aid: videoItem is BaseVideoItemModel
-              ? (videoItem as BaseVideoItemModel).aid
-              : null,
-          bvid: videoItem.bvid,
-        );
-      }
+      cid ??= await SearchHttp.ab2c(
+        aid: videoItem is BaseVideoItemModel
+            ? (videoItem as BaseVideoItemModel).aid
+            : null,
+        bvid: videoItem.bvid,
+      );
 
       if (cid == null) {
         SmartDialog.dismiss();

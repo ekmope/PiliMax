@@ -86,7 +86,7 @@ class NetworkImgLayer extends StatelessWidget {
       placeholder: (_, _) =>
           getPlaceHolder?.call() ??
           _placeholder(context, isEmote: isEmote, isAvatar: isAvatar),
-      errorWidget: (_, _, _) =>
+      errorBuilder: (_, _, _) =>
           _placeholder(context, isEmote: isEmote, isAvatar: isAvatar),
       colorBlendMode: reduce ? BlendMode.modulate : null,
       color: reduce ? reduceLuxColor : null,

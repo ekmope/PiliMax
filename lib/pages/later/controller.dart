@@ -288,10 +288,10 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
         } finally {
           SmartDialog.dismiss();
         }
-        if (result?.isSuccess == true) {
+        if (result.isSuccess) {
           SmartDialog.showToast('已清空');
         } else {
-          await result?.toast();
+          await result.toast();
         }
       },
     );

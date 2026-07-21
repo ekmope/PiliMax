@@ -6,7 +6,6 @@ import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/pages/common/reply_controller.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/reply/vote/reply_vote_mixin.dart';
-import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:get/get.dart';

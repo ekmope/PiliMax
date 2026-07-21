@@ -148,6 +148,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   bool _initialVideoSourceReady = false;
   bool _initialPlayerStarted = false;
   bool _allowPlayerMount = false;
+  // 页面可见性切换时递增，阻止旧的播放器恢复任务回写已离开的页面。
+  int _didPopNextGeneration = 0;
 
   // 标志位：是否正在进入 PiP 模式（用于防止 dispose/didPushNext 时清理播放器状态）
   bool _isEnteringPipMode = false;
@@ -482,9 +484,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       if (savedIntroController != null &&
           savedIntroController is PgcIntroController) {
         pgcIntroController = savedIntroController;
-        pgcIntroController.isEnteringPip = false; // 重置标志
-        pgcIntroController.$reopenLifeCycle();
-        pgcIntroController.startTimer();
+        // 重置 PiP 标志并恢复控制器生命周期。
+        pgcIntroController
+          ..isEnteringPip = false
+          ..$reopenLifeCycle()
+          ..startTimer();
         Get.put(pgcIntroController, tag: heroTag);
         _logSponsorBlock('Restored PgcIntroController from PiP');
       } else {
@@ -597,10 +601,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         // 同样刷新 ReplyController
         if (videoDetailController.showReply) {
           try {
-            final replyController = Get.find<VideoReplyController>(
-              tag: heroTag,
-            );
-            replyController.update();
+            Get.find<VideoReplyController>(tag: heroTag).update();
             _logSponsorBlock('Forced UI refresh for VideoReplyController');
           } catch (e) {
             _logSponsorBlock('Failed to refresh VideoReplyController: $e');
@@ -1078,6 +1079,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   @override
   void dispose() {
+    _didPopNextGeneration++;
     if (identical(
       _videoArgs[videoDetailExitVisualProviderKey],
       _exitVisualProvider,
@@ -1149,6 +1151,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   @override
   // 离开当前页面时
   void didPushNext() {
+    _didPopNextGeneration++;
     super.didPushNext();
     isShowing = false;
 
@@ -1210,8 +1213,20 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   @override
   // 返回当前页面时
-  void didPopNext() async {
+  void didPopNext() {
     super.didPopNext();
+
+    final resumeGeneration = ++_didPopNextGeneration;
+    unawaited(_handleDidPopNext(resumeGeneration));
+  }
+
+  bool _isCurrentDidPopNext(int resumeGeneration) =>
+      mounted && resumeGeneration == _didPopNextGeneration;
+
+  Future<void> _handleDidPopNext(int resumeGeneration) async {
+    if (!_isCurrentDidPopNext(resumeGeneration)) {
+      return;
+    }
 
     if (videoDetailController.plPlayerController.isCloseAll) {
       return;
@@ -1290,13 +1305,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       // didPushNext 时 videoState 被置为 false，需要在这里恢复
       // 场景：fromPip 页面（如听视频）返回时，播放器已在运行但 videoState 未恢复
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+        if (!_isCurrentDidPopNext(resumeGeneration)) return;
         videoDetailController.videoState.value = true;
         videoDetailController.videoState.refresh();
         setState(() {});
       });
 
-      super.didPopNext();
       return;
     }
 
@@ -1343,6 +1357,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       await videoDetailController.playerInit(
         autoplay: videoDetailController.playerStatus?.isPlaying ?? false,
       );
+      if (!_isCurrentDidPopNext(resumeGeneration)) {
+        return;
+      }
       plPlayerController = videoDetailController.plPlayerController;
     } else {
       // 场景 3：直接恢复关联的小窗/后台播放器，确保界面正常显示
@@ -1366,7 +1383,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         videoDetailController.autoPlay = true;
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+        if (!_isCurrentDidPopNext(resumeGeneration)) return;
         videoDetailController.videoState.value = true;
         videoDetailController.videoState.refresh();
         // 强制触发一次同步 UI 刷新，确保 sliver 和 layout 正确响应
@@ -1393,7 +1410,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
 
     // 无论进入哪个分支，最后都刷新一下 UI
-    if (mounted) setState(() {});
+    if (_isCurrentDidPopNext(resumeGeneration)) setState(() {});
 
     // 不在此处重试 _startInAppPipIfNeeded。
     // didPopNext 是"返回到本页面"的回调，无法预知用户接下来是停留还是继续返回。
@@ -1532,12 +1549,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                   clipBehavior: .none,
                   children: [
                     // 溢出垫层，解决预测性返回缩放动画时的亚像素白缝
-                    Positioned(
+                    const Positioned(
                       top: -1,
                       left: 0,
                       right: 0,
                       height: 2,
-                      child: const DecoratedBox(
+                      child: DecoratedBox(
                         decoration: BoxDecoration(color: Colors.black),
                       ),
                     ),
@@ -2150,13 +2167,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           if (!videoDetailController.isFileSource)
             PopupMenuItem(
               onTap: () async {
+                final pageContext = this.context;
                 final confirmed = await showConfirmDialog(
-                  context: context,
+                  context: pageContext,
                   title: const Text('确认缓存视频？'),
                   content: const Text('将打开离线缓存选择面板。'),
                 );
-                if (confirmed && this.context.mounted) {
-                  videoDetailController.onDownload(this.context);
+                if (confirmed && pageContext.mounted) {
+                  videoDetailController.onDownload(pageContext);
                 }
               },
               child: const Text('缓存视频'),
@@ -3415,27 +3433,27 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     final additionalControllers = <String, dynamic>{};
     if (videoDetailController.showReply) {
       try {
-        final replyController = Get.find<VideoReplyController>(tag: heroTag);
-        replyController.isEnteringPip = true;
+        final replyController = Get.find<VideoReplyController>(tag: heroTag)
+          ..isEnteringPip = true;
         additionalControllers['reply'] = replyController;
       } catch (_) {}
     }
     if (videoDetailController.isFileSource) {
       try {
-        final intro = Get.find<LocalIntroController>(tag: heroTag);
-        intro.isEnteringPip = true;
+        final intro = Get.find<LocalIntroController>(tag: heroTag)
+          ..isEnteringPip = true;
         additionalControllers['intro'] = intro;
       } catch (_) {}
     } else if (videoDetailController.isUgc) {
       try {
-        final intro = Get.find<UgcIntroController>(tag: heroTag);
-        intro.isEnteringPip = true;
+        final intro = Get.find<UgcIntroController>(tag: heroTag)
+          ..isEnteringPip = true;
         additionalControllers['intro'] = intro;
       } catch (_) {}
     } else {
       try {
-        final intro = Get.find<PgcIntroController>(tag: heroTag);
-        intro.isEnteringPip = true;
+        final intro = Get.find<PgcIntroController>(tag: heroTag)
+          ..isEnteringPip = true;
         additionalControllers['intro'] = intro;
       } catch (_) {}
     }
@@ -3554,11 +3572,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     videoPlayerServiceHandler?.onVideoDetailDispose(heroTag);
     plPlayerController ??= videoDetailController.plPlayerController;
     if (plPlayerController != null) {
-      videoDetailController.makeHeartBeat();
-      videoDetailController.syncCompletedProgressForCurrentVideo(
-        fallbackDuration:
-            plPlayerController!.videoPlayerController?.state.duration,
-      );
+      videoDetailController
+        ..makeHeartBeat()
+        ..syncCompletedProgressForCurrentVideo(
+          fallbackDuration:
+              plPlayerController!.videoPlayerController?.state.duration,
+        );
       plPlayerController!.dispose();
     } else {
       PlPlayerController.updatePlayCount();

@@ -871,16 +871,22 @@ class ReplyItemGrpc extends StatelessWidget {
             isValid =
                 DurationUtils.parseDuration(matchStr) * 1000 <=
                 ctr.duration.value * 1000;
-            if (kDebugMode) debugPrint('Found AudioController, isValid: $isValid');
+            if (kDebugMode) {
+              debugPrint('Found AudioController, isValid: $isValid');
+            }
           } catch (_) {
             try {
               final ctr = Get.find<VideoDetailController>(tag: heroTag);
               isValid =
                   DurationUtils.parseDuration(matchStr) * 1000 <=
                   ctr.data.timeLength!;
-              if (kDebugMode) debugPrint('Found VideoDetailController, isValid: $isValid');
+              if (kDebugMode) {
+                debugPrint('Found VideoDetailController, isValid: $isValid');
+              }
             } catch (e) {
-              if (kDebugMode) debugPrint('No controller found for tag: $heroTag, error: $e');
+              if (kDebugMode) {
+                debugPrint('No controller found for tag: $heroTag, error: $e');
+              }
             }
           }
           spanChildren.add(
@@ -899,18 +905,26 @@ class ReplyItemGrpc extends StatelessWidget {
                           );
                           SmartDialog.showToast('跳转至：$matchStr');
                           if (kDebugMode) {
-                            debugPrint('Seeking to $duration with tag: $heroTag');
+                            debugPrint(
+                              'Seeking to $duration with tag: $heroTag',
+                            );
                           }
                           try {
                             final ctr = Get.find<AudioController>(tag: heroTag);
-                            if (kDebugMode) debugPrint('Seeking AudioController');
+                            if (kDebugMode) {
+                              debugPrint('Seeking AudioController');
+                            }
                             ctr.seekTo(
                               duration,
                               isSeek: false,
                             );
                           } catch (_) {
-                            final ctr = Get.find<VideoDetailController>(tag: heroTag);
-                            if (kDebugMode) debugPrint('Seeking VideoDetailController');
+                            final ctr = Get.find<VideoDetailController>(
+                              tag: heroTag,
+                            );
+                            if (kDebugMode) {
+                              debugPrint('Seeking VideoDetailController');
+                            }
                             ctr.plPlayerController.seekTo(
                               duration,
                               isSeek: false,
@@ -1238,8 +1252,7 @@ class ReplyItemGrpc extends StatelessWidget {
                       child: SelectionText(
                         message,
                         style: const TextStyle(fontSize: 15, height: 1.7),
-                        contextMenuBuilder: (context, state, selectedText) =>
-                            _filterMenuBuilder(context, state, selectedText),
+                        contextMenuBuilder: _filterMenuBuilder,
                       ),
                     ),
                   ),

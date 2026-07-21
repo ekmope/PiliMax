@@ -231,7 +231,7 @@ class _WebLoginViewState extends State<WebLoginView>
     }
     final target = uri.uriValue;
     final open = await showDialog<bool>(
-      context: this.context,
+      context: context,
       builder: (context) => AlertDialog(
         title: const Text('打开外部应用'),
         content: Text(uri.toString()),

@@ -322,7 +322,7 @@ class _LivePipWidgetState extends State<LivePipWidget>
 
       if (isNative) {
         return Positioned.fill(
-          child: Container(
+          child: ColoredBox(
             color: Colors.black,
             child: AbsorbPointer(
               child: PLVideoPlayer(

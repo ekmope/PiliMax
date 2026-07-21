@@ -53,46 +53,48 @@ class MusicRecommendController
 
   @override
   bool customHandleResponse(
-      bool isRefresh, Success<List<BgmRecommend>?> response) {
+    bool isRefresh,
+    Success<List<BgmRecommend>?> response,
+  ) {
     if (response.response != null) {
       originalList = List.from(response.response!);
       isEnd = true;
       applySortAndFilter();
     } else {
-      loadingState.value = Success(null);
+      loadingState.value = const Success(null);
     }
     return true;
   }
 
   void applySortAndFilter() {
     if (originalList == null) return;
-    
+
     List<BgmRecommend> filtered = originalList!;
     final keyword = searchController.text.trim().toLowerCase();
-    
+
     if (keyword.isNotEmpty) {
       filtered = filtered.where((item) {
         return (item.title?.toLowerCase().contains(keyword) ?? false) ||
             (item.upNickName?.toLowerCase().contains(keyword) ?? false);
       }).toList();
     }
-    
+
     if (order.value != MusicRecommendOrderType.defaultOrder) {
-      filtered = List.from(filtered);
-      filtered.sort((a, b) {
-        switch (order.value) {
-          case MusicRecommendOrderType.play:
-            return (b.play ?? 0).compareTo(a.play ?? 0);
-          case MusicRecommendOrderType.danmu:
-            return (b.danmu ?? 0).compareTo(a.danmu ?? 0);
-          case MusicRecommendOrderType.duration:
-            return (b.duration ?? 0).compareTo(a.duration ?? 0);
-          case MusicRecommendOrderType.defaultOrder:
-            return 0;
-        }
-      });
+      filtered = List<BgmRecommend>.from(filtered)
+        ..sort((a, b) {
+          switch (order.value) {
+            case MusicRecommendOrderType.play:
+              return (b.play ?? 0).compareTo(a.play ?? 0);
+            case MusicRecommendOrderType.danmu:
+              return (b.danmu ?? 0).compareTo(a.danmu ?? 0);
+            case MusicRecommendOrderType.duration:
+              return (b.duration ?? 0).compareTo(a.duration ?? 0);
+            case MusicRecommendOrderType.defaultOrder:
+              return 0;
+          }
+        });
     }
-    
+
     loadingState.value = Success(filtered);
   }
 }

@@ -29,9 +29,6 @@ class _DownloadVideoSortPageState extends State<DownloadVideoSortPage> {
       List<BiliDownloadEntryInfo>.from(widget.entries);
 
   void _onReorder(int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
-    }
     final item = _sortList.removeAt(oldIndex);
     _sortList.insert(newIndex, item);
     setState(() {});
@@ -58,7 +55,7 @@ class _DownloadVideoSortPageState extends State<DownloadVideoSortPage> {
       ),
       body: ReorderableListView.builder(
         itemCount: _sortList.length,
-        onReorder: _onReorder,
+        onReorderItem: _onReorder,
         physics: const AlwaysScrollableScrollPhysics(),
         padding:
             MediaQuery.viewPaddingOf(context).copyWith(top: 0) +

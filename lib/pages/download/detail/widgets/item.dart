@@ -736,10 +736,11 @@ class _ExportDialog extends StatelessWidget {
                   return Column(
                     children: [
                       LinearProgressIndicator(
-                        year2023: true,
                         value: progress,
                         minHeight: 4,
                         borderRadius: BorderRadius.circular(2),
+                        trackGap: 0,
+                        stopIndicatorRadius: 0,
                         color: theme.colorScheme.primary,
                         backgroundColor:
                             theme.colorScheme.surfaceContainerHighest,

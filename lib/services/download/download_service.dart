@@ -43,7 +43,7 @@ class DownloadService extends GetxService {
   final _lock = Lock();
 
   final flagNotifier = SetNotifier();
-  final completedEntryNotifier = Set<ValueChanged<BiliDownloadEntryInfo>>();
+  final completedEntryNotifier = <ValueChanged<BiliDownloadEntryInfo>>{};
   final waitDownloadQueue = RxList<BiliDownloadEntryInfo>();
   final downloadList = <BiliDownloadEntryInfo>[];
   final _activeTasks = <int, _ActiveDownloadTask>{};

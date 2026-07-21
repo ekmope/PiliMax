@@ -3,7 +3,6 @@
 
 import 'dart:typed_data';
 
-import 'package:PiliMax/grpc/bilibili/community/service/dm/v1.pb.dart';
 import 'package:PiliMax/utils/danmaku_merge/models.dart';
 
 class DanmakuMergeTaskPayload {
@@ -122,4 +121,3 @@ class DanmakuMergeErrorPayload {
     };
   }
 }
-

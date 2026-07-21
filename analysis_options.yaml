@@ -10,8 +10,12 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
+  # PiliMax is the established application/package identity used by imports.
+  errors:
+    package_names: ignore
   exclude:
     - lib/grpc/bilibili/**
+    - lib/utils/android/bindings.g.dart
     # - lib/common/widgets/flutter/**
 
 formatter:

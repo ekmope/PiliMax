@@ -11,6 +11,8 @@ class RelatedController
     String? bvid,
     Future<LoadingState<List<HotVideoItemModel>?>>? initialRelated,
   }) : _bvid = bvid ?? Get.arguments['bvid'],
+       // Keep the public constructor argument name stable for call sites.
+       // ignore: prefer_initializing_formals
        _initialRelated = initialRelated {
     _initialBvid = _bvid;
   }

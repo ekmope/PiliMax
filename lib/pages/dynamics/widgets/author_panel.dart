@@ -447,13 +447,12 @@ class AuthorPanel extends StatelessWidget {
                   onBlock?.call();
                   try {
                     final mid = moduleAuthor.mid!;
-                    final blockedMids = Pref.dynamicsBlockedMids;
-                    blockedMids.add(mid);
+                    final blockedMids = Pref.dynamicsBlockedMids..add(mid);
                     Pref.dynamicsBlockedMids = blockedMids;
                     GlobalData().dynamicsBlockedMids = blockedMids;
                     DynamicsDataModel.dynamicsBlockedMids = blockedMids;
                     SmartDialog.showToast(
-                      '已永久屏蔽${moduleAuthor.name}(${mid})，可在动态流设置中管理',
+                      '已永久屏蔽${moduleAuthor.name}($mid)，可在动态流设置中管理',
                     );
                   } catch (_) {}
                 },
@@ -463,10 +462,11 @@ class AuthorPanel extends StatelessWidget {
                 title: Text('关键词屏蔽设置', style: theme.textTheme.titleSmall),
                 leading: const Icon(Icons.filter_alt_outlined, size: 19),
                 onTap: () {
-                  Get.back();
-                  Get.to(
-                    () => const DynamicsSetting(autoOpenKeywordFilter: true),
-                  );
+                  Get
+                    ..back()
+                    ..to(
+                      () => const DynamicsSetting(autoOpenKeywordFilter: true),
+                    );
                 },
                 minLeadingWidth: 0,
               ),
@@ -485,7 +485,7 @@ class AuthorPanel extends StatelessWidget {
                       Get.find<DynamicsController>().tempBannedList.remove(mid);
                     } catch (_) {}
                     SmartDialog.showToast(
-                      '已将${moduleAuthor.name}(${mid})加入白名单',
+                      '已将${moduleAuthor.name}($mid)加入白名单',
                     );
                   } catch (_) {}
                 },

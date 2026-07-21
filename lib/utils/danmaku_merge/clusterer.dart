@@ -39,21 +39,22 @@ class DanmakuClusterer {
       ..sort((a, b) => a.progress.compareTo(b.progress));
 
     final output = <DanmakuElem>[];
-    
-    final List<DanmakuMergeCluster>? activeClustersFlat =
-        config.crossMode ? <DanmakuMergeCluster>[] : null;
+
+    final List<DanmakuMergeCluster>? activeClustersFlat = config.crossMode
+        ? <DanmakuMergeCluster>[]
+        : null;
     final Map<int, List<DanmakuMergeCluster>>? activeClustersByMode =
         config.crossMode ? null : <int, List<DanmakuMergeCluster>>{};
 
     final exactMatchMap = <String, DanmakuMergeCluster>{};
 
-    String _getExactKey(DanmakuMergeCandidate c) =>
+    String getExactKey(DanmakuMergeCandidate c) =>
         config.crossMode ? c.normalizedText : '${c.mode}:${c.normalizedText}';
 
     void removeCluster(DanmakuMergeCluster cluster) {
       output.add(_buildRepresentative(cluster));
       for (final peer in cluster.peers) {
-        exactMatchMap.remove(_getExactKey(peer));
+        exactMatchMap.remove(getExactKey(peer));
       }
     }
 
@@ -86,17 +87,19 @@ class DanmakuClusterer {
       final candidate = _toCandidate(element, segmentIndex);
       var matched = false;
 
-      final exactKey = _getExactKey(candidate);
+      final exactKey = getExactKey(candidate);
       final exactCluster = exactMatchMap[exactKey];
       if (exactCluster != null) {
         exactCluster.add(candidate);
         continue;
       }
-      
+
       final Iterable<DanmakuMergeCluster> searchSpace = config.crossMode
           ? activeClustersFlat!
           : activeClustersByMode!.putIfAbsent(
-              candidate.mode, () => <DanmakuMergeCluster>[]);
+              candidate.mode,
+              () => <DanmakuMergeCluster>[],
+            );
 
       for (final cluster in searchSpace) {
         final result = await _matcher.match(candidate, cluster.root);
@@ -128,7 +131,7 @@ class DanmakuClusterer {
       }
       final candidate = _toCandidate(element, segmentIndex + 1);
 
-      final exactKey = _getExactKey(candidate);
+      final exactKey = getExactKey(candidate);
       final exactCluster = exactMatchMap[exactKey];
       if (exactCluster != null) {
         exactCluster.add(candidate);

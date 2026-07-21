@@ -460,7 +460,7 @@ SettingsModel getListUidModel({
 
       if (result != null) {
         final newUids = result
-            .map((e) => int.tryParse(e))
+            .map(int.tryParse)
             .where((e) => e != null)
             .cast<int>()
             .toSet();

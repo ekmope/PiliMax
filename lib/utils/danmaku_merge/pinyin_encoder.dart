@@ -6,8 +6,7 @@ import 'dart:collection';
 import 'dart:io' show File;
 
 class DanmakuPinyinEncoder {
-  DanmakuPinyinEncoder._({required Future<String> Function(String path) loader})
-    : _loader = loader;
+  DanmakuPinyinEncoder._(this._loader);
 
   static const String _assetPath = 'assets/danmaku_merge/pinyin_dict.txt';
   static const int _tokenBase = 0xE000;
@@ -17,19 +16,15 @@ class DanmakuPinyinEncoder {
   factory DanmakuPinyinEncoder.withLoader(
     Future<String> Function(String path) loader,
   ) {
-    return DanmakuPinyinEncoder._(loader: loader);
+    return DanmakuPinyinEncoder._(loader);
   }
 
   factory DanmakuPinyinEncoder.fromFileSystem() {
-    return DanmakuPinyinEncoder._(
-      loader: (path) => File(path).readAsString(),
-    );
+    return DanmakuPinyinEncoder._((path) => File(path).readAsString());
   }
 
   factory DanmakuPinyinEncoder.withDictionaryContent(String content) {
-    return DanmakuPinyinEncoder._(
-      loader: (_) async => content,
-    );
+    return DanmakuPinyinEncoder._((_) async => content);
   }
 
   final Map<String, List<int>> _cache = <String, List<int>>{};

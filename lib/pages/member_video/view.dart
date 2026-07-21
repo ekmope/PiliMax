@@ -11,7 +11,6 @@ import 'package:PiliMax/pages/member/controller.dart';
 import 'package:PiliMax/pages/member_video/controller.dart';
 import 'package:PiliMax/pages/member_video/widgets/video_card_h_member_video.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';

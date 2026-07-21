@@ -1,4 +1,3 @@
-import 'package:PiliMax/pages/about/view.dart';
 import 'package:PiliMax/pages/setting/ai_setting/view.dart';
 import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/pages/article_list/view.dart';
@@ -76,7 +75,6 @@ import 'package:PiliMax/pages/sponsor_block/view.dart';
 import 'package:PiliMax/pages/subscription/view.dart';
 import 'package:PiliMax/pages/subscription_detail/view.dart';
 import 'package:PiliMax/pages/video/video_detail_route_page.dart';
-import 'package:PiliMax/pages/webdav/view.dart';
 import 'package:PiliMax/pages/webview/view.dart';
 import 'package:PiliMax/pages/whisper/view.dart';
 import 'package:PiliMax/pages/whisper_detail/view.dart';

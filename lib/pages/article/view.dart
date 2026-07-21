@@ -8,9 +8,7 @@ import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognize
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_to_box_adapter.dart';
-import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
-import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models/dynamics/article_content_model.dart' show Pic;
 import 'package:PiliMax/models/dynamics/result.dart' show DynamicStat;
 import 'package:PiliMax/pages/article/controller.dart';

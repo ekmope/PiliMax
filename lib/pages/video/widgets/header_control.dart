@@ -566,14 +566,15 @@ class HeaderControlState extends State<HeaderControl>
                   ListTile(
                     dense: true,
                     onTap: () async {
+                      final pageContext = this.context;
                       Get.back();
                       final confirmed = await showConfirmDialog(
-                        context: context,
+                        context: pageContext,
                         title: const Text('确认缓存视频？'),
                         content: const Text('将打开离线缓存选择面板。'),
                       );
-                      if (confirmed && this.context.mounted) {
-                        videoDetailCtr.onDownload(this.context);
+                      if (confirmed && pageContext.mounted) {
+                        videoDetailCtr.onDownload(pageContext);
                       }
                     },
                     leading: const Icon(

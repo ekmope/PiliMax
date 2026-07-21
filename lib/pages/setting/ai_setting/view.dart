@@ -18,15 +18,17 @@ class AiSettingPage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
           // 总开关
-          Obx(() => SwitchListTile(
-                title: const Text('启用 AI 视频助手'),
-                subtitle: const Text('关闭后视频详情页不再显示 AI 按钮'),
-                value: controller.enableAiChat.value,
-                onChanged: (value) {
-                  controller.enableAiChat.value = value;
-                  Pref.enableAiChat = value;
-                },
-              )),
+          Obx(
+            () => SwitchListTile(
+              title: const Text('启用 AI 视频助手'),
+              subtitle: const Text('关闭后视频详情页不再显示 AI 按钮'),
+              value: controller.enableAiChat.value,
+              onChanged: (value) {
+                controller.enableAiChat.value = value;
+                Pref.enableAiChat = value;
+              },
+            ),
+          ),
           const SizedBox(height: 8),
 
           // API 配置
@@ -93,8 +95,10 @@ class AiSettingPage extends StatelessWidget {
                     if (controller.modelList.isNotEmpty) {
                       return DropdownButtonFormField<String>(
                         // ignore: deprecated_member_use
-                        value: controller.modelList
-                                .contains(controller.model.value)
+                        value:
+                            controller.modelList.contains(
+                              controller.model.value,
+                            )
                             ? controller.model.value
                             : null,
                         items: controller.modelList
@@ -177,7 +181,7 @@ class AiSettingPage extends StatelessWidget {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: controller.templates.length,
-                      onReorder: controller.reorderTemplate,
+                      onReorderItem: controller.reorderTemplate,
                       itemBuilder: (context, index) {
                         final t = controller.templates[index];
                         return Card(
@@ -206,8 +210,8 @@ class AiSettingPage extends StatelessWidget {
                                         overflow: TextOverflow.ellipsis,
                                         style: theme.textTheme.bodySmall
                                             ?.copyWith(
-                                          color: colorScheme.outline,
-                                        ),
+                                              color: colorScheme.outline,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -264,8 +268,11 @@ class AiSettingPage extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.info_outline,
-                          color: colorScheme.primary, size: 20),
+                      Icon(
+                        Icons.info_outline,
+                        color: colorScheme.primary,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         '使用说明',

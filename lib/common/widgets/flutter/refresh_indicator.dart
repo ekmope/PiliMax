@@ -9,8 +9,7 @@ import 'dart:io' show Platform;
 
 import 'package:PiliMax/common/widgets/scroll_behavior.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
-    show RefreshScrollPhysics;
+import 'package:extended_nested_scroll_view/src/refresh.dart';
 import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter/material.dart' hide RefreshIndicator;
 
@@ -618,10 +617,26 @@ class RefreshScrollBehavior extends CustomScrollBehavior {
     required this.scrollPhysics,
   });
 
-  final RefreshScrollPhysics scrollPhysics;
+  final RefreshScrollPhysicsMixin scrollPhysics;
 
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) {
     return scrollPhysics;
+  }
+}
+
+class RefreshScrollPhysics extends ClampingScrollPhysics
+    with RefreshScrollPhysicsMixin {
+  const RefreshScrollPhysics({
+    super.parent,
+    required this.onDrag,
+  });
+
+  @override
+  final OnDrag onDrag;
+
+  @override
+  RefreshScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return RefreshScrollPhysics(parent: buildParent(ancestor), onDrag: onDrag);
   }
 }

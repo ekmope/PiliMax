@@ -66,16 +66,7 @@ class _DynTopicPageState extends State<DynTopicPage>
         children: [
           refreshIndicator(
             onRefresh: _controller.onRefresh,
-            child: NotificationListener<UserScrollNotification>(
-              onNotification: (notification) {
-                final direction = notification.direction;
-                if (direction == .forward) {
-                  showFab();
-                } else if (direction == .reverse) {
-                  hideFab();
-                }
-                return false;
-              },
+            child: fabAnimWrapper(
               child: CustomScrollView(
                 controller: _controller.scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),

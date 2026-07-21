@@ -67,7 +67,7 @@ class _MusicDetailPageState extends CommonDynPageState<MusicDetailPage> {
             : _buildBody(),
       ),
     );
-    return fabAnimWrapper(child);
+    return fabAnimWrapper(child: child);
   }
 
   PreferredSizeWidget _buildAppBar() => AppBar(

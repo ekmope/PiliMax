@@ -318,25 +318,25 @@ class _WebviewPageState extends State<WebviewPage> {
             return null;
           },
           shouldOverrideUrlLoading: (controller, navigationAction) async {
-            if (_inApp) {
-              return NavigationActionPolicy.ALLOW;
+            if (!_inApp) {
+              final hasMatch = await PiliScheme.routePush(
+                navigationAction.request.url?.uriValue ?? Uri(),
+                selfHandle: true,
+                off: _off,
+              );
+              // if (kDebugMode) debugPrint('webview: [$url], [$hasMatch]');
+              if (hasMatch) {
+                progress.value = 1;
+                return .CANCEL;
+              }
             }
-            late String url = navigationAction.request.url.toString();
-            bool hasMatch = await PiliScheme.routePush(
-              navigationAction.request.url?.uriValue ?? Uri(),
-              selfHandle: true,
-              off: _off,
-            );
-            // if (kDebugMode) debugPrint('webview: [$url], [$hasMatch]');
-            if (hasMatch) {
-              progress.value = 1;
-              return NavigationActionPolicy.CANCEL;
-            } else if (_prefixRegex.hasMatch(url)) {
+            final url = navigationAction.request.url.toString();
+            if (_prefixRegex.hasMatch(url)) {
               if (context.mounted) {
-                SnackBar snackBar = SnackBar(
-                  content: const Text('当前网页将要打开外部链接，是否打开'),
-                  showCloseIcon: true,
+                final snackBar = SnackBar(
                   persist: false,
+                  showCloseIcon: true,
+                  content: const Text('当前网页将要打开外部链接，是否打开'),
                   action: SnackBarAction(
                     label: '打开',
                     onPressed: () => PageUtils.launchURL(url),
@@ -345,10 +345,10 @@ class _WebviewPageState extends State<WebviewPage> {
                 ScaffoldMessenger.of(context).showSnackBar(snackBar);
               }
               progress.value = 1;
-              return NavigationActionPolicy.CANCEL;
+              return .CANCEL;
             }
 
-            return NavigationActionPolicy.ALLOW;
+            return .ALLOW;
           },
         ),
       ),

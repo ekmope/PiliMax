@@ -419,7 +419,7 @@ class _MainAppState extends PopScopeState<MainApp>
             labelBehavior: _mainController.showNavBarLabel.value
                 ? NavigationDestinationLabelBehavior.alwaysShow
                 : NavigationDestinationLabelBehavior.alwaysHide,
-            onDestinationSelected: _mainController.setIndex,
+            onDestinationSelected: _mainController.selectFromBottomBar,
             selectedIndex: _mainController.selectedIndex.value,
             destinations: _mainController.navigationBars
                 .map(
@@ -439,7 +439,7 @@ class _MainAppState extends PopScopeState<MainApp>
             labelBehavior: _mainController.showNavBarLabel.value
                 ? NavigationDestinationLabelBehavior.alwaysShow
                 : NavigationDestinationLabelBehavior.alwaysHide,
-            onDestinationSelected: _mainController.setIndex,
+            onDestinationSelected: _mainController.selectFromBottomBar,
             selectedIndex: _mainController.selectedIndex.value,
             destinations: _mainController.navigationBars
                 .map(
@@ -456,7 +456,7 @@ class _MainAppState extends PopScopeState<MainApp>
         bottomNav = Obx(
           () => BottomNavigationBar(
             currentIndex: _mainController.selectedIndex.value,
-            onTap: _mainController.setIndex,
+            onTap: _mainController.selectFromBottomBar,
             iconSize: 16,
             selectedFontSize: 12,
             unselectedFontSize: 12,

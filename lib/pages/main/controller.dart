@@ -325,18 +325,40 @@ class MainController extends GetxController
     }
   }
 
+  void selectFromBottomBar(int value) {
+    _setIndex(value, animate: true);
+  }
+
   void setIndex(int value) {
+    _setIndex(value, animate: false);
+  }
+
+  void _setIndex(int value, {required bool animate}) {
     feedBack();
 
     final currentNav = navigationBars[value];
     if (value != selectedIndex.value) {
       selectedIndex.value = value;
       if (mainTabBarView) {
-        controller.animateTo(value);
+        if (animate) {
+          controller.animateTo(value);
+        } else {
+          controller.index = value;
+        }
       } else {
         final pageController = controller as PageController;
         if (pageController.hasClients) {
-          pageController.jumpToPage(value);
+          if (animate) {
+            unawaited(
+              pageController.animateToPage(
+                value,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+              ),
+            );
+          } else {
+            pageController.jumpToPage(value);
+          }
         }
       }
       if (currentNav == NavigationBarType.home) {

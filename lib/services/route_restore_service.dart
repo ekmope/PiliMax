@@ -19,6 +19,7 @@ abstract final class RouteRestoreService {
     'com.PiliMax.android/route_restore_lifecycle',
   );
   static const _restorableRoutes = {
+    '/',
     '/videoV',
     '/liveRoom',
     '/member',
@@ -30,38 +31,86 @@ abstract final class RouteRestoreService {
     '/download',
     '/dynamics',
   };
+  static const _mainNavigationNames = {'home', 'dynamics', 'mine'};
+  static const _homeTabNames = {
+    'live',
+    'rcmd',
+    'hot',
+    'rank',
+    'bangumi',
+    'cinema',
+  };
 
   static _RouteRestorePhase _phase = _RouteRestorePhase.startup;
   static RestorableRoute? _latestRoute;
+  static MainRestoreState? _latestMainState;
   static Future<void> _storageQueue = Future<void>.value();
 
   static bool get _enabled =>
       Platform.isAndroid && Pref.enableAndroidRouteRestore;
 
   static void onRouteChanged(Routing? routing) {
-    if (!_enabled ||
-        _phase == _RouteRestorePhase.restoring ||
-        routing == null) {
+    if (!_enabled || _phase != _RouteRestorePhase.ready || routing == null) {
       return;
     }
     if (routing.route is! GetPageRoute) return;
     final route = _normalizeRoute(routing.current);
     if (route.isEmpty || !route.startsWith('/')) return;
     if (route == '/') {
-      if (_phase == _RouteRestorePhase.ready) {
-        unawaited(clear());
+      if (_latestMainState case final mainState?) {
+        final restorable = RestorableRoute(
+          route: route,
+          mainState: mainState,
+        );
+        _latestRoute = restorable;
+        unawaited(_save(restorable));
       }
       return;
     }
     if (!_restorableRoutes.contains(route)) return;
 
-    final restorable = _buildRoute(route);
-    if (restorable == null) {
+    final routeState = _buildRoute(route);
+    if (routeState == null) {
       unawaited(clear());
       return;
     }
+    final restorable = _withMainState(routeState);
     _latestRoute = restorable;
     unawaited(_save(restorable));
+  }
+
+  static void captureCurrentRoute() {
+    if (!_enabled || _phase != _RouteRestorePhase.ready) return;
+    final route = _normalizeRoute(Get.currentRoute);
+    if (route.isEmpty || route == '/' || !_restorableRoutes.contains(route)) {
+      return;
+    }
+
+    final routeState = _buildRoute(route);
+    if (routeState == null) {
+      unawaited(clear());
+      return;
+    }
+    final restorable = _withMainState(routeState);
+    _latestRoute = restorable;
+    unawaited(_save(restorable));
+  }
+
+  static Future<void> updateMainState({
+    required String navigation,
+    String? homeTab,
+  }) {
+    if (!_enabled) return Future<void>.value();
+    final mainState = _parseMainState(navigation, homeTab);
+    if (mainState == null) return Future<void>.value();
+    _latestMainState = mainState;
+    if (_phase != _RouteRestorePhase.ready ||
+        _normalizeRoute(Get.currentRoute) != '/') {
+      return Future<void>.value();
+    }
+    final route = RestorableRoute(route: '/', mainState: mainState);
+    _latestRoute = route;
+    return _save(route);
   }
 
   static Future<void> saveLatestRoute() async {
@@ -72,6 +121,7 @@ abstract final class RouteRestoreService {
 
   static Future<void> clear() {
     _latestRoute = null;
+    _latestMainState = null;
     return _enqueueStorage(
       () => GStorage.localCache.deleteAll([
         LocalCacheKey.lastAndroidRouteRestoreState,
@@ -101,56 +151,66 @@ abstract final class RouteRestoreService {
     final route = RestorableRoute(
       route: '/videoV',
       arguments: storableArguments,
+      mainState: _latestMainState,
     );
     _latestRoute = route;
     return _save(route);
   }
 
-  static Future<void> restoreIfNeeded() async {
-    if (_phase != _RouteRestorePhase.startup) return;
-    _phase = _RouteRestorePhase.ready;
-    if (!_enabled) return;
+  static Future<bool> restoreIfNeeded({
+    required void Function(MainRestoreState state) restoreMainState,
+  }) async {
+    if (_phase != _RouteRestorePhase.startup) return true;
+    _phase = _RouteRestorePhase.checking;
+    if (!_enabled) {
+      _phase = _RouteRestorePhase.ready;
+      return true;
+    }
 
     try {
-      if (!await _consumeNativeRestoreEligibility()) {
-        await _ignoreStorageErrors(clear());
-        return;
+      final eligibility = await _consumeNativeRestoreEligibility();
+      if (eligibility == null) {
+        _phase = _RouteRestorePhase.ready;
+        return false;
       }
-      if (Get.currentRoute != '/') return;
+      if (!eligibility) {
+        return _rejectRestoreState();
+      }
+      if (Get.currentRoute != '/') {
+        _phase = _RouteRestorePhase.ready;
+        return true;
+      }
 
       final raw = GStorage.localCache.get(
         LocalCacheKey.lastAndroidRouteRestoreState,
       );
       if (raw is! String || raw.isEmpty) {
-        return;
+        _phase = _RouteRestorePhase.ready;
+        return true;
       }
 
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
-        await _ignoreStorageErrors(clear());
-        return;
+        return _rejectRestoreState();
       }
 
       final state = Map<String, dynamic>.from(decoded);
       if (state['version'] != _version) {
-        await _ignoreStorageErrors(clear());
-        return;
+        return _rejectRestoreState();
       }
 
       final savedAt = _asInt(state['time']);
       if (savedAt == null ||
           DateTime.now().millisecondsSinceEpoch - savedAt >
               _validDuration.inMilliseconds) {
-        await _ignoreStorageErrors(clear());
-        return;
+        return _rejectRestoreState();
       }
 
       final route = state['route'];
       final params = state['parameters'];
       final args = state['arguments'];
       if (route is! String || !_restorableRoutes.contains(route)) {
-        await _ignoreStorageErrors(clear());
-        return;
+        return _rejectRestoreState();
       }
 
       final arguments = _restoreArguments(route, args);
@@ -161,18 +221,33 @@ abstract final class RouteRestoreService {
         route: route,
         arguments: arguments,
         parameters: parameters,
+        mainState: _parseMainState(
+          state['mainNavigation'],
+          state['homeTab'],
+        ),
       );
       if (!_isValid(restorable)) {
-        await _ignoreStorageErrors(clear());
-        return;
+        return _rejectRestoreState();
+      }
+
+      if (restorable.mainState case final mainState?) {
+        _latestMainState = mainState;
+        restoreMainState(mainState);
       }
 
       final storedRoute = RestorableRoute(
         route: restorable.route,
         arguments: _storableArguments(restorable.route, restorable.arguments),
         parameters: restorable.parameters,
+        mainState: _latestMainState,
       );
       _latestRoute = storedRoute;
+      if (route == '/') {
+        _phase = _RouteRestorePhase.ready;
+        await _ignoreStorageErrors(_save(storedRoute));
+        return true;
+      }
+
       _phase = _RouteRestorePhase.restoring;
       Future<void>? navigation;
       try {
@@ -186,18 +261,19 @@ abstract final class RouteRestoreService {
         _phase = _RouteRestorePhase.ready;
       }
       if (navigation == null) {
-        await _ignoreStorageErrors(clear());
-        return;
+        return _rejectRestoreState();
       }
       unawaited(navigation);
       await _ignoreStorageErrors(_save(storedRoute));
+      return true;
     } catch (_) {
       _phase = _RouteRestorePhase.ready;
       await _ignoreStorageErrors(clear());
+      return true;
     }
   }
 
-  static Future<bool> _consumeNativeRestoreEligibility() async {
+  static Future<bool?> _consumeNativeRestoreEligibility() async {
     if (!Platform.isAndroid) return false;
     try {
       final eligible = await _lifecycleChannel.invokeMethod<bool>(
@@ -205,8 +281,14 @@ abstract final class RouteRestoreService {
       );
       return eligible == true;
     } catch (_) {
-      return false;
+      return null;
     }
+  }
+
+  static Future<bool> _rejectRestoreState() async {
+    _phase = _RouteRestorePhase.ready;
+    await _ignoreStorageErrors(clear());
+    return true;
   }
 
   static Future<void> _markNativeLifecycleEvent(String method) async {
@@ -247,6 +329,10 @@ abstract final class RouteRestoreService {
         'route': route.route,
         if (route.arguments != null) 'arguments': route.arguments,
         if (route.parameters != null) 'parameters': route.parameters,
+        if (route.mainState case final mainState?) ...{
+          'mainNavigation': mainState.navigation,
+          if (mainState.homeTab != null) 'homeTab': mainState.homeTab,
+        },
       }),
       LocalCacheKey.lastAndroidRouteRestoreTime: now,
     });
@@ -322,6 +408,30 @@ abstract final class RouteRestoreService {
     }
   }
 
+  static RestorableRoute _withMainState(RestorableRoute route) =>
+      RestorableRoute(
+        route: route.route,
+        arguments: route.arguments,
+        parameters: route.parameters,
+        mainState: _latestMainState,
+      );
+
+  static MainRestoreState? _parseMainState(
+    dynamic navigation,
+    dynamic homeTab,
+  ) {
+    if (navigation is! String || !_mainNavigationNames.contains(navigation)) {
+      return null;
+    }
+    final validHomeTab = homeTab is String && _homeTabNames.contains(homeTab)
+        ? homeTab
+        : null;
+    return MainRestoreState(
+      navigation: navigation,
+      homeTab: validHomeTab,
+    );
+  }
+
   static Map<String, dynamic>? _videoArguments(dynamic args) {
     if (args is! Map) return null;
     final sourceAid = _asInt(args['aid']);
@@ -365,6 +475,8 @@ abstract final class RouteRestoreService {
 
   static bool _isValid(RestorableRoute route) {
     switch (route.route) {
+      case '/':
+        return route.mainState != null;
       case '/videoV':
         return _videoArgumentsForRestore(route.arguments) != null;
       case '/liveRoom':
@@ -451,16 +563,28 @@ abstract final class RouteRestoreService {
       );
 }
 
-enum _RouteRestorePhase { startup, restoring, ready }
+enum _RouteRestorePhase { startup, checking, restoring, ready }
+
+class MainRestoreState {
+  const MainRestoreState({
+    required this.navigation,
+    this.homeTab,
+  });
+
+  final String navigation;
+  final String? homeTab;
+}
 
 class RestorableRoute {
   const RestorableRoute({
     required this.route,
     this.arguments,
     this.parameters,
+    this.mainState,
   });
 
   final String route;
   final dynamic arguments;
   final Map<String, String>? parameters;
+  final MainRestoreState? mainState;
 }

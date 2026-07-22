@@ -46,6 +46,19 @@ class HomeController extends GetxController
     return true;
   }
 
+  bool restoreTab(String tabName) {
+    final index = tabs.indexWhere((tab) => tab.name == tabName);
+    if (index == -1) {
+      return false;
+    }
+    if (tabController.index != index) {
+      tabController.index = index;
+    } else if (currentIndex.value != index) {
+      currentIndex.value = index;
+    }
+    return true;
+  }
+
   void _handleTabChange() {
     final index = tabController.index;
     if (currentIndex.value != index) {

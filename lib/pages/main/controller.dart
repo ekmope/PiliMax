@@ -333,6 +333,20 @@ class MainController extends GetxController
     _setIndex(value, animate: false);
   }
 
+  bool restoreNavigation(String navigationName) {
+    final index = navigationBars.indexWhere(
+      (navigation) => navigation.name == navigationName,
+    );
+    if (index == -1) {
+      return false;
+    }
+    if (selectedIndex.value != index) {
+      selectedIndex.value = index;
+    }
+    syncNavigationPage();
+    return true;
+  }
+
   void _setIndex(int value, {required bool animate}) {
     feedBack();
 

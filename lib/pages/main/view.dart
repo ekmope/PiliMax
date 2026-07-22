@@ -113,6 +113,63 @@ class _MainAppState extends PopScopeState<MainApp>
     }
   }
 
+  void _recordMainRestoreState() {
+    final selectedIndex = _mainController.selectedIndex.value;
+    if (selectedIndex < 0 ||
+        selectedIndex >= _mainController.navigationBars.length) {
+      return;
+    }
+
+    String? homeTab;
+    if (_mainController.hasHome) {
+      final homeController = _mainController.homeController;
+      final homeIndex = homeController.currentIndex.value;
+      if (homeIndex >= 0 && homeIndex < homeController.tabs.length) {
+        homeTab = homeController.tabs[homeIndex].name;
+      }
+    }
+
+    unawaited(
+      RouteRestoreService.updateMainState(
+        navigation: _mainController.navigationBars[selectedIndex].name,
+        homeTab: homeTab,
+      ),
+    );
+  }
+
+  void _onMainNavigationChanged() {
+    _syncAndroidPredictiveBack();
+    _recordMainRestoreState();
+  }
+
+  void _onHomeTabChanged() {
+    _syncAndroidPredictiveBack();
+    _recordMainRestoreState();
+  }
+
+  void _restoreMainState(MainRestoreState state) {
+    if (_mainController.hasHome) {
+      if (state.homeTab case final homeTab?) {
+        _mainController.homeController.restoreTab(homeTab);
+      }
+    }
+    _mainController.restoreNavigation(state.navigation);
+    _scheduleNavigationPageSync();
+    _recordMainRestoreState();
+  }
+
+  Future<void> _restoreRoute() async {
+    final shouldRecordCurrentState = await RouteRestoreService.restoreIfNeeded(
+      restoreMainState: _restoreMainState,
+    );
+    if (mounted) {
+      if (shouldRecordCurrentState) {
+        _recordMainRestoreState();
+      }
+      RouteRestoreService.captureCurrentRoute();
+    }
+  }
+
   void _scheduleNavigationPageSync() {
     if (_navigationSyncScheduled) {
       return;
@@ -132,7 +189,7 @@ class _MainAppState extends PopScopeState<MainApp>
     _backPopWorkers = [
       ever<int>(
         _mainController.selectedIndex,
-        (_) => _syncAndroidPredictiveBack(),
+        (_) => _onMainNavigationChanged(),
       ),
       ever<bool>(
         _mainController.directExitOnBack,
@@ -151,15 +208,16 @@ class _MainAppState extends PopScopeState<MainApp>
       _backPopWorkers.add(
         ever<int>(
           _mainController.homeController.currentIndex,
-          (_) => _syncAndroidPredictiveBack(),
+          (_) => _onHomeTabChanged(),
         ),
       );
     }
+    _recordMainRestoreState();
     _syncAndroidPredictiveBack();
     addObserverMobile(this);
     if (Platform.isAndroid) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(RouteRestoreService.restoreIfNeeded());
+        unawaited(_restoreRoute());
       });
     }
     if (PlatformUtils.isDesktop) {
@@ -209,6 +267,7 @@ class _MainAppState extends PopScopeState<MainApp>
       ..checkDefaultSearch(true)
       ..checkUnread(_mainController.useBottomNav);
     _scheduleNavigationPageSync();
+    _recordMainRestoreState();
     super.didPopNext();
   }
 
@@ -221,6 +280,7 @@ class _MainAppState extends PopScopeState<MainApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
+      _recordMainRestoreState();
       unawaited(RouteRestoreService.saveLatestRoute());
       return;
     }
@@ -396,6 +456,9 @@ class _MainAppState extends PopScopeState<MainApp>
   @override
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
+      if (Platform.isAndroid) {
+        unawaited(RouteRestoreService.markIntentionalExit());
+      }
       return;
     }
     switch (_backAction) {

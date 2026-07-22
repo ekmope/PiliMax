@@ -164,7 +164,7 @@ internal object RouteRestoreLifecycle {
         session: SessionSnapshot?,
         currentVersion: AppVersion,
     ): Boolean {
-        if (session == null || session.invalidated || session.explicitLaunch) {
+        if (session == null || session.invalidated) {
             return false
         }
         if (session.visibility != VISIBILITY_BACKGROUND) return false
@@ -176,14 +176,14 @@ internal object RouteRestoreLifecycle {
 
         return when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
-                wasReclaimedInBackground(context, session)
+                wasTerminatedInBackground(context, session)
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.N -> true
             else -> false
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    private fun wasReclaimedInBackground(
+    private fun wasTerminatedInBackground(
         context: Context,
         session: SessionSnapshot,
     ): Boolean {
@@ -200,17 +200,33 @@ internal object RouteRestoreLifecycle {
             }
         } catch (_: RuntimeException) {
             null
-        } ?: return false
+        } ?: return true
 
-        // Reject ambiguous reasons so a task clear is never treated as an
-        // ordinary background reclaim merely because an OEM reports OTHER.
-        return when (exitInfo.reason) {
+        // Several OEMs report ordinary background reclaim as OTHER, UNKNOWN,
+        // or SIGKILL instead of LOW_MEMORY. Explicit exits remain rejected by
+        // their lifecycle marker or USER_REQUESTED exit reason.
+        val reason = exitInfo.reason
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            reason == ApplicationExitInfo.REASON_FREEZER
+        ) {
+            return true
+        }
+        return when (reason) {
+            ApplicationExitInfo.REASON_UNKNOWN,
             ApplicationExitInfo.REASON_LOW_MEMORY -> true
             ApplicationExitInfo.REASON_SIGNALED ->
-                !ActivityManager.isLowMemoryKillReportSupported() &&
-                    exitInfo.status == OsConstants.SIGKILL &&
-                    exitInfo.importance >=
-                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED
+                exitInfo.status == OsConstants.SIGKILL
+            ApplicationExitInfo.REASON_DEPENDENCY_DIED,
+            ApplicationExitInfo.REASON_OTHER -> true
+            ApplicationExitInfo.REASON_EXIT_SELF,
+            ApplicationExitInfo.REASON_CRASH,
+            ApplicationExitInfo.REASON_CRASH_NATIVE,
+            ApplicationExitInfo.REASON_ANR,
+            ApplicationExitInfo.REASON_INITIALIZATION_FAILURE,
+            ApplicationExitInfo.REASON_PERMISSION_CHANGE,
+            ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE,
+            ApplicationExitInfo.REASON_USER_REQUESTED,
+            ApplicationExitInfo.REASON_USER_STOPPED -> false
             else -> false
         }
     }

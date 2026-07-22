@@ -1,6 +1,7 @@
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/plus_one_icon.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:PiliMax/http/live.dart';
@@ -82,45 +83,63 @@ class LiveRoomChatPanel extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Builder(
                     builder: (itemContext) {
-                      return Container(
-                        padding: const .symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: bg,
-                          borderRadius: const .all(.circular(14)),
-                        ),
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
-                              ?medal,
-                              TextSpan(
-                                text: '${item.name}: ',
-                                style: TextStyle(
-                                  color: nameColor,
-                                  fontSize: 14,
-                                ),
-                                recognizer: item.extra.mid == 0
-                                    ? null
-                                    : (NoDeadlineTapGestureRecognizer()
-                                        ..onTapUp = (e) => _showMsgMenu(
-                                          context,
-                                          itemContext,
-                                          e,
-                                          item,
-                                        )),
-                              ),
-                              if (item.reply case final reply?)
+                      final canPlusOne =
+                          isPP &&
+                          item.extra.mid != 0 &&
+                          item.text.trim().isNotEmpty;
+                      return GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: canPlusOne
+                            ? () => _showPlusOneMenu(
+                                context,
+                                itemContext,
+                                item,
+                              )
+                            : null,
+                        child: Container(
+                          padding: const .symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: bg,
+                            borderRadius: const .all(.circular(14)),
+                          ),
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                ?medal,
                                 TextSpan(
-                                  text: '@${reply.name} ',
+                                  text: '${item.name}: ',
                                   style: TextStyle(
-                                    color: primary,
+                                    color: nameColor,
                                     fontSize: 14,
                                   ),
-                                  recognizer: NoDeadlineTapGestureRecognizer()
-                                    ..onTap = () =>
-                                        Get.toNamed('/member?mid=${reply.mid}'),
+                                  recognizer: item.extra.mid == 0
+                                      ? null
+                                      : (NoDeadlineTapGestureRecognizer()
+                                          ..onTapUp = (e) => _showMsgMenu(
+                                            context,
+                                            itemContext,
+                                            e,
+                                            item,
+                                          )),
                                 ),
-                              _buildMsg(devicePixelRatio, item),
-                            ],
+                                if (item.reply case final reply?)
+                                  TextSpan(
+                                    text: '@${reply.name} ',
+                                    style: TextStyle(
+                                      color: primary,
+                                      fontSize: 14,
+                                    ),
+                                    recognizer: NoDeadlineTapGestureRecognizer()
+                                      ..onTap = () => Get.toNamed(
+                                        '/member?mid=${reply.mid}',
+                                      ),
+                                  ),
+                                _buildMsg(devicePixelRatio, item),
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -302,6 +321,48 @@ class LiveRoomChatPanel extends StatelessWidget {
           color: Colors.white,
           fontSize: 14,
         ),
+      );
+    }
+  }
+
+  Future<void> _showPlusOneMenu(
+    BuildContext context,
+    BuildContext itemContext,
+    DanmakuMsg item,
+  ) async {
+    final autoScroll =
+        liveRoomController.autoScroll &&
+        !liveRoomController.disableAutoScroll.value;
+    if (autoScroll) {
+      liveRoomController.autoScroll = false;
+    }
+
+    bool? plusOne;
+    try {
+      plusOne = await showStaticPositionMenu<bool>(
+        context: itemContext,
+        constraints: const BoxConstraints.tightFor(width: 52),
+        menuPadding: EdgeInsets.zero,
+        items: const [
+          PopupMenuItem(
+            value: true,
+            height: 44,
+            padding: EdgeInsets.zero,
+            child: Center(child: PlusOneIcon()),
+          ),
+        ],
+      );
+    } finally {
+      if (autoScroll && context.mounted) {
+        liveRoomController
+          ..autoScroll = true
+          ..scrollToBottom();
+      }
+    }
+    if (plusOne == true && context.mounted) {
+      await HeaderControl.plusOneLiveDanmaku(
+        roomId: roomId,
+        msg: item.text,
       );
     }
   }

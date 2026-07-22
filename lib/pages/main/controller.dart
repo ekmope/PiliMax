@@ -279,7 +279,7 @@ class MainController extends GetxController
   void toMinePage() {
     _mineIndex ??= navigationBars.indexOf(NavigationBarType.mine);
     if (_mineIndex != -1) {
-      setIndex(_mineIndex!);
+      selectNavigation(_mineIndex!);
     } else {
       Get.to(
         const Material(
@@ -325,7 +325,7 @@ class MainController extends GetxController
     }
   }
 
-  void selectFromBottomBar(int value) {
+  void selectNavigation(int value) {
     _setIndex(value, animate: true);
   }
 
@@ -341,7 +341,11 @@ class MainController extends GetxController
       selectedIndex.value = value;
       if (mainTabBarView) {
         if (animate) {
-          controller.animateTo(value);
+          (controller as TabController).animateTo(
+            value,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+          );
         } else {
           controller.index = value;
         }

@@ -16,6 +16,7 @@ import 'package:PiliMax/common/widgets/gesture/player_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/loading_widget.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/common/widgets/player_bar.dart';
+import 'package:PiliMax/common/widgets/plus_one_icon.dart';
 import 'package:PiliMax/common/widgets/progress_bar/audio_video_progress_bar.dart';
 import 'package:PiliMax/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
@@ -2597,11 +2598,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 onTap: () => Utils.copyText(item.content.text),
               ),
               _dmActionItem(
-                const Icon(
-                  size: 20,
-                  Icons.plus_one,
-                  color: Colors.white,
-                ),
+                const PlusOneIcon(color: Colors.white),
                 onTap: () => _sendPlusOne(
                   () => HeaderControl.plusOneVideoDanmaku(
                     ctr: plPlayerController,
@@ -2665,11 +2662,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 onTap: () => Utils.copyText(item.content.text),
               ),
               _dmActionItem(
-                const Icon(
-                  size: 20,
-                  Icons.plus_one,
-                  color: Colors.white,
-                ),
+                const PlusOneIcon(color: Colors.white),
                 onTap: () => _sendPlusOne(
                   () => HeaderControl.plusOneLiveDanmaku(
                     roomId: (widget.bottomControl as live_bottom.BottomControl)

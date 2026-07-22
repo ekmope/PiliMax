@@ -19,6 +19,7 @@ class HomeController extends GetxController
     with GetSingleTickerProviderStateMixin, ScrollOrRefreshMixin {
   late List<HomeTabType> tabs;
   late TabController tabController;
+  final RxInt currentIndex = 0.obs;
 
   RxBool? showTopBar;
   late final bool hideTopBar;
@@ -34,15 +35,22 @@ class HomeController extends GetxController
 
   AccountService accountService = Get.find<AccountService>();
 
-  bool get isRcmdTab => tabs[tabController.index] == HomeTabType.rcmd;
+  bool get isRcmdTab => tabs[currentIndex.value] == HomeTabType.rcmd;
 
   bool backToRcmdTab() {
     final rcmdIndex = tabs.indexOf(HomeTabType.rcmd);
-    if (rcmdIndex == -1 || tabController.index == rcmdIndex) {
+    if (rcmdIndex == -1 || currentIndex.value == rcmdIndex) {
       return false;
     }
     tabController.animateTo(rcmdIndex);
     return true;
+  }
+
+  void _handleTabChange() {
+    final index = tabController.index;
+    if (currentIndex.value != index) {
+      currentIndex.value = index;
+    }
   }
 
   @override
@@ -83,16 +91,20 @@ class HomeController extends GetxController
       this.tabs = HomeTabType.values;
     }
 
+    final initialIndex = max(0, this.tabs.indexOf(HomeTabType.rcmd));
+    currentIndex.value = initialIndex;
     tabController = TabController(
-      initialIndex: max(0, this.tabs.indexOf(HomeTabType.rcmd)),
+      initialIndex: initialIndex,
       length: this.tabs.length,
       vsync: this,
-    );
+    )..addListener(_handleTabChange);
   }
 
   @override
   void dispose() {
-    tabController.dispose();
+    tabController
+      ..removeListener(_handleTabChange)
+      ..dispose();
     super.dispose();
   }
 

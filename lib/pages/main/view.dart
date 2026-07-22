@@ -33,6 +33,13 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:win32/win32.dart' as kernel32;
 import 'package:window_manager/window_manager.dart';
 
+enum _MainBackAction {
+  dynamicsRoot,
+  homeRecommended,
+  firstNavigation,
+  exit,
+}
+
 class MainApp extends StatefulWidget {
   const MainApp({super.key});
 
@@ -62,11 +69,21 @@ class _MainAppState extends PopScopeState<MainApp>
       Platform.isAndroid && DeviceUtils.sdkInt >= 33;
 
   bool get _allowAndroidPredictiveExit =>
-      _supportsPredictiveBack &&
-      !_isOnDynamicsSubTab &&
-      !_isOnHomeSubTab &&
-      (_mainController.directExitOnBack.value ||
-          _mainController.selectedIndex.value == 0);
+      _supportsPredictiveBack && _backAction == _MainBackAction.exit;
+
+  _MainBackAction get _backAction {
+    if (_isOnDynamicsSubTab) {
+      return _MainBackAction.dynamicsRoot;
+    }
+    if (_isOnHomeSubTab) {
+      return _MainBackAction.homeRecommended;
+    }
+    if (!_mainController.directExitOnBack.value &&
+        _mainController.selectedIndex.value != 0) {
+      return _MainBackAction.firstNavigation;
+    }
+    return _MainBackAction.exit;
+  }
 
   bool get _isOnHomeSubTab {
     if (!_mainController.hasHome) {
@@ -131,8 +148,11 @@ class _MainAppState extends PopScopeState<MainApp>
       );
     }
     if (_mainController.hasHome) {
-      _mainController.homeController.tabController.addListener(
-        _syncAndroidPredictiveBack,
+      _backPopWorkers.add(
+        ever<int>(
+          _mainController.homeController.currentIndex,
+          (_) => _syncAndroidPredictiveBack(),
+        ),
       );
     }
     _syncAndroidPredictiveBack();
@@ -221,11 +241,6 @@ class _MainAppState extends PopScopeState<MainApp>
     removeObserverMobile(this);
     for (final worker in _backPopWorkers) {
       worker.dispose();
-    }
-    if (_mainController.hasHome) {
-      _mainController.homeController.tabController.removeListener(
-        _syncAndroidPredictiveBack,
-      );
     }
     PiliScheme.listener?.cancel();
     GStorage.close();
@@ -383,30 +398,23 @@ class _MainAppState extends PopScopeState<MainApp>
     if (didPop) {
       return;
     }
-    if (_allowAndroidPredictiveExit) {
-      return;
-    }
-    if (_isOnDynamicsSubTab &&
-        _mainController.dynamicController.backToAllTab()) {
-      _syncAndroidPredictiveBack();
-      return;
-    }
-    if (_isOnHomeSubTab && _mainController.homeController.backToRcmdTab()) {
-      _syncAndroidPredictiveBack();
-      return;
-    }
-    if (_mainController.directExitOnBack.value) {
-      _onBack();
-    } else {
-      if (_mainController.selectedIndex.value != 0) {
+    switch (_backAction) {
+      case _MainBackAction.dynamicsRoot:
+        _mainController.dynamicController.backToAllTab();
+        _syncAndroidPredictiveBack();
+      case _MainBackAction.homeRecommended:
+        _mainController.homeController.backToRcmdTab();
+        _syncAndroidPredictiveBack();
+      case _MainBackAction.firstNavigation:
         _mainController
-          ..setIndex(0)
+          ..selectNavigation(0)
           ..barOffset?.value = 0.0
           ..showBottomBar?.value = true
           ..setSearchBar();
-      } else {
-        _onBack();
-      }
+      case _MainBackAction.exit:
+        if (!_allowAndroidPredictiveExit) {
+          _onBack();
+        }
     }
   }
 
@@ -419,7 +427,7 @@ class _MainAppState extends PopScopeState<MainApp>
             labelBehavior: _mainController.showNavBarLabel.value
                 ? NavigationDestinationLabelBehavior.alwaysShow
                 : NavigationDestinationLabelBehavior.alwaysHide,
-            onDestinationSelected: _mainController.selectFromBottomBar,
+            onDestinationSelected: _mainController.selectNavigation,
             selectedIndex: _mainController.selectedIndex.value,
             destinations: _mainController.navigationBars
                 .map(
@@ -439,7 +447,7 @@ class _MainAppState extends PopScopeState<MainApp>
             labelBehavior: _mainController.showNavBarLabel.value
                 ? NavigationDestinationLabelBehavior.alwaysShow
                 : NavigationDestinationLabelBehavior.alwaysHide,
-            onDestinationSelected: _mainController.selectFromBottomBar,
+            onDestinationSelected: _mainController.selectNavigation,
             selectedIndex: _mainController.selectedIndex.value,
             destinations: _mainController.navigationBars
                 .map(
@@ -456,7 +464,7 @@ class _MainAppState extends PopScopeState<MainApp>
         bottomNav = Obx(
           () => BottomNavigationBar(
             currentIndex: _mainController.selectedIndex.value,
-            onTap: _mainController.selectFromBottomBar,
+            onTap: _mainController.selectNavigation,
             iconSize: 16,
             selectedFontSize: 12,
             unselectedFontSize: 12,
@@ -524,7 +532,8 @@ class _MainAppState extends PopScopeState<MainApp>
                             indicatorShape: const RoundedRectangleBorder(
                               borderRadius: .all(.circular(16)),
                             ),
-                            onDestinationSelected: _mainController.setIndex,
+                            onDestinationSelected:
+                                _mainController.selectNavigation,
                             selectedIndex: _mainController.selectedIndex.value,
                             children: _mainController.navigationBars
                                 .map(
@@ -550,7 +559,7 @@ class _MainAppState extends PopScopeState<MainApp>
                   () => NavigationRail(
                     groupAlignment: 0.5,
                     selectedIndex: _mainController.selectedIndex.value,
-                    onDestinationSelected: _mainController.setIndex,
+                    onDestinationSelected: _mainController.selectNavigation,
                     labelType: _mainController.showNavBarLabel.value
                         ? NavigationRailLabelType.selected
                         : NavigationRailLabelType.none,

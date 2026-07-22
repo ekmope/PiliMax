@@ -90,6 +90,7 @@ abstract final class ApiType {
       Api.dynTopicRcmd,
       Api.topicFeed,
       Api.topicTop,
+      Api.liveFeedback,
     },
     // progress
     AccountType.video: {

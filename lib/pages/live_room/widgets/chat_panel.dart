@@ -1,6 +1,8 @@
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart'
+    show platformClampingPhysics;
 import 'package:PiliMax/http/live.dart';
 import 'package:PiliMax/models_new/live/live_danmaku/danmaku_msg.dart';
 import 'package:PiliMax/models_new/live/live_superchat/item.dart';
@@ -54,7 +56,7 @@ class LiveRoomChatPanel extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemCount: liveRoomController.builtLength =
                 liveRoomController.messages.length,
-            physics: const ClampingScrollPhysics(),
+            physics: platformClampingPhysics,
             itemBuilder: (_, index) {
               final item = liveRoomController.messages[index];
               if (item is DanmakuMsg) {

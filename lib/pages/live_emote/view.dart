@@ -3,7 +3,8 @@ import 'dart:math';
 import 'package:PiliMax/common/widgets/custom_tooltip.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
-import 'package:PiliMax/common/widgets/scroll_physics.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart'
+    show tabBarView, platformClampingPhysics;
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models_new/live/live_emote/datum.dart';
@@ -81,7 +82,7 @@ class _LiveEmotePanelState extends State<LiveEmotePanel>
                           final width = widthFac * 38;
                           final height = heightFac * 38;
                           return GridView.builder(
-                            physics: const ClampingScrollPhysics(),
+                            physics: platformClampingPhysics,
                             padding: const EdgeInsets.only(
                               left: 12,
                               right: 12,

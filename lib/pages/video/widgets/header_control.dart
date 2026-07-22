@@ -785,10 +785,24 @@ class HeaderControlState extends State<HeaderControl>
                                 plPlayerController.onlyPlayAudio.value;
                             return ActionRowLineItem(
                               iconData: Icons.headphones,
-                              onTap: () {
+                              onTap: () async {
                                 plPlayerController.onlyPlayAudio.value =
                                     !onlyPlayAudio;
-                                widget.videoDetailCtr.playerInit();
+                                final player =
+                                    plPlayerController.videoPlayerController;
+                                if (player == null) {
+                                  await videoDetailCtr.playerInit();
+                                  return;
+                                }
+                                // If the player was opened with the standalone
+                                // audio URL, there is no video track to restore.
+                                if (onlyPlayAudio &&
+                                    player.state.tracks.video.length <= 2) {
+                                  await videoDetailCtr.playerInit();
+                                } else {
+                                  await plPlayerController
+                                      .applyOnlyPlayAudioTrack();
+                                }
                               },
                               text: " 听视频 ",
                               selectStatus: onlyPlayAudio,
@@ -1548,17 +1562,19 @@ class HeaderControlState extends State<HeaderControl>
 
         void updateFontScaleFS(double val) => update(() {
           if (isPrimary) {
-            plPlayerController.subtitleFontScaleFS = val;
+            plPlayerController.subtitleFontScaleFS = val.toPrecision(2);
           } else {
-            plPlayerController.subtitleSecondaryFontScaleFS = val;
+            plPlayerController.subtitleSecondaryFontScaleFS = val.toPrecision(
+              2,
+            );
           }
         });
 
         void updateFontScale(double val) => update(() {
           if (isPrimary) {
-            plPlayerController.subtitleFontScale = val;
+            plPlayerController.subtitleFontScale = val.toPrecision(2);
           } else {
-            plPlayerController.subtitleSecondaryFontScale = val;
+            plPlayerController.subtitleSecondaryFontScale = val.toPrecision(2);
           }
         });
 
@@ -1631,7 +1647,7 @@ class HeaderControlState extends State<HeaderControl>
                         min: 0.5,
                         max: 2.5,
                         value: subtitleFontScale,
-                        divisions: 20,
+                        divisions: 200,
                         label:
                             '${(subtitleFontScale * 100).toStringAsFixed(1)}%',
                         onChanged: updateFontScale,
@@ -1664,7 +1680,7 @@ class HeaderControlState extends State<HeaderControl>
                         min: 0.5,
                         max: 2.5,
                         value: subtitleFontScaleFS,
-                        divisions: 20,
+                        divisions: 200,
                         label:
                             '${(subtitleFontScaleFS * 100).toStringAsFixed(1)}%',
                         onChanged: updateFontScaleFS,
@@ -1814,7 +1830,9 @@ class HeaderControlState extends State<HeaderControl>
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('背景不透明度 ${(subtitleBgOpacity * 100).toInt()}%'),
+                      Text(
+                        '背景不透明度 ${(subtitleBgOpacity * 100).toStringAsFixed(1)}%',
+                      ),
                       resetBtn(theme, '67%', () => updateOpacity(0.67)),
                     ],
                   ),
@@ -1830,6 +1848,7 @@ class HeaderControlState extends State<HeaderControl>
                       child: Slider(
                         min: 0,
                         max: 1,
+                        divisions: 100,
                         value: subtitleBgOpacity,
                         onChanged: updateOpacity,
                       ),

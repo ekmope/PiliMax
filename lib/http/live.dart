@@ -808,7 +808,10 @@ abstract final class LiveHttp {
   }
 
   static String _hex(Random random, int length) {
-    return List.generate(length, (_) => random.nextInt(16).toRadixString(16)).join();
+    return List.generate(
+      length,
+      (_) => random.nextInt(16).toRadixString(16),
+    ).join();
   }
 
   static String _hexVariant(Random random) {
@@ -816,9 +819,13 @@ abstract final class LiveHttp {
   }
 
   static String _randomString(int length) {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = Random();
-    return List.generate(length, (_) => chars[random.nextInt(chars.length)]).join();
+    return List.generate(
+      length,
+      (_) => chars[random.nextInt(chars.length)],
+    ).join();
   }
 
   static String _clientSign(Map<String, dynamic> data) {
@@ -838,7 +845,9 @@ abstract final class LiveHttp {
   }) async {
     final uuid = _hbUuid;
     final clickId = _hbClickId;
-    if (uuid == null || clickId == null) return const Error('heartbeat not initialized');
+    if (uuid == null || clickId == null) {
+      return const Error('heartbeat not initialized');
+    }
 
     _hbSeqId++;
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
@@ -900,6 +909,43 @@ abstract final class LiveHttp {
       return Error(res.data?['message'] ?? 'heartbeat failed');
     } catch (e) {
       return Error(e.toString());
+    }
+  }
+
+  static Future<LoadingState<void>> liveFeedback(
+    Object roomId,
+    Object id,
+    String type, {
+    int page = 1,
+  }) async {
+    final params = {
+      'access_key': ?recommend.accessKey,
+      'actionKey': 'appkey',
+      'build': 8430300,
+      'channel': 'master',
+      'c_locale': 'zh_CN',
+      'device': 'android',
+      'disable_rcmd': 0,
+      'mobi_app': 'android',
+      'platform': 'android',
+      's_locale': 'zh_CN',
+      'statistics': Constants.statisticsApp,
+      'version': '8.43.0',
+      'id': id,
+      'id_type': type,
+      'room_id': roomId,
+      'type': 'dislike',
+      'page': page,
+    };
+    AppSign.appSign(params);
+    final res = await Request().get(
+      Api.liveFeedback,
+      queryParameters: params,
+    );
+    if (res.data['code'] == 0) {
+      return const Success(null);
+    } else {
+      return Error(res.data['message']);
     }
   }
 }

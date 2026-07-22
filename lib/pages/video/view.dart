@@ -1506,6 +1506,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           key: videoDetailController.scrollKey,
           controller: videoDetailController.scrollCtr,
           onlyOneScrollInBody: true,
+          physics: platformClampingPhysics,
           pinnedHeaderSliverHeightBuilder: () {
             double pinnedHeight = this.isFullScreen || !isPortrait
                 ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)
@@ -2456,7 +2457,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     bool showIntro = true,
     VoidCallback? onTap,
   }) {
-    List<String> tabs = [
+    final tabs = [
       if (showIntro)
         videoDetailController.isFileSource ? '离线视频' : introText ?? '简介',
       if (videoDetailController.showReply) '评论',
@@ -2520,11 +2521,17 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           return Obx(() {
             final count = _videoReplyController.count.value;
             return Tab(
-              text: '评论${count == -1 ? '' : ' ${NumUtils.numFormat(count)}'}',
+              child: Text(
+                '评论${count == -1 ? '' : ' ${NumUtils.numFormat(count)}'}',
+                softWrap: false,
+                overflow: .visible,
+              ),
             );
           });
         } else {
-          return Tab(text: text);
+          return Tab(
+            child: Text(text, softWrap: false, overflow: .visible),
+          );
         }
       }).toList(),
     );
@@ -2800,9 +2807,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       controller: needCtr
           ? videoDetailController.effectiveIntroScrollCtr
           : null,
-      physics: !needCtr
-          ? const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics())
-          : null,
+      physics: !needCtr ? platformAlwaysClampingPhysics : null,
       key: const PageStorageKey(CommonIntroController),
       slivers: [
         SliverPadding(
@@ -2830,11 +2835,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         controller: needCtr
             ? videoDetailController.effectiveIntroScrollCtr
             : null,
-        physics: !needCtr
-            ? const AlwaysScrollableScrollPhysics(
-                parent: ClampingScrollPhysics(),
-              )
-            : null,
+        physics: !needCtr ? platformAlwaysClampingPhysics : null,
         slivers: [
           if (videoDetailController.isUgc) ...[
             UgcIntroPanel(

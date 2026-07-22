@@ -1,5 +1,5 @@
 import 'dart:async' show StreamSubscription, Timer, unawaited;
-import 'dart:convert' show ascii;
+import 'dart:convert' show ascii, utf8;
 import 'dart:io' show Platform;
 import 'dart:math' show max, min;
 import 'dart:ui' as ui;
@@ -1233,13 +1233,22 @@ class PlPlayerController with BlockConfigMixin {
       }
     }
 
-    String video = dataSource.videoSource;
+    var primarySource = dataSource.videoSource;
+    String video = primarySource;
     if (dataSource.audioSource case final audio? when (audio.isNotEmpty)) {
       if (onlyPlayAudio.value) {
         video = audio;
+        primarySource = audio;
       } else {
-        extras['audio-files'] =
-            '"${Platform.isWindows ? audio.replaceAll(';', r'\;') : audio.replaceAll(':', r'\:')}"';
+        // EDL length fields are UTF-8 byte counts, not Dart string lengths.
+        video =
+            ('edl://'
+            '!no_clip;!no_chapters;'
+            // '!delay_open,media_type=video;'
+            '%${utf8.encode(video).length}%$video;'
+            '!new_stream;!no_clip;!no_chapters;'
+            // '!delay_open,media_type=audio;'
+            '%${utf8.encode(audio).length}%$audio');
       }
       if (enableAudioNormalization) {
         final String audioNormalization;
@@ -1267,7 +1276,9 @@ class PlPlayerController with BlockConfigMixin {
     if (!isCurrent()) return null;
     return (
       player: player,
-      primarySource: video,
+      // Classify failures against the source that Media opens as primary.
+      // Combined EDL keeps video primary; audio-only uses the audio source.
+      primarySource: primarySource,
       media: Media(
         video,
         start: seekTo,

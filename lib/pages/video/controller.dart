@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:convert' show jsonDecode;
+import 'dart:convert' show jsonDecode, utf8;
 import 'dart:io';
 import 'dart:math' show min;
 import 'dart:ui';
@@ -1439,9 +1439,22 @@ class VideoDetailController extends GetxController
             displayTime: const Duration(seconds: 3),
           );
         }
-        if (data.dash == null && data.durl != null) {
-          final first = data.durl!.first;
-          videoUrl = VideoUtils.getCdnUrl(first.playUrls);
+        if (data.dash == null && data.durl?.isNotEmpty == true) {
+          final durl = data.durl!;
+          if (durl.length > 1) {
+            final sb = StringBuffer('edl://!no_clip;!no_chapters;');
+            for (final segment in durl) {
+              final video = VideoUtils.getCdnUrl(segment.playUrls);
+              sb.write('%${utf8.encode(video).length}%$video');
+              if (segment.length case final length?) {
+                sb.write(',length=${length / 1000}');
+              }
+              sb.write(';');
+            }
+            videoUrl = sb.toString();
+          } else {
+            videoUrl = VideoUtils.getCdnUrl(durl.single.playUrls);
+          }
           audioUrl = '';
 
           // 实际为FLV/MP4格式，但已被淘汰，这里仅做兜底处理

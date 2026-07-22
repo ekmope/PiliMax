@@ -1,3 +1,5 @@
+import 'package:PiliMax/common/widgets/scroll_physics.dart'
+    show platformClampingPhysics;
 import 'package:PiliMax/models/common/super_chat_time_type.dart';
 import 'package:PiliMax/models/common/super_chat_type.dart';
 import 'package:PiliMax/pages/live_room/controller.dart';
@@ -35,7 +37,7 @@ class _SuperChatPanelState extends DebounceStreamState<SuperChatPanel, bool>
       () => ListView.separated(
         key: const PageStorageKey(_SuperChatPanelState),
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        physics: const ClampingScrollPhysics(),
+        physics: platformClampingPhysics,
         itemCount: widget.controller.superChatMsg.length,
         findItemIndexCallback: (key) {
           final index = widget.controller.superChatMsg.indexWhere(

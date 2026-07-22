@@ -38,6 +38,8 @@ $FABPatch = "lib/scripts/fab.patch"
 
 $SelectableRegionSelectionPatch = "lib/scripts/selectable_region.patch"
 
+$ScrollPositionPatch = "lib/scripts/scroll_position.patch"
+
 # TODO: remove
 # https://github.com/flutter/flutter/pull/183261
 $SelectableRegionPatch = "lib/scripts/null_safety_for_selectable_region.patch"
@@ -69,7 +71,8 @@ $picks   = @($TextSelectionMenuFix)
 $reverts = @()
 $patches = @($ModalBarrierPatch, $TextSelectionPatch, $MouseCursorPatch,
             $ImageAnimPatch, $LayoutBuilderPatch, $NavigationDrawerPatch,
-            $PopupMenuPatch, $FABPatch, $SelectableRegionPatch, $SelectableRegionSelectionPatch)
+            $PopupMenuPatch, $FABPatch, $SelectableRegionPatch, $SelectableRegionSelectionPatch,
+            $ScrollPositionPatch)
 
 switch ($platform.ToLower()) {
     "android" {

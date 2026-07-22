@@ -176,13 +176,22 @@ class AccountManager extends Interceptor {
       'biliimg.com',
       'site/getCoin',
     ];
-    String url = err.requestOptions.uri.toString();
-    if (kDebugMode) debugPrint('🌹🌹ApiInterceptor: $url');
-    if (skipShow.any((i) => url.contains(i)) ||
+    final uri = err.requestOptions.uri;
+    final url = uri.toString();
+    final safeUrl = uri.hasScheme
+        ? '${uri.scheme}://${uri.authority}${uri.path}'
+        : uri.path;
+    if (kDebugMode) {
+      debugPrint(
+        '🌹🌹ApiInterceptor: ${err.requestOptions.method} '
+        '$safeUrl (${err.type.name})',
+      );
+    }
+    if (skipShow.any(url.contains) ||
         (url.contains('skipSegments') && err.requestOptions.method == 'GET')) {
       // skip
     } else {
-      dioError(err).then((res) => SmartDialog.showToast(res + url));
+      dioError(err).then((res) => SmartDialog.showToast(res + safeUrl));
     }
   }
 

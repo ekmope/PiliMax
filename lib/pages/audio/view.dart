@@ -12,6 +12,8 @@ import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
 import 'package:PiliMax/common/widgets/progress_bar/audio_video_progress_bar.dart';
 import 'package:PiliMax/common/widgets/progress_bar/segment_progress_bar.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart'
+    show platformClampingPhysics;
 import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pb.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
@@ -976,7 +978,7 @@ class _AudioPageState extends State<AudioPage> {
                 child: ListView(
                   key: const PageStorageKey(_AudioPageState),
                   shrinkWrap: true,
-                  physics: const ClampingScrollPhysics(),
+                  physics: platformClampingPhysics,
                   children: [
                     Center(
                       child: GestureDetector(

@@ -6,6 +6,7 @@ import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models/common/super_chat_time_type.dart';
 import 'package:PiliMax/models_new/live/live_superchat/item.dart';
 import 'package:PiliMax/pages/member/widget/medal_widget.dart';
+import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/color_utils.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -288,6 +289,7 @@ class _SuperChatCardState extends State<SuperChatCard> {
             ),
             child: SelectionText(
               item.message,
+              contextMenuBuilder: _superChatMenuBuilder,
               style: TextStyle(
                 color: ColourUtils.parseColor(item.messageFontColor),
                 decoration: widget.persistentSC && item.deleted
@@ -301,6 +303,51 @@ class _SuperChatCardState extends State<SuperChatCard> {
           ),
         ),
       ],
+    );
+  }
+
+  static Widget _superChatMenuBuilder(
+    BuildContext context,
+    SelectableRegionState state,
+    String? selectedText,
+  ) {
+    final buttonItems = state.contextMenuButtonItems;
+    final text = selectedText?.trim();
+    if (text != null && text.isNotEmpty) {
+      void closeMenu() {
+        state
+          ..hideToolbar()
+          ..clearSelection();
+      }
+
+      buttonItems
+        ..insert(
+          buttonItems.length < 3 ? buttonItems.length : 3,
+          ContextMenuButtonItem(
+            label: '视频',
+            onPressed: () {
+              closeMenu();
+              unawaited(PiliScheme.videoPush(null, text));
+            },
+          ),
+        )
+        ..insert(
+          buttonItems.length < 4 ? buttonItems.length : 4,
+          ContextMenuButtonItem(
+            label: '搜索',
+            onPressed: () {
+              closeMenu();
+              Get.toNamed<void>(
+                '/searchResult',
+                parameters: {'keyword': text},
+              );
+            },
+          ),
+        );
+    }
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      buttonItems: buttonItems,
+      anchors: state.contextMenuAnchors,
     );
   }
 }

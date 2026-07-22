@@ -9,6 +9,8 @@ import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart'
+    show platformClampingPhysics;
 import 'package:PiliMax/common/widgets/time_picker.dart';
 import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -139,7 +141,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
           child: ListView(
             padding: EdgeInsets.zero,
             controller: widget.scrollController,
-            physics: const ClampingScrollPhysics(),
+            physics: platformClampingPhysics,
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -631,7 +633,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
     return SizedBox(
       height: height,
       child: GridView(
-        physics: const ClampingScrollPhysics(),
+        physics: platformClampingPhysics,
         padding: const EdgeInsets.only(left: 12, bottom: 12, right: 12),
         gridDelegate: SliverGridDelegateWithExtentAndRatio(
           maxCrossAxisExtent: 65,

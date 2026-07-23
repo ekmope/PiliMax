@@ -237,7 +237,7 @@ internal object RouteRestoreLifecycle {
                 context.packageName,
                 lookup.session.processId,
                 5,
-            }
+            )
         } catch (_: RuntimeException) {
             return RestoreDecision.UNAVAILABLE
         }

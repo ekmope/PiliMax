@@ -45,8 +45,26 @@ jobs:
         run: lib/scripts/build.ps1
 
       - name: Build Windows
+        shell: pwsh
         run: |
-          fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json"
+          $maxAttempts = 3
+
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            Write-Host "Windows package attempt $attempt of $maxAttempts"
+            fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json"
+            $exitCode = $LASTEXITCODE
+
+            if ($exitCode -eq 0) {
+              exit 0
+            }
+            if ($attempt -eq $maxAttempts) {
+              exit $exitCode
+            }
+
+            Write-Warning "Windows packaging failed with exit code $exitCode; clearing downloaded archives before retrying."
+            Remove-Item "build/windows/x64/*.7z" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds (15 * $attempt)
+          }
 
       - name: Prepare Upload
         run: |

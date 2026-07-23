@@ -31,8 +31,8 @@ class MainActivity : AudioServiceActivity() {
         )
         routeRestoreMethodChannel.setMethodCallHandler { call, result ->
             when (call.method) {
-                "consumeRestoreEligibility" ->
-                    result.success(RouteRestoreLifecycle.consumeRestoreEligibility())
+                "getRestoreDecision" ->
+                    result.success(RouteRestoreLifecycle.getRestoreDecision())
                 "markTaskRemoved" -> {
                     RouteRestoreLifecycle.markTaskRemoved(this)
                     result.success(null)
@@ -84,8 +84,12 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        RouteRestoreLifecycle.onActivityCreated(this, intent)
         super.onCreate(savedInstanceState)
+        RouteRestoreLifecycle.onActivityCreated(
+            this,
+            intent,
+            isRecreation = savedInstanceState != null,
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode =
                 LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES

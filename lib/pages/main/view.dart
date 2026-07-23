@@ -55,6 +55,7 @@ class _MainAppState extends PopScopeState<MainApp>
         WindowListener,
         TrayListener {
   final _mainController = Get.put(MainController());
+  final _navigationKey = GlobalKey();
   late final _setting = GStorage.setting;
   late final List<Worker> _backPopWorkers;
   late EdgeInsets _padding;
@@ -660,7 +661,7 @@ class _MainAppState extends PopScopeState<MainApp>
     Widget child;
     if (_mainController.mainTabBarView) {
       child = CustomTabBarView(
-        key: const PageStorageKey<String>('main-navigation-tab-view'),
+        key: _navigationKey,
         scrollDirection: _mainController.useBottomNav ? .horizontal : .vertical,
         physics: const NeverScrollableScrollPhysics(),
         controller: _mainController.controller,
@@ -668,7 +669,7 @@ class _MainAppState extends PopScopeState<MainApp>
       );
     } else {
       child = PageView(
-        key: const PageStorageKey<String>('main-navigation-page-view'),
+        key: _navigationKey,
         physics: const NeverScrollableScrollPhysics(),
         controller: _mainController.controller,
         children: _navigationPages,

@@ -7,8 +7,8 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Build
 import android.os.Process
-import android.system.OsConstants
 import androidx.annotation.RequiresApi
+import java.util.concurrent.Executors
 import kotlin.system.exitProcess
 
 /**
@@ -34,28 +34,48 @@ internal object RouteRestoreLifecycle {
     private const val VISIBILITY_BACKGROUND = "background"
 
     private val lock = Any()
+    private val exitReasonExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "PiliMax-route-restore").apply { isDaemon = true }
+    }
     private var processInitialized = false
-    private var restoreEligibility = false
-    private var restoreEligibilityConsumed = false
+    private var restoreDecision = RestoreDecision.UNAVAILABLE
+    private var decisionGeneration = 0L
     private var crashHandlerInstalled = false
 
-    fun onActivityCreated(context: Context, intent: Intent?) {
+    fun onActivityCreated(
+        context: Context,
+        intent: Intent?,
+        isRecreation: Boolean,
+    ) {
         val appContext = context.applicationContext
-        val version = appVersion(appContext)
         val explicitLaunch = !isLauncherIntent(intent)
+        var pendingLookup: PendingLookup? = null
 
         synchronized(lock) {
-            if (!processInitialized) {
-                val previousSession = readSession(preferences(appContext))
-                restoreEligibility =
-                    !explicitLaunch &&
-                    version != null &&
-                    isEligiblePreviousSession(appContext, previousSession, version)
-                restoreEligibilityConsumed = false
-                processInitialized = true
+            if (processInitialized) {
+                if (!isRecreation) {
+                    rejectPendingRestoreLocked()
+                }
+                preferences(appContext).edit()
+                    .putBoolean(KEY_EXPLICIT_LAUNCH, explicitLaunch)
+                    .putString(
+                        KEY_LAST_EVENT,
+                        if (isRecreation) "activity_recreated" else "activity_created_again",
+                    )
+                    .apply()
+                return
             }
 
-            preferences(appContext).edit()
+            val preferences = preferences(appContext)
+            val previousSession = readSession(preferences)
+            val version = appVersion(appContext)
+            val generation = ++decisionGeneration
+
+            processInitialized = true
+            restoreDecision = preflightDecision(previousSession, explicitLaunch)
+
+            // Capture the previous process before replacing its lifecycle record.
+            preferences.edit()
                 .putInt(KEY_SCHEMA_VERSION, SCHEMA_VERSION)
                 .putInt(KEY_PROCESS_ID, Process.myPid())
                 .putLong(KEY_PROCESS_STARTED_AT, System.currentTimeMillis())
@@ -65,9 +85,30 @@ internal object RouteRestoreLifecycle {
                 .putBoolean(KEY_EXPLICIT_LAUNCH, explicitLaunch)
                 .putBoolean(KEY_INVALIDATED, false)
                 .putString(KEY_LAST_EVENT, "activity_created")
-                .commit()
+                .apply()
 
             installCrashHandler(appContext)
+
+            if (restoreDecision == RestoreDecision.UNAVAILABLE && previousSession != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    pendingLookup = PendingLookup(previousSession, version, generation)
+                } else if (hasPackageUpdateEvidence(previousSession, version)) {
+                    restoreDecision = RestoreDecision.RESTORE
+                }
+            }
+        }
+
+        pendingLookup?.let { lookup ->
+            exitReasonExecutor.execute {
+                val decision = determineRestoreDecision(appContext, lookup)
+                synchronized(lock) {
+                    if (lookup.generation == decisionGeneration &&
+                        restoreDecision != RestoreDecision.REJECT
+                    ) {
+                        restoreDecision = decision
+                    }
+                }
+            }
         }
     }
 
@@ -76,7 +117,7 @@ internal object RouteRestoreLifecycle {
             .putString(KEY_VISIBILITY, VISIBILITY_FOREGROUND)
             .putBoolean(KEY_INVALIDATED, false)
             .putString(KEY_LAST_EVENT, "activity_started")
-            .commit()
+            .apply()
     }
 
     fun onActivityStopped(context: Context) {
@@ -89,42 +130,44 @@ internal object RouteRestoreLifecycle {
         isChangingConfigurations: Boolean,
     ) {
         if (isFinishing && !isChangingConfigurations) {
-            cancelPendingRestore()
+            rejectPendingRestore()
             invalidate(context, "activity_finished")
         }
     }
 
     fun onNewIntent(context: Context, intent: Intent?) {
         val explicitLaunch = !isLauncherIntent(intent)
-        if (explicitLaunch) cancelPendingRestore()
-        preferences(context.applicationContext).edit()
+        val appContext = context.applicationContext
+        rejectPendingRestore()
+        preferences(appContext).edit()
             .putBoolean(KEY_EXPLICIT_LAUNCH, explicitLaunch)
             .putString(KEY_LAST_EVENT, "new_intent")
             .commit()
     }
 
-    fun consumeRestoreEligibility(): Boolean = synchronized(lock) {
-        if (!processInitialized || restoreEligibilityConsumed) {
-            return@synchronized false
-        }
-        restoreEligibilityConsumed = true
-        restoreEligibility
+    fun getRestoreDecision(): String = synchronized(lock) {
+        restoreDecision.wireValue
     }
 
     fun markTaskRemoved(context: Context) {
-        cancelPendingRestore()
+        rejectPendingRestore()
         invalidate(context, "task_removed")
     }
 
     fun markIntentionalExit(context: Context) {
-        cancelPendingRestore()
+        rejectPendingRestore()
         invalidate(context, "intentional_exit")
     }
 
-    private fun cancelPendingRestore() {
+    private fun rejectPendingRestore() {
         synchronized(lock) {
-            restoreEligibility = false
+            rejectPendingRestoreLocked()
         }
+    }
+
+    private fun rejectPendingRestoreLocked() {
+        restoreDecision = RestoreDecision.REJECT
+        decisionGeneration++
     }
 
     private fun updateVisibility(context: Context, visibility: String, event: String) {
@@ -146,6 +189,7 @@ internal object RouteRestoreLifecycle {
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
+                rejectPendingRestore()
                 invalidate(context, "java_crash")
             } finally {
                 if (previousHandler != null) {
@@ -159,65 +203,70 @@ internal object RouteRestoreLifecycle {
         crashHandlerInstalled = true
     }
 
-    private fun isEligiblePreviousSession(
-        context: Context,
+    private fun preflightDecision(
         session: SessionSnapshot?,
-        currentVersion: AppVersion,
-    ): Boolean {
-        if (session == null || session.invalidated) {
-            return false
-        }
-        if (session.visibility != VISIBILITY_BACKGROUND) return false
-        if (session.versionCode != currentVersion.versionCode ||
-            session.lastUpdateTime != currentVersion.lastUpdateTime
-        ) {
-            return false
+        explicitLaunch: Boolean,
+    ): RestoreDecision = when {
+        explicitLaunch -> RestoreDecision.REJECT
+        session == null -> RestoreDecision.REJECT
+        session.invalidated -> RestoreDecision.REJECT
+        session.visibility != VISIBILITY_BACKGROUND -> RestoreDecision.REJECT
+        else -> RestoreDecision.UNAVAILABLE
+    }
+
+    private fun determineRestoreDecision(
+        context: Context,
+        lookup: PendingLookup,
+    ): RestoreDecision {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return RestoreDecision.UNAVAILABLE
         }
 
-        return when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
-                wasTerminatedInBackground(context, session)
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.N -> true
-            else -> false
-        }
+        return restoreDecisionFromExitInfo(context, lookup)
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    private fun wasTerminatedInBackground(
+    private fun restoreDecisionFromExitInfo(
         context: Context,
-        session: SessionSnapshot,
-    ): Boolean {
+        lookup: PendingLookup,
+    ): RestoreDecision {
         val activityManager = context.getSystemService(ActivityManager::class.java)
-            ?: return false
-        val exitInfo = try {
+            ?: return RestoreDecision.UNAVAILABLE
+        val exitInfos = try {
             activityManager.getHistoricalProcessExitReasons(
                 context.packageName,
-                session.processId,
+                lookup.session.processId,
                 5,
-            ).firstOrNull {
-                it.pid == session.processId &&
-                    it.timestamp >= session.processStartedAt
             }
         } catch (_: RuntimeException) {
-            null
-        } ?: return true
+            return RestoreDecision.UNAVAILABLE
+        }
+        val exitInfo = exitInfos.firstOrNull {
+            it.pid == lookup.session.processId &&
+                it.timestamp >= lookup.session.processStartedAt
+        } ?: return if (hasPackageUpdateEvidence(lookup.session, lookup.currentVersion)) {
+            RestoreDecision.RESTORE
+        } else {
+            RestoreDecision.UNAVAILABLE
+        }
 
-        // Several OEMs report ordinary background reclaim as OTHER, UNKNOWN,
-        // or SIGKILL instead of LOW_MEMORY. Explicit exits remain rejected by
-        // their lifecycle marker or USER_REQUESTED exit reason.
         val reason = exitInfo.reason
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             reason == ApplicationExitInfo.REASON_FREEZER
         ) {
-            return true
+            return RestoreDecision.RESTORE
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            when (reason) {
+                ApplicationExitInfo.REASON_PACKAGE_UPDATED ->
+                    return RestoreDecision.RESTORE
+                ApplicationExitInfo.REASON_PACKAGE_STATE_CHANGE ->
+                    return RestoreDecision.REJECT
+            }
         }
         return when (reason) {
-            ApplicationExitInfo.REASON_UNKNOWN,
-            ApplicationExitInfo.REASON_LOW_MEMORY -> true
-            ApplicationExitInfo.REASON_SIGNALED ->
-                exitInfo.status == OsConstants.SIGKILL
-            ApplicationExitInfo.REASON_DEPENDENCY_DIED,
-            ApplicationExitInfo.REASON_OTHER -> true
+            ApplicationExitInfo.REASON_LOW_MEMORY,
+            ApplicationExitInfo.REASON_DEPENDENCY_DIED -> RestoreDecision.RESTORE
             ApplicationExitInfo.REASON_EXIT_SELF,
             ApplicationExitInfo.REASON_CRASH,
             ApplicationExitInfo.REASON_CRASH_NATIVE,
@@ -225,11 +274,33 @@ internal object RouteRestoreLifecycle {
             ApplicationExitInfo.REASON_INITIALIZATION_FAILURE,
             ApplicationExitInfo.REASON_PERMISSION_CHANGE,
             ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE,
-            ApplicationExitInfo.REASON_USER_REQUESTED,
-            ApplicationExitInfo.REASON_USER_STOPPED -> false
-            else -> false
+            ApplicationExitInfo.REASON_USER_STOPPED -> RestoreDecision.REJECT
+            ApplicationExitInfo.REASON_USER_REQUESTED -> {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+                    hasPackageUpdateEvidence(lookup.session, lookup.currentVersion)
+                ) {
+                    RestoreDecision.RESTORE
+                } else {
+                    RestoreDecision.REJECT
+                }
+            }
+            ApplicationExitInfo.REASON_UNKNOWN,
+            ApplicationExitInfo.REASON_SIGNALED,
+            ApplicationExitInfo.REASON_OTHER -> RestoreDecision.UNAVAILABLE
+            else -> RestoreDecision.UNAVAILABLE
         }
     }
+
+    private fun hasPackageUpdateEvidence(
+        session: SessionSnapshot,
+        currentVersion: AppVersion?,
+    ): Boolean = session.versionCode >= 0L &&
+        session.lastUpdateTime > 0L &&
+        currentVersion != null &&
+        currentVersion.versionCode >= 0L &&
+        currentVersion.lastUpdateTime > 0L &&
+        (session.versionCode != currentVersion.versionCode ||
+            session.lastUpdateTime != currentVersion.lastUpdateTime)
 
     private fun isLauncherIntent(intent: Intent?): Boolean =
         intent?.action == Intent.ACTION_MAIN &&
@@ -287,4 +358,16 @@ internal object RouteRestoreLifecycle {
         val versionCode: Long,
         val lastUpdateTime: Long,
     )
+
+    private data class PendingLookup(
+        val session: SessionSnapshot,
+        val currentVersion: AppVersion?,
+        val generation: Long,
+    )
+
+    private enum class RestoreDecision(val wireValue: String) {
+        RESTORE("restore"),
+        REJECT("reject"),
+        UNAVAILABLE("unavailable"),
+    }
 }

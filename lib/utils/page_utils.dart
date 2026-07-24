@@ -748,7 +748,7 @@ abstract final class PageUtils {
         resolvedBvid ??
         resolvedAid ??
         '${pendingLaunchType?.name}-$seasonId-$epId';
-    return <dynamic, dynamic>{
+    final arguments = <dynamic, dynamic>{
       'aid': resolvedAid,
       'bvid': resolvedBvid,
       'cid': cid,
@@ -766,6 +766,37 @@ abstract final class PageUtils {
       videoPendingLaunchKey: ?pendingLaunchType,
       _videoPendingPartKey: ?part,
     };
+    _bindProgressIdentity(arguments);
+    return arguments;
+  }
+
+  static void _bindProgressIdentity(Map<dynamic, dynamic> arguments) {
+    const identityKeys = ['progressAid', 'progressBvid', 'progressCid'];
+    if (arguments['progress'] is! int) {
+      for (final key in identityKeys) {
+        arguments.remove(key);
+      }
+      return;
+    }
+
+    final aid = arguments['aid'];
+    final bvid = arguments['bvid'];
+    final cid = arguments['cid'];
+    if (aid is int) {
+      arguments['progressAid'] = aid;
+    } else {
+      arguments.remove('progressAid');
+    }
+    if (bvid is String && bvid.isNotEmpty) {
+      arguments['progressBvid'] = bvid;
+    } else {
+      arguments.remove('progressBvid');
+    }
+    if (cid is int) {
+      arguments['progressCid'] = cid;
+    } else {
+      arguments.remove('progressCid');
+    }
   }
 
   static Future<void> _openVideoPage(
@@ -934,6 +965,7 @@ abstract final class PageUtils {
     resolved
       ..remove(videoPendingLaunchKey)
       ..remove(_videoPendingPartKey);
+    _bindProgressIdentity(resolved);
     arguments
       ..clear()
       ..addAll(resolved);
@@ -1174,6 +1206,7 @@ abstract final class PageUtils {
           seasonId: isSeason ? id : null,
           epId: isSeason ? null : id,
           aid: aid,
+          progress: progress,
           off: off,
           heroTag: heroTag,
           cover: cover,
@@ -1234,6 +1267,7 @@ abstract final class PageUtils {
     dynamic seasonId,
     dynamic epId,
     int? aid,
+    int? progress, // milliseconds
     bool off = false,
     String? heroTag,
     String? cover,
@@ -1246,6 +1280,7 @@ abstract final class PageUtils {
       cid: null,
       seasonId: seasonId is int ? seasonId : int.tryParse('$seasonId'),
       epId: epId is int ? epId : int.tryParse('$epId'),
+      progress: progress,
       cover: cover,
       title: title,
       heroTag: heroTag,

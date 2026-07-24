@@ -1,16 +1,85 @@
+diff --git a/packages/flutter/lib/src/rendering/selection.dart b/packages/flutter/lib/src/rendering/selection.dart
+--- a/packages/flutter/lib/src/rendering/selection.dart
++++ b/packages/flutter/lib/src/rendering/selection.dart
+@@ -236,6 +236,8 @@ class SelectedContent with Diagnosticable {
+ /// See also:
+ ///  * [SelectableRegion], which provides an overview of selection system.
+ mixin Selectable implements SelectionHandler {
++  Object? get selectionGroup => null;
++
+   /// {@macro flutter.rendering.RenderObject.getTransformTo}
+   Matrix4 getTransformTo(RenderObject? ancestor);
+ 
+diff --git a/packages/flutter/lib/src/widgets/scrollable.dart b/packages/flutter/lib/src/widgets/scrollable.dart
+--- a/packages/flutter/lib/src/widgets/scrollable.dart
++++ b/packages/flutter/lib/src/widgets/scrollable.dart
+@@ -1177,6 +1177,9 @@ class _ScrollableSelectionContainerDelegate extends MultiSelectableSelectionCont
+     _position.addListener(_scheduleLayoutChange);
+   }
+ 
++  @override
++  String separator = '\n';
++
+   // Pointer drag is a single point, it should not have a size.
+   static const double _kDefaultDragTargetSize = 0;
+ 
 diff --git a/packages/flutter/lib/src/widgets/selectable_region.dart b/packages/flutter/lib/src/widgets/selectable_region.dart
-index 59de8bae20b..07ac6981c78 100644
 --- a/packages/flutter/lib/src/widgets/selectable_region.dart
 +++ b/packages/flutter/lib/src/widgets/selectable_region.dart
-@@ -2822,7 +2822,10 @@ abstract class MultiSelectableSelectionContainerDelegate extends SelectionContai
+@@ -401,7 +401,7 @@ class SelectableRegionState extends State<SelectableRegion> with TextSelectionDe
+   final LayerLink _startHandleLayerLink = LayerLink();
+   final LayerLink _endHandleLayerLink = LayerLink();
+   final LayerLink _toolbarLayerLink = LayerLink();
+-  final StaticSelectionContainerDelegate _selectionDelegate = StaticSelectionContainerDelegate();
++  final StaticSelectionContainerDelegate _selectionDelegate = StaticSelectionContainerDelegate(separator: '\n');
+   // there should only ever be one selectable, which is the SelectionContainer.
+   Selectable? _selectable;
+ 
+@@ -2087,6 +2087,11 @@ class _DirectionallyExtendCaretSelectionAction<T extends DirectionalCaretMovemen
+ ///  * [MultiSelectableSelectionContainerDelegate], for the class that provides
+ ///  the main implementation details of this [SelectionContainerDelegate].
+ class StaticSelectionContainerDelegate extends MultiSelectableSelectionContainerDelegate {
++  StaticSelectionContainerDelegate({this.separator});
++
++  @override
++  final String? separator;
++
+   /// The set of [Selectable]s that have received start events.
+   final Set<Selectable> _hasReceivedStartEvent = <Selectable>{};
+ 
+@@ -2358,5 +2363,7 @@ abstract class MultiSelectableSelectionContainerDelegate extends SelectionContai
+ abstract class MultiSelectableSelectionContainerDelegate extends SelectionContainerDelegate
+     with ChangeNotifier {
++  String? get separator => null;
++
+   /// Creates an instance of [MultiSelectableSelectionContainerDelegate].
+   MultiSelectableSelectionContainerDelegate() {
+     if (kFlutterMemoryAllocationsEnabled) {
+@@ -2814,16 +2821,23 @@ abstract class MultiSelectableSelectionContainerDelegate extends SelectionContai
+   /// Copies the selected contents of all [Selectable]s.
+   @override
+   SelectedContent? getSelectedContent() {
+-    final selections = <SelectedContent>[
++    final selections = <(Selectable, SelectedContent)>[
+       for (final Selectable selectable in selectables)
+-        if (selectable.getSelectedContent() case final SelectedContent data) data,
++        if (selectable.getSelectedContent() case final SelectedContent data)
++          (selectable, data),
+     ];
+     if (selections.isEmpty) {
        return null;
      }
      final buffer = StringBuffer();
 -    for (final selection in selections) {
+-      buffer.write(selection.plainText);
 +    for (final (i, selection) in selections.indexed) {
 +      if (i != 0) {
-+        buffer.write('\n');
++        final group = selection.$1.selectionGroup;
++        final previousGroup = selections[i - 1].$1.selectionGroup;
++        final sameGroup = group != null && identical(group, previousGroup);
++        buffer.write(sameGroup ? '' : separator ?? '');
 +      }
-       buffer.write(selection.plainText);
++      buffer.write(selection.$2.plainText);
      }
      return SelectedContent(plainText: buffer.toString());
+   }

@@ -7,6 +7,7 @@ import 'package:PiliMax/pages/video/introduction/ugc/widgets/menu_row.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/theme_utils.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -145,15 +146,16 @@ class ShutdownTimerService {
     if (isLive) {
       _waitUntilCompleted = false;
     }
+    final sheetTheme = isLive ? ThemeUtils.darkTheme : Theme.of(context);
     PageUtils.showVideoBottomSheet(
       context,
       maxWidth: 512,
-      child: StatefulBuilder(
-        builder: (_, setState) {
-          final ThemeData theme = Theme.of(context);
-          return Theme(
-            data: theme,
-            child: Padding(
+      child: Theme(
+        data: sheetTheme,
+        child: StatefulBuilder(
+          builder: (context, setState) {
+            final ThemeData theme = Theme.of(context);
+            return Padding(
               padding: const .all(12),
               child: Material(
                 clipBehavior: .hardEdge,
@@ -265,9 +267,9 @@ class ShutdownTimerService {
                   ],
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

@@ -1,13 +1,13 @@
 import 'dart:io' show Platform;
 
+import 'package:PiliMax/common/widgets/emote_span.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/image_grid/image_grid_view.dart';
 import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/search.dart';
-import 'package:PiliMax/models/common/image_preview_type.dart'
-    show SourceModel;
+import 'package:PiliMax/models/common/image_preview_type.dart' show SourceModel;
 import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/widgets/vote.dart';
@@ -152,7 +152,8 @@ TextSpan? richNode(
           case 'RICH_TEXT_NODE_TYPE_EMOJI' when (i.emoji != null):
             final size = i.emoji!.size * 20.0;
             spanChildren.add(
-              WidgetSpan(
+              EmoteSpan(
+                rawText: i.origText,
                 child: NetworkImgLayer(
                   src: i.emoji!.url,
                   type: ImageType.emote,

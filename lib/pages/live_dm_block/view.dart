@@ -1,6 +1,8 @@
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliMax/common/widgets/scroll_behavior.dart'
+    show NoOverscrollIndicator;
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliMax/models/common/live/live_dm_silent_type.dart';
@@ -93,6 +95,7 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
             isPortrait
                 ? ExtendedNestedScrollView(
                     onlyOneScrollInBody: true,
+                    scrollBehavior: const NoOverscrollIndicator(),
                     headerSliverBuilder: (context, innerBoxIsScrolled) {
                       return [
                         SliverToBoxAdapter(child: left),

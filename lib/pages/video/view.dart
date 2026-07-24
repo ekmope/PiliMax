@@ -12,6 +12,8 @@ import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/keep_alive_wrapper.dart';
 import 'package:PiliMax/common/widgets/route_aware_mixin.dart';
+import 'package:PiliMax/common/widgets/scroll_behavior.dart'
+    show NoOverscrollIndicator;
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/video_header.dart';
 import 'package:PiliMax/common/widgets/svg/play_icon.dart';
@@ -1507,6 +1509,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           controller: videoDetailController.scrollCtr,
           onlyOneScrollInBody: true,
           physics: platformClampingPhysics,
+          scrollBehavior: const NoOverscrollIndicator(),
           pinnedHeaderSliverHeightBuilder: () {
             double pinnedHeight = this.isFullScreen || !isPortrait
                 ? maxHeight - (isWindowMode && !isPortrait ? 0 : padding.top)

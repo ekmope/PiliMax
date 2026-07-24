@@ -1,5 +1,6 @@
-import 'dart:io';
+import 'dart:io' show File, HttpException;
 
+import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/button/toolbar_icon_button.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
@@ -252,7 +253,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
     if (emote is e.Emote) {
       final isTextEmote = width == null;
       onInsertText(
-        isTextEmote ? emote.text! : '\uFFFC',
+        isTextEmote ? emote.text! : Style.placeHolder,
         RichTextType.emoji,
         rawText: emote.text!,
         emote: isTextEmote
@@ -265,7 +266,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
       );
     } else if (emote is Emoticon) {
       onInsertText(
-        '\uFFFC',
+        Style.placeHolder,
         RichTextType.emoji,
         rawText: emote.emoji!,
         emote: Emote(

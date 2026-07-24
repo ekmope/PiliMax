@@ -2,10 +2,6 @@ param(
     [string]$platform = ""
 )
 
-# TODO: remove
-# https://github.com/flutter/flutter/issues/182281
-$NewOverScrollIndicator = "362b1de29974ffc1ed6faa826e1df870d7bec75f";
-
 $BottomSheetAndroidPatch = "lib/scripts/bottom_sheet_android.patch"
 
 # Upstream issue #1906
@@ -38,6 +34,10 @@ $FABPatch = "lib/scripts/fab.patch"
 
 $SelectableRegionSelectionPatch = "lib/scripts/selectable_region.patch"
 
+$SelectionPlaceholderPatch = "lib/scripts/selection_placeholder.patch"
+
+$SelectionFragmentGroupPatch = "lib/scripts/selection_fragment_group.patch"
+
 $ScrollPositionPatch = "lib/scripts/scroll_position.patch"
 
 # TODO: remove
@@ -64,7 +64,6 @@ if ($platform.ToLower() -eq "ios") {
         Write-Host "$GeetestIOSPatch applied"
     }
 }
-
 Set-Location $env:FLUTTER_ROOT
 
 $picks   = @($TextSelectionMenuFix)
@@ -72,11 +71,10 @@ $reverts = @()
 $patches = @($ModalBarrierPatch, $TextSelectionPatch, $MouseCursorPatch,
             $ImageAnimPatch, $LayoutBuilderPatch, $NavigationDrawerPatch,
             $PopupMenuPatch, $FABPatch, $SelectableRegionPatch, $SelectableRegionSelectionPatch,
-            $ScrollPositionPatch)
+            $SelectionPlaceholderPatch, $SelectionFragmentGroupPatch, $ScrollPositionPatch)
 
 switch ($platform.ToLower()) {
     "android" {
-        $reverts += $NewOverScrollIndicator
         $patches += $BottomSheetAndroidPatch
         $patches += $ScrollViewPatch
         $patches += $NavigatorPatch
@@ -125,11 +123,4 @@ foreach ($patch in $patches) {
     if ($LASTEXITCODE -eq 0) {
         Write-Host "$patch applied"
     }
-}
-
-# TODO: remove
-if ($platform.ToLower() -eq "android") {
-    "df67bb3b55323961184ae7117cc91c054f36a42c" | Set-Content -Path .\bin\internal\engine.version
-    Remove-Item -Path ".\bin\cache" -Recurse -Force
-    flutter --version
 }

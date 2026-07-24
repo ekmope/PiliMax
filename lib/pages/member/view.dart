@@ -8,6 +8,8 @@ import 'package:PiliMax/common/widgets/dynamic_sliver_app_bar/dynamic_sliver_app
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
+import 'package:PiliMax/common/widgets/scroll_behavior.dart'
+    show NoOverscrollIndicator;
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/http/live.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -95,6 +97,7 @@ class _MemberPageState extends State<MemberPage> {
           Success(:final response) => ExtendedNestedScrollView(
             key: _userController.scrollKey,
             onlyOneScrollInBody: true,
+            scrollBehavior: const NoOverscrollIndicator(),
             pinnedHeaderSliverHeightBuilder: () =>
                 kToolbarHeight + MediaQuery.viewPaddingOf(context).top,
             headerSliverBuilder: (context, innerBoxIsScrolled) {
@@ -108,14 +111,12 @@ class _MemberPageState extends State<MemberPage> {
                         isOwner:
                             _userController.mid == _userController.account.mid,
                         relation: _userController.relation.value,
-                        isFollowLoading:
-                            _userController.isFollowLoading.value,
+                        isFollowLoading: _userController.isFollowLoading.value,
                         card: response.card!,
                         images: response.images!,
                         onFollow: () => _userController.onFollow(context),
                         remark: _userController.remark.value,
-                        onEditRemark: () =>
-                            _userController.editRemark(context),
+                        onEditRemark: () => _userController.editRemark(context),
                         live: _userController.live,
                         silence: _userController.silence,
                         headerControllerBuilder: getHeaderController,
@@ -357,9 +358,11 @@ class _MemberPageState extends State<MemberPage> {
               children: [
                 const Icon(Icons.edit_note, size: 19),
                 const SizedBox(width: 10),
-                Obx(() => Text(
-                  _userController.remark.value.isEmpty ? '添加备注' : '编辑备注',
-                )),
+                Obx(
+                  () => Text(
+                    _userController.remark.value.isEmpty ? '添加备注' : '编辑备注',
+                  ),
+                ),
               ],
             ),
           ),

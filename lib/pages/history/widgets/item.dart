@@ -99,6 +99,7 @@ class HistoryItem extends StatelessWidget {
                     heroTag: _heroTag,
                     cover: cover,
                     title: item.title,
+                    progress: item.playbackProgress,
                   );
                 } else if (business == 'cheese') {
                   if (item.uri?.isNotEmpty == true) {
@@ -109,6 +110,7 @@ class HistoryItem extends StatelessWidget {
                       heroTag: _heroTag,
                       cover: cover,
                       title: item.title,
+                      progress: item.playbackProgress,
                     );
                   }
                 } else {
@@ -121,6 +123,7 @@ class HistoryItem extends StatelessWidget {
                     part: item.history.page,
                     isVertical: item.uri?.verticalFromUri,
                     heroTag: _heroTag,
+                    progress: item.playbackProgress,
                   );
                 }
               },

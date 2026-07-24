@@ -24,22 +24,17 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
     StatefulWidgetBuilder builder, {
     ValueGetter<EdgeInsets>? padding,
   }) {
+    final theme = this.theme;
     return PageUtils.showVideoBottomSheet(
       context,
       maxWidth: 512,
       padding: padding,
-      child: StatefulBuilder(
-        builder: (context, setState) {
-          final theme = this.theme;
-          if (theme != null) {
-            return Theme(
+      child: theme != null
+          ? Theme(
               data: theme,
-              child: builder(this.context, setState),
-            );
-          }
-          return builder(context, setState);
-        },
-      ),
+              child: StatefulBuilder(builder: builder),
+            )
+          : StatefulBuilder(builder: builder),
     );
   }
 

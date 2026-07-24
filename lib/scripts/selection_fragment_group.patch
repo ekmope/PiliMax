@@ -1,0 +1,23 @@
+diff --git a/packages/flutter/lib/src/rendering/paragraph.dart b/packages/flutter/lib/src/rendering/paragraph.dart
+--- a/packages/flutter/lib/src/rendering/paragraph.dart
++++ b/packages/flutter/lib/src/rendering/paragraph.dart
+@@ -1493,7 +1493,10 @@ class _SelectableFragment
+   final TextRange range;
+   final RenderParagraph paragraph;
+   final String fullText;
+   final String? rawText;
++
++  @override
++  Object get selectionGroup => paragraph;
+ 
+   TextPosition? _textSelectionStart;
+   TextPosition? _textSelectionEnd;
+@@ -1944,7 +1947,7 @@ class _SelectableFragment
+     final Matrix4 transform = paragraph.getTransformTo(null);
+     transform.invert();
+     final Offset localPosition = MatrixUtils.transformPoint(transform, globalPosition);
+-    if (_rect.isEmpty) {
++    if (_rect.isEmpty && rawText == null) {
+       return SelectionUtils.getResultBasedOnRect(_rect, localPosition);
+     }
+     final Offset adjustedOffset = SelectionUtils.adjustDragOffset(

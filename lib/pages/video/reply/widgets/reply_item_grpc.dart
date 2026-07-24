@@ -7,6 +7,7 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/dialog/report.dart';
+import 'package:PiliMax/common/widgets/emote_span.dart';
 import 'package:PiliMax/common/widgets/flutter/text/text.dart' as custom_text;
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
@@ -163,13 +164,14 @@ class ReplyItemGrpc extends StatelessWidget {
                 ? member.garbPendantImage
                 : null,
           ),
-          Expanded(
+          Flexible(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: .min,
+              crossAxisAlignment: .start,
               children: [
                 Row(
                   spacing: 6,
+                  mainAxisSize: .min,
                   children: [
                     Flexible(
                       child: Text(
@@ -215,7 +217,7 @@ class ReplyItemGrpc extends StatelessWidget {
                   ],
                 ),
                 Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize: .min,
                   children: [
                     Text(
                       replyLevel == 0
@@ -821,7 +823,8 @@ class ReplyItemGrpc extends StatelessWidget {
           final emote = content.emotes[matchStr]!;
           final size = emote.size.toInt() * 20.0;
           spanChildren.add(
-            WidgetSpan(
+            EmoteSpan(
+              rawText: matchStr,
               child: NetworkImgLayer(
                 src: emote.hasWebpUrl()
                     ? emote.webpUrl

@@ -1,6 +1,6 @@
 // ignore_for_file: constant_identifier_names
 
-import 'dart:async' show StreamSubscription;
+import 'dart:async' show Completer, StreamSubscription, unawaited;
 
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pbenum.dart'
@@ -79,6 +79,89 @@ abstract final class PiliScheme {
       );
     } catch (_) {
       return Future.syncValue(false);
+    }
+  }
+
+  /// Opens a resolved clipboard video only after its route has been installed.
+  static Future<bool> openClipboardVideo(
+    String url, {
+    required bool off,
+    required bool Function() canNavigate,
+  }) async {
+    Uri uri;
+    try {
+      if (url.startsWith('//')) {
+        url = 'https:$url';
+      } else if (!_prefixRegex.hasMatch(url)) {
+        url = 'https://$url';
+      }
+      uri = Uri.parse(url);
+    } catch (_) {
+      return false;
+    }
+
+    final normalizedHost = uri.host.toLowerCase();
+    if ((uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.userInfo.isNotEmpty ||
+        (normalizedHost != 'bilibili.com' &&
+            normalizedHost != 'www.bilibili.com' &&
+            normalizedHost != 'm.bilibili.com')) {
+      return false;
+    }
+    final pathSegments = uri.pathSegments
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (pathSegments.length != 2 ||
+        pathSegments.first.toLowerCase() != 'video') {
+      return false;
+    }
+    final ids = IdUtils.matchAvorBv(input: uri.path);
+    if (ids.av == null && ids.bv == null) {
+      return false;
+    }
+
+    try {
+      final result = await SearchHttp.ab2cWithDimension(
+        aid: ids.av,
+        bvid: ids.bv,
+        part: int.tryParse(uri.queryParameters['p'] ?? ''),
+      );
+      final cid = result?.cid;
+      if (cid == null || !canNavigate()) {
+        return false;
+      }
+
+      final installed = Completer<bool>();
+      final navigation = PageUtils.toVideoPage(
+        aid: ids.av,
+        bvid: ids.bv,
+        cid: cid,
+        progress: _videoProgress(uri.queryParameters),
+        off: off,
+        dimension: result!.dimension,
+        canInstallRoute: canNavigate,
+        onNavigationResult: (success) {
+          if (!installed.isCompleted) {
+            installed.complete(success);
+          }
+        },
+      );
+      if (navigation == null) {
+        return false;
+      }
+      unawaited(
+        navigation.then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stackTrace) {
+            if (!installed.isCompleted) {
+              installed.complete(false);
+            }
+          },
+        ),
+      );
+      return installed.future;
+    } catch (_) {
+      return false;
     }
   }
 

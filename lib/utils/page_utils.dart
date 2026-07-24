@@ -685,6 +685,8 @@ abstract final class PageUtils {
     String? heroTag,
     int? part,
     VideoPendingLaunchType? pendingLaunchType,
+    bool Function()? canInstallRoute,
+    ValueChanged<bool>? onNavigationResult,
   }) {
     final hasValidDimension = _hasValidDimension(dimension);
     final effectivePendingType =
@@ -716,7 +718,12 @@ abstract final class PageUtils {
       part: part,
       pendingLaunchType: effectivePendingType,
     );
-    return _openVideoPage(arguments, off: off);
+    return _openVideoPage(
+      arguments,
+      off: off,
+      canInstallRoute: canInstallRoute,
+      onNavigationResult: onNavigationResult,
+    );
   }
 
   static Map<dynamic, dynamic> _buildVideoPageArguments({
@@ -802,10 +809,20 @@ abstract final class PageUtils {
   static Future<void> _openVideoPage(
     Map<dynamic, dynamic> arguments, {
     required bool off,
+    bool Function()? canInstallRoute,
+    ValueChanged<bool>? onNavigationResult,
   }) async {
+    var navigationResultReported = false;
+    void reportNavigationResult(bool result) {
+      if (navigationResultReported) return;
+      navigationResultReported = true;
+      onNavigationResult?.call(result);
+    }
+
     if (!off &&
         (_videoRouteLaunchPending ||
             VideoDetailEntryOverlayController.isEnteringVideo)) {
+      reportNavigationResult(false);
       return;
     }
     final launchGeneration = ++_videoRouteLaunchGeneration;
@@ -838,6 +855,13 @@ abstract final class PageUtils {
         if (launchGeneration != _videoRouteLaunchGeneration) {
           (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
               ?.dispose();
+          reportNavigationResult(false);
+          return;
+        }
+        if (canInstallRoute?.call() == false) {
+          (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
+              ?.dispose();
+          reportNavigationResult(false);
           return;
         }
         final overlayIsMounted = rootOverlay?.mounted == true;
@@ -887,6 +911,14 @@ abstract final class PageUtils {
               ?.dispose();
         }
       }
+      if (canInstallRoute?.call() == false) {
+        entryOverlay?.abort();
+        arguments.remove(videoDetailEntryOverlayKey);
+        (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
+            ?.dispose();
+        reportNavigationResult(false);
+        return;
+      }
       _videoRouteNavigationInstalling = true;
       final useAdvancedRoute =
           !off && arguments[videoTransitionTokenKey] is VideoTransitionToken;
@@ -916,8 +948,10 @@ abstract final class PageUtils {
         arguments.remove(videoDetailEntryOverlayKey);
         (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
             ?.dispose();
+        reportNavigationResult(false);
         return;
       }
+      reportNavigationResult(true);
       // Navigator has installed the route synchronously, but no frame has
       // painted yet. Lift the skeleton above it; Hero installs above both.
       entryOverlay?.bringToFront();
@@ -926,6 +960,7 @@ abstract final class PageUtils {
       arguments.remove(videoDetailEntryOverlayKey);
       (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
           ?.dispose();
+      reportNavigationResult(false);
       rethrow;
     } finally {
       if (ownsPendingGate) {

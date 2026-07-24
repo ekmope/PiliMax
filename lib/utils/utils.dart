@@ -2,6 +2,8 @@ import 'dart:convert' show JsonEncoder, base64;
 import 'dart:math' show Random;
 
 import 'package:PiliMax/common/constants.dart';
+import 'package:PiliMax/services/crash/crash_context.dart';
+import 'package:PiliMax/services/crash/crash_reporter.dart';
 import 'package:PiliMax/utils/storage_pref.dart' show Pref;
 import 'package:catcher_2/catcher_2.dart';
 import 'package:flutter/services.dart'
@@ -87,7 +89,19 @@ abstract final class Utils {
   /// containing the `catch` block with
   /// `@pragma('vm:notify-debugger-on-exception')` to allow an attached debugger
   /// to treat the exception as unhandled.
-  static void reportError(Object exception, [StackTrace? stack, String? label]) {
+  static void reportError(
+    Object exception, [
+    StackTrace? stack,
+    String? label,
+  ]) {
+    CrashReporter.recordErrorSync(
+      exception,
+      stack,
+      source: CrashSource.explicit,
+      severity: CrashSeverity.handled,
+      operation: label ?? '',
+    );
+    if (CrashReporter.shouldIgnore(exception, stack)) return;
     if (Pref.enableLog) {
       try {
         Catcher2.reportCheckedError(

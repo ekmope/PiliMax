@@ -29,8 +29,7 @@ import 'package:get/get.dart';
 
 enum _DownloadTab {
   videos('全部视频'),
-  folders('文件夹')
-  ;
+  folders('文件夹');
 
   final String label;
   const _DownloadTab(this.label);
@@ -581,7 +580,7 @@ class _DownloadPageState extends State<DownloadPage>
                         entry: entry,
                         removeList: true,
                       );
-                      GStorage.watchProgress.delete(entry.cid.toString());
+                      GStorage.watchProgressStore.delete(entry.cid.toString());
                     },
                     controller: _controller,
                     playContext: const DownloadVideoPlayContext.all(),

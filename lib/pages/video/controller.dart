@@ -410,9 +410,15 @@ class VideoDetailController extends GetxController
   late final watchProgress = GStorage.watchProgress;
   void cacheLocalProgress() {
     if (plPlayerController.playerStatus.isCompleted) {
-      watchProgress.put(cid.value.toString(), entry.totalTimeMilli);
+      GStorage.watchProgressStore.put(
+        cid.value.toString(),
+        entry.totalTimeMilli,
+      );
     } else if (playedTime case final playedTime?) {
-      watchProgress.put(cid.value.toString(), playedTime.inMilliseconds);
+      GStorage.watchProgressStore.put(
+        cid.value.toString(),
+        playedTime.inMilliseconds,
+      );
     }
   }
 

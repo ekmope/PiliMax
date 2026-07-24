@@ -73,6 +73,8 @@ abstract final class Pref {
         SettingBoxKey.applyFilterToRelatedVideos: () =>
             applyFilterToRelatedVideos,
         SettingBoxKey.applyFilterToSearch: () => applyFilterToSearch,
+        SettingBoxKey.autoOpenClipboardVideoLink: () =>
+            autoOpenClipboardVideoLink,
         SettingBoxKey.autoPiP: () => autoPiP,
         SettingBoxKey.autoPlayEnable: () => autoPlayEnable,
         SettingBoxKey.autoSideBar: () => autoSideBar,
@@ -1277,6 +1279,11 @@ abstract final class Pref {
   static bool get applyFilterToRelatedVideos => _setting.get(
     SettingBoxKey.applyFilterToRelatedVideos,
     defaultValue: true,
+  );
+
+  static bool get autoOpenClipboardVideoLink => _setting.get(
+    SettingBoxKey.autoOpenClipboardVideoLink,
+    defaultValue: false,
   );
 
   static bool get applyFilterToHotVideos =>

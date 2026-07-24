@@ -96,9 +96,11 @@ Future<bool> confirmDeleteFolders({
   }
   final folderIds = folderList.map((item) => item.id).toSet();
   final entries = _uniqueEntries(
-    folderList.expand((folder) => collectionService.resolveFolderEntries(
-      folder.id,
-    )),
+    folderList.expand(
+      (folder) => collectionService.resolveFolderEntries(
+        folder.id,
+      ),
+    ),
   );
   final choice = await _showPrimaryDialog(
     context: context,
@@ -184,9 +186,7 @@ Future<_CacheChoice?> _showPrimaryDialog({
                       deleteCache = value ?? false;
                     }),
               title: const Text('同时删除本地离线缓存'),
-              subtitle: cacheCount == 0
-                  ? const Text('当前没有已完成的本地离线缓存')
-                  : null,
+              subtitle: cacheCount == 0 ? const Text('当前没有已完成的本地离线缓存') : null,
             ),
           ],
         ),
@@ -291,7 +291,7 @@ Future<_CacheDeleteResult> _deleteLocalCaches({
       failed.add(entry);
     } else {
       downloadService.downloadList.remove(entry);
-      await GStorage.watchProgress.delete(entry.cid.toString());
+      await GStorage.watchProgressStore.delete(entry.cid.toString());
     }
   }
   downloadService.flagNotifier.refresh();

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -73,16 +74,21 @@ abstract final class DebugLogService {
     String message, {
     Map<String, dynamic>? extra,
   }) async {
+    final sanitizedExtra = LogRedactor.redact(extra);
     final entry = DebugLogEntry(
-      tag: tag,
-      message: message,
+      tag: LogRedactor.redactText(tag),
+      message: LogRedactor.redactText(message),
       time: DateTime.now(),
-      extra: extra,
+      extra: sanitizedExtra is Map
+          ? sanitizedExtra.map(
+              (key, value) => MapEntry(key.toString(), value),
+            )
+          : null,
     );
 
     if (kDebugMode) {
-      debugPrint('[DebugLog][$tag] $message');
-      if (extra != null && extra.isNotEmpty) {
+      debugPrint('[DebugLog][${entry.tag}] ${entry.message}');
+      if (entry.extra case final extra? when extra.isNotEmpty) {
         debugPrint(const JsonEncoder.withIndent('  ').convert(extra));
       }
     }
@@ -127,7 +133,9 @@ abstract final class DebugLogService {
 
   static Future<String> exportText() async {
     final entries = await readAll();
-    return entries.map((entry) => entry.toString()).join('\n\n');
+    return LogRedactor.redactText(
+      entries.map((entry) => entry.toString()).join('\n\n'),
+    );
   }
 
   static Future<bool> clear() async {

@@ -66,7 +66,7 @@ class DownloadPageController extends GetxController
         SmartDialog.showLoading();
         final selected = allChecked.toSet();
         for (final entry in selected) {
-          await GStorage.watchProgress.delete(entry.cid.toString());
+          await GStorage.watchProgressStore.delete(entry.cid.toString());
           await downloadService.deleteDownload(
             entry: entry,
             removeList: true,

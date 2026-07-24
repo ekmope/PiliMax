@@ -1,13 +1,23 @@
+import 'dart:io' show Platform;
+
 import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/api_type.dart';
+import 'package:PiliMax/utils/storage_key.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 List<SettingsModel> get privacySettings => [
+  if (Platform.isAndroid || Platform.isIOS)
+    const SwitchModel(
+      title: '自动打开剪贴板视频',
+      subtitle: '进入应用或返回前台时，读取剪贴板中的哔哩哔哩视频链接',
+      leading: Icon(Icons.content_paste_outlined),
+      setKey: SettingBoxKey.autoOpenClipboardVideoLink,
+    ),
   NormalModel(
     onTap: (context, setState) {
       if (!Accounts.main.isLogin) {

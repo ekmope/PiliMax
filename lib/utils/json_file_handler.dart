@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:PiliMax/services/logger.dart';
+import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:catcher_2/catcher_2.dart';
 
 class JsonFileHandler extends ReportHandler {
@@ -83,6 +84,8 @@ class JsonFileHandler extends ReportHandler {
       enableStackTrace: enableStackTrace,
       enableCustomParameters: enableCustomParameters,
     );
-    return add((raf) => raf.writeString('${jsonEncode(json)}\n'));
+    return add(
+      (raf) => raf.writeString('${jsonEncode(LogRedactor.redact(json))}\n'),
+    );
   }
 }

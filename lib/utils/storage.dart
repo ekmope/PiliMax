@@ -5,6 +5,8 @@ import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models/user/danmaku_rule.dart';
 import 'package:PiliMax/models/user/danmaku_rule_adapter.dart';
 import 'package:PiliMax/models/user/info.dart';
+import 'package:PiliMax/utils/android/android_mmkv_box.dart';
+import 'package:PiliMax/utils/android/android_mmkv_storage_codec.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account_adapter.dart';
 import 'package:PiliMax/utils/accounts/account_type_adapter.dart';
@@ -12,6 +14,8 @@ import 'package:PiliMax/utils/accounts/cookie_jar_adapter.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/set_int_adapter.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/storage/reply_cache_store.dart';
+import 'package:PiliMax/utils/storage/watch_progress_store.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path/path.dart' as path;
@@ -22,7 +26,9 @@ abstract final class GStorage {
   static late final Box<dynamic> localCache;
   static late final Box<dynamic> setting;
   static late final Box<dynamic> video;
+  static late final Box<String> _androidMmkvMigrationState;
   static late final Box<int> watchProgress;
+  static late final WatchProgressStore watchProgressStore;
   static const exportableLocalCacheKeys = [
     'historyPause',
     'blackMids',
@@ -33,58 +39,110 @@ abstract final class GStorage {
     'danmakuFilterRules',
   ];
   static late final Box<Uint8List>? reply;
+  static late final ReplyCacheStore replyCacheStore;
 
   static Future<void> init() async {
     Hive.init(path.join(appSupportDirPath, 'hive'));
     regAdapter();
+    _androidMmkvMigrationState = await Hive.openBox<String>(
+      'androidMmkvMigrationState',
+      compactionStrategy: (entries, deletedEntries) => deletedEntries > 4,
+    );
+    final migrationState = HiveAndroidMmkvMigrationState(
+      _androidMmkvMigrationState,
+    );
 
     await Future.wait([
       // 登录用户信息
-      Hive.openBox<UserInfoData>(
-        'userInfo',
-        compactionStrategy: (int entries, int deletedEntries) {
-          return deletedEntries > 2;
-        },
+      openAndroidMmkvBackedBox<UserInfoData>(
+        name: 'userInfo',
+        valueEncoder: AndroidMmkvStorageCodec.encodeUserInfoData,
+        valueDecoder: AndroidMmkvStorageCodec.decodeUserInfoData,
+        migrationState: migrationState,
+        openHive: () => Hive.openBox<UserInfoData>(
+          'userInfo',
+          compactionStrategy: (int entries, int deletedEntries) {
+            return deletedEntries > 2;
+          },
+        ),
       ).then((res) => userInfo = res),
       // 本地缓存
-      Hive.openBox(
-        'localCache',
-        compactionStrategy: (int entries, int deletedEntries) {
-          return deletedEntries > 4;
-        },
+      openAndroidMmkvBackedBox<dynamic>(
+        name: 'localCache',
+        valueEncoder: AndroidMmkvStorageCodec.encodeLocalCacheValue,
+        valueDecoder: AndroidMmkvStorageCodec.decodeLocalCacheValue,
+        migrationState: migrationState,
+        openHive: () => Hive.openBox(
+          'localCache',
+          compactionStrategy: (int entries, int deletedEntries) {
+            return deletedEntries > 4;
+          },
+        ),
       ).then((res) => localCache = res),
       // 设置
-      Hive.openBox('setting').then((res) => setting = res),
+      openAndroidMmkvBackedBox<dynamic>(
+        name: 'setting',
+        migrationState: migrationState,
+        openHive: () => Hive.openBox('setting'),
+      ).then((res) => setting = res),
       // 搜索历史
-      Hive.openBox(
-        'historyWord',
-        compactionStrategy: (int entries, int deletedEntries) {
-          return deletedEntries > 10;
-        },
+      openAndroidMmkvBackedBox<dynamic>(
+        name: 'historyWord',
+        migrationState: migrationState,
+        openHive: () => Hive.openBox(
+          'historyWord',
+          compactionStrategy: (int entries, int deletedEntries) {
+            return deletedEntries > 10;
+          },
+        ),
       ).then((res) => historyWord = res),
       // 视频设置
-      Hive.openBox('video').then((res) => video = res),
+      openAndroidMmkvBackedBox<dynamic>(
+        name: 'video',
+        migrationState: migrationState,
+        openHive: () => Hive.openBox('video'),
+      ).then((res) => video = res),
       Accounts.init(),
-      Hive.openBox<int>(
+    ]);
+
+    watchProgress = await openAndroidMmkvBackedBox<int>(
+      name: 'watchProgress',
+      migrationState: migrationState,
+      keyComparator: _intStrDescKeyComparator,
+      loadMode: AndroidMmkvLoadMode.lazy,
+      openHive: () => Hive.openBox<int>(
         'watchProgress',
         keyComparator: _intStrDescKeyComparator,
         compactionStrategy: (entries, deletedEntries) {
           return deletedEntries > 4;
         },
-      ).then((res) => watchProgress = res),
-    ]);
+      ),
+    );
+    watchProgressStore = WatchProgressStore(
+      watchProgress,
+      orderStore: localCache,
+    );
+    await watchProgressStore.enforceLimit();
 
     if (Pref.saveReply) {
-      reply = await Hive.openBox<Uint8List>(
-        'reply',
+      reply = await openAndroidMmkvBackedBox<Uint8List>(
+        name: 'reply',
+        migrationState: migrationState,
         keyComparator: _intStrDescKeyComparator,
-        compactionStrategy: (entries, deletedEntries) {
-          return deletedEntries > 10;
-        },
+        loadMode: AndroidMmkvLoadMode.lazy,
+        openHive: () => Hive.openBox<Uint8List>(
+          'reply',
+          keyComparator: _intStrDescKeyComparator,
+          compactionStrategy: (entries, deletedEntries) {
+            return deletedEntries > 10;
+          },
+        ),
       );
     } else {
       reply = null;
     }
+    replyCacheStore = ReplyCacheStore(reply, orderStore: localCache);
+    await replyCacheStore.enforceLimit();
   }
 
   static String exportAllSettings() {
@@ -150,9 +208,7 @@ abstract final class GStorage {
     return switch (key) {
       'blackMids' ||
       'dynamicsBlockedMids' => value is Set ? value.toList() : value,
-      'whitelistMids' ||
-      'recommendBlockedMids' ||
-      'replyBlockedMids' =>
+      'whitelistMids' || 'recommendBlockedMids' || 'replyBlockedMids' =>
         value is Map ? value.map((k, v) => MapEntry(k.toString(), v)) : value,
       'danmakuFilterRules' =>
         value is RuleFilter
@@ -170,9 +226,7 @@ abstract final class GStorage {
     return switch (key) {
       'blackMids' || 'dynamicsBlockedMids' =>
         value is List ? value.whereType<int>().toSet() : value,
-      'whitelistMids' ||
-      'recommendBlockedMids' ||
-      'replyBlockedMids' =>
+      'whitelistMids' || 'recommendBlockedMids' || 'replyBlockedMids' =>
         value is Map
             ? value.map(
                 (k, v) =>
@@ -206,12 +260,17 @@ abstract final class GStorage {
       setting.compact(),
       video.compact(),
       Accounts.account.compact(),
+      _androidMmkvMigrationState.compact(),
       watchProgress.compact(),
       ?reply?.compact(),
     ]);
   }
 
-  static Future<List<void>> close() {
+  static Future<List<void>> close() async {
+    await Future.wait([
+      watchProgressStore.beginClose(),
+      replyCacheStore.beginClose(),
+    ]);
     return Future.wait([
       userInfo.close(),
       historyWord.close(),
@@ -219,12 +278,17 @@ abstract final class GStorage {
       setting.close(),
       video.close(),
       Accounts.account.close(),
+      _androidMmkvMigrationState.close(),
       watchProgress.close(),
       ?reply?.close(),
     ]);
   }
 
-  static Future<List<void>> clear() {
+  static Future<List<void>> clear() async {
+    await Future.wait([
+      watchProgressStore.clear(),
+      replyCacheStore.clear(),
+    ]);
     return Future.wait([
       userInfo.clear(),
       historyWord.clear(),
@@ -232,8 +296,6 @@ abstract final class GStorage {
       setting.clear(),
       video.clear(),
       Accounts.clear(),
-      watchProgress.clear(),
-      ?reply?.clear(),
     ]);
   }
 

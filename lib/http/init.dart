@@ -13,6 +13,7 @@ import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/accounts/account_manager/account_mgr.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/login_utils.dart';
+import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:archive/archive.dart';
@@ -21,7 +22,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, listEquals;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kDebugMode, listEquals;
 
 class Request {
   static const _gzipDecoder = GZipDecoder();
@@ -239,6 +241,9 @@ class Request {
           request: false,
           requestHeader: false,
           responseHeader: false,
+          logPrint: (value) => debugPrint(
+            LogRedactor.redactText(value.toString()),
+          ),
         ),
       );
     }

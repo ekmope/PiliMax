@@ -4,10 +4,14 @@ import 'dart:convert';
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
-import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/common/widgets/selectable_text.dart';
+import 'package:PiliMax/pages/setting/pages/crash_report_history.dart';
+import 'package:PiliMax/services/crash/crash_report.dart';
+import 'package:PiliMax/services/crash/crash_report_store.dart';
+import 'package:PiliMax/services/crash/crash_reporter.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/date_utils.dart';
+import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
@@ -31,12 +35,14 @@ class LogsPage extends StatefulWidget {
 class _LogsPageState extends State<LogsPage> {
   List<_ExpandedItem<Report>> logsContent = [];
   _ExpandedItem<_DeviceInfo>? _deviceInfo;
+  List<CrashReport> _storedCrashReports = const [];
   late bool enableLog = Pref.enableLog;
   late bool enableNetworkLog = Pref.enableNetworkLog;
 
   @override
   void initState() {
     _initDeviceInfo();
+    _initCrashReports();
     getLog();
     super.initState();
   }
@@ -49,6 +55,10 @@ class _LogsPageState extends State<LogsPage> {
         c.customParameters,
       ));
     }
+  }
+
+  void _initCrashReports() {
+    _storedCrashReports = CrashReportStore.loadAll();
   }
 
   Future<void> getLog() async {
@@ -78,7 +88,7 @@ class _LogsPageState extends State<LogsPage> {
 
   void copyLogs() {
     Utils.copyText(
-      '```\n${logsContent.join('\n\n')}```',
+      LogRedactor.redactText('```\n${logsContent.join('\n\n')}```'),
       needToast: false,
     );
     if (mounted) {
@@ -124,7 +134,10 @@ class _LogsPageState extends State<LogsPage> {
                       Utils.reportError('Manual', StackTrace.current);
                       if (timer.tick > 3) {
                         timer.cancel();
-                        if (mounted) getLog();
+                        if (mounted) {
+                          _initCrashReports();
+                          getLog();
+                        }
                       }
                     },
                   ),
@@ -169,34 +182,44 @@ class _LogsPageState extends State<LogsPage> {
           const SizedBox(width: 6),
         ],
       ),
-      body: logsContent.isNotEmpty || _deviceInfo != null
-          ? Padding(
-              padding: EdgeInsets.only(
-                left: padding.left + 12,
-                right: padding.right + 12,
+      body: Padding(
+        padding: EdgeInsets.only(
+          left: padding.left + 12,
+          right: padding.right + 12,
+        ),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const .only(bottom: 12),
+                child: _CrashReportCard(
+                  reports: _storedCrashReports,
+                  onChanged: () {
+                    _initCrashReports();
+                    setState(() {});
+                  },
+                ),
               ),
-              child: CustomScrollView(
-                slivers: [
-                  if (_deviceInfo != null)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const .only(bottom: 12),
-                        child: _InfoCard(info: _deviceInfo!),
-                      ),
-                    ),
-                  SliverPadding(
-                    padding: EdgeInsets.only(bottom: padding.bottom + 100),
-                    sliver: SliverList.separated(
-                      itemCount: logsContent.length,
-                      itemBuilder: (context, index) =>
-                          _ReportCard(report: logsContent[index]),
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    ),
-                  ),
-                ],
+            ),
+            if (_deviceInfo != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const .only(bottom: 12),
+                  child: _InfoCard(info: _deviceInfo!),
+                ),
               ),
-            )
-          : scrollableError,
+            SliverPadding(
+              padding: EdgeInsets.only(bottom: padding.bottom + 100),
+              sliver: SliverList.separated(
+                itemCount: logsContent.length,
+                itemBuilder: (context, index) =>
+                    _ReportCard(report: logsContent[index]),
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -206,6 +229,56 @@ typedef _DeviceInfo = (
   Map<String, dynamic>,
   Map<String, dynamic>,
 );
+
+class _CrashReportCard extends StatelessWidget {
+  final List<CrashReport> reports;
+  final VoidCallback onChanged;
+
+  const _CrashReportCard({required this.reports, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.of(context);
+    return Card(
+      child: ListTile(
+        leading: Icon(Icons.warning_amber_rounded, color: colorScheme.error),
+        title: const Text('异常报告历史'),
+        subtitle: Text(
+          reports.isEmpty
+              ? '暂无异常报告'
+              : '共 ${reports.length} 条 · 最近 ${reports.first.crashedAtText}',
+        ),
+        trailing: Icon(
+          Icons.arrow_forward,
+          size: 16,
+          color: colorScheme.outline,
+        ),
+        onTap: () async {
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const CrashReportHistoryPage(),
+            ),
+          );
+          onChanged();
+        },
+        onLongPress: reports.isEmpty
+            ? null
+            : () async {
+                await CrashReporter.clearHistory();
+                onChanged();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('异常报告历史已清空'),
+                      duration: _snackBarDisplayDuration,
+                    ),
+                  );
+                }
+              },
+      ),
+    );
+  }
+}
 
 class _InfoCard extends StatelessWidget {
   final _ExpandedItem<_DeviceInfo> info;
@@ -336,7 +409,10 @@ class _ReportCard extends StatelessWidget {
             iconSize: 22,
             tooltip: '复制',
             onPressed: () {
-              Utils.copyText('```\n$report```', needToast: false);
+              Utils.copyText(
+                LogRedactor.redactText('```\n$report```'),
+                needToast: false,
+              );
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('已将 $dateTime 复制至剪贴板'),

@@ -17,6 +17,7 @@ import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/services/route_restore_service.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
+import 'package:PiliMax/utils/clipboard_video_link_handler.dart';
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
@@ -168,7 +169,16 @@ class _MainAppState extends PopScopeState<MainApp>
         _recordMainRestoreState();
       }
       RouteRestoreService.captureCurrentRoute();
+      _scheduleClipboardVideoLinkInitialization();
     }
+  }
+
+  void _scheduleClipboardVideoLinkInitialization() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ClipboardVideoLinkHandler.init();
+      unawaited(ClipboardVideoLinkHandler.checkAndOpen());
+    });
   }
 
   void _scheduleNavigationPageSync() {
@@ -220,6 +230,8 @@ class _MainAppState extends PopScopeState<MainApp>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         unawaited(_restoreRoute());
       });
+    } else if (Platform.isIOS) {
+      _scheduleClipboardVideoLinkInitialization();
     }
     if (PlatformUtils.isDesktop) {
       windowManager
@@ -300,6 +312,7 @@ class _MainAppState extends PopScopeState<MainApp>
       windowManager.removeListener(this);
     }
     removeObserverMobile(this);
+    ClipboardVideoLinkHandler.dispose();
     for (final worker in _backPopWorkers) {
       worker.dispose();
     }

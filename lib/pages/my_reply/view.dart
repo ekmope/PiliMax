@@ -36,7 +36,7 @@ class _MyReplyState extends State<MyReply> with DynMixin {
 
   void _initReply() {
     _replies
-      ..assignAll(GStorage.reply!.values.map(ReplyInfo.fromBuffer))
+      ..assignAll(GStorage.replyCacheStore.values.map(ReplyInfo.fromBuffer))
       ..sort((a, b) => b.ctime.compareTo(a.ctime)); // rpid not aligned;
   }
 
@@ -54,7 +54,7 @@ class _MyReplyState extends State<MyReply> with DynMixin {
                 context: context,
                 title: const Text('Clear Local Storage?'),
                 onConfirm: () {
-                  GStorage.reply!.clear();
+                  GStorage.replyCacheStore.clear();
                   _replies.clear();
                   setState(() {});
                 },
@@ -182,7 +182,7 @@ class _MyReplyState extends State<MyReply> with DynMixin {
   }
 
   Future<void> _onImport(List<dynamic> list) async {
-    await GStorage.reply!.putAll({
+    await GStorage.replyCacheStore.putAll({
       for (var e in list)
         e['id'].toString(): (ReplyInfo.create()..mergeFromProto3Json(e))
             .writeToBuffer(),

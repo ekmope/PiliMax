@@ -10,9 +10,15 @@ import 'package:PiliMax/common/widgets/scale_app.dart';
 import 'package:PiliMax/common/widgets/scroll_behavior.dart';
 import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/models/common/theme/theme_color_type.dart';
+import 'package:PiliMax/pages/setting/pages/crash_report.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliMax/router/app_pages.dart';
 import 'package:PiliMax/services/account_service.dart';
+import 'package:PiliMax/services/crash/crash_breadcrumbs.dart';
+import 'package:PiliMax/services/crash/crash_context.dart';
+import 'package:PiliMax/services/crash/crash_report.dart';
+import 'package:PiliMax/services/crash/crash_report_handler.dart';
+import 'package:PiliMax/services/crash/crash_reporter.dart';
 import 'package:PiliMax/services/download/download_collection_service.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/services/logger.dart';
@@ -105,13 +111,56 @@ Future<void> _initAppPath() async {
   appSupportDirPath = (await getApplicationSupportDirectory()).path;
 }
 
-void main() async {
+void main() {
+  var startupCompleted = false;
+  runZonedGuarded(
+    () async {
+      CrashReporter.install();
+      await _main();
+      startupCompleted = true;
+    },
+    (error, stackTrace) {
+      CrashReporter.recordErrorSync(
+        error,
+        stackTrace,
+        source: CrashSource.platformDispatcher,
+        severity: startupCompleted
+            ? CrashSeverity.unhandled
+            : CrashSeverity.fatal,
+        operation: 'mainZone',
+        reason: 'uncaught_zone_error',
+      );
+      if (!startupCompleted) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+      try {
+        // Keep Catcher2's existing JSON/console handlers in the chain for
+        // errors which reach the outer zone after startup.
+        Catcher2.reportCheckedError(error, stackTrace);
+      } catch (_) {
+        // A reporting failure must never become a second uncaught error.
+      }
+    },
+  );
+}
+
+Future<void> _main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
+  final startupCrashReport = await CrashReporter.ensureInitialized();
   await _initAppPath();
+  CrashBreadcrumbs.record('main.start');
+  MediaKit.ensureInitialized();
   try {
     await GStorage.init();
-  } catch (e) {
+    CrashBreadcrumbs.record('GStorage initialized');
+  } catch (e, stackTrace) {
+    CrashReporter.recordErrorSync(
+      e,
+      stackTrace,
+      severity: CrashSeverity.fatal,
+      operation: 'GStorage.init',
+      reason: 'startup_storage_initialization_failed',
+    );
     await Utils.copyText(e.toString());
     if (kDebugMode) debugPrint('GStorage init error: $e');
     exit(0);
@@ -222,18 +271,32 @@ void main() async {
     final fileHandler = await JsonFileHandler.init();
 
     Catcher2(
-      [?fileHandler, const ConsoleHandler()],
-      const MyApp(),
+      [?fileHandler, CrashReportHandler(), const ConsoleHandler()],
+      MyApp(startupCrashReport: startupCrashReport),
       logger: logger,
       customParameters: customParameters,
+      excludedParameters: const [
+        'id',
+        'androidId',
+        'machineId',
+        'computerName',
+        'hostName',
+        'fingerprint',
+        'name',
+      ],
     );
+    // Catcher2 installs its own Flutter handler. Re-chain CrashReporter after it
+    // so both the existing JSON logs and the bounded crash archive are retained.
+    CrashReporter.install(force: true);
   } else {
-    runApp(const MyApp());
+    runApp(MyApp(startupCrashReport: startupCrashReport));
   }
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final CrashReport? startupCrashReport;
+
+  const MyApp({this.startupCrashReport, super.key});
 
   static ColorScheme? _light, _dark;
 
@@ -304,10 +367,12 @@ class MyApp extends StatelessWidget {
         notifyStyle: const FlutterSmartNotifyStyle(
           warningBuilder: NotifyWarning.new,
         ),
-        builder: _builder,
+        builder: (context, child) =>
+            _builder(context, child, startupCrashReport),
       ),
       navigatorObservers: [
         routeObserver,
+        CrashBreadcrumbNavigatorObserver(),
         FlutterSmartDialog.observer,
       ],
       scrollBehavior: PlatformUtils.isDesktop
@@ -317,7 +382,11 @@ class MyApp extends StatelessWidget {
   }
 
   // 修复后的 Builder 方法
-  static Widget _builder(BuildContext context, Widget? child) {
+  static Widget _builder(
+    BuildContext context,
+    Widget? child,
+    CrashReport? startupCrashReport,
+  ) {
     final mediaQuery = MediaQuery.of(context);
     final uiScale = Pref.uiScale;
     final textScaler = TextScaler.linear(Pref.defaultTextScale);
@@ -373,12 +442,15 @@ class MyApp extends StatelessWidget {
       );
     }
     if (PlatformUtils.isDesktop) {
-      return BackDetector(
+      child = BackDetector(
         onBack: _onBack,
         child: child,
       );
     }
-    return child;
+    return CrashReportStartupGate(
+      initialReport: startupCrashReport,
+      child: child,
+    );
   }
 
   /// from [DynamicColorBuilderState.initPlatformState]

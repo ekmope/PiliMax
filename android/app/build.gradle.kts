@@ -127,3 +127,7 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("com.tencent:mmkv-static:1.3.14")
+}

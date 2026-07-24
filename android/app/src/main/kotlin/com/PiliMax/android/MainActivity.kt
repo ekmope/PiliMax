@@ -13,6 +13,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : AudioServiceActivity() {
     private lateinit var methodChannel: MethodChannel
     private lateinit var routeRestoreMethodChannel: MethodChannel
+    private var nativeCrashChannel: NativeCrashChannel? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -44,6 +45,17 @@ class MainActivity : AudioServiceActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        nativeCrashChannel = NativeCrashChannel(
+            applicationContext,
+            flutterEngine.dartExecutor.binaryMessenger,
+        )
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        nativeCrashChannel?.dispose()
+        nativeCrashChannel = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     @Suppress("DEPRECATION")

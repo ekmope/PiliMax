@@ -47,7 +47,7 @@ class DownloadSearchController
       entry: entry,
       removeList: true,
     );
-    GStorage.watchProgress.delete(entry.cid.toString());
+    GStorage.watchProgressStore.delete(entry.cid.toString());
   }
 
   @override
@@ -59,7 +59,7 @@ class DownloadSearchController
         SmartDialog.showLoading();
         final allChecked = this.allChecked.toSet();
         for (final entry in allChecked) {
-          await GStorage.watchProgress.delete(entry.cid.toString());
+          await GStorage.watchProgressStore.delete(entry.cid.toString());
           await _downloadService.deleteDownload(
             entry: entry,
             removeList: true,

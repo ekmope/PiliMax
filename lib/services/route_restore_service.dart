@@ -179,6 +179,25 @@ abstract final class RouteRestoreService {
     );
   }
 
+  /// Completes after the one-time Android route-restoration decision.
+  ///
+  /// Startup overlays use this to avoid racing the restored destination. The
+  /// bounded asynchronous wait also covers the first frame before MainPage has
+  /// called [restoreIfNeeded]; it never blocks the Android main thread.
+  static Future<void> waitForStartupRestore() async {
+    if (!_enabled || _phase == _RouteRestorePhase.ready) return;
+    for (
+      var attempt = 0;
+      attempt < 125 && _startupRestoreFuture == null;
+      attempt++
+    ) {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
+    if (_startupRestoreFuture case final future?) {
+      await future;
+    }
+  }
+
   static Future<bool> _restoreIfNeeded({
     required void Function(MainRestoreState state) restoreMainState,
   }) async {

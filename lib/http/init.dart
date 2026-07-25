@@ -155,7 +155,13 @@ class Request {
           contentType: Headers.jsonContentType,
         ),
       );
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      _reportOperationFailure(
+        'Request.buvidActive',
+        error,
+        stackTrace,
+      );
+    }
   }
 
   static Dio _cloneHttp11Dio() {
@@ -257,7 +263,13 @@ class Request {
           ..httpClientAdapter.close(force: true)
           ..httpClientAdapter = h11;
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      _reportOperationFailure(
+        'Request.resetAdaptersForNetworkChange',
+        error,
+        stackTrace,
+      );
+    }
   }
 
   /*
@@ -336,15 +348,10 @@ class Request {
         cancelToken: cancelToken,
       );
     } on DioException catch (e, s) {
-      try {
-        Utils.reportError(e, s);
-      } catch (_) {}
-      return Response(
-        data: {
-          'message': await AccountManager.dioError(e),
-        }, // 将自定义 Map 数据赋值给 Response 的 data 属性
-        statusCode: e.response?.statusCode ?? -1,
-        requestOptions: e.requestOptions,
+      return _handleDioException(
+        e,
+        s,
+        operation: 'Request.get',
       );
     }
   }
@@ -369,16 +376,11 @@ class Request {
         cancelToken: cancelToken,
       );
     } on DioException catch (e, s) {
-      try {
-        AccountManager.toast(e);
-        Utils.reportError(e, s);
-      } catch (_) {}
-      return Response(
-        data: {
-          'message': await AccountManager.dioError(e),
-        }, // 将自定义 Map 数据赋值给 Response 的 data 属性
-        statusCode: e.response?.statusCode ?? -1,
-        requestOptions: e.requestOptions,
+      return _handleDioException(
+        e,
+        s,
+        operation: 'Request.post',
+        showToast: true,
       );
     }
   }
@@ -403,17 +405,77 @@ class Request {
       );
       // if (kDebugMode) debugPrint('downloadFile success: ${response.data}');
     } on DioException catch (e, s) {
-      try {
-        Utils.reportError(e, s);
-      } catch (_) {}
       // if (kDebugMode) debugPrint('downloadFile error: $e');
-      return Response(
-        data: {
-          'message': await AccountManager.dioError(e),
-        },
-        statusCode: e.response?.statusCode ?? -1,
-        requestOptions: e.requestOptions,
+      return _handleDioException(
+        e,
+        s,
+        operation: 'Request.downloadFile',
       );
+    }
+  }
+
+  static Future<Response> _handleDioException(
+    DioException error,
+    StackTrace stackTrace, {
+    required String operation,
+    bool showToast = false,
+  }) async {
+    if (showToast) {
+      try {
+        AccountManager.toast(error);
+      } catch (toastError, toastStackTrace) {
+        _reportOperationFailure(
+          '$operation.toast',
+          toastError,
+          toastStackTrace,
+        );
+      }
+    }
+    try {
+      Utils.reportError(error, stackTrace, operation);
+    } catch (reportError) {
+      if (kDebugMode) {
+        debugPrint(
+          '$operation reporting failed (${reportError.runtimeType})',
+        );
+      }
+    }
+
+    String message;
+    try {
+      message = await AccountManager.dioError(error);
+    } catch (messageError, messageStackTrace) {
+      _reportOperationFailure(
+        '$operation.describeError',
+        messageError,
+        messageStackTrace,
+      );
+      message = '网络请求失败';
+    }
+    return Response(
+      data: {'message': message},
+      statusCode: error.response?.statusCode ?? -1,
+      requestOptions: error.requestOptions,
+    );
+  }
+
+  static void _reportOperationFailure(
+    String operation,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    try {
+      Utils.reportError(
+        StateError('$operation failed (${error.runtimeType})'),
+        stackTrace,
+        operation,
+      );
+    } catch (reportError) {
+      if (kDebugMode) {
+        debugPrint(
+          '$operation reporting failed (${reportError.runtimeType})',
+        );
+      }
     }
   }
 

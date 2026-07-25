@@ -7,21 +7,23 @@ import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
+import 'package:PiliMax/utils/accounts/account_manager/app_request_signer.dart';
+import 'package:PiliMax/utils/accounts/account_manager/request_error_toast_gate.dart';
 import 'package:PiliMax/utils/accounts/api_type.dart';
-import 'package:PiliMax/utils/app_sign.dart';
-import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 final _setCookieReg = RegExp('(?<=)(,)(?=[^;]+?=)');
 
 class AccountManager extends Interceptor {
   AccountManager();
+
+  static final _toastGate = RequestErrorToastGate();
 
   String blockServer = Pref.blockServer;
 
@@ -69,45 +71,20 @@ class AccountManager extends Interceptor {
 
     // app端不需要管理cookie
     if (isApp) {
-      // if (kDebugMode) debugPrint('is app: ${options.path}');
-      final dataPtr = (options.method == 'POST' && options.data is Map
-          ? (options.data as Map).cast<String, dynamic>()
-          : options.queryParameters);
-      if (dataPtr.isNotEmpty) {
-        if (!account.accessKey.isNullOrEmpty) {
-          dataPtr['access_key'] = account.accessKey!;
-        }
-        AppSign.appSign(dataPtr..remove('sign'));
-        // if (kDebugMode) debugPrint(dataPtr.toString());
+      try {
+        AppRequestSigner.sign(options, accessKey: account.accessKey);
+      } catch (error, stackTrace) {
+        const operation = 'AccountManager.signAppRequest';
+        _reportFailure(operation, error, stackTrace);
+        return handler.reject(
+          _safeDioException(options, operation, error, stackTrace),
+          true,
+        );
       }
       return handler.next(options);
-    } else {
-      account.cookieJar
-          .loadForRequest(options.uri)
-          .then((cookies) {
-            final previousCookies =
-                options.headers[HttpHeaders.cookieHeader] as String?;
-            final newCookies = getCookies([
-              ...?previousCookies
-                  ?.split(';')
-                  .where((e) => e.isNotEmpty)
-                  .map(Cookie.fromSetCookieValue),
-              ...cookies,
-            ]);
-            options.headers[HttpHeaders.cookieHeader] = newCookies.isNotEmpty
-                ? newCookies
-                : '';
-            handler.next(options);
-          })
-          .catchError((dynamic e, StackTrace s) {
-            final err = DioException(
-              requestOptions: options,
-              error: e,
-              stackTrace: s,
-            );
-            handler.reject(err, true);
-          });
     }
+
+    unawaited(_loadCookiesAndContinue(account, options, handler));
   }
 
   @override
@@ -118,23 +95,9 @@ class AccountManager extends Interceptor {
         path.startsWith(HttpString.appBaseUrl) ||
         _skipCookie(path)) {
       return handler.next(response);
-    } else {
-      final future = _saveCookies(
-        response,
-      ).whenComplete(() => handler.next(response));
-      assert(() {
-        future.catchError(
-          (Object e, StackTrace s) {
-            throw DioException(
-              requestOptions: response.requestOptions,
-              error: e,
-              stackTrace: s,
-            );
-          },
-        );
-        return true;
-      }());
     }
+
+    unawaited(_saveResponseCookiesAndContinue(response, handler));
   }
 
   @override
@@ -145,23 +108,12 @@ class AccountManager extends Interceptor {
     if (err.requestOptions.method != 'POST') {
       toast(err);
     }
-    if (err.response != null &&
-        !err.response!.requestOptions.path.startsWith(HttpString.appBaseUrl)) {
-      _saveCookies(
-        err.response!,
-      ).whenComplete(() => handler.next(err)).catchError(
-        (dynamic e, StackTrace s) {
-          final error = DioException(
-            requestOptions: err.response!.requestOptions,
-            error: e,
-            stackTrace: s,
-          );
-          handler.next(error);
-        },
-      );
-    } else {
-      handler.next(err);
+    final response = err.response;
+    if (response == null || !_shouldManageCookies(response.requestOptions)) {
+      return handler.next(err);
     }
+
+    unawaited(_saveErrorCookiesAndContinue(response, err, handler));
   }
 
   static void toast(DioException err) {
@@ -176,23 +128,25 @@ class AccountManager extends Interceptor {
       'biliimg.com',
       'site/getCoin',
     ];
-    final uri = err.requestOptions.uri;
-    final url = uri.toString();
-    final safeUrl = uri.hasScheme
-        ? '${uri.scheme}://${uri.authority}${uri.path}'
-        : uri.path;
+    if (err.type == DioExceptionType.cancel) return;
+
+    final endpoint = requestErrorEndpoint(err.requestOptions);
     if (kDebugMode) {
       debugPrint(
-        '🌹🌹ApiInterceptor: ${err.requestOptions.method} '
-        '$safeUrl (${err.type.name})',
+        '🌹🌹ApiInterceptor: $endpoint (${err.type.name})',
       );
     }
-    if (skipShow.any(url.contains) ||
-        (url.contains('skipSegments') && err.requestOptions.method == 'GET')) {
-      // skip
-    } else {
-      dioError(err).then((res) => SmartDialog.showToast(res + safeUrl));
+    final normalizedEndpoint = endpoint.toLowerCase();
+    if (skipShow.any(
+          (value) => normalizedEndpoint.contains(value.toLowerCase()),
+        ) ||
+        (normalizedEndpoint.contains('skipsegments') &&
+            err.requestOptions.method.toUpperCase() == 'GET')) {
+      return;
     }
+    final gateKey = '${err.type.name}:$endpoint';
+    if (!_toastGate.tryAcquire(gateKey)) return;
+    unawaited(_showToast(err, endpoint, gateKey));
   }
 
   Future<void> _saveCookies(Response response) async {
@@ -203,31 +157,178 @@ class AccountManager extends Interceptor {
     if (setCookies == null || setCookies.isEmpty) {
       return;
     }
-    final List<Cookie> cookies = setCookies
-        .map((str) => str.split(_setCookieReg))
-        .expand((cookie) => cookie)
-        .where((cookie) => cookie.isNotEmpty)
-        .map(Cookie.fromSetCookieValue)
-        .toList();
+    final cookies = <Cookie>[];
+    var didReportParseFailure = false;
+    for (final header in setCookies) {
+      for (final value in header.split(_setCookieReg)) {
+        if (value.isEmpty) continue;
+        try {
+          cookies.add(Cookie.fromSetCookieValue(value));
+        } catch (error, stackTrace) {
+          if (!didReportParseFailure) {
+            didReportParseFailure = true;
+            _reportFailure(
+              'AccountManager.parseSetCookie',
+              error,
+              stackTrace,
+            );
+          }
+        }
+      }
+    }
+    if (cookies.isEmpty) return;
+
     final statusCode = response.statusCode ?? 0;
     final locations = response.headers[HttpHeaders.locationHeader] ?? const [];
     final isRedirectRequest = statusCode >= 300 && statusCode < 400;
-    final originalUri = response.requestOptions.uri;
-    final realUri = originalUri.resolveUri(response.realUri);
-    await account.cookieJar.saveFromResponse(realUri, cookies);
-    if (isRedirectRequest && locations.isNotEmpty) {
-      final originalUri = response.realUri;
-      await Future.wait(
-        locations.map(
-          (location) => account.cookieJar.saveFromResponse(
-            // Resolves the location based on the current Uri.
-            originalUri.resolve(location),
-            cookies,
-          ),
-        ),
+    var didSave = false;
+    try {
+      final originalUri = response.requestOptions.uri;
+      final realUri = originalUri.resolveUri(response.realUri);
+      await account.cookieJar.saveFromResponse(realUri, cookies);
+      didSave = true;
+    } catch (error, stackTrace) {
+      _reportFailure(
+        'AccountManager.saveResponseCookies',
+        error,
+        stackTrace,
       );
     }
-    await account.onChange();
+    if (isRedirectRequest && locations.isNotEmpty) {
+      final originalUri = response.realUri;
+      var didReportRedirectFailure = false;
+      for (final location in locations) {
+        try {
+          await account.cookieJar.saveFromResponse(
+            originalUri.resolve(location),
+            cookies,
+          );
+          didSave = true;
+        } catch (error, stackTrace) {
+          if (!didReportRedirectFailure) {
+            didReportRedirectFailure = true;
+            _reportFailure(
+              'AccountManager.saveRedirectCookies',
+              error,
+              stackTrace,
+            );
+          }
+        }
+      }
+    }
+    if (didSave) await account.onChange();
+  }
+
+  Future<void> _loadCookiesAndContinue(
+    Account account,
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    try {
+      final cookies = await account.cookieJar.loadForRequest(options.uri);
+      final previousCookies =
+          options.headers[HttpHeaders.cookieHeader] as String?;
+      final newCookies = getCookies([
+        ...?previousCookies
+            ?.split(';')
+            .where((value) => value.isNotEmpty)
+            .map(Cookie.fromSetCookieValue),
+        ...cookies,
+      ]);
+      options.headers[HttpHeaders.cookieHeader] = newCookies;
+    } catch (error, stackTrace) {
+      const operation = 'AccountManager.loadRequestCookies';
+      _reportFailure(operation, error, stackTrace);
+      handler.reject(
+        _safeDioException(options, operation, error, stackTrace),
+        true,
+      );
+      return;
+    }
+    handler.next(options);
+  }
+
+  Future<void> _saveResponseCookiesAndContinue(
+    Response response,
+    ResponseInterceptorHandler handler,
+  ) async {
+    try {
+      await _saveCookies(response);
+    } catch (error, stackTrace) {
+      _reportFailure(
+        'AccountManager.handleResponseCookies',
+        error,
+        stackTrace,
+      );
+    }
+    handler.next(response);
+  }
+
+  Future<void> _saveErrorCookiesAndContinue(
+    Response response,
+    DioException originalError,
+    ErrorInterceptorHandler handler,
+  ) async {
+    try {
+      await _saveCookies(response);
+    } catch (error, stackTrace) {
+      _reportFailure(
+        'AccountManager.handleErrorCookies',
+        error,
+        stackTrace,
+      );
+    }
+    handler.next(originalError);
+  }
+
+  static Future<void> _showToast(
+    DioException error,
+    String endpoint,
+    String gateKey,
+  ) async {
+    try {
+      final message = await dioError(error);
+      await SmartDialog.showToast('$message $endpoint');
+    } catch (toastError, stackTrace) {
+      _reportFailure(
+        'AccountManager.showNetworkErrorToast',
+        toastError,
+        stackTrace,
+      );
+    } finally {
+      _toastGate.release(gateKey);
+    }
+  }
+
+  static DioException _safeDioException(
+    RequestOptions options,
+    String operation,
+    Object error,
+    StackTrace stackTrace,
+  ) => DioException(
+    requestOptions: options,
+    error: StateError('$operation failed (${error.runtimeType})'),
+    stackTrace: stackTrace,
+  );
+
+  static void _reportFailure(
+    String operation,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    try {
+      Utils.reportError(
+        StateError('$operation failed (${error.runtimeType})'),
+        stackTrace,
+        operation,
+      );
+    } catch (reportError) {
+      if (kDebugMode) {
+        debugPrint(
+          '$operation reporting failed (${reportError.runtimeType})',
+        );
+      }
+    }
   }
 
   bool _skipCookie(String path) {
@@ -235,6 +336,11 @@ class AccountManager extends Interceptor {
         path.contains('hdslb.com') ||
         path.contains('biliimg.com');
   }
+
+  bool _shouldManageCookies(RequestOptions options) =>
+      options.extra['account'] is! NoAccount &&
+      !options.path.startsWith(HttpString.appBaseUrl) &&
+      !_skipCookie(options.path);
 
   Account _findAccount(String path) => ApiType.loginApi.contains(path)
       ? AnonymousAccount()
@@ -246,6 +352,9 @@ class AccountManager extends Interceptor {
         );
 
   static Future<String> dioError(DioException error) async {
+    final safeLocalMessage = safeLocalNetworkErrorMessage(error.error);
+    if (safeLocalMessage != null) return safeLocalMessage;
+
     switch (error.type) {
       case .badCertificate:
         return '证书有误！';
@@ -269,10 +378,15 @@ class AccountManager extends Interceptor {
           desc = PlatformUtils.isMobile
               ? (await Connectivity().checkConnectivity()).first.desc
               : '';
-        } catch (_) {
+        } catch (error, stackTrace) {
+          _reportFailure(
+            'AccountManager.checkConnectivity',
+            error,
+            stackTrace,
+          );
           desc = '';
         }
-        return '$desc网络异常 ${error.error}';
+        return '$desc网络异常';
     }
   }
 }

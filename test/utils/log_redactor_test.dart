@@ -51,5 +51,19 @@ void main() {
       expect(redacted, isNot(contains('captcha-secret')));
       expect(redacted, isNot(contains('recaptcha-secret')));
     });
+
+    test('redacts Android private and shared-storage paths', () {
+      final redacted = LogRedactor.redactText(
+        'credential=/data/user/0/com.PiliMax.android/files/private.log\n'
+        'legacy=/data/data/com.PiliMax.android/cache/error.log\n'
+        'deviceProtected=/data/user_de/0/com.PiliMax.android/files/state.json\n'
+        'shared=/storage/emulated/0/Android/data/com.PiliMax.android/log.txt',
+      );
+
+      expect(RegExp(r'\[app-path\]').allMatches(redacted), hasLength(4));
+      expect(redacted, isNot(contains('com.PiliMax.android')));
+      expect(redacted, isNot(contains('private.log')));
+      expect(redacted, isNot(contains('state.json')));
+    });
   });
 }

@@ -10,6 +10,8 @@ import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognize
 import 'package:PiliMax/common/widgets/image_grid/image_grid_view.dart'
     show ImageGridView, ImageModel;
 import 'package:PiliMax/common/widgets/pendant_avatar.dart';
+import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/http/system_proxy_config.dart';
 import 'package:PiliMax/models/common/audio_normalization.dart';
 import 'package:PiliMax/models/common/dm_chart_source.dart';
 import 'package:PiliMax/models/common/dynamic/dynamics_type.dart';
@@ -571,8 +573,8 @@ List<SettingsModel> get extraSettings => [
     setKey: SettingBoxKey.showMemberShop,
     onChanged: (value) => MemberTabType.showMemberShop = value,
   ),
-  const SplitModel(
-    normalModel: NormalModel.split(
+  SplitModel(
+    normalModel: const NormalModel.split(
       title: '设置代理',
       subtitle: '设置代理 host:port',
       leading: Icon(Icons.airplane_ticket_outlined),
@@ -580,6 +582,8 @@ List<SettingsModel> get extraSettings => [
     switchModel: SwitchModel.split(
       setKey: SettingBoxKey.enableSystemProxy,
       onTap: _showProxyDialog,
+      onChangeRequested: _allowSystemProxyChange,
+      onChanged: (_) => Request.reloadNetworkConfiguration(),
     ),
   ),
   SwitchModel(
@@ -1111,66 +1115,145 @@ Future<void> _showMemberTabDialog(
   }
 }
 
-void _showProxyDialog(BuildContext context) {
+Future<bool> _allowSystemProxyChange(
+  BuildContext context,
+  bool enabled,
+) async {
+  if (!enabled) return true;
+  final config = SystemProxyConfig.resolve(
+    enabled: true,
+    host: Pref.systemProxyHost,
+    port: Pref.systemProxyPort,
+  );
+  return config.isValid || await _showProxyDialog(context);
+}
+
+Future<bool> _showProxyDialog(BuildContext context) async {
   String systemProxyHost = Pref.systemProxyHost;
   String systemProxyPort = Pref.systemProxyPort;
+  SystemProxyConfigIssue? issue;
+  var saving = false;
 
-  showDialog(
+  final saved = await showDialog<bool>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('设置代理'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 6),
-          TextFormField(
-            initialValue: systemProxyHost,
-            decoration: const InputDecoration(
-              isDense: true,
-              labelText: '请输入Host，使用 . 分割',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(6)),
+    barrierDismissible: false,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) {
+        final hostError = switch (issue) {
+          SystemProxyConfigIssue.emptyHost ||
+          SystemProxyConfigIssue.invalidHost => SystemProxyConfig.resolve(
+            enabled: true,
+            host: systemProxyHost,
+            port: systemProxyPort,
+          ).validationMessage,
+          _ => null,
+        };
+        final portError = issue == SystemProxyConfigIssue.invalidPort
+            ? SystemProxyConfig.resolve(
+                enabled: true,
+                host: systemProxyHost,
+                port: systemProxyPort,
+              ).validationMessage
+            : null;
+
+        return AlertDialog(
+          title: const Text('设置代理'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 6),
+              TextFormField(
+                initialValue: systemProxyHost,
+                decoration: InputDecoration(
+                  isDense: true,
+                  labelText: '请输入Host，使用 . 分割',
+                  errorText: hostError,
+                  border: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(6)),
+                  ),
+                ),
+                onChanged: (value) => setDialogState(() {
+                  systemProxyHost = value;
+                  issue = null;
+                }),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                initialValue: systemProxyPort,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  isDense: true,
+                  labelText: '请输入Port',
+                  errorText: portError,
+                  border: const OutlineInputBorder(
+                    borderRadius: .all(.circular(6)),
+                  ),
+                ),
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (value) => setDialogState(() {
+                  systemProxyPort = value;
+                  issue = null;
+                }),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                '取消',
+                style: TextStyle(color: ColorScheme.of(context).outline),
               ),
             ),
-            onChanged: (e) => systemProxyHost = e,
-          ),
-          const SizedBox(height: 10),
-          TextFormField(
-            initialValue: systemProxyPort,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              isDense: true,
-              labelText: '请输入Port',
-              border: OutlineInputBorder(borderRadius: .all(.circular(6))),
+            TextButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final config = SystemProxyConfig.resolve(
+                        enabled: true,
+                        host: systemProxyHost,
+                        port: systemProxyPort,
+                      );
+                      if (!config.isValid) {
+                        setDialogState(() => issue = config.issue);
+                        return;
+                      }
+
+                      setDialogState(() => saving = true);
+                      try {
+                        await Future.wait([
+                          GStorage.setting.put(
+                            SettingBoxKey.systemProxyHost,
+                            config.host,
+                          ),
+                          GStorage.setting.put(
+                            SettingBoxKey.systemProxyPort,
+                            config.port.toString(),
+                          ),
+                        ]);
+                        Request.reloadNetworkConfiguration();
+                        if (dialogContext.mounted) {
+                          Navigator.of(dialogContext).pop(true);
+                        }
+                      } finally {
+                        if (dialogContext.mounted) {
+                          setDialogState(() => saving = false);
+                        }
+                      }
+                    },
+              child: saving
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('确认'),
             ),
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            onChanged: (e) => systemProxyPort = e,
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () {
-            Get.back();
-            GStorage.setting.put(
-              SettingBoxKey.systemProxyHost,
-              systemProxyHost,
-            );
-            GStorage.setting.put(
-              SettingBoxKey.systemProxyPort,
-              systemProxyPort,
-            );
-          },
-          child: const Text('确认'),
-        ),
-      ],
+          ],
+        );
+      },
     ),
   );
+  return saved ?? false;
 }

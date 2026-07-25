@@ -29,7 +29,7 @@ abstract final class LogRedactor {
   static final RegExp _windowsUserHome = RegExp(r'[A-Za-z]:\\Users\\[^\\\s]+');
   static final RegExp _unixUserHome = RegExp(r'/(?:home|Users)/[^/\s]+');
   static final RegExp _androidStoragePath = RegExp(
-    r'/(?:data/(?:user/\d+/|data/)|storage/emulated/\d+|sdcard|mnt/user/\d+)/[^\s;,)\]}]+',
+    r'/(?:data/(?:user(?:_de)?/\d+|data)|storage/emulated/\d+|sdcard|mnt/user/\d+)/[^\s;,)\]}]+',
     caseSensitive: false,
   );
   static final RegExp _contentUri = RegExp(

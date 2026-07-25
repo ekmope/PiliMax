@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/retry_interceptor.dart';
+import 'package:PiliMax/http/system_proxy_config.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
@@ -23,6 +25,60 @@ import 'package:dio/io.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
 import 'package:flutter/foundation.dart'
     show debugPrint, kDebugMode, listEquals;
+import 'package:http2/http2.dart' show ClientTransportConnection;
+
+final class _FailClosedProxyAdapter implements HttpClientAdapter {
+  const _FailClosedProxyAdapter(this.reason);
+
+  final String reason;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) => Future<ResponseBody>.error(
+    DioException.connectionError(
+      requestOptions: options,
+      reason: reason,
+      error: StateError(reason),
+      stackTrace: StackTrace.current,
+    ),
+    StackTrace.current,
+  );
+
+  @override
+  void close({bool force = false}) {}
+}
+
+final class _FailClosedProxyConnectionManager implements ConnectionManager {
+  const _FailClosedProxyConnectionManager(this.reason);
+
+  final String reason;
+
+  @override
+  int get cachedConnectionsCount => 0;
+
+  @override
+  Future<ClientTransportConnection> getConnection(
+    RequestOptions options,
+    List<RedirectRecord> redirects,
+  ) => Future<ClientTransportConnection>.error(
+    DioException.connectionError(
+      requestOptions: options,
+      reason: reason,
+      error: StateError(reason),
+      stackTrace: StackTrace.current,
+    ),
+    StackTrace.current,
+  );
+
+  @override
+  void removeConnection(ClientTransportConnection transport) {}
+
+  @override
+  void close({bool force = false}) {}
+}
 
 class Request {
   static const _gzipDecoder = GZipDecoder();
@@ -135,47 +191,54 @@ class Request {
     Connectivity().onConnectivityChanged.skip(1).listen(_onConnectivityChanged);
   }
 
-  static (IOHttpClientAdapter, ConnectionManager?) _createPool() {
-    final bool enableSystemProxy;
-    late final String systemProxyHost;
-    late final int? systemProxyPort;
-    if (Pref.enableSystemProxy) {
-      systemProxyHost = Pref.systemProxyHost;
-      systemProxyPort = int.tryParse(Pref.systemProxyPort);
-      enableSystemProxy = systemProxyPort != null && systemProxyHost.isNotEmpty;
-    } else {
-      enableSystemProxy = false;
+  static (HttpClientAdapter, ConnectionManager?) _createPool() {
+    final proxy = SystemProxyConfig.resolve(
+      enabled: Pref.enableSystemProxy,
+      host: Pref.systemProxyHost,
+      port: Pref.systemProxyPort,
+    );
+    if (proxy.isInvalid) {
+      final reason = '系统代理配置无效：${proxy.validationMessage}。请修正代理设置或关闭代理。';
+      return (
+        _FailClosedProxyAdapter(reason),
+        _enableHttp2 ? _FailClosedProxyConnectionManager(reason) : null,
+      );
     }
 
+    final allowBadCertificates = Pref.badCertificateCallback;
     final http11Adapter = IOHttpClientAdapter(
-      createHttpClient: enableSystemProxy
-          ? () => HttpClient()
-              ..idleTimeout = const Duration(seconds: 15)
-              ..autoUncompress = false
-              ..findProxy = ((_) => 'PROXY $systemProxyHost:$systemProxyPort')
-              ..badCertificateCallback = (cert, host, port) => true
-          : () => HttpClient()
-              ..idleTimeout = const Duration(seconds: 15)
-              ..autoUncompress = false, // Http2Adapter没有自动解压, 统一行为
+      createHttpClient: () {
+        final client = HttpClient()
+          ..idleTimeout = const Duration(seconds: 15)
+          ..autoUncompress = false; // Http2Adapter没有自动解压, 统一行为
+        if (proxy.isValid) {
+          client.findProxy = (_) => proxy.httpProxyDirective;
+        }
+        if (allowBadCertificates) {
+          client.badCertificateCallback = (cert, host, port) => true;
+        }
+        return client;
+      },
     );
 
     final connectionManager = _enableHttp2
         ? ConnectionManager(
             idleTimeout: const Duration(seconds: 15),
-            onClientCreate: enableSystemProxy
+            onClientCreate: proxy.isValid || allowBadCertificates
                 ? (_, config) => config
-                    ..proxy = Uri(
-                      scheme: 'http',
-                      host: systemProxyHost,
-                      port: systemProxyPort,
-                    )
-                    ..onBadCertificate = (_) => true
-                : Pref.badCertificateCallback
-                ? (_, config) => config.onBadCertificate = (_) => true
+                    ..proxy = proxy.isValid ? proxy.proxyUri : null
+                    ..onBadCertificate = allowBadCertificates
+                        ? (_) => true
+                        : null
                 : null,
           )
         : null;
     return (http11Adapter, connectionManager);
+  }
+
+  static void reloadNetworkConfiguration() {
+    Request();
+    _resetAdaptersForNetworkChange();
   }
 
   @pragma('vm:notify-debugger-on-exception')

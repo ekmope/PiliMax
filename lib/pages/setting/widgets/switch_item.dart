@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/utils/storage.dart';
@@ -6,11 +8,18 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart' hide ListTile;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
+typedef SwitchChangeGuard =
+    FutureOr<bool> Function(
+      BuildContext context,
+      bool value,
+    );
+
 class SetSwitchItem extends StatefulWidget {
   final String title;
   final String? subtitle;
   final String setKey;
   final ValueChanged<bool>? onChanged;
+  final SwitchChangeGuard? onChangeRequested;
   final bool needReboot;
   final Widget? leading;
   final void Function(BuildContext context)? onTap;
@@ -24,6 +33,7 @@ class SetSwitchItem extends StatefulWidget {
     this.subtitle,
     required this.setKey,
     this.onChanged,
+    this.onChangeRequested,
     this.needReboot = false,
     this.leading,
     this.onTap,
@@ -58,15 +68,25 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
   }
 
   Future<void> switchChange([bool? value]) async {
-    val = value ?? !val;
+    var nextValue = value ?? !val;
 
-    if (widget.setKey == SettingBoxKey.badCertificateCallback && val) {
-      val = await showConfirmDialog(
+    final onChangeRequested = widget.onChangeRequested;
+    if (onChangeRequested != null &&
+        !await onChangeRequested(context, nextValue)) {
+      return;
+    }
+    if (!mounted) return;
+
+    if (widget.setKey == SettingBoxKey.badCertificateCallback && nextValue) {
+      nextValue = await showConfirmDialog(
         context: context,
         title: const Text('确定禁用 SSL 证书验证？'),
         content: const Text('禁用容易受到中间人攻击'),
       );
+      if (!mounted) return;
     }
+
+    val = nextValue;
 
     if (widget.setKey == SettingBoxKey.appFontWeight) {
       await GStorage.setting.put(SettingBoxKey.appFontWeight, val ? 4 : -1);

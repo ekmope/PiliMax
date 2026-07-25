@@ -160,6 +160,7 @@ class SwitchModel extends SettingsModel {
   final String? title;
   final String setKey;
   final ValueChanged<bool>? onChanged;
+  final SwitchChangeGuard? onChangeRequested;
   final bool needReboot;
   final void Function(BuildContext context)? onTap;
 
@@ -171,6 +172,7 @@ class SwitchModel extends SettingsModel {
     required String this.title,
     required this.setKey,
     this.onChanged,
+    this.onChangeRequested,
     this.needReboot = false,
     this.onTap,
   });
@@ -179,6 +181,7 @@ class SwitchModel extends SettingsModel {
     required this.setKey,
     this.needReboot = false,
     this.onChanged,
+    this.onChangeRequested,
     this.onTap,
   }) : title = null;
 
@@ -193,6 +196,7 @@ class SwitchModel extends SettingsModel {
     subtitle: subtitle,
     setKey: setKey,
     onChanged: onChanged,
+    onChangeRequested: onChangeRequested,
     needReboot: needReboot,
     leading: leading,
     onTap: onTap,

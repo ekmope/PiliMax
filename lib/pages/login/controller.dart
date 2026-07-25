@@ -17,6 +17,7 @@ import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/loading_action_mixin.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -54,12 +55,6 @@ class LoginPageController extends GetxController
 
   bool _isReq = false;
   bool _isImportingWebLogin = false;
-
-  static const Set<String> _requiredWebLoginCookies = {
-    'SESSDATA',
-    'DedeUserID',
-    'bili_jct',
-  };
 
   @override
   void onInit() {
@@ -105,11 +100,10 @@ class LoginPageController extends GetxController
           if (value['status']) {
             t.cancel();
             statusQRCode.value = '扫码成功';
-            await setAccount(
-              value['data'],
-              value['data']['cookie_info']['cookies'],
-            );
-            Get.back();
+            final saved = await setAccount(value['data']);
+            if (saved) {
+              Get.back();
+            }
           } else if (value['code'] == 86038) {
             t.cancel();
             qrCodeLeftTime.value = 0;
@@ -215,10 +209,14 @@ class LoginPageController extends GetxController
     Map<String, String> cookieMap, {
     required String invalidToast,
     required String requestErrorToast,
-    bool appendRequestError = false,
+    bool showLocalValidationError = true,
   }) async {
-    if (cookieMap.isEmpty) {
-      SmartDialog.showToast(invalidToast);
+    try {
+      LoginAccount.fromCookieMap(cookieMap);
+    } catch (_) {
+      if (showLocalValidationError) {
+        SmartDialog.showToast(invalidToast);
+      }
       return false;
     }
     try {
@@ -233,10 +231,8 @@ class LoginPageController extends GetxController
         return true;
       }
       SmartDialog.showToast(invalidToast);
-    } catch (e) {
-      SmartDialog.showToast(
-        appendRequestError ? '$requestErrorToast: $e' : requestErrorToast,
-      );
+    } catch (_) {
+      SmartDialog.showToast(requestErrorToast);
     }
     return false;
   }
@@ -246,12 +242,10 @@ class LoginPageController extends GetxController
     String saveErrorToast = '登录失败',
   }) async {
     try {
-      await _saveAccount(
-        LoginAccount(BiliCookieJar.fromJson(cookieMap), null, null),
-      );
+      await _saveAccount(LoginAccount.fromCookieMap(cookieMap));
       return true;
-    } catch (e) {
-      SmartDialog.showToast('$saveErrorToast: $e');
+    } catch (_) {
+      SmartDialog.showToast(saveErrorToast);
       return false;
     }
   }
@@ -282,9 +276,9 @@ class LoginPageController extends GetxController
         cookiesByName.values.toList(),
         showResultToast: showResultToast,
       );
-    } catch (e) {
+    } catch (_) {
       if (showResultToast) {
-        SmartDialog.showToast('检测网页登录状态失败: $e');
+        SmartDialog.showToast('检测网页登录状态失败，请稍后重试');
       }
       return false;
     } finally {
@@ -301,19 +295,11 @@ class LoginPageController extends GetxController
         if (_webCookieValue(cookie).isNotEmpty)
           cookie.name: _webCookieValue(cookie),
     };
-    final missing = _requiredWebLoginCookies.difference(cookieMap.keys.toSet());
-    if (missing.isNotEmpty) {
-      if (showResultToast) {
-        SmartDialog.showToast('网页登录态未生效，请完成扫码授权后重试');
-      }
-      return false;
-    }
-
     final verified = await _verifyCookieAccount(
       cookieMap,
       invalidToast: '网页登录态未生效，请完成扫码授权后重试',
       requestErrorToast: '登录失败',
-      appendRequestError: true,
+      showLocalValidationError: showResultToast,
     );
     if (!verified) {
       return false;
@@ -448,8 +434,9 @@ class LoginPageController extends GetxController
                       preCaptureRes['data'] == null) {
                     SmartDialog.showToast(
                       "获取验证码失败，请尝试其它登录方式\n"
-                      "(${preCaptureRes['code']}) ${preCaptureRes['msg']} ${preCaptureRes['data']}",
+                      "(${preCaptureRes['code']}) ${preCaptureRes['msg']}",
                     );
+                    return;
                   }
                   String geeGt = preCaptureRes['data']['gee_gt'];
                   String geeChallenge = preCaptureRes['data']['gee_challenge'];
@@ -457,7 +444,7 @@ class LoginPageController extends GetxController
                   if (!isGeeArgumentValid(geeGt, geeChallenge)) {
                     SmartDialog.showToast(
                       "获取极验参数为空，请尝试其它登录方式\n"
-                      "(${preCaptureRes['code']}) ${preCaptureRes['msg']} ${preCaptureRes['data']}",
+                      "(${preCaptureRes['code']}) ${preCaptureRes['msg']}",
                     );
                     return;
                   }
@@ -532,21 +519,21 @@ class LoginPageController extends GetxController
                     return;
                   }
                   final data = oauth2AccessTokenRes['data'];
-                  if (data['token_info'] == null ||
+                  if (data is! Map ||
+                      data['token_info'] == null ||
                       data['cookie_info'] == null) {
                     SmartDialog.showToast(
-                      '登录异常，接口未返回身份信息，可能是因为账号风控，请尝试其它登录方式。\n${oauth2AccessTokenRes["msg"]}，\n $data',
+                      '登录异常，接口未返回完整身份信息，请尝试其它登录方式',
                     );
                     return;
                   }
                   SmartDialog.showToast('正在保存身份信息');
-                  await setAccount(
-                    data['token_info'],
-                    data['cookie_info']['cookies'],
-                  );
-                  Get
-                    ..back()
-                    ..back();
+                  final saved = await setAccount(data);
+                  if (saved) {
+                    Get
+                      ..back()
+                      ..back();
+                  }
                 },
                 child: const Text("确认"),
               ),
@@ -556,15 +543,19 @@ class LoginPageController extends GetxController
 
         return;
       }
-      if (data['token_info'] == null || data['cookie_info'] == null) {
+      if (data is! Map ||
+          data['token_info'] == null ||
+          data['cookie_info'] == null) {
         SmartDialog.showToast(
-          '登录异常，接口未返回身份信息，可能是因为账号风控，请尝试其它登录方式。\n${res["msg"]}，\n $data',
+          '登录异常，接口未返回完整身份信息，请尝试其它登录方式',
         );
         return;
       }
       SmartDialog.showToast('正在保存身份信息');
-      await setAccount(data['token_info'], data['cookie_info']['cookies']);
-      Get.back();
+      final saved = await setAccount(data);
+      if (saved) {
+        Get.back();
+      }
     } else {
       // handle login result
       switch (res['code']) {
@@ -626,10 +617,12 @@ class LoginPageController extends GetxController
       key: key,
     );
     if (res['status']) {
-      SmartDialog.showToast('登录成功');
+      SmartDialog.showToast('正在保存身份信息');
       final data = res['data'];
-      await setAccount(data['token_info'], data['cookie_info']['cookies']);
-      Get.back();
+      final saved = await setAccount(data);
+      if (saved) {
+        Get.back();
+      }
     } else {
       SmartDialog.showToast(res['msg']);
     }
@@ -724,14 +717,14 @@ class LoginPageController extends GetxController
           if (!isGeeArgumentValid(geeGt, geeChallenge)) {
             if (kDebugMode) {
               debugPrint(
-                '验证信息错误：${res["msg"]}\n返回内容：${res["data"]}，尝试另一个验证码接口',
+                '验证信息错误：${res["msg"]}，尝试另一个验证码接口',
               );
             }
             final preCaptureRes = await LoginHttp.preCapture();
             if (!preCaptureRes['status'] || preCaptureRes['data'] == null) {
               SmartDialog.showToast(
                 "获取验证码失败，请尝试其它登录方式\n"
-                "(${preCaptureRes['code']}) ${preCaptureRes['msg']} ${preCaptureRes['data']}",
+                "(${preCaptureRes['code']}) ${preCaptureRes['msg']}",
               );
               return;
             }
@@ -760,14 +753,35 @@ class LoginPageController extends GetxController
         captchaData.token?.isNotEmpty == true;
   }
 
-  Future<void> setAccount(Map tokenInfo, List cookieInfo) async {
-    final account = LoginAccount(
-      BiliCookieJar.fromList(cookieInfo),
-      tokenInfo['access_token'],
-      tokenInfo['refresh_token'],
-    );
-    await _saveAccount(account);
-    await _completeLogin();
+  Future<bool> setAccount(Object? data) async {
+    final LoginAccount account;
+    try {
+      if (data is! Map ||
+          data['token_info'] is! Map ||
+          data['cookie_info'] is! Map) {
+        throw const FormatException('账号身份信息无效');
+      }
+      final tokenInfo = data['token_info'] as Map;
+      final cookieInfo = data['cookie_info'] as Map;
+      account = LoginAccount.fromCookieList(
+        cookieInfo['cookies'],
+        accessKey: tokenInfo['access_token'],
+        refresh: tokenInfo['refresh_token'],
+      );
+    } catch (_) {
+      SmartDialog.showToast('身份信息无效，请重新登录');
+      return false;
+    }
+
+    try {
+      await _saveAccount(account);
+      await _completeLogin();
+      return true;
+    } catch (error, stackTrace) {
+      Utils.reportError(error, stackTrace, 'LoginPageController.setAccount');
+      SmartDialog.showToast('账号保存失败，请重试');
+      return false;
+    }
   }
 
   Future<void> _completeLogin() async {

@@ -909,7 +909,8 @@ class AudioController extends GetxController
   Future<void> _initPlayerIfNeeded() async {
     if (_hasInit) return;
     _hasInit = true;
-    assert(player == null, _subscriptions = null);
+    assert(player == null);
+    assert(_subscriptions == null);
     player = await Player.create(
       configuration: PlayerConfiguration(
         options: {

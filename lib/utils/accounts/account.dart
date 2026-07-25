@@ -38,6 +38,32 @@ sealed class Account {
   const Account();
 }
 
+enum LoginAccountValidationIssue {
+  missingSession,
+  missingUserId,
+  invalidUserId,
+  missingCsrf,
+  malformedCookieData,
+  malformedAccountData,
+}
+
+final class LoginAccountValidationException implements Exception {
+  final LoginAccountValidationIssue issue;
+
+  const LoginAccountValidationException(this.issue);
+
+  @override
+  String toString() => 'LoginAccountValidationException(${issue.name})';
+}
+
+final class _LoginIdentity {
+  final String midString;
+  final int mid;
+  final String csrf;
+
+  const _LoginIdentity(this.midString, this.mid, this.csrf);
+}
+
 @HiveType(typeId: 9)
 class LoginAccount extends Account {
   @override
@@ -58,13 +84,26 @@ class LoginAccount extends Account {
   @override
   bool activated = false;
 
+  final _LoginIdentity? _identity;
+
+  final LoginAccountValidationIssue? validationIssue;
+
+  bool get isValid => validationIssue == null && _identity != null;
+
+  _LoginIdentity get _validIdentity {
+    if (!isValid) {
+      throw StateError('Invalid login account');
+    }
+    return _identity!;
+  }
+
   @override
-  late final int mid = int.parse(_midStr);
+  late final int mid = _validIdentity.mid;
 
   @override
   late final Map<String, String> headers = {
     ...Constants.baseHeaders,
-    'x-bili-mid': _midStr,
+    'x-bili-mid': _validIdentity.midString,
     'x-bili-aurora-eid': IdUtils.genAuroraEid(mid),
   };
 
@@ -74,21 +113,48 @@ class LoginAccount extends Account {
   );
 
   @override
-  late final String csrf =
-      cookieJar.domainCookies['bilibili.com']!['/']!['bili_jct']!.cookie.value;
+  late final String csrf = _validIdentity.csrf;
 
-  bool _hasDelete = false;
+  bool _hasDeleted = false;
+  Future<void>? _deleteFuture;
 
   @override
   Future<void> delete() {
-    assert(_hasDelete = true);
-    return Future.wait([cookieJar.deleteAll(), _box.delete(_midStr)]);
+    if (!isValid) {
+      return Future.error(StateError('Invalid login account'));
+    }
+    final pendingDelete = _deleteFuture;
+    if (pendingDelete != null) {
+      return pendingDelete;
+    }
+
+    late final Future<void> deleteFuture;
+    deleteFuture =
+        Future.wait([
+              cookieJar.deleteAll(),
+              _box.delete(_validIdentity.midString),
+            ])
+            .then<void>((_) {
+              _hasDeleted = true;
+            })
+            .whenComplete(() {
+              if (!_hasDeleted && identical(_deleteFuture, deleteFuture)) {
+                _deleteFuture = null;
+              }
+            });
+    _deleteFuture = deleteFuture;
+    return deleteFuture;
   }
 
   @override
   Future<void> onChange() {
-    assert(!_hasDelete);
-    return _box.put(_midStr, this);
+    if (!isValid) {
+      return Future.error(StateError('Invalid login account'));
+    }
+    if (_hasDeleted || _deleteFuture != null) {
+      return Future.error(StateError('Deleted login account'));
+    }
+    return _box.put(_validIdentity.midString, this);
   }
 
   @override
@@ -99,35 +165,244 @@ class LoginAccount extends Account {
     'type': type.map((i) => i.index).toList(),
   };
 
-  late final String _midStr = cookieJar
-      .domainCookies['bilibili.com']!['/']!['DedeUserID']!
-      .cookie
-      .value;
-
   late final Box<LoginAccount> _box = Accounts.account;
 
-  LoginAccount(
-    this.cookieJar,
-    this.accessKey,
-    this.refresh, [
+  factory LoginAccount(
+    DefaultCookieJar cookieJar,
+    Object? accessKey,
+    Object? refresh, [
     Set<AccountType>? type,
-  ]) : type = type ?? {} {
-    cookieJar.setBuvid3();
+  ]) {
+    final identity = _validateIdentity(cookieJar);
+    return _createValidated(
+      cookieJar,
+      accessKey,
+      refresh,
+      type,
+      identity,
+    );
   }
 
-  factory LoginAccount.fromJson(Map json) => LoginAccount(
-    BiliCookieJar.fromJson(json['cookies']),
-    json['accessKey'],
-    json['refresh'],
-    (json['type'] as Iterable?)?.map((i) => AccountType.values[i]).toSet(),
+  static LoginAccount _createValidated(
+    DefaultCookieJar cookieJar,
+    Object? accessKey,
+    Object? refresh,
+    Set<AccountType>? type,
+    _LoginIdentity identity,
+  ) {
+    final account = LoginAccount._(
+      cookieJar,
+      _optionalCredential(accessKey),
+      _optionalCredential(refresh),
+      type ?? <AccountType>{},
+      identity,
+      null,
+    );
+    cookieJar.setBuvid3();
+    return account;
+  }
+
+  LoginAccount._(
+    this.cookieJar,
+    this.accessKey,
+    this.refresh,
+    this.type,
+    this._identity,
+    this.validationIssue,
   );
 
+  factory LoginAccount.fromCookieMap(
+    Object? cookies, {
+    Object? accessKey,
+    Object? refresh,
+    Set<AccountType>? type,
+  }) {
+    final cookieMap = _parseCookieMap(cookies);
+    final identity = _validateIdentityValues(cookieMap);
+    return _createValidated(
+      _cookieJarFromValues(cookieMap),
+      accessKey,
+      refresh,
+      type,
+      identity,
+    );
+  }
+
+  factory LoginAccount.fromCookieList(
+    Object? cookies, {
+    Object? accessKey,
+    Object? refresh,
+    Set<AccountType>? type,
+  }) => LoginAccount.fromCookieMap(
+    _parseCookieList(cookies),
+    accessKey: accessKey,
+    refresh: refresh,
+    type: type,
+  );
+
+  factory LoginAccount.fromJson(Object? json) {
+    if (json is! Map) {
+      throw const LoginAccountValidationException(
+        LoginAccountValidationIssue.malformedAccountData,
+      );
+    }
+    return LoginAccount.fromCookieMap(
+      json['cookies'],
+      accessKey: json['accessKey'],
+      refresh: json['refresh'],
+      type: _accountTypesFromJson(json['type']),
+    );
+  }
+
+  factory LoginAccount.fromStorage({
+    required Object? cookieJar,
+    Object? accessKey,
+    Object? refresh,
+    Object? type,
+  }) {
+    LoginAccountValidationIssue? issue;
+    final DefaultCookieJar safeCookieJar;
+    if (cookieJar is DefaultCookieJar) {
+      safeCookieJar = cookieJar;
+    } else {
+      safeCookieJar = BiliCookieJar.fromStorageJson(null);
+      issue = LoginAccountValidationIssue.malformedAccountData;
+    }
+
+    final String? safeAccessKey;
+    if (accessKey == null || accessKey is String) {
+      safeAccessKey = accessKey as String?;
+    } else {
+      safeAccessKey = null;
+      issue ??= LoginAccountValidationIssue.malformedAccountData;
+    }
+
+    final String? safeRefresh;
+    if (refresh == null || refresh is String) {
+      safeRefresh = refresh as String?;
+    } else {
+      safeRefresh = null;
+      issue ??= LoginAccountValidationIssue.malformedAccountData;
+    }
+
+    final safeTypes = <AccountType>{};
+    if (type != null) {
+      if (type is Iterable) {
+        for (final value in type) {
+          if (value is AccountType) {
+            safeTypes.add(value);
+          } else {
+            issue ??= LoginAccountValidationIssue.malformedAccountData;
+          }
+        }
+      } else {
+        issue ??= LoginAccountValidationIssue.malformedAccountData;
+      }
+    }
+
+    _LoginIdentity? identity;
+    try {
+      identity = _validateIdentity(safeCookieJar);
+    } on LoginAccountValidationException catch (error) {
+      issue ??= error.issue;
+    }
+
+    final account = LoginAccount._(
+      safeCookieJar,
+      safeAccessKey,
+      safeRefresh,
+      safeTypes,
+      identity,
+      issue,
+    );
+    if (account.isValid) {
+      safeCookieJar.setBuvid3();
+    }
+    return account;
+  }
+
+  static String? _optionalCredential(Object? value) {
+    if (value == null || value is String) {
+      return value as String?;
+    }
+    throw const LoginAccountValidationException(
+      LoginAccountValidationIssue.malformedAccountData,
+    );
+  }
+
+  static Set<AccountType> _accountTypesFromJson(Object? value) {
+    if (value == null) {
+      return <AccountType>{};
+    }
+    if (value is! Iterable) {
+      throw const LoginAccountValidationException(
+        LoginAccountValidationIssue.malformedAccountData,
+      );
+    }
+
+    final types = <AccountType>{};
+    for (final index in value) {
+      if (index is! int || index < 0 || index >= AccountType.values.length) {
+        throw const LoginAccountValidationException(
+          LoginAccountValidationIssue.malformedAccountData,
+        );
+      }
+      types.add(AccountType.values[index]);
+    }
+    return types;
+  }
+
+  static _LoginIdentity _validateIdentity(DefaultCookieJar cookieJar) {
+    final cookies = cookieJar.domainCookies['bilibili.com']?['/'];
+    return _validateIdentityValues({
+      if (cookies?['SESSDATA'] case final cookie?)
+        'SESSDATA': cookie.cookie.value,
+      if (cookies?['DedeUserID'] case final cookie?)
+        'DedeUserID': cookie.cookie.value,
+      if (cookies?['bili_jct'] case final cookie?)
+        'bili_jct': cookie.cookie.value,
+    });
+  }
+
+  static _LoginIdentity _validateIdentityValues(
+    Map<String, String> cookies,
+  ) {
+    final session = cookies['SESSDATA'];
+    if (session == null || session.trim().isEmpty) {
+      throw const LoginAccountValidationException(
+        LoginAccountValidationIssue.missingSession,
+      );
+    }
+
+    final midString = cookies['DedeUserID'];
+    if (midString == null || midString.trim().isEmpty) {
+      throw const LoginAccountValidationException(
+        LoginAccountValidationIssue.missingUserId,
+      );
+    }
+    final mid = int.tryParse(midString);
+    if (mid == null || mid <= 0) {
+      throw const LoginAccountValidationException(
+        LoginAccountValidationIssue.invalidUserId,
+      );
+    }
+
+    final csrf = cookies['bili_jct'];
+    if (csrf == null || csrf.trim().isEmpty) {
+      throw const LoginAccountValidationException(
+        LoginAccountValidationIssue.missingCsrf,
+      );
+    }
+    return _LoginIdentity(midString, mid, csrf);
+  }
+
   @override
-  int get hashCode => mid.hashCode;
+  int get hashCode => isValid ? mid.hashCode : identityHashCode(this);
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is LoginAccount && mid == other.mid);
+      identical(this, other) ||
+      (isValid && other is LoginAccount && other.isValid && mid == other.mid);
 }
 
 class AnonymousAccount extends Account {
@@ -203,27 +478,84 @@ extension BiliCookieJar on DefaultCookieJar {
     );
   }
 
-  static DefaultCookieJar fromJson(Map json) =>
-      DefaultCookieJar(ignoreExpires: true)
-        ..domainCookies['bilibili.com'] = {
-          '/': {
-            for (final i in json.entries)
-              i.key: SerializableCookie(
-                Cookie(i.key, i.value)..setBiliDomain(),
-              ),
-          },
-        };
+  static DefaultCookieJar fromJson(Object? json) {
+    return _cookieJarFromValues(_parseCookieMap(json));
+  }
 
-  static DefaultCookieJar fromList(List cookies) =>
-      DefaultCookieJar(ignoreExpires: true)
-        ..domainCookies['bilibili.com'] = {
-          '/': {
-            for (final i in cookies)
-              i['name']!: SerializableCookie(
-                Cookie(i['name']!, i['value']!)..setBiliDomain(),
-              ),
-          },
-        };
+  static DefaultCookieJar fromList(Object? cookieList) =>
+      _cookieJarFromValues(_parseCookieList(cookieList));
+
+  static DefaultCookieJar fromStorageJson(Object? json) {
+    final cookies = <String, SerializableCookie>{};
+    if (json is Map) {
+      for (final entry in json.entries) {
+        if (entry.key is! String || entry.value is! String) {
+          continue;
+        }
+        try {
+          final name = entry.key as String;
+          cookies[name] = SerializableCookie(
+            Cookie(name, entry.value as String)..setBiliDomain(),
+          );
+        } catch (_) {}
+      }
+    }
+    return DefaultCookieJar(ignoreExpires: true)
+      ..domainCookies['bilibili.com'] = {'/': cookies};
+  }
+}
+
+Map<String, String> _parseCookieMap(Object? json) {
+  if (json is! Map) {
+    throw const LoginAccountValidationException(
+      LoginAccountValidationIssue.malformedCookieData,
+    );
+  }
+  final cookies = <String, String>{};
+  for (final entry in json.entries) {
+    if (entry.key is! String || entry.value is! String) {
+      throw const LoginAccountValidationException(
+        LoginAccountValidationIssue.malformedCookieData,
+      );
+    }
+    cookies[entry.key as String] = entry.value as String;
+  }
+  return cookies;
+}
+
+Map<String, String> _parseCookieList(Object? cookieList) {
+  if (cookieList is! List) {
+    throw const LoginAccountValidationException(
+      LoginAccountValidationIssue.malformedCookieData,
+    );
+  }
+  final cookies = <String, String>{};
+  for (final item in cookieList) {
+    if (item is! Map || item['name'] is! String || item['value'] is! String) {
+      throw const LoginAccountValidationException(
+        LoginAccountValidationIssue.malformedCookieData,
+      );
+    }
+    cookies[item['name'] as String] = item['value'] as String;
+  }
+  return cookies;
+}
+
+DefaultCookieJar _cookieJarFromValues(Map<String, String> values) {
+  final cookies = <String, SerializableCookie>{};
+  try {
+    for (final entry in values.entries) {
+      cookies[entry.key] = SerializableCookie(
+        Cookie(entry.key, entry.value)..setBiliDomain(),
+      );
+    }
+  } catch (_) {
+    throw const LoginAccountValidationException(
+      LoginAccountValidationIssue.malformedCookieData,
+    );
+  }
+  return DefaultCookieJar(ignoreExpires: true)
+    ..domainCookies['bilibili.com'] = {'/': cookies};
 }
 
 final class NoAccount extends Account {

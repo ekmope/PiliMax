@@ -357,9 +357,17 @@ Commit Hash: ${BuildConfig.commitHash}''',
               onExport: () =>
                   Utils.jsonEncoder.convert(Accounts.account.toMap()),
               onImport: (json) async {
-                final res = json.map(
-                  (key, value) => MapEntry(key, LoginAccount.fromJson(value)),
-                );
+                late final Map<dynamic, LoginAccount> res;
+                try {
+                  res = json.map<dynamic, LoginAccount>(
+                    (key, value) => MapEntry(
+                      key,
+                      LoginAccount.fromJson(value),
+                    ),
+                  );
+                } catch (_) {
+                  throw const FormatException('账号身份信息无效');
+                }
                 await Accounts.account.putAll(res);
                 await Accounts.refresh();
                 MineController.anonymity.value = !Accounts.heartbeat.isLogin;

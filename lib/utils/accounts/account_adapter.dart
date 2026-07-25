@@ -1,6 +1,4 @@
-import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
-import 'package:cookie_jar/cookie_jar.dart';
 import 'package:hive_ce/hive.dart';
 
 class LoginAccountAdapter extends TypeAdapter<LoginAccount> {
@@ -13,11 +11,11 @@ class LoginAccountAdapter extends TypeAdapter<LoginAccount> {
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return LoginAccount(
-      fields[0] as DefaultCookieJar,
-      fields[1] as String?,
-      fields[2] as String?,
-      (fields[3] as List?)?.cast<AccountType>().toSet(),
+    return LoginAccount.fromStorage(
+      cookieJar: fields[0],
+      accessKey: fields[1],
+      refresh: fields[2],
+      type: fields[3],
     );
   }
 

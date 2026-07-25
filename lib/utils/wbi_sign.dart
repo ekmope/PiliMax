@@ -1,22 +1,98 @@
-// Wbi签名 用于生成 REST API 请求中的 w_rid 和 wts 字段
-// https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/sign/wbi.md
-// import md5 from 'md5'
-// import axios from 'axios'
+﻿// WBI signing for REST API requests.
+// See https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/sign/wbi.md
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/http/web_request_headers.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
-import 'package:PiliMax/utils/utils.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hive_ce/hive.dart';
 
+typedef WbiKeyFetcher = Future<String> Function();
+typedef WbiCacheReader = Object? Function();
+typedef WbiKeyWriter = Future<void> Function(String key);
+typedef WbiTimestampWriter = Future<void> Function(int timestamp);
+typedef WbiClock = DateTime Function();
+
+final class WbiKeyManager {
+  WbiKeyManager({
+    required this.readCachedKey,
+    required this.readCachedTimestamp,
+    required this.fetchKey,
+    required this.writeCachedKey,
+    required this.writeCachedTimestamp,
+    WbiClock? clock,
+  }) : _clock = clock ?? DateTime.now;
+
+  final WbiCacheReader readCachedKey;
+  final WbiCacheReader readCachedTimestamp;
+  final WbiKeyFetcher fetchKey;
+  final WbiKeyWriter writeCachedKey;
+  final WbiTimestampWriter writeCachedTimestamp;
+  final WbiClock _clock;
+
+  Future<String>? _inFlight;
+
+  Future<String> getKey({bool forceRefresh = false}) async {
+    final now = _clock();
+    final cachedValue = readCachedKey();
+    final cachedKey = WbiSign.isValidKey(cachedValue)
+        ? cachedValue! as String
+        : null;
+
+    if (!forceRefresh &&
+        cachedKey != null &&
+        WbiSign.isFreshTimestamp(readCachedTimestamp(), now)) {
+      return cachedKey;
+    }
+
+    try {
+      return await _refreshKey();
+    } catch (_) {
+      if (!forceRefresh && cachedKey != null) {
+        return cachedKey;
+      }
+      rethrow;
+    }
+  }
+
+  Future<String> _refreshKey() {
+    final inFlight = _inFlight;
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    late final Future<String> operation;
+    operation = _fetchAndCacheKey().whenComplete(() {
+      if (identical(_inFlight, operation)) {
+        _inFlight = null;
+      }
+    });
+    _inFlight = operation;
+    return operation;
+  }
+
+  Future<String> _fetchAndCacheKey() async {
+    final key = await fetchKey();
+    if (!WbiSign.isValidKey(key)) {
+      throw const FormatException('Invalid WBI mixin key');
+    }
+
+    await writeCachedKey(key);
+    await writeCachedTimestamp(_clock().millisecondsSinceEpoch);
+    return key;
+  }
+}
+
 abstract final class WbiSign {
   static Box get _localCache => GStorage.localCache;
-  static final RegExp _chrFilter = RegExp(r"[!\'\(\)\*]");
-  static const _mixinKeyEncTab = <int>[
+  static final RegExp _characterFilter = RegExp(r"[!\'\(\)\*]");
+  static final RegExp _keyPattern = RegExp(r'^[0-9a-fA-F]{32}$');
+  static final RegExp _sourceKeyPattern = RegExp(r'^[0-9a-fA-F]{64}$');
+  static const _mixinKeyEncodingTable = <int>[
     46,
     47,
     18,
@@ -51,69 +127,132 @@ abstract final class WbiSign {
     13,
   ];
 
-  static Future<String>? _future;
+  static final WbiKeyManager _keyManager = WbiKeyManager(
+    readCachedKey: () => _localCache.get(LocalCacheKey.mixinKey),
+    readCachedTimestamp: () => _localCache.get(LocalCacheKey.timeStamp),
+    fetchKey: _fetchWbiKey,
+    writeCachedKey: (key) => _localCache.put(LocalCacheKey.mixinKey, key),
+    writeCachedTimestamp: (timestamp) =>
+        _localCache.put(LocalCacheKey.timeStamp, timestamp),
+  );
 
-  // 对 imgKey 和 subKey 进行字符顺序打乱编码
-  static String getMixinKey(String orig) {
-    final codeUnits = orig.codeUnits;
-    return String.fromCharCodes(_mixinKeyEncTab.map((i) => codeUnits[i]));
+  static bool isValidKey(Object? value) =>
+      value is String && _keyPattern.hasMatch(value);
+
+  static bool isFreshTimestamp(Object? value, DateTime now) {
+    if (value is! int || value <= 0 || value > now.millisecondsSinceEpoch) {
+      return false;
+    }
+
+    try {
+      final cachedAt = DateTime.fromMillisecondsSinceEpoch(value);
+      return cachedAt.year == now.year &&
+          cachedAt.month == now.month &&
+          cachedAt.day == now.day;
+    } on ArgumentError {
+      return false;
+    }
   }
 
-  // 为请求参数进行 wbi 签名
-  static void encWbi(Map<String, Object> params, String mixinKey) {
-    params['wts'] = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    // 按照 key 重排参数
-    final List<String> keys = params.keys.toList()..sort();
-    final queryStr = keys
+  static String getMixinKey(String sourceKeys) {
+    if (!_sourceKeyPattern.hasMatch(sourceKeys)) {
+      throw const FormatException('Invalid WBI source keys');
+    }
+    final codeUnits = sourceKeys.codeUnits;
+    final mixinKey = String.fromCharCodes(
+      _mixinKeyEncodingTable.map((index) => codeUnits[index]),
+    );
+    if (!isValidKey(mixinKey)) {
+      throw const FormatException('Invalid WBI mixin key');
+    }
+    return mixinKey;
+  }
+
+  static String deriveMixinKey({
+    required Object? imgUrl,
+    required Object? subUrl,
+  }) {
+    return getMixinKey(_extractUrlKey(imgUrl) + _extractUrlKey(subUrl));
+  }
+
+  static String _extractUrlKey(Object? value) {
+    if (value is! String) {
+      throw const FormatException('Invalid WBI key URL');
+    }
+    final uri = Uri.tryParse(value);
+    if (uri == null ||
+        (uri.scheme != 'https' && uri.scheme != 'http') ||
+        uri.host.isEmpty ||
+        uri.pathSegments.isEmpty) {
+      throw const FormatException('Invalid WBI key URL');
+    }
+
+    final fileName = uri.pathSegments.last;
+    final extensionIndex = fileName.lastIndexOf('.');
+    final key = extensionIndex > 0
+        ? fileName.substring(0, extensionIndex)
+        : fileName;
+    if (!isValidKey(key)) {
+      throw const FormatException('Invalid WBI URL key');
+    }
+    return key;
+  }
+
+  static void encWbi(
+    Map<String, Object> params,
+    String mixinKey, {
+    DateTime? now,
+  }) {
+    if (!isValidKey(mixinKey)) {
+      throw const FormatException('Invalid WBI mixin key');
+    }
+
+    params
+      ..remove('wts')
+      ..remove('w_rid')
+      ..['wts'] = (now ?? DateTime.now()).millisecondsSinceEpoch ~/ 1000;
+
+    final keys = params.keys.toList()..sort();
+    final query = keys
         .map(
-          (i) =>
-              '${Uri.encodeComponent(i)}=${Uri.encodeComponent(params[i].toString().replaceAll(_chrFilter, ''))}',
+          (key) =>
+              '${Uri.encodeComponent(key)}=${Uri.encodeComponent(params[key].toString().replaceAll(_characterFilter, ''))}',
         )
         .join('&');
-    params['w_rid'] = md5
-        .convert(utf8.encode(queryStr + mixinKey))
-        .toString(); // 计算 w_rid
+    params['w_rid'] = md5.convert(utf8.encode(query + mixinKey)).toString();
   }
 
-  static Future<String> _getWbiKeys() async {
-    final resp = await Request().get(Api.userInfo);
-    try {
-      final wbiUrls = resp.data['data']['wbi_img'];
-
-      final mixinKey = getMixinKey(
-        Utils.getFileName(wbiUrls['img_url'], fileExt: false) +
-            Utils.getFileName(wbiUrls['sub_url'], fileExt: false),
-      );
-
-      _localCache.put(LocalCacheKey.mixinKey, mixinKey);
-
-      return mixinKey;
-    } catch (_) {
-      return '';
+  static Future<String> _fetchWbiKey() async {
+    final response = await Request().get(
+      Api.userInfo,
+      options: WebRequestHeaders.browser,
+    );
+    final body = response.data;
+    if (body is! Map) {
+      throw const FormatException('Invalid WBI nav response');
     }
+    final data = body['data'];
+    if (data is! Map) {
+      throw const FormatException('Invalid WBI nav data');
+    }
+    final wbiImage = data['wbi_img'];
+    if (wbiImage is! Map) {
+      throw const FormatException('Invalid WBI image data');
+    }
+    return deriveMixinKey(
+      imgUrl: wbiImage['img_url'],
+      subUrl: wbiImage['sub_url'],
+    );
   }
 
-  static FutureOr<String> getWbiKeys() {
-    final nowDate = DateTime.now();
-    if (DateTime.fromMillisecondsSinceEpoch(
-          _localCache.get(LocalCacheKey.timeStamp, defaultValue: 0) as int,
-        ).day ==
-        nowDate.day) {
-      final String? mixinKey = _localCache.get(LocalCacheKey.mixinKey);
-      if (mixinKey != null) return mixinKey;
-      return _future ??= _getWbiKeys();
-    } else {
-      return _future = _localCache
-          .put(LocalCacheKey.timeStamp, nowDate.millisecondsSinceEpoch)
-          .then((_) => _getWbiKeys());
-    }
-  }
+  static Future<String> getWbiKeys({bool forceRefresh = false}) =>
+      _keyManager.getKey(forceRefresh: forceRefresh);
 
   static Future<Map<String, Object>> makSign(
-    Map<String, Object> params,
-  ) async {
-    // params 为需要加密的请求参数
-    final String mixinKey = await getWbiKeys();
+    Map<String, Object> params, {
+    bool forceRefresh = false,
+  }) async {
+    final mixinKey = await getWbiKeys(forceRefresh: forceRefresh);
     encWbi(params, mixinKey);
     return params;
   }

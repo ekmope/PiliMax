@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
@@ -7,6 +7,7 @@ import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/web_request_headers.dart';
 import 'package:PiliMax/http/login.dart';
 import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
@@ -45,15 +46,46 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:protobuf/protobuf.dart';
 
-/// view层根据 status 判断渲染逻辑
+/// view灞傛牴鎹?status 鍒ゆ柇娓叉煋閫昏緫
 abstract final class VideoHttp {
   static RegExp zoneRegExp = RegExp(
     Pref.parseBanWordToRegex(Pref.banWordForZone),
     caseSensitive: false,
   );
   static bool enableFilter = zoneRegExp.pattern.isNotEmpty;
+  static Future<Response> _getWbiFeed(
+    String url,
+    Map<String, Object> queryParameters,
+  ) async {
+    Future<Response> send({required bool forceRefresh}) async {
+      return Request().get(
+        url,
+        queryParameters: await WbiSign.makSign(
+          Map<String, Object>.of(queryParameters),
+          forceRefresh: forceRefresh,
+        ),
+        options: WebRequestHeaders.browser,
+      );
+    }
 
-  // 首页推荐视频
+    var response = await send(forceRefresh: false);
+    if (_responseCode(response.data) == -403) {
+      response = await send(forceRefresh: true);
+    }
+    return response;
+  }
+
+  static int? _responseCode(Object? body) {
+    if (body is! Map) return null;
+    return switch (body['code']) {
+      int code => code,
+      num code when code.isFinite && code == code.truncate() => code.toInt(),
+      String code => int.tryParse(code.trim()),
+      _ => null,
+    };
+  }
+
+  // 棣栭〉鎺ㄨ崘瑙嗛
   static Future<LoadingState<List<RcmdVideoItemModel>>> rcmdVideoList({
     required int ps,
     required int freshIdx,
@@ -74,7 +106,7 @@ abstract final class VideoHttp {
       List<RcmdVideoItemModel> list = <RcmdVideoItemModel>[];
       for (final i in res.data['data']['item']) {
         final mid = safeToInt(i['owner']?['mid']);
-        //过滤掉live与ad，以及拉黑用户
+        //杩囨护鎺塴ive涓巃d锛屼互鍙婃媺榛戠敤鎴?
         if (i['goto'] == 'av' &&
             (i['owner'] != null &&
                 (!GlobalData().blackMids.contains(i['owner']['mid']) ||
@@ -91,7 +123,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 添加额外的loginState变量模拟未登录状态
+  // 娣诲姞棰濆鐨刲oginState鍙橀噺妯℃嫙鏈櫥褰曠姸鎬?
   static Future<LoadingState<List<RcmdVideoItemAppModel>>> rcmdVideoListApp({
     required int freshIdx,
   }) async {
@@ -107,7 +139,7 @@ abstract final class VideoHttp {
       'flush': 5,
       'fnval': 976,
       'fnver': 0,
-      'force_host': 2, //使用https
+      'force_host': 2, //浣跨敤https
       'fourk': 1,
       'guidance': 0,
       'https_url_req': 0,
@@ -152,7 +184,7 @@ abstract final class VideoHttp {
       for (final i in res.data['data']['items']) {
         final upMid = safeToInt(i['args']?['up_id']);
         final isWhitelisted = RecommendFilter.isWhitelisted(upMid);
-        // 屏蔽推广和拉黑用户
+        // 灞忚斀鎺ㄥ箍鍜屾媺榛戠敤鎴?
         if (i['card_goto'] != 'ad_av' &&
             i['card_goto'] != 'ad_web_s' &&
             i['ad_info'] == null &&
@@ -180,7 +212,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 最热视频
+  // 鏈€鐑棰?
   static Future<LoadingState<List<HotVideoItemModel>>> hotVideoList({
     required int pn,
     required int ps,
@@ -195,7 +227,7 @@ abstract final class VideoHttp {
       for (final i in res.data['data']['list']) {
         final mid = safeToInt(i['owner']?['mid']);
         final isWhitelisted = RecommendFilter.isWhitelisted(mid);
-        // 分区关键词过滤（始终生效，上游原始行为）
+        // 鍒嗗尯鍏抽敭璇嶈繃婊わ紙濮嬬粓鐢熸晥锛屼笂娓稿師濮嬭涓猴級
         if (enableFilter &&
             !isWhitelisted &&
             i['tname'] != null &&
@@ -203,7 +235,7 @@ abstract final class VideoHttp {
           continue;
         }
         if (applyFullFilter) {
-          // 开关开启：全局黑名单 + 完整过滤（时长、播放量、点赞率、标题关键词、推荐屏蔽用户）
+          // 寮€鍏冲紑鍚細鍏ㄥ眬榛戝悕鍗?+ 瀹屾暣杩囨护锛堟椂闀裤€佹挱鏀鹃噺銆佺偣璧炵巼銆佹爣棰樺叧閿瘝銆佹帹鑽愬睆钄界敤鎴凤級
           if (!isWhitelisted &&
               GlobalData().blackMids.contains(i['owner']['mid'])) {
             continue;
@@ -220,7 +252,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 视频流
+  // 瑙嗛娴?
   @pragma('vm:notify-debugger-on-exception')
   static Future<LoadingState<PlayUrlModel>> videoUrl({
     int? avid,
@@ -243,7 +275,7 @@ abstract final class VideoHttp {
       'season_id': ?seasonId,
       'cid': cid,
       'qn': qn ?? 80,
-      // 获取所有格式的视频
+      // 鑾峰彇鎵€鏈夋牸寮忕殑瑙嗛
       'fnval': 4048,
       'fourk': 1,
       'fnver': 0,
@@ -251,7 +283,7 @@ abstract final class VideoHttp {
       'gaia_source': 'pre-load',
       'isGaiaAvoided': true,
       'web_location': 1315873,
-      // 免登录查看1080p
+      // 鍏嶇櫥褰曟煡鐪?080p
       if (tryLook) 'try_look': 1,
       'dm_img_list': '[]',
       'dm_img_str': dmImgStr,
@@ -302,13 +334,13 @@ abstract final class VideoHttp {
 
   static String _parseVideoErr(int? code, String? msg) {
     return switch (code) {
-      -404 => '视频不存在或已被删除',
-      87008 => '当前视频可能是专属视频，可能需包月充电观看($msg})',
-      _ => '错误($code): $msg',
+      -404 => '瑙嗛涓嶅瓨鍦ㄦ垨宸茶鍒犻櫎',
+      87008 => '褰撳墠瑙嗛鍙兘鏄笓灞炶棰戯紝鍙兘闇€鍖呮湀鍏呯數瑙傜湅($msg})',
+      _ => '閿欒($code): $msg',
     };
   }
 
-  // 视频信息 标题、简介
+  // 瑙嗛淇℃伅 鏍囬銆佺畝浠?
   static Future<LoadingState<VideoDetailData>> videoIntro({
     required String bvid,
   }) async {
@@ -338,7 +370,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 相关视频
+  // 鐩稿叧瑙嗛
   static Future<LoadingState<List<HotVideoItemModel>?>> relatedVideoList({
     required String bvid,
   }) async {
@@ -359,7 +391,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 获取点赞/投币/收藏状态 pgc
+  // 鑾峰彇鐐硅禐/鎶曞竵/鏀惰棌鐘舵€?pgc
   static Future<LoadingState<PgcLCF>> pgcLikeCoinFav({
     required Object epId,
   }) async {
@@ -374,7 +406,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 投币
+  // 鎶曞竵
   static Future<LoadingState<void>> coinVideo({
     required String bvid,
     required int multiply,
@@ -409,7 +441,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 一键三连 pgc
+  // 涓€閿笁杩?pgc
   static Future<LoadingState<PgcTriple>> pgcTriple({
     required Object epId,
     Object? seasonId,
@@ -434,7 +466,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 一键三连
+  // 涓€閿笁杩?
   static Future<LoadingState<UgcTriple>> ugcTriple({
     required String bvid,
   }) async {
@@ -466,7 +498,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // （取消）点赞
+  // 锛堝彇娑堬級鐐硅禐
   static Future<LoadingState<String>> likeVideo({
     required String bvid,
     required bool type,
@@ -494,19 +526,19 @@ abstract final class VideoHttp {
       options: options,
     );
     if (res.data['code'] == 0) {
-      return Success(res.data['data']?['toast'] as String? ?? '点赞成功');
+      return Success(res.data['data']?['toast'] as String? ?? '鐐硅禐鎴愬姛');
     } else {
       return Error(res.data['message']);
     }
   }
 
-  // （取消）点踩
+  // 锛堝彇娑堬級鐐硅俯
   static Future<LoadingState<void>> dislikeVideo({
     required String bvid,
     required bool type,
   }) async {
     if (Accounts.main.accessKey.isNullOrEmpty) {
-      return const Error('请退出账号后重新登录');
+      return const Error('璇烽€€鍑鸿处鍙峰悗閲嶆柊鐧诲綍');
     }
     final res = await Request().post(
       Api.dislikeVideo,
@@ -523,7 +555,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 推送不感兴趣反馈
+  // 鎺ㄩ€佷笉鎰熷叴瓒ｅ弽棣?
   static Future<LoadingState<void>> feedDislike({
     required String goto,
     required int id,
@@ -531,7 +563,7 @@ abstract final class VideoHttp {
     int? feedbackId,
   }) async {
     if (Accounts.get(AccountType.recommend).accessKey.isNullOrEmpty) {
-      return const Error('请退出账号后重新登录');
+      return const Error('璇烽€€鍑鸿处鍙峰悗閲嶆柊鐧诲綍');
     }
     assert((reasonId != null) ^ (feedbackId != null));
     final res = await Request().get(
@@ -552,7 +584,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 推送不感兴趣取消
+  // 鎺ㄩ€佷笉鎰熷叴瓒ｅ彇娑?
   static Future<LoadingState<void>> feedDislikeCancel({
     required String goto,
     required int id,
@@ -560,7 +592,7 @@ abstract final class VideoHttp {
     int? feedbackId,
   }) async {
     if (Accounts.get(AccountType.recommend).accessKey.isNullOrEmpty) {
-      return const Error('请退出账号后重新登录');
+      return const Error('璇烽€€鍑鸿处鍙峰悗閲嶆柊鐧诲綍');
     }
     final res = await Request().get(
       Api.feedDislikeCancel,
@@ -580,14 +612,14 @@ abstract final class VideoHttp {
     }
   }
 
-  // 发表评论 replyAdd
+  // 鍙戣〃璇勮 replyAdd
 
-  // type	num	评论区类型代码	必要	类型代码见表
-  // oid	num	目标评论区id	必要
-  // root	num	根评论rpid	非必要	二级评论以上使用
-  // parent	num	父评论rpid	非必要	二级评论同根评论id 大于二级评论为要回复的评论id
-  // message	str	发送评论内容	必要	最大1000字符
-  // plat	num	发送平台标识	非必要	1：web端 2：安卓客户端  3：ios客户端  4：wp客户端
+  // type	num	璇勮鍖虹被鍨嬩唬鐮?蹇呰	绫诲瀷浠ｇ爜瑙佽〃
+  // oid	num	鐩爣璇勮鍖篿d	蹇呰
+  // root	num	鏍硅瘎璁簉pid	闈炲繀瑕?浜岀骇璇勮浠ヤ笂浣跨敤
+  // parent	num	鐖惰瘎璁簉pid	闈炲繀瑕?浜岀骇璇勮鍚屾牴璇勮id 澶т簬浜岀骇璇勮涓鸿鍥炲鐨勮瘎璁篿d
+  // message	str	鍙戦€佽瘎璁哄唴瀹?蹇呰	鏈€澶?000瀛楃
+  // plat	num	鍙戦€佸钩鍙版爣璇?闈炲繀瑕?1锛歸eb绔?2锛氬畨鍗撳鎴风  3锛歩os瀹㈡埛绔? 4锛歸p瀹㈡埛绔?
   static Future<LoadingState<ReplyInfo?>> replyAdd({
     required int type,
     required int oid,
@@ -654,11 +686,11 @@ abstract final class VideoHttp {
       GStorage.replyCacheStore.delete(rpid.toString());
       return const Success(null);
     } else {
-      return const Error('请退出账号后重新登录');
+      return const Error('璇烽€€鍑鸿处鍙峰悗閲嶆柊鐧诲綍');
     }
   }
 
-  // 操作用户关系
+  // 鎿嶄綔鐢ㄦ埛鍏崇郴
   static Future<LoadingState<void>> relationMod({
     required int mid,
     required int act,
@@ -726,7 +758,7 @@ abstract final class VideoHttp {
     );
   }
 
-  // 视频播放进度
+  // 瑙嗛鎾斁杩涘害
   static Future<void> heartBeat({
     Object? aid,
     Object? bvid,
@@ -771,7 +803,7 @@ abstract final class VideoHttp {
     );
   }
 
-  // 添加追番
+  // 娣诲姞杩界暘
   static Future<LoadingState<String>> pgcAdd({int? seasonId}) async {
     final res = await Request().post(
       Api.pgcAdd,
@@ -785,7 +817,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 取消追番
+  // 鍙栨秷杩界暘
   static Future<LoadingState<String>> pgcDel({int? seasonId}) async {
     final res = await Request().post(
       Api.pgcDel,
@@ -819,7 +851,7 @@ abstract final class VideoHttp {
     }
   }
 
-  // 查看视频同时在看人数
+  // 鏌ョ湅瑙嗛鍚屾椂鍦ㄧ湅浜烘暟
   static Future<LoadingState<String>> onlineTotal({
     int? aid,
     String? bvid,
@@ -905,7 +937,7 @@ abstract final class VideoHttp {
   }
 
   static final _fillerWords = RegExp(
-    r'(嗯+|啊+|额+|呃+|那个|就是说|然后呢|对吧|是吧|对不对|你知道吗|反正就是|基本上|说实话)',
+    r'(鍡?|鍟?|棰?|鍛?|閭ｄ釜|灏辨槸璇磡鐒跺悗鍛瀵瑰惂|鏄惂|瀵逛笉瀵箌浣犵煡閬撳悧|鍙嶆灏辨槸|鍩烘湰涓妡璇村疄璇?',
   );
 
   /// Fetch raw subtitle body JSON list from URL.
@@ -950,20 +982,21 @@ abstract final class VideoHttp {
     if (isWhitelisted) {
       return true;
     }
-    // 分区关键词过滤（始终生效，上游原始行为）
+    // 鍒嗗尯鍏抽敭璇嶈繃婊わ紙濮嬬粓鐢熸晥锛屼笂娓稿師濮嬭涓猴級
     return !(enableFilter &&
         i['tname'] != null &&
         zoneRegExp.hasMatch(i['tname']));
   }
 
-  // 视频排行
+  // 瑙嗛鎺掕
   static Future<LoadingState<List<HotVideoItemModel>>> getRankVideoList(
     int rid,
   ) async {
-    final res = await Request().get(
-      Api.getRankApi,
-      queryParameters: await WbiSign.makSign({'rid': rid, 'type': 'all'}),
-    );
+    try {
+      final res = await _getWbiFeed(
+        Api.getRankApi,
+        {'rid': rid, 'type': 'all'},
+      );
     if (res.data['code'] == 0) {
       List<HotVideoItemModel> list = <HotVideoItemModel>[];
       final applyFullFilter = RecommendFilter.applyFilterToRankVideos;
@@ -973,7 +1006,7 @@ abstract final class VideoHttp {
           safeToInt(i['owner']?['mid']),
         );
         if (applyFullFilter) {
-          // 开关开启：全局黑名单 + 完整过滤（时长、播放量、点赞率、标题关键词、推荐屏蔽用户）
+          // 寮€鍏冲紑鍚細鍏ㄥ眬榛戝悕鍗?+ 瀹屾暣杩囨护锛堟椂闀裤€佹挱鏀鹃噺銆佺偣璧炵巼銆佹爣棰樺叧閿瘝銆佹帹鑽愬睆钄界敤鎴凤級
           if (!isWhitelisted &&
               GlobalData().blackMids.contains(i['owner']['mid'])) {
             continue;
@@ -996,20 +1029,24 @@ abstract final class VideoHttp {
     } else {
       return Error(res.data['message']);
     }
+    } catch (e) {
+      return Error(e.toString());
+    }
   }
 
-  // pgc 排行
+  // pgc 鎺掕
   static Future<LoadingState<List<PgcRankItemModel>?>> pgcRankList({
     int day = 3,
     required int seasonType,
   }) async {
-    final res = await Request().get(
-      Api.pgcRank,
-      queryParameters: await WbiSign.makSign({
-        'day': day,
-        'season_type': seasonType,
-      }),
-    );
+    try {
+      final res = await _getWbiFeed(
+        Api.pgcRank,
+        {
+          'day': day,
+          'season_type': seasonType,
+        },
+      );
     if (res.data['code'] == 0) {
       final items = res.data['result']?['list'] as List?;
       if (items == null) return const Success(null);
@@ -1027,20 +1064,24 @@ abstract final class VideoHttp {
     } else {
       return Error(res.data['message']);
     }
+    } catch (e) {
+      return Error(e.toString());
+    }
   }
 
-  // pgc season 排行
+  // pgc season 鎺掕
   static Future<LoadingState<List<PgcRankItemModel>?>> pgcSeasonRankList({
     int day = 3,
     required int seasonType,
   }) async {
-    final res = await Request().get(
-      Api.pgcSeasonRank,
-      queryParameters: await WbiSign.makSign({
-        'day': day,
-        'season_type': seasonType,
-      }),
-    );
+    try {
+      final res = await _getWbiFeed(
+        Api.pgcSeasonRank,
+        {
+          'day': day,
+          'season_type': seasonType,
+        },
+      );
     if (res.data['code'] == 0) {
       final items = res.data['data']?['list'] as List?;
       if (items == null) return const Success(null);
@@ -1057,6 +1098,9 @@ abstract final class VideoHttp {
       );
     } else {
       return Error(res.data['message']);
+    }
+    } catch (e) {
+      return Error(e.toString());
     }
   }
 

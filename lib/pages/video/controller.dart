@@ -64,7 +64,6 @@ import 'package:PiliMax/plugin/pl_player/models/data_source.dart';
 import 'package:PiliMax/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/services/download/download_service.dart';
-import 'package:PiliMax/services/debug_log_service.dart';
 import 'package:PiliMax/services/pip_overlay_service.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/connectivity_utils.dart';
@@ -1076,20 +1075,6 @@ class VideoDetailController extends GetxController
     if (seekToTime != null && seekToTime > Duration.zero) {
       playedTime = seekToTime;
     }
-    unawaited(
-      DebugLogService.log(
-        'video.codec',
-        'fallback after codec open error',
-        extra: {
-          'bvid': bvid,
-          'cid': cid.value,
-          'event': event,
-          'failedFormat': failedFormat.name,
-          'fallbackFormat': fallbackFormat.name,
-          'seekMs': seekToTime?.inMilliseconds,
-        },
-      ),
-    );
 
     SmartDialog.showToast(
       '${failedFormat.name} 解码失败，尝试 ${fallbackFormat.name}',
@@ -1164,20 +1149,6 @@ class VideoDetailController extends GetxController
           additionalValidity: isCurrentQuery,
         ) &&
         (!sourceRequested || plPlayerController.isSourceOwnerActive(this));
-    unawaited(
-      DebugLogService.log(
-        'video.player',
-        'init player',
-        extra: {
-          'bvid': requestIdentity.bvid,
-          'cid': requestIdentity.cid,
-          'isFileSource': isFileSource,
-          'autoplay': autoplay ?? _autoPlay.value,
-          'autoFullScreenFlag': autoFullScreenFlag,
-          'sourceType': sourceType.name,
-        },
-      ),
-    );
     if (!isCurrentInit()) return;
     // 如果播放器单例已被外部销毁（例如在二级页面关闭了小窗），重新获取一个新实例
     if (plPlayerController.videoPlayerController == null) {

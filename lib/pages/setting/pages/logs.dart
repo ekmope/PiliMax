@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:PiliMax/common/constants.dart';
@@ -11,6 +10,7 @@ import 'package:PiliMax/services/crash/crash_report_store.dart';
 import 'package:PiliMax/services/crash/crash_reporter.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/date_utils.dart';
+import 'package:PiliMax/utils/log_file_export.dart';
 import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
@@ -19,7 +19,6 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:catcher_2/catcher_2.dart';
 import 'package:catcher_2/utils/log_printer.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
@@ -101,6 +100,21 @@ class _LogsPageState extends State<LogsPage> {
     }
   }
 
+  Future<void> exportLogs() async {
+    try {
+      final shared = await LogFileExport.share(
+        content: logsContent.join('\n\n'),
+        filePrefix: 'pilimax_error_log',
+        subject: 'PiliMax 错误日志',
+      );
+      if (!shared) {
+        SmartDialog.showToast('暂无错误日志');
+      }
+    } catch (_) {
+      SmartDialog.showToast('导出日志失败，请稍后重试');
+    }
+  }
+
   Future<void> clearLogs() async {
     if (await LoggerUtils.clearLogs()) {
       if (mounted) {
@@ -122,27 +136,10 @@ class _LogsPageState extends State<LogsPage> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: const Text('日志'),
+        title: const Text('错误日志'),
         actions: [
           StaticPopupMenuButton(
             itemBuilder: (_) => [
-              if (kDebugMode)
-                PopupMenuItem(
-                  onTap: () => Timer.periodic(
-                    const Duration(milliseconds: 3500),
-                    (timer) {
-                      Utils.reportError('Manual', StackTrace.current);
-                      if (timer.tick > 3) {
-                        timer.cancel();
-                        if (mounted) {
-                          _initCrashReports();
-                          getLog();
-                        }
-                      }
-                    },
-                  ),
-                  child: const Text('引发错误'),
-                ),
               PopupMenuItem(
                 onTap: () {
                   enableLog = !enableLog;
@@ -167,6 +164,10 @@ class _LogsPageState extends State<LogsPage> {
               PopupMenuItem(
                 onTap: copyLogs,
                 child: const Text('复制日志'),
+              ),
+              PopupMenuItem(
+                onTap: exportLogs,
+                child: const Text('导出日志（.log）'),
               ),
               PopupMenuItem(
                 onTap: () =>

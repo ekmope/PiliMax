@@ -11,8 +11,6 @@ import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/pages/mine/controller.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
-import 'package:PiliMax/services/debug_log_service.dart';
-import 'package:PiliMax/services/video_transition_diagnostics.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
@@ -177,10 +175,6 @@ class _AboutPageState extends State<AboutPage> {
     final subTitleStyle = TextStyle(fontSize: 13, color: outline);
     final showAppBar = widget.showAppBar;
     final padding = MediaQuery.viewPaddingOf(context);
-    final enableDebugLog = GStorage.setting.get(
-      SettingBoxKey.enableDebugLog,
-      defaultValue: false,
-    );
     return Scaffold(
       appBar: showAppBar ? AppBar(title: const Text('关于')) : null,
       resizeToAvoidBottomInset: false,
@@ -294,37 +288,6 @@ Commit Hash: ${BuildConfig.commitHash}''',
             subtitle: Text('长按清除日志', style: subTitleStyle),
             trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
           ),
-          SwitchListTile(
-            value: enableDebugLog,
-            secondary: const Icon(Icons.developer_mode_outlined),
-            title: const Text('开启调试日志'),
-            subtitle: Text('开启后收集网络/播放等调试日志', style: subTitleStyle),
-            onChanged: (value) async {
-              await GStorage.setting.put(SettingBoxKey.enableDebugLog, value);
-              if (context.mounted) {
-                setState(() {});
-              }
-              SmartDialog.showToast('已${value ? '开启' : '关闭'}调试日志');
-            },
-          ),
-          ListTile(
-            onTap: () => Get.toNamed('/debugLogs'),
-            onLongPress: DebugLogService.clear,
-            onSecondaryTap: PlatformUtils.isMobile
-                ? null
-                : DebugLogService.clear,
-            leading: const Icon(Icons.article_outlined),
-            title: const Text('调试日志'),
-            subtitle: Text('长按清除日志', style: subTitleStyle),
-            trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
-          ),
-          if (VideoTransitionDiagnostics.available)
-            ListTile(
-              onTap: () => Get.toNamed('/videoTransitionDiagnostics'),
-              leading: const Icon(Icons.monitor_heart_outlined),
-              title: const Text('视频动画诊断'),
-              trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
-            ),
           ListTile(
             onTap: () {
               if (cacheSize.value.isNotEmpty) {

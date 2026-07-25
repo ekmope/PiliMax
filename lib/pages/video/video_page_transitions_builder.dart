@@ -8,7 +8,6 @@ import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
 import 'package:PiliMax/pages/video/video_detail_exit_snapshot.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
-import 'package:PiliMax/services/video_transition_diagnostics.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -244,9 +243,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   double _cancelStartProgress = 0;
   double _programmaticStartProgress = 0;
   double _programmaticStartRouteValue = 1;
-  int? _forwardDiagnosticId;
-  int? _backDiagnosticId;
-
   Map<dynamic, dynamic>? get _arguments {
     final arguments = widget.route.settings.arguments;
     return arguments is Map ? arguments : null;
@@ -269,12 +265,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     _routeCompleted =
         !widget.route.offstage &&
         widget.animation.status == AnimationStatus.completed;
-    if (!_routeCompleted && widget.token != null) {
-      _forwardDiagnosticId = VideoTransitionDiagnostics.begin(
-        VideoTransitionDiagnosticKind.entry,
-        expectedDuration: widget.route.transitionDuration,
-      );
-    }
     widget.animation
       ..addListener(_handleAnimationTick)
       ..addStatusListener(_handleAnimationStatus);
@@ -330,10 +320,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
         !_isEnabled) {
       return false;
     }
-    _finishBackDiagnostic('superseded');
-    _backDiagnosticId = VideoTransitionDiagnostics.begin(
-      VideoTransitionDiagnosticKind.predictiveBack,
-    );
     _phase = VideoDetailBackPhase.predicting;
     _setProgress(backEvent.progress);
     widget.route.handleStartBackGesture(progress: 1 - backEvent.progress);
@@ -345,7 +331,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (_phase != VideoDetailBackPhase.predicting) {
       return;
     }
-    VideoTransitionDiagnostics.recordInputEvent(_backDiagnosticId);
     _setProgress(backEvent.progress);
     widget.route.handleUpdateBackGestureProgress(
       progress: 1 - backEvent.progress,
@@ -415,7 +400,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (widget.animation.isDismissed) {
       _phase = VideoDetailBackPhase.dismissed;
       _setProgress(1);
-      _finishBackDiagnostic('committed');
       return;
     }
     if (mounted) {
@@ -425,7 +409,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   void _handleAnimationStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
-      _finishForwardDiagnostic('completed');
       if (_phase == VideoDetailBackPhase.canceling) {
         _finishCancel();
         return;
@@ -446,11 +429,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
         _setProgress(1);
         return;
       }
-      if (_phase == VideoDetailBackPhase.committing) {
-        _finishBackDiagnostic('committed');
-      } else if (_phase == VideoDetailBackPhase.programmatic) {
-        _finishBackDiagnostic('completed');
-      }
       _phase = VideoDetailBackPhase.dismissed;
       _setProgress(1);
       return;
@@ -465,11 +443,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
                   _programmaticStartRouteValue.clamp(0.0, 1.0).toDouble(),
                 );
       _phase = VideoDetailBackPhase.programmatic;
-      _finishBackDiagnostic('superseded');
-      _backDiagnosticId = VideoTransitionDiagnostics.begin(
-        VideoTransitionDiagnosticKind.programmaticBack,
-        expectedDuration: widget.route.reverseTransitionDuration,
-      );
       _handleAnimationTick();
     }
   }
@@ -478,7 +451,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     _phase = VideoDetailBackPhase.idle;
     _cancelPreparedExit();
     _setProgress(0);
-    _finishBackDiagnostic('canceled');
   }
 
   void _cancelPreparedExit() {
@@ -494,18 +466,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (mounted) {
       setState(() {});
     }
-  }
-
-  void _finishForwardDiagnostic(String outcome) {
-    final captureId = _forwardDiagnosticId;
-    _forwardDiagnosticId = null;
-    VideoTransitionDiagnostics.finish(captureId, outcome: outcome);
-  }
-
-  void _finishBackDiagnostic(String outcome) {
-    final captureId = _backDiagnosticId;
-    _backDiagnosticId = null;
-    VideoTransitionDiagnostics.finish(captureId, outcome: outcome);
   }
 
   void _handleAnimationTick() {
@@ -652,8 +612,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   @override
   void dispose() {
-    _finishForwardDiagnostic('disposed');
-    _finishBackDiagnostic('disposed');
     _VideoRouteAnimations.unregister(widget.animation);
     if (widget.enablePredictiveBack) {
       WidgetsBinding.instance.removeObserver(this);

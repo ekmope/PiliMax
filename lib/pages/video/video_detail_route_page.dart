@@ -15,7 +15,6 @@ import 'package:PiliMax/pages/video/view.dart';
 import 'package:PiliMax/services/live_pip_overlay_service.dart';
 import 'package:PiliMax/services/pip_overlay_service.dart';
 import 'package:PiliMax/services/route_restore_service.dart';
-import 'package:PiliMax/services/video_transition_diagnostics.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 
@@ -69,7 +68,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   bool _isResolving = false;
   Object? _error;
   Object? _pendingResolutionError;
-  int? _detailRevealDiagnosticId;
   VideoDetailExitMode? _preparedExitMode;
 
   bool get _hasPendingLaunch =>
@@ -152,7 +150,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   void _onDetailRevealStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
-      _finishDetailRevealDiagnostic('completed');
       if (mounted && _showEntryLayer) {
         setState(() => _showEntryLayer = false);
       }
@@ -167,8 +164,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (preparedExitMode != null) {
       return preparedExitMode;
     }
-    _finishDetailRevealDiagnostic('interrupted');
-
     if (_error != null) {
       _preparedExitMode = VideoDetailExitMode.errorFallback;
       return VideoDetailExitMode.errorFallback;
@@ -702,11 +697,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         _revealingDetail) {
       return;
     }
-    _finishDetailRevealDiagnostic('superseded');
-    _detailRevealDiagnosticId = VideoTransitionDiagnostics.begin(
-      VideoTransitionDiagnosticKind.detailReveal,
-      expectedDuration: _entryOverlay?.revealDuration ?? _detailRevealDuration,
-    );
     setState(() {
       // Keep this defensive assignment for sessions mounted before reveal.
       _useHeroTarget = false;
@@ -717,9 +707,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (entryOverlay != null) {
       unawaited(
         entryOverlay.beginReveal().whenComplete(() {
-          _finishDetailRevealDiagnostic(
-            entryOverlay.didCompleteReveal ? 'completed' : 'aborted',
-          );
           if (mounted && _showEntryLayer) {
             setState(() => _showEntryLayer = false);
           }
@@ -728,12 +715,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       return;
     }
     _detailRevealController.forward(from: 0);
-  }
-
-  void _finishDetailRevealDiagnostic(String outcome) {
-    final captureId = _detailRevealDiagnosticId;
-    _detailRevealDiagnosticId = null;
-    VideoTransitionDiagnostics.finish(captureId, outcome: outcome);
   }
 
   void _retry() {
@@ -886,7 +867,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   @override
   void dispose() {
-    _finishDetailRevealDiagnostic('disposed');
     _fallbackTimer?.cancel();
     _orientationSettleTimer?.cancel();
     _routeAnimation?.removeStatusListener(_onRouteAnimationStatus);

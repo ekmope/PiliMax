@@ -1,7 +1,4 @@
 ﻿import 'package:PiliMax/http/api.dart';
-import 'package:PiliMax/http/init.dart';
-import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/http/web_request_headers.dart';
 import 'package:PiliMax/http/web_request_headers.dart';
 import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -59,7 +56,7 @@ abstract final class UserHttp {
     }
   }
 
-  // 绋嶅悗鍐嶇湅
+  // 稍后再看
   static Future<LoadingState<LaterData>> seeYouLater({
     required int page,
     int viewed = 0,
@@ -85,7 +82,7 @@ abstract final class UserHttp {
     }
   }
 
-  // 瑙傜湅鍘嗗彶
+  // 观看历史
   static Future<LoadingState<HistoryData>> historyList({
     required String type,
     int? max,
@@ -109,12 +106,12 @@ abstract final class UserHttp {
     }
   }
 
-  // 鏆傚仠瑙傜湅鍘嗗彶
+  // 暂停观看历史
   static Future<LoadingState<void>> pauseHistory(
     bool switchStatus, {
     Account? account,
   }) async {
-    // 鏆傚仠switchStatus浼爐rue 鍚﹀垯false
+    // 暂停switchStatus传true 否则false
     account ??= Accounts.history;
     final res = await Request().post(
       Api.pauseHistory,
@@ -135,7 +132,7 @@ abstract final class UserHttp {
     }
   }
 
-  // 瑙傜湅鍘嗗彶鏆傚仠鐘舵€?
+  // 观看历史暂停状态
   static Future<LoadingState<bool>> historyStatus({Account? account}) async {
     final res = await Request().get(
       Api.historyStatus,
@@ -148,7 +145,7 @@ abstract final class UserHttp {
     }
   }
 
-  // 娓呯┖鍘嗗彶璁板綍
+  // 清空历史记录
   static Future<LoadingState<void>> clearHistory({Account? account}) async {
     account ??= Accounts.history;
     final res = await Request().post(
@@ -169,7 +166,7 @@ abstract final class UserHttp {
     }
   }
 
-  // 绋嶅悗鍐嶇湅
+  // 稍后再看
   static Future<LoadingState<void>> toViewLater({
     String? bvid,
     Object? aid,
@@ -185,7 +182,7 @@ abstract final class UserHttp {
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );
     if (res.data['code'] == 0) {
-      SmartDialog.showToast('yeah锛佺◢鍚庡啀鐪?);
+      SmartDialog.showToast('yeah！稍后再看');
       return const Success(null);
     } else {
       SmartDialog.showToast(res.data['message'].toString());
@@ -193,7 +190,7 @@ abstract final class UserHttp {
     }
   }
 
-  // 绉婚櫎宸茶鐪?
+  // 移除已观看
   static Future<LoadingState<void>> toViewDel({required String aids}) async {
     final Map<String, dynamic> params = {
       'csrf': Accounts.main.csrf,
@@ -205,7 +202,7 @@ abstract final class UserHttp {
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );
     if (res.data['code'] == 0) {
-      SmartDialog.showToast('yeah锛佹垚鍔熺Щ闄?);
+      SmartDialog.showToast('yeah！成功移除');
       return const Success(null);
     } else {
       SmartDialog.showToast(res.data['message'].toString());
@@ -213,7 +210,7 @@ abstract final class UserHttp {
     }
   }
 
-  // 鑾峰彇鐢ㄦ埛鍑瘉 澶辨晥
+  // 获取用户凭证 失效
   // static Future thirdLogin() async {
   //   final res = await Request().get(
   //     'https://passport.bilibili.com/login/app/third',
@@ -228,11 +225,11 @@ abstract final class UserHttp {
   //       Request().get(res.data['data']['confirm_uri']);
   //     }
   //   } catch (err) {
-  //     SmartDialog.showNotify(msg: '鑾峰彇鐢ㄦ埛鍑瘉: $err', notifyType: NotifyType.error);
+  //     SmartDialog.showNotify(msg: '获取用户凭证: $err', notifyType: NotifyType.error);
   //   }
   // }
 
-  // 娓呯┖绋嶅悗鍐嶇湅 // clean_type: null->all, 1->invalid, 2->viewed
+  // 清空稍后再看 // clean_type: null->all, 1->invalid, 2->viewed
   static Future<LoadingState<void>> toViewClear([int? cleanType]) async {
     final res = await Request().post(
       Api.toViewClear,
@@ -249,7 +246,7 @@ abstract final class UserHttp {
     }
   }
 
-  // 鍒犻櫎鍘嗗彶璁板綍
+  // 删除历史记录
   static Future<LoadingState<void>> delHistory(
     String kid, {
     Account? account,
@@ -288,7 +285,7 @@ abstract final class UserHttp {
     }
   }
 
-  // 鎼滅储鍘嗗彶璁板綍
+  // 搜索历史记录
   static Future<LoadingState<HistoryData>> searchHistory({
     required int pn,
     required String keyword,
@@ -310,7 +307,7 @@ abstract final class UserHttp {
     }
   }
 
-  // 鎴戠殑璁㈤槄
+  // 我的订阅
   static Future<LoadingState<SubData>> userSubFolder({
     required int mid,
     required int pn,
@@ -351,7 +348,7 @@ abstract final class UserHttp {
     }
   }
 
-  // 绋嶅悗鍐嶇湅鍒楄〃
+  // 稍后再看列表
   static Future<LoadingState<MediaListData>> getMediaList({
     required Object type,
     required Object bizId,

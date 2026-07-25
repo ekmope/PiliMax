@@ -1,9 +1,9 @@
 import 'dart:io';
 
+import 'package:PiliMax/utils/app_temporary_files.dart';
 import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/share_utils.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 abstract final class LogFileExport {
@@ -57,10 +57,13 @@ abstract final class LogFileExport {
   }) async {
     if (content.trim().isEmpty) return false;
 
+    final directory = await AppTemporaryFiles.reset(
+      AppTemporaryOwner.logExport,
+    );
     final file = await writeToDirectory(
       content: content,
       filePrefix: filePrefix,
-      directory: await getTemporaryDirectory(),
+      directory: directory,
     );
     await SharePlus.instance.share(
       ShareParams(

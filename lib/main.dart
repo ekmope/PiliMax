@@ -92,7 +92,12 @@ Future<void> _initDownPath() async {
 }
 
 Future<void> _initTmpPath() async {
-  tmpDirPath = (await getTemporaryDirectory()).path;
+  final systemTemporaryDirectory = await getTemporaryDirectory();
+  final appTemporaryDirectory = Directory(
+    path.join(systemTemporaryDirectory.path, PathUtils.temporaryRootDir),
+  );
+  await appTemporaryDirectory.create(recursive: true);
+  tmpDirPath = appTemporaryDirectory.path;
 }
 
 Future<void> _initAppPath() async {

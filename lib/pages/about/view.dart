@@ -16,6 +16,7 @@ import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
+import 'package:PiliMax/utils/cache_policy.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -90,13 +91,9 @@ class _AboutPageState extends State<AboutPage> {
       builder: (context) => SelectDialog<int>(
         title: '自动清理周期',
         value: Pref.autoClearCachePeriod,
-        values: const [
-          (1, '每 1 天'),
-          (3, '每 3 天'),
-          (7, '每 7 天'),
-          (15, '每 15 天'),
-          (30, '每 30 天'),
-        ],
+        values: CacheAutoClearPeriod.allowedDays
+            .map((days) => (days, '每 $days 天'))
+            .toList(growable: false),
       ),
     );
     if (res != null) {
@@ -297,14 +294,22 @@ Commit Hash: ${BuildConfig.commitHash}''',
                   content: const Text('该操作将清除图片及网络请求缓存数据，确认清除？'),
                   onConfirm: () async {
                     SmartDialog.showLoading(msg: '正在清除...');
+                    var resultMessage = '缓存清理失败，请稍后重试';
                     try {
-                      await CacheManager.clearLibraryCache();
-                      SmartDialog.showToast('清除成功');
-                    } catch (err) {
-                      SmartDialog.showToast(err.toString());
+                      final result = await CacheManager.clearLibraryCache();
+                      if (result.allSucceeded) {
+                        resultMessage = '缓存清理完成';
+                      } else if (result.partialFailure) {
+                        resultMessage = '缓存已部分清理，${result.failedCount} 项清理失败';
+                      } else if (result.allFailed) {
+                        resultMessage = '缓存清理失败，请稍后重试';
+                      }
+                    } catch (_) {
+                      resultMessage = '缓存清理失败，请稍后重试';
                     } finally {
                       SmartDialog.dismiss();
                     }
+                    SmartDialog.showToast(resultMessage);
                     getCacheSize();
                   },
                 );

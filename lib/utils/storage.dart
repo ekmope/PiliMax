@@ -7,12 +7,14 @@ import 'package:PiliMax/models/user/danmaku_rule_adapter.dart';
 import 'package:PiliMax/models/user/info.dart';
 import 'package:PiliMax/utils/android/android_mmkv_box.dart';
 import 'package:PiliMax/utils/android/android_mmkv_storage_codec.dart';
+import 'package:PiliMax/utils/cache_policy.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account_adapter.dart';
 import 'package:PiliMax/utils/accounts/account_type_adapter.dart';
 import 'package:PiliMax/utils/accounts/cookie_jar_adapter.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/set_int_adapter.dart';
+import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/storage/reply_cache_store.dart';
 import 'package:PiliMax/utils/storage/watch_progress_store.dart';
@@ -104,6 +106,7 @@ abstract final class GStorage {
       ).then((res) => video = res),
       Accounts.init(),
     ]);
+    await _normalizeAutoClearCachePeriod();
 
     watchProgress = await openAndroidMmkvBackedBox<int>(
       name: 'watchProgress',
@@ -165,31 +168,80 @@ abstract final class GStorage {
   static Future<void> importAllSettings(String data) =>
       importAllJsonSettings(jsonDecode(data));
 
-  static Future<List<void>> importAllJsonSettings(
+  static Future<void> importAllJsonSettings(
     Map<String, dynamic> map,
-  ) {
-    final futures = <Future<void>>[
-      setting.clear().then((_) => setting.putAll(map[setting.name])),
-      video.clear().then((_) => video.putAll(map[video.name])),
-    ];
+  ) async {
+    final importedSetting = map[setting.name];
+    final importedVideo = map[video.name];
+    if (importedSetting is! Map || importedVideo is! Map) {
+      throw const FormatException('设置文件格式无效');
+    }
+    final settingValues = CacheAutoClearPeriod.normalizedSettingsCopy(
+      importedSetting,
+      periodKey: SettingBoxKey.autoClearCachePeriod,
+    );
+    final videoValues = Map<dynamic, dynamic>.from(importedVideo);
+
+    final localCacheValues = <String, dynamic>{};
 
     // 导入 localCache 数据（如果存在）
     if (map.containsKey(localCache.name)) {
-      final localCacheMap = map[localCache.name] as Map<String, dynamic>;
+      final localCacheMap = map[localCache.name];
+      if (localCacheMap is! Map) {
+        throw const FormatException('设置文件格式无效');
+      }
       for (final entry in localCacheMap.entries) {
-        if (!exportableLocalCacheKeys.contains(entry.key)) {
+        if (entry.key is! String) {
+          throw const FormatException('设置文件格式无效');
+        }
+        final key = entry.key as String;
+        if (!exportableLocalCacheKeys.contains(key)) {
           continue;
         }
-        futures.add(
-          localCache.put(
-            entry.key,
-            _decodeLocalCacheValue(entry.key, entry.value),
-          ),
-        );
+        localCacheValues[key] = _decodeLocalCacheValue(key, entry.value);
       }
     }
 
-    return Future.wait(futures);
+    final settingSnapshot = setting.toMap();
+    final videoSnapshot = video.toMap();
+    final localCacheSnapshot = {
+      for (final key in localCacheValues.keys)
+        key: (
+          exists: localCache.containsKey(key),
+          value: localCache.get(key),
+        ),
+    };
+    try {
+      await _replaceBox(setting, settingValues);
+      await _replaceBox(video, videoValues);
+      await localCache.putAll(localCacheValues);
+    } catch (error, stackTrace) {
+      try {
+        await _replaceBox(setting, settingSnapshot);
+        await _replaceBox(video, videoSnapshot);
+        for (final entry in localCacheSnapshot.entries) {
+          if (entry.value.exists) {
+            await localCache.put(entry.key, entry.value.value);
+          } else {
+            await localCache.delete(entry.key);
+          }
+        }
+      } catch (_) {}
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  static Future<void> _replaceBox(Box box, Map<dynamic, dynamic> values) async {
+    await box.clear();
+    await box.putAll(values);
+  }
+
+  static Future<void> _normalizeAutoClearCachePeriod() async {
+    final stored = setting.get(SettingBoxKey.autoClearCachePeriod);
+    final normalized = CacheAutoClearPeriod.normalize(stored);
+    if (stored != normalized) {
+      await setting.put(SettingBoxKey.autoClearCachePeriod, normalized);
+    }
   }
 
   static void regAdapter() {

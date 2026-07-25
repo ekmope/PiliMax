@@ -6,6 +6,7 @@ import 'package:PiliMax/services/crash/crash_report.dart';
 import 'package:PiliMax/services/crash/crash_report_store.dart';
 import 'package:PiliMax/services/crash/crash_reporter.dart';
 import 'package:PiliMax/services/route_restore_service.dart';
+import 'package:PiliMax/utils/app_temporary_files.dart';
 import 'package:PiliMax/utils/share_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +14,6 @@ import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 const crashReportRouteName = '/__crash_report__';
@@ -500,7 +500,9 @@ class _ActionPanel extends StatelessWidget {
 
   Future<void> _shareReportFile(CrashReport report) async {
     try {
-      final dir = await getTemporaryDirectory();
+      final dir = await AppTemporaryFiles.reset(
+        AppTemporaryOwner.crashReportExport,
+      );
       final file = File(
         p.join(
           dir.path,

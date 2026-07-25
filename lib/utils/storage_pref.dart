@@ -44,6 +44,7 @@ import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/login_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/cache_policy.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart' show FlexSchemeVariant;
 import 'package:flutter/foundation.dart';
@@ -1172,9 +1173,9 @@ abstract final class Pref {
   static int get autoClearCachePeriod {
     final period = _setting.get(
       SettingBoxKey.autoClearCachePeriod,
-      defaultValue: 3,
+      defaultValue: CacheAutoClearPeriod.defaultDays,
     );
-    return const [1, 3, 7, 15, 30].contains(period) ? period : 3;
+    return CacheAutoClearPeriod.normalize(period);
   }
 
   static bool get optTabletNav =>

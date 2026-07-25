@@ -73,6 +73,49 @@ void main() {
         isNull,
       );
     });
+
+    test('allows exactly three b23 redirects', () async {
+      const videoUrl = 'https://www.bilibili.com/video/BV17x411w7KC';
+      var redirects = 0;
+
+      final result = await ClipboardVideoLinkHandler.resolveVideoUrl(
+        'https://b23.tv/Start01',
+        redirectResolver: (_) async => switch (++redirects) {
+          1 => 'https://b23.tv/Second2',
+          2 => 'https://b23.tv/Third03',
+          _ => videoUrl,
+        },
+      );
+
+      expect(result, videoUrl);
+      expect(redirects, 3);
+    });
+
+    test('keeps the three-redirect ceiling and stops cycles', () async {
+      var fourthHopRedirects = 0;
+      final fourthHop = await ClipboardVideoLinkHandler.resolveVideoUrl(
+        'https://b23.tv/Start01',
+        redirectResolver: (_) async {
+          fourthHopRedirects++;
+          return fourthHopRedirects == 4
+              ? 'https://www.bilibili.com/video/BV17x411w7KC'
+              : 'https://b23.tv/Hop$fourthHopRedirects';
+        },
+      );
+      expect(fourthHop, isNull);
+      expect(fourthHopRedirects, 3);
+
+      var cycleRedirects = 0;
+      final cycle = await ClipboardVideoLinkHandler.resolveVideoUrl(
+        'https://b23.tv/Loop001',
+        redirectResolver: (url) async {
+          cycleRedirects++;
+          return url;
+        },
+      );
+      expect(cycle, isNull);
+      expect(cycleRedirects, 3);
+    });
   });
 
   test('canonicalizes AV and BV variants for duplicate throttling', () {
@@ -140,6 +183,63 @@ void main() {
   });
 
   group('navigation guard', () {
+    test('fails closed and reports a sanitized diagnostic', () {
+      Object? reportedError;
+      StackTrace? reportedStack;
+      final result = ClipboardVideoLinkHandler.evaluateNavigationGuard(
+        () => throw StateError(
+          'clipboard=https://b23.tv/Secret01',
+        ),
+        onError: (error, stackTrace) {
+          reportedError = error;
+          reportedStack = stackTrace;
+        },
+      );
+
+      expect(result, isFalse);
+      expect(reportedError, isA<StateError>());
+      expect(reportedStack, isNotNull);
+      final diagnostic =
+          ClipboardVideoLinkHandler.navigationGuardDiagnosticMessage(
+            reportedError!,
+          );
+      expect(diagnostic, contains('StateError'));
+      expect(diagnostic, isNot(contains('Secret01')));
+      expect(diagnostic, isNot(contains('b23.tv')));
+    });
+
+    test('rate limits navigation guard diagnostics', () {
+      final now = DateTime.utc(2026, 7, 25, 12);
+      expect(
+        ClipboardVideoLinkHandler.navigationGuardDiagnosticAllowed(
+          now: now,
+          lastReportedAt: null,
+        ),
+        isTrue,
+      );
+      expect(
+        ClipboardVideoLinkHandler.navigationGuardDiagnosticAllowed(
+          now: now,
+          lastReportedAt: now.subtract(const Duration(seconds: 29)),
+        ),
+        isFalse,
+      );
+      expect(
+        ClipboardVideoLinkHandler.navigationGuardDiagnosticAllowed(
+          now: now,
+          lastReportedAt: now.subtract(const Duration(seconds: 30)),
+        ),
+        isTrue,
+      );
+      expect(
+        ClipboardVideoLinkHandler.navigationGuardDiagnosticAllowed(
+          now: now,
+          lastReportedAt: now.add(const Duration(seconds: 1)),
+        ),
+        isTrue,
+      );
+    });
+
     test('rejects lifecycle generation and route identity changes', () {
       final arguments = <String, Object?>{'heroTag': 'video-a'};
       final routeObject = Object();

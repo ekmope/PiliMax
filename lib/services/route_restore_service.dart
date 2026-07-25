@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
+import 'package:PiliMax/services/route_restore_startup.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
@@ -45,14 +46,8 @@ abstract final class RouteRestoreService {
   static RestorableRoute? _latestRoute;
   static MainRestoreState? _latestMainState;
   static Future<void> _storageQueue = Future<void>.value();
-  static Future<bool>? _startupRestoreFuture;
-
-  static const _nativeDecisionRetryDelays = [
-    Duration(milliseconds: 80),
-    Duration(milliseconds: 160),
-    Duration(milliseconds: 280),
-    Duration(milliseconds: 480),
-  ];
+  static final RouteRestoreStartupCoordinator<bool> _startupRestore =
+      RouteRestoreStartupCoordinator<bool>();
 
   static bool get _enabled =>
       Platform.isAndroid && Pref.enableAndroidRouteRestore;
@@ -167,39 +162,29 @@ abstract final class RouteRestoreService {
 
   static Future<bool> restoreIfNeeded({
     required void Function(MainRestoreState state) restoreMainState,
+    required Future<void> navigationReady,
   }) {
-    if (_startupRestoreFuture case final future?) {
-      return future;
-    }
-    if (_phase != _RouteRestorePhase.startup) {
-      return Future<bool>.value(true);
-    }
-    return _startupRestoreFuture = _restoreIfNeeded(
-      restoreMainState: restoreMainState,
+    return _startupRestore.start(
+      () => _phase != _RouteRestorePhase.startup
+          ? Future<bool>.value(true)
+          : _restoreIfNeeded(
+              restoreMainState: restoreMainState,
+              navigationReady: navigationReady,
+            ),
     );
   }
 
   /// Completes after the one-time Android route-restoration decision.
   ///
-  /// Startup overlays use this to avoid racing the restored destination. The
-  /// bounded asynchronous wait also covers the first frame before MainPage has
-  /// called [restoreIfNeeded]; it never blocks the Android main thread.
+  /// Startup overlays use this to avoid racing the restored destination.
   static Future<void> waitForStartupRestore() async {
     if (!_enabled || _phase == _RouteRestorePhase.ready) return;
-    for (
-      var attempt = 0;
-      attempt < 125 && _startupRestoreFuture == null;
-      attempt++
-    ) {
-      await Future<void>.delayed(const Duration(milliseconds: 16));
-    }
-    if (_startupRestoreFuture case final future?) {
-      await future;
-    }
+    await _startupRestore.future;
   }
 
   static Future<bool> _restoreIfNeeded({
     required void Function(MainRestoreState state) restoreMainState,
+    required Future<void> navigationReady,
   }) async {
     _phase = _RouteRestorePhase.checking;
     if (!_enabled) {
@@ -208,48 +193,41 @@ abstract final class RouteRestoreService {
     }
 
     try {
-      final decision = await _getNativeRestoreDecision();
-      switch (decision) {
-        case _NativeRestoreDecision.restore:
+      final startupDecision = await resolveRouteRestoreDecisionForStoredState(
+        storedState: GStorage.localCache.get(
+          LocalCacheKey.lastAndroidRouteRestoreState,
+        ),
+        expectedVersion: _version,
+        nowMilliseconds: DateTime.now().millisecondsSinceEpoch,
+        validDuration: _validDuration,
+        query: _queryNativeRestoreDecision,
+      );
+      if (startupDecision == null) {
+        _phase = _RouteRestorePhase.ready;
+        return true;
+      }
+      switch (startupDecision.decision) {
+        case RouteRestoreNativeDecision.restore:
           break;
-        case _NativeRestoreDecision.reject:
+        case RouteRestoreNativeDecision.reject:
           return _rejectRestoreState();
-        case _NativeRestoreDecision.unavailable:
+        case RouteRestoreNativeDecision.unavailable:
           _phase = _RouteRestorePhase.ready;
           return false;
       }
+      await navigationReady;
       if (Get.currentRoute != '/') {
         _phase = _RouteRestorePhase.ready;
         return true;
       }
 
-      final raw = GStorage.localCache.get(
-        LocalCacheKey.lastAndroidRouteRestoreState,
-      );
-      if (raw is! String || raw.isEmpty) {
-        _phase = _RouteRestorePhase.ready;
-        return true;
-      }
-
-      final dynamic decoded;
-      try {
-        decoded = jsonDecode(raw);
-      } on FormatException {
+      final state = startupDecision.state;
+      final savedAt = startupDecision.savedAt;
+      if (state == null || savedAt == null) {
         return _rejectRestoreState();
       }
-      if (decoded is! Map) {
-        return _rejectRestoreState();
-      }
-
-      final state = Map<String, dynamic>.from(decoded);
-      if (state['version'] != _version) {
-        return _rejectRestoreState();
-      }
-
-      final savedAt = _asInt(state['time']);
-      if (savedAt == null ||
-          DateTime.now().millisecondsSinceEpoch - savedAt >
-              _validDuration.inMilliseconds) {
+      if (DateTime.now().millisecondsSinceEpoch - savedAt >
+          _validDuration.inMilliseconds) {
         return _rejectRestoreState();
       }
 
@@ -319,30 +297,20 @@ abstract final class RouteRestoreService {
     }
   }
 
-  static Future<_NativeRestoreDecision> _getNativeRestoreDecision() async {
-    for (var attempt = 0; ; attempt++) {
-      final decision = await _queryNativeRestoreDecision();
-      if (decision != _NativeRestoreDecision.unavailable ||
-          attempt == _nativeDecisionRetryDelays.length) {
-        return decision;
-      }
-      await Future<void>.delayed(_nativeDecisionRetryDelays[attempt]);
-    }
-  }
-
-  static Future<_NativeRestoreDecision> _queryNativeRestoreDecision() async {
-    if (!Platform.isAndroid) return _NativeRestoreDecision.reject;
+  static Future<RouteRestoreNativeDecision>
+  _queryNativeRestoreDecision() async {
+    if (!Platform.isAndroid) return RouteRestoreNativeDecision.reject;
     try {
       final decision = await _lifecycleChannel.invokeMethod<String>(
         'getRestoreDecision',
       );
       return switch (decision) {
-        'restore' => _NativeRestoreDecision.restore,
-        'reject' => _NativeRestoreDecision.reject,
-        _ => _NativeRestoreDecision.unavailable,
+        'restore' => RouteRestoreNativeDecision.restore,
+        'reject' => RouteRestoreNativeDecision.reject,
+        _ => RouteRestoreNativeDecision.unavailable,
       };
     } catch (_) {
-      return _NativeRestoreDecision.unavailable;
+      return RouteRestoreNativeDecision.unavailable;
     }
   }
 
@@ -625,8 +593,6 @@ abstract final class RouteRestoreService {
 }
 
 enum _RouteRestorePhase { startup, checking, restoring, ready }
-
-enum _NativeRestoreDecision { restore, reject, unavailable }
 
 class MainRestoreState {
   const MainRestoreState({

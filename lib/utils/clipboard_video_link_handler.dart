@@ -22,7 +22,9 @@ abstract final class ClipboardVideoLinkHandler {
   static final _shortCodeRegExp = RegExp(r'^[0-9A-Za-z]+$');
   static const _trailingPunctuation = '.,，。;；!！?？:：、)）]】}》>\'"';
   static const _sameVideoThrottle = Duration(seconds: 3);
+  static const _navigationGuardDiagnosticThrottle = Duration(seconds: 30);
   static const _maxCandidateLength = 2048;
+  static const _maxB23Redirects = 3;
   static final _urlPrefixRegExp = RegExp(
     r'^https?://',
     caseSensitive: false,
@@ -39,6 +41,7 @@ abstract final class ClipboardVideoLinkHandler {
   static String? _lastProcessedClipboardText;
   static String? _lastHandledVideoKey;
   static DateTime? _lastHandledAt;
+  static DateTime? _lastNavigationGuardDiagnosticAt;
 
   static void init() {
     if (!PlatformUtils.isMobile || _initialized) return;
@@ -66,6 +69,7 @@ abstract final class ClipboardVideoLinkHandler {
     _lastProcessedClipboardText = null;
     _lastHandledVideoKey = null;
     _lastHandledAt = null;
+    _lastNavigationGuardDiagnosticAt = null;
   }
 
   static Future<void> checkAndOpen() async {
@@ -242,7 +246,11 @@ abstract final class ClipboardVideoLinkHandler {
     if (!_isB23ShortUri(uri)) return null;
 
     final resolveRedirect = redirectResolver ?? UrlUtils.parseRedirectUrl;
-    for (var redirectCount = 0; redirectCount < 3; redirectCount++) {
+    for (
+      var redirectCount = 0;
+      redirectCount < _maxB23Redirects;
+      redirectCount++
+    ) {
       final redirectUrl = await resolveRedirect(uri.toString());
       if (redirectUrl == null) return null;
 
@@ -339,26 +347,70 @@ abstract final class ClipboardVideoLinkHandler {
   static bool _isNavigationStillValid(
     _NavigationSnapshot snapshot,
     int generation,
-  ) {
+  ) => evaluateNavigationGuard(() {
+    if (!_canCheck) return false;
+    return navigationGuardMatches(
+      initialized: _initialized,
+      resumed: _isResumed,
+      expectedGeneration: generation,
+      currentGeneration: _generation,
+      expectedRoute: snapshot.route,
+      currentRoute: _normalizedCurrentRoute,
+      expectedRouteObject: snapshot.routeObject,
+      currentRouteObject: Get.routing.route,
+      expectedArguments: snapshot.arguments,
+      currentArguments: Get.arguments,
+      expectedVideoKey: snapshot.videoKey,
+      currentVideoKey: snapshot.isVideoRoute ? _currentVideoKey : null,
+    );
+  });
+
+  @visibleForTesting
+  static bool evaluateNavigationGuard(
+    bool Function() validation, {
+    void Function(Object error, StackTrace stackTrace)? onError,
+  }) {
     try {
-      if (!_canCheck) return false;
-      return navigationGuardMatches(
-        initialized: _initialized,
-        resumed: _isResumed,
-        expectedGeneration: generation,
-        currentGeneration: _generation,
-        expectedRoute: snapshot.route,
-        currentRoute: _normalizedCurrentRoute,
-        expectedRouteObject: snapshot.routeObject,
-        currentRouteObject: Get.routing.route,
-        expectedArguments: snapshot.arguments,
-        currentArguments: Get.arguments,
-        expectedVideoKey: snapshot.videoKey,
-        currentVideoKey: snapshot.isVideoRoute ? _currentVideoKey : null,
-      );
-    } catch (_) {
+      return validation();
+    } catch (error, stackTrace) {
+      (onError ?? _reportNavigationGuardFailure)(error, stackTrace);
       return false;
     }
+  }
+
+  static void _reportNavigationGuardFailure(
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    final now = DateTime.now();
+    if (!navigationGuardDiagnosticAllowed(
+      now: now,
+      lastReportedAt: _lastNavigationGuardDiagnosticAt,
+    )) {
+      return;
+    }
+    _lastNavigationGuardDiagnosticAt = now;
+    try {
+      CrashReporter.recordErrorSync(
+        StateError(navigationGuardDiagnosticMessage(error)),
+        stackTrace,
+        operation: 'ClipboardVideoLinkHandler.navigationGuard',
+      );
+    } catch (_) {}
+  }
+
+  @visibleForTesting
+  static String navigationGuardDiagnosticMessage(Object error) =>
+      'Clipboard navigation guard failed (${error.runtimeType})';
+
+  @visibleForTesting
+  static bool navigationGuardDiagnosticAllowed({
+    required DateTime now,
+    required DateTime? lastReportedAt,
+  }) {
+    if (lastReportedAt == null) return true;
+    final elapsed = now.difference(lastReportedAt);
+    return elapsed.isNegative || elapsed >= _navigationGuardDiagnosticThrottle;
   }
 
   @visibleForTesting

@@ -1,4 +1,4 @@
-import 'dart:async' show unawaited;
+import 'dart:async' show Completer, unawaited;
 import 'dart:io';
 
 import 'package:PiliMax/common/assets.dart';
@@ -160,15 +160,16 @@ class _MainAppState extends PopScopeState<MainApp>
     _recordMainRestoreState();
   }
 
-  Future<void> _restoreRoute() async {
+  Future<void> _restoreRoute(Future<void> navigationReady) async {
     final shouldRecordCurrentState = await RouteRestoreService.restoreIfNeeded(
       restoreMainState: _restoreMainState,
+      navigationReady: navigationReady,
     );
     if (mounted) {
       if (shouldRecordCurrentState) {
         _recordMainRestoreState();
+        RouteRestoreService.captureCurrentRoute();
       }
-      RouteRestoreService.captureCurrentRoute();
       _scheduleClipboardVideoLinkInitialization();
     }
   }
@@ -227,9 +228,11 @@ class _MainAppState extends PopScopeState<MainApp>
     _syncAndroidPredictiveBack();
     addObserverMobile(this);
     if (Platform.isAndroid) {
+      final navigationReady = Completer<void>();
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(_restoreRoute());
+        navigationReady.complete();
       });
+      unawaited(_restoreRoute(navigationReady.future));
     } else if (Platform.isIOS) {
       _scheduleClipboardVideoLinkInitialization();
     }

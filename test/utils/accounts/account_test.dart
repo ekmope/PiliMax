@@ -6,6 +6,7 @@ import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/accounts/account_adapter.dart';
 import 'package:PiliMax/utils/accounts/account_type_adapter.dart';
 import 'package:PiliMax/utils/accounts/cookie_jar_adapter.dart';
+import 'package:PiliMax/utils/storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -169,6 +170,8 @@ void main() {
         ..registerAdapter(LoginAccountAdapter())
         ..registerAdapter(AccountTypeAdapter());
 
+      GStorage.localCache = await Hive.openBox<dynamic>('localCache');
+
       final box = await Hive.openBox<LoginAccount>('account');
       await box.put(
         'legacy-invalid-record',
@@ -223,6 +226,24 @@ void main() {
         isTrue,
       );
       expect(publishedAccount.isOpen, isTrue);
+    });
+
+    test('publishes local account modes before startup requests', () async {
+      await Accounts.restoreAccountModes();
+
+      expect(Accounts.main, isA<LoginAccount>());
+      expect(Accounts.main.mid, 24680);
+    });
+
+    test('keeps network activation separate from local restoration', () async {
+      await Accounts.restoreAccountModes();
+
+      final activated = <Account>[];
+      await Accounts.activateAccountModes(
+        activate: (account) async => activated.add(account),
+      );
+
+      expect(activated, contains(same(Accounts.main)));
     });
 
     test(

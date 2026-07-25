@@ -80,24 +80,47 @@ abstract final class Accounts {
     }
   }
 
-  static Future<void> refresh() async {
+  static Future<void> restoreAccountModes() async {
     await _quarantineInvalidAccounts();
-    for (int i = 0; i < AccountType.values.length; i++) {
-      accountMode[i] = AnonymousAccount();
-    }
-    for (final a in account.values) {
+    _publishAccountModes(account.values);
+  }
+
+  static void _publishAccountModes(Iterable<LoginAccount> accounts) {
+    final nextModes = List<Account>.generate(
+      AccountType.values.length,
+      (_) => AnonymousAccount(),
+      growable: false,
+    );
+    for (final a in accounts) {
       if (!a.isValid) {
         continue;
       }
       for (final t in a.type) {
-        accountMode[t.index] = a;
+        nextModes[t.index] = a;
       }
     }
-    await Future.wait(
+
+    // Publish without an async gap so request interceptors never observe a
+    // partially restored selection.
+    for (var i = 0; i < nextModes.length; i++) {
+      accountMode[i] = nextModes[i];
+    }
+  }
+
+  static Future<void> activateAccountModes({
+    Future<void> Function(Account account)? activate,
+  }) {
+    final activateAccount = activate ?? Request.buvidActive;
+    return Future.wait(
       (accountMode.toSet()..removeWhere((i) => i.activated)).map(
-        Request.buvidActive,
+        activateAccount,
       ),
     );
+  }
+
+  static Future<void> refresh() async {
+    await restoreAccountModes();
+    await activateAccountModes();
   }
 
   static Future<void> _quarantineInvalidAccounts() =>

@@ -86,6 +86,9 @@ class Request {
 
   static final Request _instance = Request._internal();
   static late AccountManager accountManager;
+  static Future<void>? _cookieSetupFuture;
+  static bool _cookieSetupComplete = false;
+  static bool _accountManagerInstalled = false;
   static final _enableHttp2 = Pref.enableHttp2;
   static late final Dio dio;
   static Dio? _http11Dio;
@@ -94,20 +97,57 @@ class Request {
   factory Request() => _instance;
 
   /// 设置cookie
-  static void setCookie() {
-    accountManager = AccountManager();
-    dio.interceptors.add(accountManager);
-    Accounts.refresh();
-    LoginUtils.setWebCookie();
+  static Future<void> setCookie() {
+    if (_cookieSetupComplete) return Future<void>.value();
+    final pending = _cookieSetupFuture;
+    if (pending != null) return pending;
+    final future = _setCookie();
+    _cookieSetupFuture = future;
+    return future.whenComplete(() {
+      if (identical(_cookieSetupFuture, future)) {
+        _cookieSetupFuture = null;
+      }
+    });
+  }
+
+  static Future<void> _setCookie() async {
+    if (!_accountManagerInstalled) {
+      accountManager = AccountManager();
+      dio.interceptors.add(accountManager);
+      _accountManagerInstalled = true;
+    }
+
+    await Accounts.init();
+    await Accounts.restoreAccountModes();
+    _cookieSetupComplete = true;
+
+    _runStartupTask(
+      'Request.activateAccounts',
+      Accounts.activateAccountModes,
+    );
+    _runStartupTask('Request.setWebCookie', () async {
+      await LoginUtils.setWebCookie();
+    });
 
     if (Accounts.main.isLogin) {
       final coin = Pref.userInfoCache?.money;
       if (coin == null) {
-        setCoin();
+        _runStartupTask('Request.setCoin', setCoin);
       } else {
         GlobalData().coins = coin;
       }
     }
+  }
+
+  static void _runStartupTask(
+    String operation,
+    Future<void> Function() task,
+  ) {
+    unawaited(
+      Future<void>.sync(task).catchError((Object error, StackTrace stackTrace) {
+        _reportOperationFailure(operation, error, stackTrace);
+      }),
+    );
   }
 
   static Future<void> setCoin() async {

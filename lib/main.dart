@@ -238,8 +238,22 @@ Future<void> _main() async {
   }
 
   Request();
-  Request.setCookie();
-  RequestUtils.syncHistoryStatus();
+  await Request.setCookie();
+  unawaited(
+    RequestUtils.syncHistoryStatus().catchError(
+      (Object error, StackTrace stackTrace) {
+        CrashReporter.recordErrorSync(
+          StateError(
+            'Startup history status sync failed (${error.runtimeType})',
+          ),
+          stackTrace,
+          severity: CrashSeverity.handled,
+          operation: 'RequestUtils.syncHistoryStatus',
+          reason: 'startup_sync_failed',
+        );
+      },
+    ),
+  );
   unawaited(CacheManager.clearExpiredCache());
 
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);

@@ -25,10 +25,57 @@ enum AndroidMmkvLoadMode {
   lazy,
 }
 
+enum AndroidMmkvMigrationPhase {
+  state,
+  availability,
+  metadata,
+  load,
+  copy,
+  rollback,
+}
+
+enum AndroidMmkvRecoveryAction { retry, resetBox }
+
+final class AndroidMmkvMigrationException extends StateError {
+  AndroidMmkvMigrationException({
+    required this.boxName,
+    required this.phase,
+    required this.code,
+    required this.recoveryAction,
+  }) : super('MMKV migration failure [$code] for $boxName');
+
+  final String boxName;
+  final AndroidMmkvMigrationPhase phase;
+  final String code;
+  final AndroidMmkvRecoveryAction recoveryAction;
+
+  bool get canReset => recoveryAction == AndroidMmkvRecoveryAction.resetBox;
+}
+
+Never _throwMigrationFailure(
+  String boxName,
+  AndroidMmkvMigrationPhase phase,
+  String code, {
+  AndroidMmkvRecoveryAction recoveryAction = AndroidMmkvRecoveryAction.resetBox,
+  StackTrace? stackTrace,
+}) {
+  final error = AndroidMmkvMigrationException(
+    boxName: boxName,
+    phase: phase,
+    code: code,
+    recoveryAction: recoveryAction,
+  );
+  if (stackTrace != null) {
+    Error.throwWithStackTrace(error, stackTrace);
+  }
+  throw error;
+}
+
 String _canonicalizeBoxName(String name) => name.toLowerCase();
 
 abstract final class AndroidMmkvMigrationState {
   static const String pending = 'pending';
+  static const String recovering = 'recovering';
   static const String complete = 'complete';
 
   static String key(String name) =>
@@ -81,27 +128,49 @@ Future<Box<E>> openAndroidMmkvBackedBox<E>({
   final externalState = migrationState.getState(canonicalName);
   if (externalState != null &&
       externalState != AndroidMmkvMigrationState.pending &&
+      externalState != AndroidMmkvMigrationState.recovering &&
       externalState != AndroidMmkvMigrationState.complete) {
-    throw StateError(
-      'Unknown MMKV migration state for $canonicalName: $externalState',
+    _throwMigrationFailure(
+      canonicalName,
+      AndroidMmkvMigrationPhase.state,
+      'invalid_external_state',
+    );
+  }
+  if (externalState == AndroidMmkvMigrationState.recovering) {
+    _throwMigrationFailure(
+      canonicalName,
+      AndroidMmkvMigrationPhase.state,
+      'recovery_in_progress',
     );
   }
   if (!store.isAvailable) {
     if (externalState != null) {
-      throw StateError(
-        'MMKV box $canonicalName has migration state $externalState, but MMKV '
-        'is unavailable; refusing to restore stale Hive data.',
+      _throwMigrationFailure(
+        canonicalName,
+        AndroidMmkvMigrationPhase.availability,
+        'store_unavailable_with_state',
+        recoveryAction: AndroidMmkvRecoveryAction.retry,
       );
     }
     return openHive();
   }
 
+  final recoveryKey = AndroidMmkvStore.recoveryKey(canonicalName);
+  if (store.getRaw(AndroidMmkvStore.metaBox, recoveryKey) != null) {
+    _throwMigrationFailure(
+      canonicalName,
+      AndroidMmkvMigrationPhase.state,
+      'recovery_in_progress',
+    );
+  }
   final migrationKey = AndroidMmkvStore.migrationKey(canonicalName);
   final consistencyKey = AndroidMmkvStore.consistencyKey(canonicalName);
   final migrationMarker = store.getRaw(AndroidMmkvStore.metaBox, migrationKey);
   if (migrationMarker != null && migrationMarker != '1') {
-    throw StateError(
-      'MMKV box $canonicalName has an invalid migration marker.',
+    _throwMigrationFailure(
+      canonicalName,
+      AndroidMmkvMigrationPhase.metadata,
+      'invalid_migration_marker',
     );
   }
   final consistencyToken = store.getRaw(
@@ -110,8 +179,10 @@ Future<Box<E>> openAndroidMmkvBackedBox<E>({
   );
   if (consistencyToken != null &&
       !AndroidMmkvStore.isValidConsistencyToken(consistencyToken)) {
-    throw StateError(
-      'MMKV box $canonicalName has an invalid consistency token.',
+    _throwMigrationFailure(
+      canonicalName,
+      AndroidMmkvMigrationPhase.metadata,
+      'invalid_consistency_token',
     );
   }
   final rawConsistencySentinel = store.getRaw(
@@ -121,16 +192,18 @@ Future<Box<E>> openAndroidMmkvBackedBox<E>({
   final hasMmkvMarker = migrationMarker == '1';
   if (!hasMmkvMarker &&
       (consistencyToken != null || rawConsistencySentinel != null)) {
-    throw StateError(
-      'MMKV box $canonicalName has incomplete migration metadata; refusing '
-      'to overwrite its existing data.',
+    _throwMigrationFailure(
+      canonicalName,
+      AndroidMmkvMigrationPhase.metadata,
+      'incomplete_metadata',
     );
   }
   if (externalState == AndroidMmkvMigrationState.complete) {
     if (!hasMmkvMarker || consistencyToken == null) {
-      throw StateError(
-        'MMKV box $canonicalName is externally marked complete but its '
-        'internal migration markers are missing.',
+      _throwMigrationFailure(
+        canonicalName,
+        AndroidMmkvMigrationPhase.metadata,
+        'complete_state_missing_metadata',
       );
     }
     final box = AndroidMmkvBackedBox<E>(
@@ -146,17 +219,19 @@ Future<Box<E>> openAndroidMmkvBackedBox<E>({
       return box;
     }
     await box.close();
-    throw StateError(
-      'MMKV box $canonicalName is marked as migrated but cannot be decoded; '
-      'legacy Hive data was left untouched to avoid restoring stale data.',
+    _throwMigrationFailure(
+      canonicalName,
+      AndroidMmkvMigrationPhase.load,
+      'completed_box_decode_failed',
     );
   }
 
   if (hasMmkvMarker) {
     if (consistencyToken == null) {
-      throw StateError(
-        'MMKV box $canonicalName has a migration marker but no '
-        'consistency token.',
+      _throwMigrationFailure(
+        canonicalName,
+        AndroidMmkvMigrationPhase.metadata,
+        'marker_missing_consistency_token',
       );
     }
     final box = AndroidMmkvBackedBox<E>(
@@ -170,9 +245,10 @@ Future<Box<E>> openAndroidMmkvBackedBox<E>({
     );
     if (!box.tryLoadFromMmkv()) {
       await box.close();
-      throw StateError(
-        'MMKV box $canonicalName has an internal migration marker but '
-        'cannot be decoded.',
+      _throwMigrationFailure(
+        canonicalName,
+        AndroidMmkvMigrationPhase.load,
+        'marked_box_decode_failed',
       );
     }
     var stateRestored = false;
@@ -183,6 +259,14 @@ Future<Box<E>> openAndroidMmkvBackedBox<E>({
       );
       stateRestored = true;
       return box;
+    } catch (_, stackTrace) {
+      _throwMigrationFailure(
+        canonicalName,
+        AndroidMmkvMigrationPhase.state,
+        'complete_state_restore_failed',
+        recoveryAction: AndroidMmkvRecoveryAction.retry,
+        stackTrace: stackTrace,
+      );
     } finally {
       if (!stateRestored) {
         await box.close();
@@ -214,13 +298,21 @@ Future<Box<E>> openAndroidMmkvBackedBox<E>({
     if (encodedLegacySnapshot == null ||
         encodedLegacySnapshot.length != legacySnapshot.length ||
         !box.replaceAllFrom(legacySnapshot)) {
-      throw StateError('MMKV migration write failed for $canonicalName');
+      _throwMigrationFailure(
+        canonicalName,
+        AndroidMmkvMigrationPhase.copy,
+        'copy_write_failed',
+      );
     }
 
     // Decode the copied data before recording the marker. The Hive box is
     // deliberately left on disk as the rollback copy.
     if (!box.tryLoadFromMmkv()) {
-      throw StateError('MMKV migration validation failed for $canonicalName');
+      _throwMigrationFailure(
+        canonicalName,
+        AndroidMmkvMigrationPhase.copy,
+        'copy_validation_failed',
+      );
     }
     final migratedSnapshot = box.toMap();
     if (migratedSnapshot.length != legacySnapshot.length ||
@@ -228,7 +320,11 @@ Future<Box<E>> openAndroidMmkvBackedBox<E>({
           store.exportBox(canonicalName),
           encodedLegacySnapshot,
         )) {
-      throw StateError('MMKV migration is incomplete for $canonicalName');
+      _throwMigrationFailure(
+        canonicalName,
+        AndroidMmkvMigrationPhase.copy,
+        'copy_incomplete',
+      );
     }
 
     final consistencyWritten =
@@ -243,7 +339,11 @@ Future<Box<E>> openAndroidMmkvBackedBox<E>({
         store.putRaw(AndroidMmkvStore.metaBox, migrationKey, '1') &&
         store.sync(AndroidMmkvStore.metaBox);
     if (!markerWritten) {
-      throw StateError('MMKV migration marker failed for $canonicalName');
+      _throwMigrationFailure(
+        canonicalName,
+        AndroidMmkvMigrationPhase.metadata,
+        'marker_write_failed',
+      );
     }
 
     await migrationState.setState(
@@ -279,7 +379,25 @@ Future<Box<E>> openAndroidMmkvBackedBox<E>({
       await box.close();
     }
     if (rollbackSafe) return hive;
-    Error.throwWithStackTrace(error, stackTrace);
+    try {
+      await hive.close();
+    } catch (_, closeStackTrace) {
+      _throwMigrationFailure(
+        canonicalName,
+        AndroidMmkvMigrationPhase.rollback,
+        'legacy_close_failed',
+        stackTrace: closeStackTrace,
+      );
+    }
+    if (error is AndroidMmkvMigrationException) {
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+    _throwMigrationFailure(
+      canonicalName,
+      AndroidMmkvMigrationPhase.rollback,
+      'rollback_unsafe',
+      stackTrace: stackTrace,
+    );
   }
   await hive.close();
   return box;
@@ -851,6 +969,9 @@ final class AndroidMmkvStore implements AndroidMmkvStoreBackend {
 
   static String consistencyKey(String name) =>
       'consistency:${_canonicalizeBoxName(name)}:v1';
+
+  static String recoveryKey(String name) =>
+      'recovering:${_canonicalizeBoxName(name)}:v1';
 
   @override
   String? exportBox(String name) =>

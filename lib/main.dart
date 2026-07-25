@@ -10,6 +10,7 @@ import 'package:PiliMax/common/widgets/scale_app.dart';
 import 'package:PiliMax/common/widgets/scroll_behavior.dart';
 import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/models/common/theme/theme_color_type.dart';
+import 'package:PiliMax/pages/storage_recovery/view.dart';
 import 'package:PiliMax/pages/setting/pages/crash_report.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliMax/router/app_pages.dart';
@@ -25,6 +26,8 @@ import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/services/route_restore_service.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/app_font.dart';
+import 'package:PiliMax/utils/android/android_mmkv_box.dart';
+import 'package:PiliMax/utils/android/android_mmkv_recovery.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/calc_window_position.dart';
 import 'package:PiliMax/utils/danmaku_font.dart';
@@ -157,7 +160,38 @@ Future<void> _main() async {
   MediaKit.ensureInitialized();
   try {
     await GStorage.init();
-    CrashBreadcrumbs.record('GStorage initialized');
+  } on AndroidMmkvMigrationException catch (e, stackTrace) {
+    CrashReporter.recordErrorSync(
+      e,
+      stackTrace,
+      severity: CrashSeverity.fatal,
+      operation: 'GStorage.init',
+      reason: 'android_mmkv_migration_failed',
+    );
+    final recoveryController = AndroidMmkvRecoveryController(
+      failure: e,
+      retryStorage: GStorage.init,
+      resetStorage: (failure) async {
+        await GStorage.backupAndResetAndroidMmkvFailure(failure);
+      },
+      closeApplication: () => exit(0),
+      reportCallbackError: (error, stackTrace, operation) {
+        final reason = switch (error) {
+          AndroidMmkvMigrationException(:final code) => code,
+          AndroidMmkvRecoveryException(:final code) => code,
+          _ => 'unexpected_callback_failure',
+        };
+        CrashReporter.recordErrorSync(
+          StateError('Storage recovery callback failed'),
+          stackTrace,
+          severity: CrashSeverity.handled,
+          operation: 'GStorage.recovery.$operation',
+          reason: reason,
+        );
+      },
+    );
+    runApp(AndroidMmkvRecoveryApp(controller: recoveryController));
+    await recoveryController.recovered;
   } catch (e, stackTrace) {
     CrashReporter.recordErrorSync(
       e,
@@ -170,6 +204,7 @@ Future<void> _main() async {
     if (kDebugMode) debugPrint('GStorage init error: $e');
     exit(0);
   }
+  CrashBreadcrumbs.record('GStorage initialized');
   await AppFont.init();
   await DanmakuFont.init();
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;

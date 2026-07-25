@@ -10,6 +10,8 @@ import 'package:hive_ce/hive.dart';
 abstract final class Accounts {
   static late final Box<LoginAccount> account;
   static Box<LoginAccount>? accountQuarantine;
+  static Future<void>? _initFuture;
+  static bool _initialized = false;
   static final List<Account> accountMode = List.filled(
     AccountType.values.length,
     AnonymousAccount(),
@@ -27,29 +29,55 @@ abstract final class Accounts {
   }
   // static set main(Account account) => set(AccountType.main, account);
 
-  static Future<void> init() async {
-    account = await Hive.openBox<LoginAccount>(
+  static Future<void> init() {
+    if (_initialized) return Future<void>.value();
+    final pending = _initFuture;
+    if (pending != null) return pending;
+    final future = _initOnce();
+    _initFuture = future;
+    return future.whenComplete(() {
+      if (identical(_initFuture, future)) {
+        _initFuture = null;
+      }
+    });
+  }
+
+  static Future<void> _initOnce() async {
+    final nextAccount = await Hive.openBox<LoginAccount>(
       'account',
       compactionStrategy: (int entries, int deletedEntries) {
         return deletedEntries > 2;
       },
     );
+    Box<LoginAccount>? nextQuarantine;
     try {
-      accountQuarantine = await Hive.openBox<LoginAccount>(
+      nextQuarantine = await Hive.openBox<LoginAccount>(
         'accountQuarantine',
         compactionStrategy: (int entries, int deletedEntries) {
           return deletedEntries > 2;
         },
       );
     } catch (_, stackTrace) {
-      accountQuarantine = null;
       _recordQuarantineError(
         stackTrace,
         operation: 'quarantine.open',
         reason: 'quarantine_unavailable',
       );
     }
-    await _quarantineInvalidAccounts();
+    try {
+      await _quarantineInvalidAccountsIn(nextAccount, nextQuarantine);
+      account = nextAccount;
+      accountQuarantine = nextQuarantine;
+      _initialized = true;
+    } catch (error, stackTrace) {
+      try {
+        await nextQuarantine?.close();
+      } catch (_) {}
+      try {
+        await nextAccount.close();
+      } catch (_) {}
+      Error.throwWithStackTrace(error, stackTrace);
+    }
   }
 
   static Future<void> refresh() async {
@@ -72,8 +100,14 @@ abstract final class Accounts {
     );
   }
 
-  static Future<void> _quarantineInvalidAccounts() async {
-    final invalidEntries = account
+  static Future<void> _quarantineInvalidAccounts() =>
+      _quarantineInvalidAccountsIn(account, accountQuarantine);
+
+  static Future<void> _quarantineInvalidAccountsIn(
+    Box<LoginAccount> source,
+    Box<LoginAccount>? quarantine,
+  ) async {
+    final invalidEntries = source
         .toMap()
         .entries
         .where((entry) => !entry.value.isValid)
@@ -82,7 +116,6 @@ abstract final class Accounts {
       final issue =
           entry.value.validationIssue ??
           LoginAccountValidationIssue.malformedAccountData;
-      final quarantine = accountQuarantine;
       if (quarantine == null) {
         continue;
       }
@@ -97,7 +130,7 @@ abstract final class Accounts {
         continue;
       }
       try {
-        await account.delete(entry.key);
+        await source.delete(entry.key);
       } catch (_, stackTrace) {
         _recordQuarantineError(
           stackTrace,

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:PiliMax/models/user/info.dart';
 import 'package:PiliMax/utils/android/android_mmkv_box.dart';
+import 'package:PiliMax/utils/android/android_mmkv_recovery.dart';
 import 'package:PiliMax/utils/android/android_mmkv_storage_codec.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
@@ -215,7 +216,7 @@ void main() {
       ),
       throwsA(isA<StateError>()),
     );
-    expect(hive.isOpen, isTrue);
+    expect(hive.isOpen, isFalse);
     expect(store.getState(name), AndroidMmkvMigrationState.pending);
     final marker = store.getRaw(
       AndroidMmkvStore.metaBox,
@@ -657,6 +658,521 @@ void main() {
     await box.close();
     await reopened.close();
   });
+
+  test('verified recovery backup resets only the failed box', () async {
+    final store = _MemoryAndroidMmkvStore();
+    const name = 'setting';
+    const otherName = 'video';
+    final migrationKey = AndroidMmkvStore.migrationKey(name);
+    final consistencyKey = AndroidMmkvStore.consistencyKey(name);
+    final otherMigrationKey = AndroidMmkvStore.migrationKey(otherName);
+    store
+      ..putRaw(name, 'sensitive-key', 'corrupt-value')
+      ..putRaw(otherName, 'other-key', 'other-value')
+      ..putRaw(AndroidMmkvStore.metaBox, migrationKey, 'broken')
+      ..putRaw(AndroidMmkvStore.metaBox, consistencyKey, 'old-token')
+      ..putRaw(AndroidMmkvStore.metaBox, otherMigrationKey, '1');
+    await store.setState(name, AndroidMmkvMigrationState.complete);
+    await store.setState(otherName, AndroidMmkvMigrationState.complete);
+    final backupDirectory = Directory(
+      '${hiveDirectory.path}${Platform.pathSeparator}recovery',
+    );
+    File(
+      '${hiveDirectory.path}${Platform.pathSeparator}$name.hive',
+    ).writeAsBytesSync(const [1, 2, 3, 4]);
+    final service = AndroidMmkvRecoveryService(
+      backupDirectory: backupDirectory,
+      legacyHiveDirectory: hiveDirectory,
+      migrationState: store,
+      store: store,
+      now: () => DateTime.utc(2026, 7, 25, 12),
+    );
+    final failure = AndroidMmkvMigrationException(
+      boxName: name,
+      phase: AndroidMmkvMigrationPhase.metadata,
+      code: 'invalid_migration_marker',
+      recoveryAction: AndroidMmkvRecoveryAction.resetBox,
+    );
+
+    final backup = await service.backupAndReset(failure);
+
+    expect(backup.file.existsSync(), isTrue);
+    final backupJson =
+        jsonDecode(backup.file.readAsStringSync()) as Map<String, dynamic>;
+    expect(backupJson['boxName'], name);
+    expect(backupJson['boxSnapshot'], contains('corrupt-value'));
+    expect(backupJson['sha256'], backup.sha256);
+    final legacyHive = backupJson['legacyHive'] as Map<String, dynamic>;
+    expect(legacyHive['present'], isTrue);
+    expect(
+      File(
+        '${backup.file.parent.path}${Platform.pathSeparator}legacy.hive',
+      ).readAsBytesSync(),
+      const [1, 2, 3, 4],
+    );
+    expect(store.getState(name), AndroidMmkvMigrationState.complete);
+    expect(
+      store.getRaw(AndroidMmkvStore.metaBox, migrationKey),
+      '1',
+    );
+    final token = store.getRaw(AndroidMmkvStore.metaBox, consistencyKey);
+    expect(token, isNotNull);
+    expect(
+      store.getRaw(name, AndroidMmkvStore.consistencySentinelKey),
+      token,
+    );
+    expect(
+      store.exportKeys(name),
+      jsonEncode([AndroidMmkvStore.consistencySentinelKey]),
+    );
+
+    expect(store.getRaw(otherName, 'other-key'), 'other-value');
+    expect(
+      store.getRaw(AndroidMmkvStore.metaBox, otherMigrationKey),
+      '1',
+    );
+    expect(store.getState(otherName), AndroidMmkvMigrationState.complete);
+
+    var hiveOpened = false;
+    final reopened = await openAndroidMmkvBackedBox<dynamic>(
+      name: name,
+      isAndroid: true,
+      store: store,
+      migrationState: store,
+      openHive: () {
+        hiveOpened = true;
+        return Future.error(StateError('stale Hive must stay closed'));
+      },
+    );
+    expect(hiveOpened, isFalse);
+    expect(reopened.isEmpty, isTrue);
+    await reopened.close();
+  });
+
+  test('recovery backup preserves a lone Hive compaction candidate', () async {
+    final store = _MemoryAndroidMmkvStore();
+    const name = 'historyword';
+    final migrationKey = AndroidMmkvStore.migrationKey(name);
+    store
+      ..putRaw(name, 'key', 'partial-mmkv')
+      ..putRaw(AndroidMmkvStore.metaBox, migrationKey, 'broken');
+    await store.setState(name, AndroidMmkvMigrationState.pending);
+    final legacyDirectory = Directory(
+      '${hiveDirectory.path}${Platform.pathSeparator}legacy-hivec',
+    )..createSync();
+    File(
+      '${legacyDirectory.path}${Platform.pathSeparator}$name.hivec',
+    ).writeAsBytesSync(const [9, 8, 7, 6]);
+    final service = AndroidMmkvRecoveryService(
+      backupDirectory: Directory(
+        '${hiveDirectory.path}${Platform.pathSeparator}recovery-hivec',
+      ),
+      legacyHiveDirectory: legacyDirectory,
+      migrationState: store,
+      store: store,
+    );
+    final failure = AndroidMmkvMigrationException(
+      boxName: name,
+      phase: AndroidMmkvMigrationPhase.metadata,
+      code: 'invalid_migration_marker',
+      recoveryAction: AndroidMmkvRecoveryAction.resetBox,
+    );
+
+    final backup = await service.backupAndReset(failure);
+    final backupJson =
+        jsonDecode(backup.file.readAsStringSync()) as Map<String, dynamic>;
+    final legacyHive = backupJson['legacyHive'] as Map<String, dynamic>;
+    expect(legacyHive['present'], isTrue);
+    expect((legacyHive['files'] as List), hasLength(1));
+    expect(
+      File(
+        '${backup.file.parent.path}${Platform.pathSeparator}legacy.hivec',
+      ).readAsBytesSync(),
+      const [9, 8, 7, 6],
+    );
+  });
+
+  test('backup failure leaves the failed box and metadata untouched', () async {
+    final store = _MemoryAndroidMmkvStore();
+    const name = 'setting';
+    final migrationKey = AndroidMmkvStore.migrationKey(name);
+    store
+      ..putRaw(name, 'key', 'value')
+      ..putRaw(AndroidMmkvStore.metaBox, migrationKey, 'broken');
+    await store.setState(name, AndroidMmkvMigrationState.complete);
+    final notDirectory = File(
+      '${hiveDirectory.path}${Platform.pathSeparator}not-a-directory',
+    );
+    await notDirectory.writeAsString('occupied');
+    final service = AndroidMmkvRecoveryService(
+      backupDirectory: Directory(notDirectory.path),
+      migrationState: store,
+      store: store,
+    );
+    final failure = AndroidMmkvMigrationException(
+      boxName: name,
+      phase: AndroidMmkvMigrationPhase.metadata,
+      code: 'invalid_migration_marker',
+      recoveryAction: AndroidMmkvRecoveryAction.resetBox,
+    );
+
+    await expectLater(
+      service.backupAndReset(failure),
+      throwsA(isA<AndroidMmkvRecoveryException>()),
+    );
+    expect(store.getRaw(name, 'key'), 'value');
+    expect(store.getRaw(AndroidMmkvStore.metaBox, migrationKey), 'broken');
+    expect(store.getState(name), AndroidMmkvMigrationState.complete);
+  });
+
+  for (final testCase
+      in <
+        ({
+          String name,
+          String code,
+          bool enteringStateFails,
+          void Function(_MemoryAndroidMmkvStore store) inject,
+        })
+      >[
+        (
+          name: 'enter recovering state',
+          code: 'recovery_state_write_failed',
+          enteringStateFails: true,
+          inject: (store) => store.failRecoveringState = true,
+        ),
+        (
+          name: 'box clear',
+          code: 'box_reset_failed',
+          enteringStateFails: false,
+          inject: (store) => store.failClearBox = true,
+        ),
+        (
+          name: 'recovery guard write',
+          code: 'recovery_guard_write_failed',
+          enteringStateFails: false,
+          inject: (store) => store.failRecoveryGuardWrite = true,
+        ),
+        (
+          name: 'recovery guard sync',
+          code: 'recovery_guard_write_failed',
+          enteringStateFails: false,
+          inject: (store) => store.failSyncOnCall[AndroidMmkvStore.metaBox] = 1,
+        ),
+        (
+          name: 'box clear sync',
+          code: 'box_reset_failed',
+          enteringStateFails: false,
+          inject: (store) => store.failSyncOnCall['setting'] = 1,
+        ),
+        (
+          name: 'metadata remove',
+          code: 'metadata_reset_failed',
+          enteringStateFails: false,
+          inject: (store) => store.failMetaRemoval = true,
+        ),
+        (
+          name: 'sentinel write',
+          code: 'sentinel_write_failed',
+          enteringStateFails: false,
+          inject: (store) => store.failSentinelWrite = true,
+        ),
+        (
+          name: 'sentinel sync',
+          code: 'sentinel_write_failed',
+          enteringStateFails: false,
+          inject: (store) => store.failSyncOnCall['setting'] = 2,
+        ),
+        (
+          name: 'metadata write',
+          code: 'metadata_write_failed',
+          enteringStateFails: false,
+          inject: (store) => store.failMetadataWrite = true,
+        ),
+        (
+          name: 'metadata sync',
+          code: 'metadata_write_failed',
+          enteringStateFails: false,
+          inject: (store) => store.failSyncOnCall[AndroidMmkvStore.metaBox] = 3,
+        ),
+        (
+          name: 'complete state write',
+          code: 'state_write_failed',
+          enteringStateFails: false,
+          inject: (store) => store.failCompleteState = true,
+        ),
+        (
+          name: 'recovery guard clear',
+          code: 'recovery_guard_clear_failed',
+          enteringStateFails: false,
+          inject: (store) => store.failRecoveryGuardRemoval = true,
+        ),
+      ]) {
+    test(
+      '${testCase.name} failure keeps backup and remains fail-closed',
+      () async {
+        final store = _MemoryAndroidMmkvStore();
+        const name = 'setting';
+        const otherName = 'video';
+        final migrationKey = AndroidMmkvStore.migrationKey(name);
+        store
+          ..putRaw(name, 'key', 'faulty-value')
+          ..putRaw(otherName, 'key', 'other-value')
+          ..putRaw(AndroidMmkvStore.metaBox, migrationKey, 'broken');
+        await store.setState(name, AndroidMmkvMigrationState.complete);
+        testCase.inject(store);
+        final safeName = testCase.name.replaceAll(' ', '-');
+        final backupDirectory = Directory(
+          '${hiveDirectory.path}${Platform.pathSeparator}'
+          'recovery-$safeName',
+        );
+        final service = AndroidMmkvRecoveryService(
+          backupDirectory: backupDirectory,
+          migrationState: store,
+          store: store,
+        );
+        final failure = AndroidMmkvMigrationException(
+          boxName: name,
+          phase: AndroidMmkvMigrationPhase.metadata,
+          code: 'invalid_migration_marker',
+          recoveryAction: AndroidMmkvRecoveryAction.resetBox,
+        );
+
+        await expectLater(
+          service.backupAndReset(failure),
+          throwsA(
+            isA<AndroidMmkvRecoveryException>().having(
+              (error) => error.code,
+              'code',
+              testCase.code,
+            ),
+          ),
+        );
+
+        final manifests = backupDirectory
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((file) => file.path.endsWith('manifest.json'))
+            .toList();
+        expect(manifests, hasLength(1));
+        expect(jsonDecode(manifests.single.readAsStringSync()), isA<Map>());
+        expect(store.getRaw(otherName, 'key'), 'other-value');
+        expect(
+          store.getState(name),
+          testCase.enteringStateFails
+              ? AndroidMmkvMigrationState.complete
+              : AndroidMmkvMigrationState.recovering,
+        );
+        if (testCase.enteringStateFails) {
+          expect(store.getRaw(name, 'key'), 'faulty-value');
+          expect(
+            store.getRaw(AndroidMmkvStore.metaBox, migrationKey),
+            'broken',
+          );
+        }
+
+        var hiveOpened = false;
+        await expectLater(
+          openAndroidMmkvBackedBox<dynamic>(
+            name: name,
+            isAndroid: true,
+            store: store,
+            migrationState: store,
+            openHive: () {
+              hiveOpened = true;
+              return Future.error(StateError('stale Hive must stay closed'));
+            },
+          ),
+          throwsA(
+            isA<AndroidMmkvMigrationException>()
+                .having(
+                  (error) => error.code,
+                  'code',
+                  testCase.enteringStateFails
+                      ? 'invalid_migration_marker'
+                      : 'recovery_in_progress',
+                )
+                .having(
+                  (error) => error.recoveryAction,
+                  'recoveryAction',
+                  AndroidMmkvRecoveryAction.resetBox,
+                ),
+          ),
+        );
+        expect(hiveOpened, isFalse);
+      },
+    );
+  }
+
+  test(
+    'unknown complete write is accepted only after full validation',
+    () async {
+      final store = _MemoryAndroidMmkvStore()
+        ..completeStateWritesThenThrows = true;
+      const name = 'setting';
+      store
+        ..putRaw(name, 'key', 'faulty-value')
+        ..putRaw(
+          AndroidMmkvStore.metaBox,
+          AndroidMmkvStore.migrationKey(name),
+          'broken',
+        );
+      await store.setState(name, AndroidMmkvMigrationState.pending);
+      final service = AndroidMmkvRecoveryService(
+        backupDirectory: Directory(
+          '${hiveDirectory.path}${Platform.pathSeparator}'
+          'recovery-unknown-complete-valid',
+        ),
+        migrationState: store,
+        store: store,
+      );
+      final failure = AndroidMmkvMigrationException(
+        boxName: name,
+        phase: AndroidMmkvMigrationPhase.metadata,
+        code: 'invalid_migration_marker',
+        recoveryAction: AndroidMmkvRecoveryAction.resetBox,
+      );
+
+      final backup = await service.backupAndReset(failure);
+
+      expect(backup.file.existsSync(), isTrue);
+      expect(store.getState(name), AndroidMmkvMigrationState.complete);
+      expect(
+        store.getRaw(
+          AndroidMmkvStore.metaBox,
+          AndroidMmkvStore.recoveryKey(name),
+        ),
+        isNull,
+      );
+      var hiveOpened = false;
+      final reopened = await openAndroidMmkvBackedBox<dynamic>(
+        name: name,
+        isAndroid: true,
+        store: store,
+        migrationState: store,
+        openHive: () {
+          hiveOpened = true;
+          return Future.error(StateError('stale Hive must stay closed'));
+        },
+      );
+      expect(hiveOpened, isFalse);
+      expect(reopened.isEmpty, isTrue);
+      await reopened.close();
+    },
+  );
+
+  test(
+    'unknown incomplete commit stays guarded when recovering restore fails',
+    () async {
+      final store = _MemoryAndroidMmkvStore()
+        ..completeStateWritesThenThrows = true
+        ..corruptBoxOnUnknownComplete = true
+        ..failRecoveringStateAfterFirst = true;
+      const name = 'setting';
+      const otherName = 'video';
+      store
+        ..putRaw(name, 'key', 'faulty-value')
+        ..putRaw(otherName, 'key', 'other-value')
+        ..putRaw(
+          AndroidMmkvStore.metaBox,
+          AndroidMmkvStore.migrationKey(name),
+          'broken',
+        );
+      await store.setState(name, AndroidMmkvMigrationState.pending);
+      final backupDirectory = Directory(
+        '${hiveDirectory.path}${Platform.pathSeparator}'
+        'recovery-unknown-complete-invalid',
+      );
+      final service = AndroidMmkvRecoveryService(
+        backupDirectory: backupDirectory,
+        migrationState: store,
+        store: store,
+      );
+      final failure = AndroidMmkvMigrationException(
+        boxName: name,
+        phase: AndroidMmkvMigrationPhase.metadata,
+        code: 'invalid_migration_marker',
+        recoveryAction: AndroidMmkvRecoveryAction.resetBox,
+      );
+
+      await expectLater(
+        service.backupAndReset(failure),
+        throwsA(
+          isA<AndroidMmkvRecoveryException>().having(
+            (error) => error.code,
+            'code',
+            'state_write_failed',
+          ),
+        ),
+      );
+
+      expect(
+        backupDirectory
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((file) => file.path.endsWith('manifest.json')),
+        hasLength(1),
+      );
+      expect(store.getRaw(otherName, 'key'), 'other-value');
+      expect(store.getState(name), AndroidMmkvMigrationState.complete);
+      expect(
+        store.getRaw(
+          AndroidMmkvStore.metaBox,
+          AndroidMmkvStore.recoveryKey(name),
+        ),
+        '1',
+      );
+      var hiveOpened = false;
+      await expectLater(
+        openAndroidMmkvBackedBox<dynamic>(
+          name: name,
+          isAndroid: true,
+          store: store,
+          migrationState: store,
+          openHive: () {
+            hiveOpened = true;
+            return Future.error(StateError('stale Hive must stay closed'));
+          },
+        ),
+        throwsA(
+          isA<AndroidMmkvMigrationException>().having(
+            (error) => error.code,
+            'code',
+            'recovery_in_progress',
+          ),
+        ),
+      );
+      expect(hiveOpened, isFalse);
+    },
+  );
+
+  test('retry-only migration failures cannot reset data', () async {
+    final store = _MemoryAndroidMmkvStore();
+    const name = 'setting';
+    store.putRaw(name, 'key', 'value');
+    final service = AndroidMmkvRecoveryService(
+      backupDirectory: hiveDirectory,
+      migrationState: store,
+      store: store,
+    );
+    final failure = AndroidMmkvMigrationException(
+      boxName: name,
+      phase: AndroidMmkvMigrationPhase.availability,
+      code: 'store_unavailable_with_state',
+      recoveryAction: AndroidMmkvRecoveryAction.retry,
+    );
+
+    await expectLater(
+      service.backupAndReset(failure),
+      throwsA(
+        isA<AndroidMmkvRecoveryException>().having(
+          (error) => error.code,
+          'code',
+          'reset_not_allowed',
+        ),
+      ),
+    );
+    expect(store.getRaw(name, 'key'), 'value');
+  });
 }
 
 String _newHiveBoxName(List<String> names, String suffix) {
@@ -675,9 +1191,20 @@ final class _MemoryAndroidMmkvStore
   bool failNextSync = false;
   bool corruptNextReplace = false;
   bool failMetaRemoval = false;
+  bool failRecoveringState = false;
+  bool failRecoveringStateAfterFirst = false;
   bool failCompleteState = false;
+  bool completeStateWritesThenThrows = false;
+  bool corruptBoxOnUnknownComplete = false;
   bool failClearBox = false;
+  bool failSentinelWrite = false;
+  bool failMetadataWrite = false;
+  bool failRecoveryGuardWrite = false;
+  bool failRecoveryGuardRemoval = false;
   bool malformedKeys = false;
+  final Map<String, int> failSyncOnCall = {};
+  final Map<String, int> _syncCallCount = {};
+  int _recoveringStateWriteCount = 0;
   final Map<String, Map<String, String>> _boxes = {};
   final Map<String, String> _states = {};
 
@@ -689,6 +1216,21 @@ final class _MemoryAndroidMmkvStore
 
   @override
   Future<void> setState(String name, String state) async {
+    if (state == AndroidMmkvMigrationState.recovering) {
+      _recoveringStateWriteCount++;
+      if (failRecoveringState ||
+          (failRecoveringStateAfterFirst && _recoveringStateWriteCount > 1)) {
+        throw StateError('recovery state write failed');
+      }
+    }
+    if (completeStateWritesThenThrows &&
+        state == AndroidMmkvMigrationState.complete) {
+      _states[name.toLowerCase()] = state;
+      if (corruptBoxOnUnknownComplete) {
+        (_boxes[name.toLowerCase()] ??= {})['"unexpected"'] = '{"value":true}';
+      }
+      throw StateError('state write result unknown');
+    }
     if (failCompleteState && state == AndroidMmkvMigrationState.complete) {
       throw StateError('state write failed');
     }
@@ -724,6 +1266,17 @@ final class _MemoryAndroidMmkvStore
 
   @override
   bool putRaw(String name, String key, String value) {
+    if (failRecoveryGuardWrite && key.startsWith('recovering:')) {
+      return false;
+    }
+    if (failSentinelWrite && key == AndroidMmkvStore.consistencySentinelKey) {
+      return false;
+    }
+    if (failMetadataWrite &&
+        name == AndroidMmkvStore.metaBox &&
+        (key.startsWith('migrated:') || key.startsWith('consistency:'))) {
+      return false;
+    }
     (_boxes[name] ??= {})[key] = value;
     return true;
   }
@@ -736,6 +1289,9 @@ final class _MemoryAndroidMmkvStore
 
   @override
   bool removeRaw(String name, String key) {
+    if (failRecoveryGuardRemoval && key.startsWith('recovering:')) {
+      return false;
+    }
     if (failMetaRemoval && name == AndroidMmkvStore.metaBox) return false;
     _boxes[name]?.remove(key);
     return true;
@@ -765,6 +1321,9 @@ final class _MemoryAndroidMmkvStore
 
   @override
   bool sync(String name) {
+    final call = (_syncCallCount[name] ?? 0) + 1;
+    _syncCallCount[name] = call;
+    if (failSyncOnCall[name] == call) return false;
     if (failNextSync) {
       failNextSync = false;
       return false;

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:PiliMax/models/model_owner.dart';
@@ -6,16 +7,18 @@ import 'package:PiliMax/models/user/danmaku_rule.dart';
 import 'package:PiliMax/models/user/danmaku_rule_adapter.dart';
 import 'package:PiliMax/models/user/info.dart';
 import 'package:PiliMax/utils/android/android_mmkv_box.dart';
+import 'package:PiliMax/utils/android/android_mmkv_recovery.dart';
 import 'package:PiliMax/utils/android/android_mmkv_storage_codec.dart';
 import 'package:PiliMax/utils/cache_policy.dart';
 import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/accounts/account_adapter.dart';
 import 'package:PiliMax/utils/accounts/account_type_adapter.dart';
 import 'package:PiliMax/utils/accounts/cookie_jar_adapter.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/set_int_adapter.dart';
 import 'package:PiliMax/utils/storage_key.dart';
-import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/storage_init_resource_tracker.dart';
 import 'package:PiliMax/utils/storage/reply_cache_store.dart';
 import 'package:PiliMax/utils/storage/watch_progress_store.dart';
 import 'package:PiliMax/utils/utils.dart';
@@ -42,110 +45,246 @@ abstract final class GStorage {
   ];
   static late final Box<Uint8List>? reply;
   static late final ReplyCacheStore replyCacheStore;
+  static Future<void>? _initFuture;
+  static bool _initialized = false;
+  static bool _hiveConfigured = false;
 
-  static Future<void> init() async {
+  static const _migrationStateBoxName = 'androidMmkvMigrationState';
+  static const _androidMmkvBoxNames = {
+    'userinfo',
+    'localcache',
+    'setting',
+    'historyword',
+    'video',
+    'watchprogress',
+    'reply',
+  };
+
+  static Future<void> init() {
+    if (_initialized) return Future<void>.value();
+    final pending = _initFuture;
+    if (pending != null) return pending;
+    final future = _initOnce();
+    _initFuture = future;
+    return future.whenComplete(() {
+      if (identical(_initFuture, future)) {
+        _initFuture = null;
+      }
+    });
+  }
+
+  static Future<void> _initOnce() async {
+    _configureHive();
+    final resources = StorageInitResourceTracker();
+    try {
+      resources.watchHiveBox<String>(_migrationStateBoxName);
+      final migrationStateBox = resources.own(
+        await Hive.openBox<String>(
+          _migrationStateBoxName,
+          compactionStrategy: (entries, deletedEntries) => deletedEntries > 4,
+        ),
+        (box) => box.close(),
+      );
+      final migrationState = HiveAndroidMmkvMigrationState(migrationStateBox);
+
+      late Box<UserInfoData> nextUserInfo;
+      late Box<dynamic> nextLocalCache;
+      late Box<dynamic> nextSetting;
+      late Box<dynamic> nextHistoryWord;
+      late Box<dynamic> nextVideo;
+
+      await Future.wait([
+        openAndroidMmkvBackedBox<UserInfoData>(
+          name: 'userInfo',
+          valueEncoder: AndroidMmkvStorageCodec.encodeUserInfoData,
+          valueDecoder: AndroidMmkvStorageCodec.decodeUserInfoData,
+          migrationState: migrationState,
+          openHive: () {
+            resources.watchHiveBox<UserInfoData>('userInfo');
+            return Hive.openBox<UserInfoData>(
+              'userInfo',
+              compactionStrategy: (int entries, int deletedEntries) {
+                return deletedEntries > 2;
+              },
+            );
+          },
+        ).then((box) {
+          nextUserInfo = resources.own(box, (box) => box.close());
+        }),
+        openAndroidMmkvBackedBox<dynamic>(
+          name: 'localCache',
+          valueEncoder: AndroidMmkvStorageCodec.encodeLocalCacheValue,
+          valueDecoder: AndroidMmkvStorageCodec.decodeLocalCacheValue,
+          migrationState: migrationState,
+          openHive: () {
+            resources.watchHiveBox('localCache');
+            return Hive.openBox(
+              'localCache',
+              compactionStrategy: (int entries, int deletedEntries) {
+                return deletedEntries > 4;
+              },
+            );
+          },
+        ).then((box) {
+          nextLocalCache = resources.own(box, (box) => box.close());
+        }),
+        openAndroidMmkvBackedBox<dynamic>(
+          name: 'setting',
+          migrationState: migrationState,
+          openHive: () {
+            resources.watchHiveBox('setting');
+            return Hive.openBox('setting');
+          },
+        ).then((box) {
+          nextSetting = resources.own(box, (box) => box.close());
+        }),
+        openAndroidMmkvBackedBox<dynamic>(
+          name: 'historyWord',
+          migrationState: migrationState,
+          openHive: () {
+            resources.watchHiveBox('historyWord');
+            return Hive.openBox(
+              'historyWord',
+              compactionStrategy: (int entries, int deletedEntries) {
+                return deletedEntries > 10;
+              },
+            );
+          },
+        ).then((box) {
+          nextHistoryWord = resources.own(box, (box) => box.close());
+        }),
+        openAndroidMmkvBackedBox<dynamic>(
+          name: 'video',
+          migrationState: migrationState,
+          openHive: () {
+            resources.watchHiveBox('video');
+            return Hive.openBox('video');
+          },
+        ).then((box) {
+          nextVideo = resources.own(box, (box) => box.close());
+        }),
+      ]);
+      await _normalizeAutoClearCachePeriod(nextSetting);
+
+      final nextWatchProgress = resources.own(
+        await openAndroidMmkvBackedBox<int>(
+          name: 'watchProgress',
+          migrationState: migrationState,
+          keyComparator: _intStrDescKeyComparator,
+          loadMode: AndroidMmkvLoadMode.lazy,
+          openHive: () {
+            resources.watchHiveBox<int>('watchProgress');
+            return Hive.openBox<int>(
+              'watchProgress',
+              keyComparator: _intStrDescKeyComparator,
+              compactionStrategy: (entries, deletedEntries) {
+                return deletedEntries > 4;
+              },
+            );
+          },
+        ),
+        (box) => box.close(),
+      );
+      final nextWatchProgressStore = WatchProgressStore(
+        nextWatchProgress,
+        orderStore: nextLocalCache,
+      );
+      await nextWatchProgressStore.enforceLimit();
+
+      final saveReply =
+          nextSetting.get(
+                SettingBoxKey.saveReply,
+                defaultValue: true,
+              )
+              as bool;
+      final Box<Uint8List>? nextReply;
+      if (saveReply) {
+        nextReply = resources.own<Box<Uint8List>>(
+          await openAndroidMmkvBackedBox<Uint8List>(
+            name: 'reply',
+            migrationState: migrationState,
+            keyComparator: _intStrDescKeyComparator,
+            loadMode: AndroidMmkvLoadMode.lazy,
+            openHive: () {
+              resources.watchHiveBox<Uint8List>('reply');
+              return Hive.openBox<Uint8List>(
+                'reply',
+                keyComparator: _intStrDescKeyComparator,
+                compactionStrategy: (entries, deletedEntries) {
+                  return deletedEntries > 10;
+                },
+              );
+            },
+          ),
+          (box) => box.close(),
+        );
+      } else {
+        nextReply = null;
+      }
+      final nextReplyCacheStore = ReplyCacheStore(
+        nextReply,
+        orderStore: nextLocalCache,
+      );
+      await nextReplyCacheStore.enforceLimit();
+
+      resources
+        ..watchHiveBox<LoginAccount>('account')
+        ..watchHiveBox<LoginAccount>('accountQuarantine');
+      await Accounts.init();
+
+      userInfo = nextUserInfo;
+      localCache = nextLocalCache;
+      setting = nextSetting;
+      historyWord = nextHistoryWord;
+      video = nextVideo;
+      _androidMmkvMigrationState = migrationStateBox;
+      watchProgress = nextWatchProgress;
+      watchProgressStore = nextWatchProgressStore;
+      reply = nextReply;
+      replyCacheStore = nextReplyCacheStore;
+      _initialized = true;
+      resources.commit();
+    } catch (error, stackTrace) {
+      await resources.rollback();
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  static Future<AndroidMmkvRecoveryBackup> backupAndResetAndroidMmkvFailure(
+    AndroidMmkvMigrationException failure,
+  ) async {
+    final boxName = failure.boxName.toLowerCase();
+    if (!_androidMmkvBoxNames.contains(boxName)) {
+      throw const AndroidMmkvRecoveryException('unknown_box');
+    }
+    _configureHive();
+    final stateWasOpen = Hive.isBoxOpen(_migrationStateBoxName);
+    final stateBox = stateWasOpen
+        ? Hive.box<String>(_migrationStateBoxName)
+        : await Hive.openBox<String>(
+            _migrationStateBoxName,
+            compactionStrategy: (entries, deletedEntries) => deletedEntries > 4,
+          );
+    try {
+      return await AndroidMmkvRecoveryService(
+        backupDirectory: Directory(
+          path.join(appSupportDirPath, 'storage_recovery'),
+        ),
+        legacyHiveDirectory: Directory(path.join(appSupportDirPath, 'hive')),
+        migrationState: HiveAndroidMmkvMigrationState(stateBox),
+      ).backupAndReset(failure);
+    } finally {
+      if (!stateWasOpen) {
+        await stateBox.close();
+      }
+    }
+  }
+
+  static void _configureHive() {
+    if (_hiveConfigured) return;
     Hive.init(path.join(appSupportDirPath, 'hive'));
     regAdapter();
-    _androidMmkvMigrationState = await Hive.openBox<String>(
-      'androidMmkvMigrationState',
-      compactionStrategy: (entries, deletedEntries) => deletedEntries > 4,
-    );
-    final migrationState = HiveAndroidMmkvMigrationState(
-      _androidMmkvMigrationState,
-    );
-
-    await Future.wait([
-      // 登录用户信息
-      openAndroidMmkvBackedBox<UserInfoData>(
-        name: 'userInfo',
-        valueEncoder: AndroidMmkvStorageCodec.encodeUserInfoData,
-        valueDecoder: AndroidMmkvStorageCodec.decodeUserInfoData,
-        migrationState: migrationState,
-        openHive: () => Hive.openBox<UserInfoData>(
-          'userInfo',
-          compactionStrategy: (int entries, int deletedEntries) {
-            return deletedEntries > 2;
-          },
-        ),
-      ).then((res) => userInfo = res),
-      // 本地缓存
-      openAndroidMmkvBackedBox<dynamic>(
-        name: 'localCache',
-        valueEncoder: AndroidMmkvStorageCodec.encodeLocalCacheValue,
-        valueDecoder: AndroidMmkvStorageCodec.decodeLocalCacheValue,
-        migrationState: migrationState,
-        openHive: () => Hive.openBox(
-          'localCache',
-          compactionStrategy: (int entries, int deletedEntries) {
-            return deletedEntries > 4;
-          },
-        ),
-      ).then((res) => localCache = res),
-      // 设置
-      openAndroidMmkvBackedBox<dynamic>(
-        name: 'setting',
-        migrationState: migrationState,
-        openHive: () => Hive.openBox('setting'),
-      ).then((res) => setting = res),
-      // 搜索历史
-      openAndroidMmkvBackedBox<dynamic>(
-        name: 'historyWord',
-        migrationState: migrationState,
-        openHive: () => Hive.openBox(
-          'historyWord',
-          compactionStrategy: (int entries, int deletedEntries) {
-            return deletedEntries > 10;
-          },
-        ),
-      ).then((res) => historyWord = res),
-      // 视频设置
-      openAndroidMmkvBackedBox<dynamic>(
-        name: 'video',
-        migrationState: migrationState,
-        openHive: () => Hive.openBox('video'),
-      ).then((res) => video = res),
-      Accounts.init(),
-    ]);
-    await _normalizeAutoClearCachePeriod();
-
-    watchProgress = await openAndroidMmkvBackedBox<int>(
-      name: 'watchProgress',
-      migrationState: migrationState,
-      keyComparator: _intStrDescKeyComparator,
-      loadMode: AndroidMmkvLoadMode.lazy,
-      openHive: () => Hive.openBox<int>(
-        'watchProgress',
-        keyComparator: _intStrDescKeyComparator,
-        compactionStrategy: (entries, deletedEntries) {
-          return deletedEntries > 4;
-        },
-      ),
-    );
-    watchProgressStore = WatchProgressStore(
-      watchProgress,
-      orderStore: localCache,
-    );
-    await watchProgressStore.enforceLimit();
-
-    if (Pref.saveReply) {
-      reply = await openAndroidMmkvBackedBox<Uint8List>(
-        name: 'reply',
-        migrationState: migrationState,
-        keyComparator: _intStrDescKeyComparator,
-        loadMode: AndroidMmkvLoadMode.lazy,
-        openHive: () => Hive.openBox<Uint8List>(
-          'reply',
-          keyComparator: _intStrDescKeyComparator,
-          compactionStrategy: (entries, deletedEntries) {
-            return deletedEntries > 10;
-          },
-        ),
-      );
-    } else {
-      reply = null;
-    }
-    replyCacheStore = ReplyCacheStore(reply, orderStore: localCache);
-    await replyCacheStore.enforceLimit();
+    _hiveConfigured = true;
   }
 
   static String exportAllSettings() {
@@ -236,11 +375,11 @@ abstract final class GStorage {
     await box.putAll(values);
   }
 
-  static Future<void> _normalizeAutoClearCachePeriod() async {
-    final stored = setting.get(SettingBoxKey.autoClearCachePeriod);
+  static Future<void> _normalizeAutoClearCachePeriod(Box settingBox) async {
+    final stored = settingBox.get(SettingBoxKey.autoClearCachePeriod);
     final normalized = CacheAutoClearPeriod.normalize(stored);
     if (stored != normalized) {
-      await setting.put(SettingBoxKey.autoClearCachePeriod, normalized);
+      await settingBox.put(SettingBoxKey.autoClearCachePeriod, normalized);
     }
   }
 

@@ -1,6 +1,7 @@
 package com.PiliMax.android;
 
 import android.content.Context;
+import android.os.SystemClock;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
@@ -20,7 +21,14 @@ public final class AndroidMmkv {
     private static final String BOX_PREFIX = "pilimax_";
 
     private static volatile boolean initialized = false;
-    private static volatile boolean unavailable = false;
+    private static volatile long nextInitializeAttemptAtMs = 0L;
+    private static int initializeFailureCount = 0;
+    private static final long[] INITIALIZE_RETRY_DELAYS_MS = {
+            250L,
+            1_000L,
+            3_000L,
+            10_000L
+    };
 
     private AndroidMmkv() {
     }
@@ -31,16 +39,28 @@ public final class AndroidMmkv {
 
     public static boolean initialize(Context context) {
         if (initialized) return true;
-        if (unavailable || context == null) return false;
+        if (context == null) return false;
+
+        long now = SystemClock.elapsedRealtime();
+        if (now < nextInitializeAttemptAtMs) return false;
 
         synchronized (AndroidMmkv.class) {
             if (initialized) return true;
+            now = SystemClock.elapsedRealtime();
+            if (now < nextInitializeAttemptAtMs) return false;
             try {
                 MMKV.initialize(context.getApplicationContext());
                 initialized = true;
+                initializeFailureCount = 0;
+                nextInitializeAttemptAtMs = 0L;
                 return true;
             } catch (Throwable ignored) {
-                unavailable = true;
+                int delayIndex = Math.min(
+                        initializeFailureCount,
+                        INITIALIZE_RETRY_DELAYS_MS.length - 1
+                );
+                initializeFailureCount++;
+                nextInitializeAttemptAtMs = now + INITIALIZE_RETRY_DELAYS_MS[delayIndex];
                 return false;
             }
         }

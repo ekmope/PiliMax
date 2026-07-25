@@ -211,6 +211,20 @@ void main() {
       );
     });
 
+    test('repeated init keeps the fully published boxes', () async {
+      final publishedAccount = Accounts.account;
+      final publishedQuarantine = Accounts.accountQuarantine;
+
+      await Future.wait([Accounts.init(), Accounts.init()]);
+
+      expect(identical(Accounts.account, publishedAccount), isTrue);
+      expect(
+        identical(Accounts.accountQuarantine, publishedQuarantine),
+        isTrue,
+      );
+      expect(publishedAccount.isOpen, isTrue);
+    });
+
     test(
       'delete is concurrent-safe and onChange rejects deleted accounts',
       () async {

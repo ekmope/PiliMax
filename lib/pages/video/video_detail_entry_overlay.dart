@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show lerpDouble;
 
 import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_ugc_title_height_cache.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
@@ -358,8 +359,8 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
   bool _revealStarted = false;
   bool _resumeProfileAfterReversibleExit = false;
   double? _profileFromPlayerBottom;
-  Object? _ugcTitleHeightSignature;
-  double _ugcTitleHeight = 38;
+  final VideoDetailUgcTitleHeightCache _ugcTitleHeightCache =
+      VideoDetailUgcTitleHeightCache();
 
   @override
   void initState() {
@@ -469,32 +470,13 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
   }
 
   double _cachedUgcTitleHeight(BuildContext context, Size viewport) {
-    final title = widget.controller._title;
-    if (title == null || title.isEmpty) {
-      return 38;
-    }
-    final style = DefaultTextStyle.of(context).style.copyWith(fontSize: 16);
-    final textScaler = MediaQuery.textScalerOf(context);
-    final signature = (title, style, textScaler, viewport.width);
-    if (signature == _ugcTitleHeightSignature) {
-      return _ugcTitleHeight;
-    }
-    _ugcTitleHeightSignature = signature;
-    final painter =
-        TextPainter(
-          text: TextSpan(text: title, style: style),
-          maxLines: 2,
-          textDirection: Directionality.of(context),
-          textScaler: textScaler,
-        )..layout(
-          maxWidth:
-              (viewport.width - 2 * VideoDetailLayoutMetrics.horizontalPadding)
-                  .clamp(0.0, viewport.width)
-                  .toDouble(),
-        );
-    _ugcTitleHeight = painter.height;
-    painter.dispose();
-    return _ugcTitleHeight;
+    return _ugcTitleHeightCache.resolve(
+      title: widget.controller._title,
+      viewportWidth: viewport.width,
+      style: DefaultTextStyle.of(context).style.copyWith(fontSize: 16),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+    );
   }
 
   Widget? _buildSourceTitle() {

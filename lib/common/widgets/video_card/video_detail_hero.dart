@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/video_card/video_card_h_layout_metrics.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero_curve.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_ugc_title_height_cache.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
@@ -320,27 +322,34 @@ class VideoDetailHero extends StatelessWidget {
           flightProgress,
         )!;
 
-        final flightBody = sourceChild.flightOverlays.isEmpty
-            ? sourceFlightChild
-            : Stack(
-                fit: StackFit.expand,
-                clipBehavior: Clip.none,
-                children: <Widget>[
-                  sourceFlightChild,
-                  for (final overlay in sourceChild.flightOverlays)
-                    _buildFlightOverlay(
-                      overlay,
-                      flightProgress: flightProgress,
-                      isPop: isPop,
-                      backSnapshot: switch (detailChild.backProgress?.value) {
-                        final snapshot?
-                            when snapshot.phase != VideoDetailBackPhase.idle =>
-                          snapshot,
-                        _ => null,
-                      },
-                    ),
-                ],
-              );
+        final Widget flightBody;
+        if (sourceChild.flightOverlays.isEmpty) {
+          flightBody = sourceFlightChild;
+        } else {
+          final backSnapshot = switch (detailChild.backProgress?.value) {
+            final snapshot? when snapshot.phase != VideoDetailBackPhase.idle =>
+              snapshot,
+            _ => null,
+          };
+          final rawFlightProgress = _rawFlightProgress(
+            flightProgress,
+            isPop: isPop,
+            backSnapshot: backSnapshot,
+          );
+          flightBody = Stack(
+            fit: StackFit.expand,
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              sourceFlightChild,
+              for (final overlay in sourceChild.flightOverlays)
+                _buildFlightOverlay(
+                  overlay,
+                  rawFlightProgress: rawFlightProgress,
+                  isPop: isPop,
+                ),
+            ],
+          );
+        }
 
         return ClipRect(
           clipper: _NormalizedRectClipper(visibleRect),
@@ -370,15 +379,13 @@ class VideoDetailHero extends StatelessWidget {
 
   static Widget _buildFlightOverlay(
     VideoDetailHeroFlightOverlay overlay, {
-    required double flightProgress,
+    required double rawFlightProgress,
     required bool isPop,
-    required VideoDetailBackSnapshot? backSnapshot,
   }) {
     final opacity = _flightOverlayOpacity(
       overlay,
-      flightProgress: flightProgress,
+      rawFlightProgress: rawFlightProgress,
       isPop: isPop,
-      backSnapshot: backSnapshot,
     );
     return Positioned(
       top: overlay.top ?? (overlay.bottom == null ? 0.0 : null),
@@ -398,35 +405,29 @@ class VideoDetailHero extends StatelessWidget {
 
   static double _flightOverlayOpacity(
     VideoDetailHeroFlightOverlay overlay, {
-    required double flightProgress,
+    required double rawFlightProgress,
     required bool isPop,
-    required VideoDetailBackSnapshot? backSnapshot,
   }) {
     final fraction = overlay.fadeFraction;
-    final rawProgress = _rawFlightProgress(
-      flightProgress,
-      isPop: isPop,
-      backSnapshot: backSnapshot,
-    );
     if (!isPop) {
-      if (rawProgress <= 0) {
+      if (rawFlightProgress <= 0) {
         return 1;
       }
-      if (rawProgress >= fraction) {
+      if (rawFlightProgress >= fraction) {
         return 0;
       }
-      return 1 - Curves.ease.transform(rawProgress / fraction);
+      return 1 - Curves.ease.transform(rawFlightProgress / fraction);
     }
 
     final fadeStart = 1 - fraction;
-    if (rawProgress <= fadeStart) {
+    if (rawFlightProgress <= fadeStart) {
       return 0;
     }
-    if (rawProgress >= 1) {
+    if (rawFlightProgress >= 1) {
       return 1;
     }
     return Curves.ease.transform(
-      (rawProgress - fadeStart) / fraction,
+      (rawFlightProgress - fadeStart) / fraction,
     );
   }
 
@@ -440,17 +441,19 @@ class VideoDetailHero extends StatelessWidget {
       final sourceProgress = backSnapshot.sourcePresentationProgress;
       return isPop ? 1 - sourceProgress : sourceProgress;
     }
-    if (isPop) {
-      // The reversed easeOutCubic flight reaches the source as easeInCubic.
-      return math.pow(easedProgress, 1 / 3).toDouble();
-    }
-    // Inverse of easeOutCubic: f(t) = 1 - (1 - t)^3.
-    return 1 - math.pow(1 - easedProgress, 1 / 3).toDouble();
+    return videoDetailRawProgressForEasedFlight(
+      easedProgress,
+      isPop: isPop,
+    );
   }
 
   static Size _contextSize(BuildContext context) {
     final renderObject = context.findRenderObject();
-    if (renderObject is RenderBox && renderObject.hasSize) {
+    if (renderObject is RenderBox &&
+        renderObject.attached &&
+        renderObject.hasSize &&
+        renderObject.size.isFinite &&
+        !renderObject.size.isEmpty) {
       return renderObject.size;
     }
     return Size.zero;
@@ -461,15 +464,28 @@ class VideoDetailHero extends StatelessWidget {
     VideoTransitionRegistration? registration,
   ) {
     final renderObject = sourceContext.findRenderObject();
-    final cardVisibleRect = registration?.currentVisibleRect();
     if (renderObject is! RenderBox ||
+        !renderObject.attached ||
         !renderObject.hasSize ||
+        !renderObject.size.isFinite ||
         renderObject.size.isEmpty ||
-        cardVisibleRect == null) {
+        registration == null) {
       return const Rect.fromLTWH(0, 0, 1, 1);
     }
-    final mediaRect =
-        renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    final cardVisibleRect = registration.currentVisibleRect();
+    if (!renderObject.attached ||
+        cardVisibleRect == null ||
+        !cardVisibleRect.isFinite) {
+      return const Rect.fromLTWH(0, 0, 1, 1);
+    }
+    final mediaOrigin = renderObject.localToGlobal(Offset.zero);
+    if (!mediaOrigin.isFinite) {
+      return const Rect.fromLTWH(0, 0, 1, 1);
+    }
+    final mediaRect = mediaOrigin & renderObject.size;
+    if (!mediaRect.isFinite) {
+      return const Rect.fromLTWH(0, 0, 1, 1);
+    }
     final intersection = mediaRect.intersect(cardVisibleRect);
     if (intersection.isEmpty) {
       if (cardVisibleRect.top >= mediaRect.bottom) {
@@ -570,7 +586,7 @@ final class _VideoDetailHeroCurve extends Curve {
     if (snapshot != null && snapshot.phase != VideoDetailBackPhase.idle) {
       return snapshot.entryProgress;
     }
-    return Curves.easeOutCubic.transform(t);
+    return videoDetailHeroForwardCurve.transform(t);
   }
 }
 
@@ -669,7 +685,7 @@ final class _VideoDetailMediaHeroTag {
 /// It uses canvas coordinates instead of Flex widgets, so intermediate Hero
 /// sizes cannot cause text reflow or overflow. The player area is only a
 /// surface slot; no live video widget is moved into the Navigator overlay.
-class VideoDetailHeroShell extends StatelessWidget {
+class VideoDetailHeroShell extends StatefulWidget {
   const VideoDetailHeroShell({
     super.key,
     this.playerSurfaceOpacity = 1,
@@ -756,6 +772,9 @@ class VideoDetailHeroShell extends StatelessWidget {
   final bool hasEpisodePanel;
   final double? ugcTitleHeightOverride;
 
+  @override
+  State<VideoDetailHeroShell> createState() => _VideoDetailHeroShellState();
+
   static double _remaining(double progress, double begin, double end) {
     if (progress <= begin) {
       return 1;
@@ -766,6 +785,11 @@ class VideoDetailHeroShell extends StatelessWidget {
     final normalized = (progress - begin) / (end - begin);
     return 1 - Curves.easeInOutCubic.transform(normalized);
   }
+}
+
+class _VideoDetailHeroShellState extends State<VideoDetailHeroShell> {
+  final VideoDetailUgcTitleHeightCache _ugcTitleHeightCache =
+      VideoDetailUgcTitleHeightCache();
 
   @override
   Widget build(BuildContext context) {
@@ -773,6 +797,11 @@ class VideoDetailHeroShell extends StatelessWidget {
         ? ThemeUtils.darkTheme.colorScheme
         : Theme.of(context).colorScheme;
     final mediaSize = MediaQuery.sizeOf(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final titleStyle = DefaultTextStyle.of(
+      context,
+    ).style.copyWith(fontSize: 16);
+    final textDirection = Directionality.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.hasBoundedWidth
@@ -781,36 +810,42 @@ class VideoDetailHeroShell extends StatelessWidget {
         final height = constraints.hasBoundedHeight
             ? constraints.maxHeight
             : mediaSize.height;
+        final ugcTitleHeight = widget.variant == VideoDetailSkeletonVariant.ugc
+            ? _ugcTitleHeightCache.resolve(
+                title: widget.title,
+                viewportWidth: width,
+                style: titleStyle,
+                textScaler: textScaler,
+                textDirection: textDirection,
+                override: widget.ugcTitleHeightOverride,
+              )
+            : widget.ugcTitleHeightOverride ??
+                  VideoDetailUgcTitleHeightCache.fallbackHeight;
         return SizedBox(
           width: width,
           height: height,
           child: CustomPaint(
             painter: _VideoDetailSkeletonPainter(
               colorScheme: colorScheme,
-              playerSurfaceOpacity: playerSurfaceOpacity,
-              navigationSurfaceOpacity: navigationSurfaceOpacity,
-              detailSurfaceOpacity: detailSurfaceOpacity,
-              recommendationSurfaceOpacity: recommendationSurfaceOpacity,
-              recommendationCount: recommendationCount,
-              isVertical: isVertical,
-              playerBottomOverride: playerBottomOverride,
+              playerSurfaceOpacity: widget.playerSurfaceOpacity,
+              navigationSurfaceOpacity: widget.navigationSurfaceOpacity,
+              detailSurfaceOpacity: widget.detailSurfaceOpacity,
+              recommendationSurfaceOpacity: widget.recommendationSurfaceOpacity,
+              recommendationCount: widget.recommendationCount,
+              isVertical: widget.isVertical,
+              playerBottomOverride: widget.playerBottomOverride,
               topInset: Pref.removeSafeArea
                   ? 0
                   : MediaQuery.viewPaddingOf(context).top,
-              variant: variant,
-              title: title,
-              expandedIntro: expandedIntro,
-              showRecommendations: showRecommendations,
-              hasSeasonPanel: hasSeasonPanel,
-              hasPagesPanel: hasPagesPanel,
-              tabCount: tabCount,
-              actionCount: actionCount,
-              hasEpisodePanel: hasEpisodePanel,
-              ugcTitleHeightOverride: ugcTitleHeightOverride,
-              textScaler: MediaQuery.textScalerOf(context),
-              titleStyle: DefaultTextStyle.of(
-                context,
-              ).style.copyWith(fontSize: 16),
+              variant: widget.variant,
+              expandedIntro: widget.expandedIntro,
+              showRecommendations: widget.showRecommendations,
+              hasSeasonPanel: widget.hasSeasonPanel,
+              hasPagesPanel: widget.hasPagesPanel,
+              tabCount: widget.tabCount,
+              actionCount: widget.actionCount,
+              hasEpisodePanel: widget.hasEpisodePanel,
+              ugcTitleHeight: ugcTitleHeight,
             ),
           ),
         );
@@ -901,7 +936,6 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     required this.playerBottomOverride,
     required this.topInset,
     required this.variant,
-    required this.title,
     required this.expandedIntro,
     required this.showRecommendations,
     required this.hasSeasonPanel,
@@ -909,9 +943,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     required this.tabCount,
     required this.actionCount,
     required this.hasEpisodePanel,
-    required this.ugcTitleHeightOverride,
-    required this.textScaler,
-    required this.titleStyle,
+    required this.ugcTitleHeight,
   });
 
   final ColorScheme colorScheme;
@@ -924,7 +956,6 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   final double? playerBottomOverride;
   final double topInset;
   final VideoDetailSkeletonVariant variant;
-  final String? title;
   final bool expandedIntro;
   final bool showRecommendations;
   final bool hasSeasonPanel;
@@ -932,9 +963,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   final int tabCount;
   final int actionCount;
   final bool hasEpisodePanel;
-  final double? ugcTitleHeightOverride;
-  final TextScaler textScaler;
-  final TextStyle titleStyle;
+  final double ugcTitleHeight;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1072,7 +1101,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     final ownerBottom = ownerTop + VideoDetailLayoutMetrics.ownerHeight;
     final titleTop = ownerBottom + gap;
     final secondTitleTop = titleTop + 20;
-    final titleHeight = _ugcTitleHeight(size);
+    final titleHeight = ugcTitleHeight;
     final statsTop = titleTop + titleHeight + gap;
     final descriptionTop = statsTop + 18 + gap;
     final actionTop = descriptionTop + (expandedIntro ? 72 : 0);
@@ -1417,31 +1446,6 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     }
   }
 
-  double _ugcTitleHeight(Size size) {
-    if (ugcTitleHeightOverride case final height?) {
-      return height;
-    }
-    final value = title;
-    if (value == null || value.isEmpty) {
-      return 38;
-    }
-    final painter =
-        TextPainter(
-          text: TextSpan(text: value, style: titleStyle),
-          maxLines: 2,
-          textDirection: TextDirection.ltr,
-          textScaler: textScaler,
-        )..layout(
-          maxWidth: math.max(
-            0.0,
-            size.width - 2 * VideoDetailLayoutMetrics.horizontalPadding,
-          ),
-        );
-    final height = painter.height;
-    painter.dispose();
-    return height;
-  }
-
   void _paintStats(Canvas canvas, double left, double top, Paint paint) {
     var x = left;
     for (final width in <double>[42, 48, 58]) {
@@ -1722,7 +1726,6 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         playerBottomOverride != oldDelegate.playerBottomOverride ||
         topInset != oldDelegate.topInset ||
         variant != oldDelegate.variant ||
-        title != oldDelegate.title ||
         expandedIntro != oldDelegate.expandedIntro ||
         showRecommendations != oldDelegate.showRecommendations ||
         hasSeasonPanel != oldDelegate.hasSeasonPanel ||
@@ -1730,8 +1733,6 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         tabCount != oldDelegate.tabCount ||
         actionCount != oldDelegate.actionCount ||
         hasEpisodePanel != oldDelegate.hasEpisodePanel ||
-        ugcTitleHeightOverride != oldDelegate.ugcTitleHeightOverride ||
-        textScaler != oldDelegate.textScaler ||
-        titleStyle != oldDelegate.titleStyle;
+        ugcTitleHeight != oldDelegate.ugcTitleHeight;
   }
 }

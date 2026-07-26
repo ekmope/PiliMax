@@ -28,6 +28,7 @@ import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/app_font.dart';
 import 'package:PiliMax/utils/android/android_mmkv_box.dart';
 import 'package:PiliMax/utils/android/android_mmkv_recovery.dart';
+import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/calc_window_position.dart';
 import 'package:PiliMax/utils/danmaku_font.dart';
@@ -398,40 +399,43 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (light, dark) = getAllTheme();
-    return GetMaterialApp(
-      title: Constants.appName,
-      theme: light,
-      darkTheme: dark,
-      themeMode: ThemeUtils.themeMode = Pref.themeMode,
-      localizationsDelegates: const [
-        GlobalCupertinoLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ],
-      locale: const Locale("zh", "CN"),
-      fallbackLocale: const Locale("zh", "CN"),
-      supportedLocales: const [Locale("zh", "CN"), Locale("en", "US")],
-      initialRoute: '/',
-      getPages: Routes.getPages,
-      routingCallback: RouteRestoreService.onRouteChanged,
-      defaultTransition: Pref.effectivePageTransition,
-      builder: FlutterSmartDialog.init(
-        toastBuilder: CustomToast.new,
-        loadingBuilder: LoadingWidget.new,
-        notifyStyle: const FlutterSmartNotifyStyle(
-          warningBuilder: NotifyWarning.new,
+    return _AccountReauthenticationNotice(
+      required: Accounts.reauthenticationRequired,
+      child: GetMaterialApp(
+        title: Constants.appName,
+        theme: light,
+        darkTheme: dark,
+        themeMode: ThemeUtils.themeMode = Pref.themeMode,
+        localizationsDelegates: const [
+          GlobalCupertinoLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
+        locale: const Locale("zh", "CN"),
+        fallbackLocale: const Locale("zh", "CN"),
+        supportedLocales: const [Locale("zh", "CN"), Locale("en", "US")],
+        initialRoute: '/',
+        getPages: Routes.getPages,
+        routingCallback: RouteRestoreService.onRouteChanged,
+        defaultTransition: Pref.effectivePageTransition,
+        builder: FlutterSmartDialog.init(
+          toastBuilder: CustomToast.new,
+          loadingBuilder: LoadingWidget.new,
+          notifyStyle: const FlutterSmartNotifyStyle(
+            warningBuilder: NotifyWarning.new,
+          ),
+          builder: (context, child) =>
+              _builder(context, child, startupCrashReport),
         ),
-        builder: (context, child) =>
-            _builder(context, child, startupCrashReport),
+        navigatorObservers: [
+          routeObserver,
+          CrashBreadcrumbNavigatorObserver(),
+          FlutterSmartDialog.observer,
+        ],
+        scrollBehavior: PlatformUtils.isDesktop
+            ? const CustomScrollBehavior()
+            : null,
       ),
-      navigatorObservers: [
-        routeObserver,
-        CrashBreadcrumbNavigatorObserver(),
-        FlutterSmartDialog.observer,
-      ],
-      scrollBehavior: PlatformUtils.isDesktop
-          ? const CustomScrollBehavior()
-          : null,
     );
   }
 
@@ -551,6 +555,38 @@ class MyApp extends StatelessWidget {
     GStorage.setting.put(SettingBoxKey.dynamicColor, false);
     return false;
   }
+}
+
+final class _AccountReauthenticationNotice extends StatefulWidget {
+  final bool required;
+  final Widget child;
+
+  const _AccountReauthenticationNotice({
+    required this.required,
+    required this.child,
+  });
+
+  @override
+  State<_AccountReauthenticationNotice> createState() =>
+      _AccountReauthenticationNoticeState();
+}
+
+final class _AccountReauthenticationNoticeState
+    extends State<_AccountReauthenticationNotice> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.required) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          SmartDialog.showToast('账号安全密钥已失效，请重新登录');
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _CustomHttpOverrides extends HttpOverrides {

@@ -14,6 +14,7 @@ import 'package:PiliMax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/accounts/account_adapter.dart';
+import 'package:PiliMax/utils/accounts/account_storage.dart';
 import 'package:PiliMax/utils/accounts/account_type_adapter.dart';
 import 'package:PiliMax/utils/accounts/cookie_jar_adapter.dart';
 import 'package:PiliMax/utils/path_utils.dart';
@@ -229,8 +230,8 @@ abstract final class GStorage {
       await nextReplyCacheStore.enforceLimit();
 
       resources
-        ..watchHiveBox<LoginAccount>('account')
-        ..watchHiveBox<LoginAccount>('accountQuarantine');
+        ..watchHiveBox<LoginAccount>(AccountStorage.accountBoxName)
+        ..watchHiveBox<LoginAccount>(AccountStorage.quarantineBoxName);
       await Accounts.init();
 
       userInfo = nextUserInfo;

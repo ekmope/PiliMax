@@ -375,6 +375,9 @@ Commit Hash: ${BuildConfig.commitHash}''',
                 }
                 await Accounts.account.putAll(res);
                 await Accounts.refresh();
+                if (Accounts.account.isNotEmpty) {
+                  await Accounts.markReauthenticated();
+                }
                 MineController.anonymity.value = !Accounts.heartbeat.isLogin;
                 if (Accounts.main.isLogin) {
                   await LoginUtils.onLoginMain();

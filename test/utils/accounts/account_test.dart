@@ -4,6 +4,7 @@ import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/accounts/account_adapter.dart';
+import 'package:PiliMax/utils/accounts/account_storage.dart';
 import 'package:PiliMax/utils/accounts/account_type_adapter.dart';
 import 'package:PiliMax/utils/accounts/cookie_jar_adapter.dart';
 import 'package:PiliMax/utils/storage.dart';
@@ -191,7 +192,7 @@ void main() {
       );
       await box.close();
 
-      await Accounts.init();
+      await Accounts.init(secretStore: _MemoryAccountSecretStore());
     });
 
     tearDownAll(() async {
@@ -199,9 +200,17 @@ void main() {
       await hiveDirectory.delete(recursive: true);
     });
 
-    test('opens the box and quarantines invalid legacy accounts', () {
+    test('opens the box and quarantines invalid legacy accounts', () async {
       expect(Accounts.account.get('legacy-invalid-record'), isNull);
       expect(Accounts.account.get('24680')?.isValid, isTrue);
+      expect(
+        Accounts.account.name,
+        AccountStorage.accountBoxName.toLowerCase(),
+      );
+      expect(
+        await Hive.boxExists(AccountStorage.legacyAccountBoxName),
+        isFalse,
+      );
 
       final quarantined = Accounts.accountQuarantine?.get(
         'legacy-invalid-record',
@@ -262,4 +271,21 @@ void main() {
       },
     );
   });
+}
+
+final class _MemoryAccountSecretStore implements AccountSecretStore {
+  final Map<String, String> _values = {};
+
+  @override
+  Future<String?> read(String key) async => _values[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    _values[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    _values.remove(key);
+  }
 }

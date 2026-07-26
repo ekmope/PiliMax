@@ -154,7 +154,9 @@ class LoginAccount extends Account {
     if (_hasDeleted || _deleteFuture != null) {
       return Future.error(StateError('Deleted login account'));
     }
-    return _box.put(_validIdentity.midString, this);
+    return _box
+        .put(_validIdentity.midString, this)
+        .then<void>((_) => Accounts.markReauthenticated());
   }
 
   @override

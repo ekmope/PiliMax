@@ -4,14 +4,17 @@ import 'package:PiliMax/pages/mine/controller.dart';
 import 'package:PiliMax/services/crash/crash_context.dart';
 import 'package:PiliMax/services/crash/crash_reporter.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
+import 'package:PiliMax/utils/accounts/account_storage.dart';
 import 'package:PiliMax/utils/login_utils.dart';
 import 'package:hive_ce/hive.dart';
 
 abstract final class Accounts {
   static late final Box<LoginAccount> account;
   static Box<LoginAccount>? accountQuarantine;
+  static AccountStorage? _accountStorage;
   static Future<void>? _initFuture;
   static bool _initialized = false;
+  static bool reauthenticationRequired = false;
   static final List<Account> accountMode = List.filled(
     AccountType.values.length,
     AnonymousAccount(),
@@ -29,11 +32,11 @@ abstract final class Accounts {
   }
   // static set main(Account account) => set(AccountType.main, account);
 
-  static Future<void> init() {
+  static Future<void> init({AccountSecretStore? secretStore}) {
     if (_initialized) return Future<void>.value();
     final pending = _initFuture;
     if (pending != null) return pending;
-    final future = _initOnce();
+    final future = _initOnce(secretStore);
     _initFuture = future;
     return future.whenComplete(() {
       if (identical(_initFuture, future)) {
@@ -42,41 +45,46 @@ abstract final class Accounts {
     });
   }
 
-  static Future<void> _initOnce() async {
-    final nextAccount = await Hive.openBox<LoginAccount>(
-      'account',
-      compactionStrategy: (int entries, int deletedEntries) {
-        return deletedEntries > 2;
-      },
+  static Future<void> _initOnce(AccountSecretStore? secretStore) async {
+    final nextStorage = AccountStorage(
+      secretStore: secretStore ?? const PlatformAccountSecretStore(),
     );
-    Box<LoginAccount>? nextQuarantine;
+    AccountStorageOpenResult? opened;
     try {
-      nextQuarantine = await Hive.openBox<LoginAccount>(
-        'accountQuarantine',
-        compactionStrategy: (int entries, int deletedEntries) {
-          return deletedEntries > 2;
-        },
+      opened = await nextStorage.open();
+      await _quarantineInvalidAccountsIn(
+        opened.account,
+        opened.quarantine,
       );
-    } catch (_, stackTrace) {
-      _recordQuarantineError(
-        stackTrace,
-        operation: 'quarantine.open',
-        reason: 'quarantine_unavailable',
-      );
-    }
-    try {
-      await _quarantineInvalidAccountsIn(nextAccount, nextQuarantine);
-      account = nextAccount;
-      accountQuarantine = nextQuarantine;
+      account = opened.account;
+      accountQuarantine = opened.quarantine;
+      _accountStorage = nextStorage;
+      reauthenticationRequired = opened.requiresReauthentication;
       _initialized = true;
     } catch (error, stackTrace) {
       try {
-        await nextQuarantine?.close();
+        await opened?.quarantine.close();
       } catch (_) {}
       try {
-        await nextAccount.close();
+        await opened?.account.close();
       } catch (_) {}
       Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
+  static Future<void> markReauthenticated() async {
+    if (!reauthenticationRequired) return;
+    final storage = _accountStorage;
+    if (storage == null) return;
+    try {
+      await storage.markReauthenticated();
+      reauthenticationRequired = false;
+    } catch (_, stackTrace) {
+      _recordQuarantineError(
+        stackTrace,
+        operation: 'secure_storage.reauthentication',
+        reason: 'marker_delete_failed',
+      );
     }
   }
 

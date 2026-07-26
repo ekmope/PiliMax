@@ -4,6 +4,7 @@ import 'dart:io' show Directory, File;
 
 import 'package:PiliMax/grpc/dm.dart';
 import 'package:PiliMax/http/download.dart';
+import 'package:PiliMax/http/download_source.dart';
 import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/sponsor_block.dart';
@@ -997,6 +998,11 @@ class DownloadService extends GetxService {
 
       switch (mediaFileInfo) {
         case Type1 mediaFileInfo:
+          if (mediaFileInfo.segmentList.isEmpty) {
+            throw const DownloadSourceException(
+              'Progressive media contains no segment',
+            );
+          }
           final first = mediaFileInfo.segmentList.first;
           task.videoManager = DownloadManager(
             url: first.url,
@@ -1007,8 +1013,14 @@ class DownloadService extends GetxService {
           );
           break;
         case Type2 mediaFileInfo:
+          if (mediaFileInfo.video.isEmpty) {
+            throw const DownloadSourceException(
+              'DASH media contains no video stream',
+            );
+          }
+          final first = mediaFileInfo.video.first;
           task.videoManager = DownloadManager(
-            url: mediaFileInfo.video.first.baseUrl,
+            url: first.baseUrl,
             path: path.join(videoDir.path, PathUtils.videoNameType2),
             onReceiveProgress: (progress, total) =>
                 _onReceive(task, progress, total),
@@ -1023,17 +1035,24 @@ class DownloadService extends GetxService {
               onDone: ([error]) => _onAudioDone(task, error),
             );
           }
-          late final first = mediaFileInfo.video.first;
           entry.pageData
             ?..width = first.width
             ..height = first.height;
           entry.ep
             ?..width = first.width
             ..height = first.height;
-          _updateBiliDownloadEntryJson(entry);
+          await _updateBiliDownloadEntryJson(entry);
           break;
         default:
           break;
+      }
+    } on DownloadSourceException catch (e) {
+      if (await _restoreInterruptedTaskStatus(task)) {
+        return;
+      }
+      await _failTask(task, DownloadStatus.failPlayUrl);
+      if (kDebugMode) {
+        debugPrint('invalid download source: $e');
       }
     } catch (e) {
       if (await _restoreInterruptedTaskStatus(task)) {

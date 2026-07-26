@@ -16,6 +16,7 @@ import 'package:PiliMax/models_new/msgfeed_unread/data.dart';
 import 'package:PiliMax/models_new/single_unread/data.dart';
 import 'package:PiliMax/models_new/upload_bfs/data.dart';
 import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/upload_image_validator.dart';
 import 'package:PiliMax/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
@@ -152,15 +153,22 @@ abstract final class MsgHttp {
   }
 
   static Future<LoadingState<Map>> uploadImage({
-    required dynamic path,
+    required String path,
+    required UploadImagePurpose purpose,
     required String bucket,
     required String dir,
   }) async {
+    late final ValidatedUploadImage image;
+    try {
+      image = await UploadImageValidator.validate(path, purpose);
+    } on UploadImageValidationException catch (e) {
+      return Error(e.message);
+    }
     final res = await Request().post(
       Api.uploadImage,
       data: FormData.fromMap({
         'bucket': bucket,
-        'file': await MultipartFile.fromFile(path),
+        'file': await MultipartFile.fromFile(image.path),
         'dir': dir,
         'csrf': Accounts.main.csrf,
       }),
@@ -174,14 +182,21 @@ abstract final class MsgHttp {
 
   static Future<LoadingState<UploadBfsResData>> uploadBfs({
     required String path,
+    required UploadImagePurpose purpose,
     String? category,
     String? biz,
     CancelToken? cancelToken,
   }) async {
+    late final ValidatedUploadImage image;
+    try {
+      image = await UploadImageValidator.validate(path, purpose);
+    } on UploadImageValidationException catch (e) {
+      return Error(e.message);
+    }
     final res = await Request().post(
       Api.uploadBfs,
       data: FormData.fromMap({
-        'file_up': await MultipartFile.fromFile(path),
+        'file_up': await MultipartFile.fromFile(image.path),
         'category': ?category,
         'biz': ?biz,
         'csrf': Accounts.main.csrf,

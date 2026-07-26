@@ -1,7 +1,7 @@
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/download_source.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/account_type.dart';
-import 'package:PiliMax/models/common/video/audio_quality.dart';
 import 'package:PiliMax/models/common/video/video_quality.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models/video/play/url.dart';
@@ -9,7 +9,6 @@ import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/models_new/download/bili_download_media_file_info.dart';
 import 'package:PiliMax/models_new/sponsor_block/segment_item.dart';
 import 'package:PiliMax/utils/accounts.dart';
-import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/video_utils.dart';
 import 'package:collection/collection.dart';
@@ -42,30 +41,17 @@ abstract final class DownloadHttp {
     if (res case Success(:final response)) {
       final dash = response.dash;
       if (dash != null) {
-        final videoList = dash.video!;
-        final curHighestVideoQa = videoList.first.quality.code;
-        final preferVideoQa = entry.preferedVideoQuality;
-        int targetVideoQa = curHighestVideoQa;
-        if (response.acceptQuality?.isNotEmpty == true &&
-            preferVideoQa <= curHighestVideoQa) {
-          // 如果预设的画质低于当前最高
-          targetVideoQa = response.acceptQuality!.findClosestTarget(
-            (e) => e <= preferVideoQa,
-            (a, b) => a > b ? a : b,
-          );
-        }
-
-        /// 优先顺序 设置中指定解码格式 -> 当前可选的首个解码格式
-        final supportFormats = response.supportFormats!;
-        // 根据画质选编码格式
-        final targetSupportFormats = supportFormats.firstWhere(
-          (e) => e.quality == targetVideoQa,
-          orElse: () => supportFormats.first,
+        final selection = DownloadSourceSelector.selectDashVideo(
+          videos: dash.video,
+          supportFormats: response.supportFormats,
+          preferredQuality: entry.preferedVideoQuality,
+          preferredCodecs: Pref.preferCodecs,
         );
-
-        final currentDecodeFormats = VideoUtils.selectCodec(
-          targetSupportFormats.codecs!,
-          Pref.preferCodecs,
+        final videoDash = selection.video;
+        final targetVideoQa = selection.quality;
+        final targetSupportFormat = selection.format;
+        final duration = DownloadSourceSelector.requirePositiveDuration(
+          dash.duration,
         );
 
         entry
@@ -73,21 +59,12 @@ abstract final class DownloadHttp {
           ..videoQuality = targetVideoQa
           ..preferedVideoQuality = targetVideoQa
           ..qualityPithyDescription =
-              targetSupportFormats.newDesc ??
+              targetSupportFormat.newDesc ??
               VideoQuality.fromCode(targetVideoQa).desc;
 
-        /// 取出符合当前画质的videoList
-        final videosList = videoList
-            .where((e) => e.quality.code == targetVideoQa)
-            .toList();
-
-        /// 取出符合当前解码格式的videoItem
-        final videoDash = videosList.firstWhere(
-          (e) => currentDecodeFormats.codes.any(e.codecs!.startsWith),
-          orElse: () => videosList.first,
+        final videoUrl = VideoUtils.getCdnUrl(
+          DownloadSourceSelector.playableUrls(videoDash.playUrls),
         );
-
-        final videoUrl = VideoUtils.getCdnUrl(videoDash.playUrls);
 
         final Type2File videoFile = Type2File(
           id: videoDash.id!,
@@ -103,26 +80,13 @@ abstract final class DownloadHttp {
           dashDrmType: 0,
         );
         List<Type2File>? audioFileList;
-        final List<AudioItem>? audioDashList = dash.audio;
-        if (audioDashList != null && audioDashList.isNotEmpty) {
-          final preferAudioQa = Pref.defaultAudioQa;
-          final List<int> audioIds = audioDashList
-              .map((map) => map.id!)
-              .toList();
-          int closestNumber = audioIds.findClosestTarget(
-            (e) => e <= preferAudioQa,
-            (a, b) => a > b ? a : b,
-          );
-          if (!audioIds.contains(preferAudioQa) &&
-              audioIds.any((e) => e > preferAudioQa)) {
-            closestNumber = AudioQuality.k192.code;
-          }
-          final AudioItem audioDash = audioDashList.firstWhere(
-            (e) => e.id == closestNumber,
-            orElse: () => audioDashList.first,
-          );
+        final audioDash = DownloadSourceSelector.selectDashAudio(
+          audios: dash.audio,
+          preferredQuality: Pref.defaultAudioQa,
+        );
+        if (audioDash != null) {
           final audioUrl = VideoUtils.getCdnUrl(
-            audioDash.playUrls,
+            DownloadSourceSelector.playableUrls(audioDash.playUrls),
             isAudio: true,
           );
           audioFileList = [
@@ -134,9 +98,9 @@ abstract final class DownloadHttp {
               size: 0,
               md5: '',
               noRexcode: false,
-              frameRate: audioDash.frameRate!,
-              width: audioDash.width!,
-              height: audioDash.height!,
+              frameRate: audioDash.frameRate ?? '',
+              width: audioDash.width ?? 0,
+              height: audioDash.height ?? 0,
               dashDrmType: 0,
             ),
           ];
@@ -144,7 +108,7 @@ abstract final class DownloadHttp {
         }
         return DownloadVideoUrlResult(
           mediaFileInfo: Type2(
-            duration: dash.duration!,
+            duration: duration,
             video: [videoFile],
             audio: audioFileList,
             referer: referer,
@@ -153,7 +117,7 @@ abstract final class DownloadHttp {
           clipInfoList: response.clipInfoList,
         );
       } else {
-        final first = response.durl!.first;
+        final first = DownloadSourceSelector.selectDurl(response.durl);
         final List<Type1Segment> segmentList = [
           Type1Segment(
             backupUrls: [],
@@ -162,7 +126,9 @@ abstract final class DownloadHttp {
             md5: '',
             metaUrl: '',
             order: first.order!,
-            url: VideoUtils.getCdnUrl(first.playUrls),
+            url: VideoUtils.getCdnUrl(
+              DownloadSourceSelector.playableUrls(first.playUrls),
+            ),
           ),
         ];
         final FormatItem? formatItem = response.supportFormats
@@ -206,7 +172,9 @@ abstract final class DownloadHttp {
             marlinToken: '',
             videoCodecId: 0,
             videoProject: true,
-            format: response.format!,
+            format: DownloadSourceSelector.requireFormat(
+              response.format ?? formatItem?.format,
+            ),
             playerError: 0,
             needVip: false,
             needLogin: false,
@@ -218,7 +186,7 @@ abstract final class DownloadHttp {
         );
       }
     } else {
-      throw res.toString();
+      throw DownloadSourceException('Play URL request failed: $res');
     }
   }
 }

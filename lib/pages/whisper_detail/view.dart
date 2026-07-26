@@ -25,12 +25,12 @@ import 'package:PiliMax/utils/extension/widget_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/upload_image_validator.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart' hide TextField;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:mime/mime.dart';
 
 class WhisperDetailPage extends CommonRichTextPubPage {
   const WhisperDetailPage({
@@ -352,40 +352,40 @@ class _WhisperDetailPageState
                       );
                       if (pickedFile != null) {
                         final path = pickedFile.path;
-                        SmartDialog.showLoading(msg: '正在上传图片');
-                        final result = await MsgHttp.uploadBfs(
-                          path: path,
-                          biz: 'im',
-                        );
-                        if (result case Success(:final response)) {
-                          final mimeType =
-                              lookupMimeType(
-                                path,
-                              )?.split('/').elementAtOrNull(1) ??
-                              'jpg';
-                          final picMsg = {
-                            'url': response.imageUrl,
-                            'height': response.imageHeight,
-                            'width': response.imageWidth,
-                            'imageType': mimeType,
-                            'original': 1,
-                            'size': response.imgSize,
-                          };
-                          SmartDialog.showLoading(msg: '正在发送');
-                          await _whisperDetailController
-                              .sendMsg(
-                                picMsg: picMsg,
-                                onClearText: editController.clear,
-                              )
-                              .whenComplete(() {
-                                if (PlatformUtils.isMobile) {
-                                  File(path).tryDel();
-                                }
-                              });
-                        } else {
-                          SmartDialog.dismiss();
-                          result.toast();
-                          return;
+                        try {
+                          final image = await UploadImageValidator.validate(
+                            path,
+                            UploadImagePurpose.directMessage,
+                          );
+                          SmartDialog.showLoading(msg: '正在上传图片');
+                          final result = await MsgHttp.uploadBfs(
+                            path: path,
+                            purpose: UploadImagePurpose.directMessage,
+                            biz: 'im',
+                          );
+                          if (result case Success(:final response)) {
+                            final picMsg = {
+                              'url': response.imageUrl,
+                              'height': response.imageHeight,
+                              'width': response.imageWidth,
+                              'imageType': image.mimeSubtype,
+                              'original': 1,
+                              'size': response.imgSize,
+                            };
+                            SmartDialog.showLoading(msg: '正在发送');
+                            await _whisperDetailController.sendMsg(
+                              picMsg: picMsg,
+                              onClearText: editController.clear,
+                            );
+                          } else {
+                            SmartDialog.dismiss();
+                            result.toast();
+                            return;
+                          }
+                        } finally {
+                          if (PlatformUtils.isMobile) {
+                            File(path).tryDel();
+                          }
                         }
                       }
                     } catch (e) {

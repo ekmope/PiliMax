@@ -5,6 +5,7 @@ import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/button/toolbar_icon_button.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';
+import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/msg.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/models/common/publish_panel_type.dart';
@@ -24,6 +25,7 @@ import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/upload_image_validator.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart'
     hide CacheManager;
 import 'package:dio/dio.dart' show CancelToken;
@@ -521,17 +523,20 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
               case FilePicModel e:
                 final result = await MsgHttp.uploadBfs(
                   path: e.path,
+                  purpose: UploadImagePurpose.dynamicImage,
                   category: 'daily',
                   biz: 'new_dyn',
                   cancelToken: cancelToken,
                 );
-                final data = result.data;
-                return {
-                  'img_width': data.imageWidth,
-                  'img_height': data.imageHeight,
-                  'img_size': data.imgSize,
-                  'img_src': data.imageUrl,
-                };
+                if (result case Success(:final response)) {
+                  return {
+                    'img_width': response.imageWidth,
+                    'img_height': response.imageHeight,
+                    'img_size': response.imgSize,
+                    'img_src': response.imageUrl,
+                  };
+                }
+                throw HttpException(result.toString());
               case OpusPicModel e:
                 return e.toJson();
             }

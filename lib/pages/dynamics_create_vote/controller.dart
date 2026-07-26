@@ -4,6 +4,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/msg.dart';
 import 'package:PiliMax/models/dynamics/vote_model.dart';
 import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/utils/upload_image_validator.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/widgets.dart' show Text;
 import 'package:get/get.dart';
@@ -112,6 +113,7 @@ class CreateVoteController extends GetxController {
   Future<void> onUpload(int index, String path) async {
     final res = await MsgHttp.uploadBfs(
       path: path,
+      purpose: UploadImagePurpose.dynamicImage,
       category: 'daily',
       biz: 'vote',
     );

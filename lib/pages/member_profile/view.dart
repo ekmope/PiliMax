@@ -20,6 +20,7 @@ import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/upload_image_validator.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:dio/dio.dart';
 import 'package:easy_debounce/easy_throttle.dart';
@@ -29,7 +30,6 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:mime/mime.dart';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -479,69 +479,68 @@ class _EditProfilePageState extends State<EditProfilePage> {
       );
       if (pickedFile != null && mounted) {
         String? imagePath = pickedFile.path;
-        String? mimeType = (pickedFile.mimeType ?? lookupMimeType(imagePath))
-            ?.split('/')
-            .elementAtOrNull(1);
-        if (mimeType == 'gif') {
-          SmartDialog.showToast('不能选GIF');
-          return;
-        }
-        if (PlatformUtils.isMobile) {
-          final croppedFile = await ImageCropper.platform.cropImage(
-            sourcePath: imagePath,
-            uiSettings: [
-              AndroidUiSettings(
-                toolbarTitle: '裁剪',
-                toolbarColor: theme.colorScheme.secondaryContainer,
-                toolbarWidgetColor: theme.colorScheme.onSecondaryContainer,
-                statusBarLight: theme.isLight,
-                aspectRatioPresets: const [CropAspectRatioPresetCustom()],
-                lockAspectRatio: true,
-                hideBottomControls: true,
-                cropStyle: CropStyle.circle,
-                initAspectRatio: const CropAspectRatioPresetCustom(),
-              ),
-              IOSUiSettings(
-                title: '裁剪',
-                aspectRatioPresets: const [CropAspectRatioPresetCustom()],
-                cropStyle: CropStyle.circle,
-                aspectRatioLockEnabled: true,
-                resetAspectRatioEnabled: false,
-                aspectRatioPickerButtonHidden: true,
-              ),
-            ],
+        try {
+          if (PlatformUtils.isMobile) {
+            final croppedFile = await ImageCropper.platform.cropImage(
+              sourcePath: imagePath,
+              uiSettings: [
+                AndroidUiSettings(
+                  toolbarTitle: '裁剪',
+                  toolbarColor: theme.colorScheme.secondaryContainer,
+                  toolbarWidgetColor: theme.colorScheme.onSecondaryContainer,
+                  statusBarLight: theme.isLight,
+                  aspectRatioPresets: const [CropAspectRatioPresetCustom()],
+                  lockAspectRatio: true,
+                  hideBottomControls: true,
+                  cropStyle: CropStyle.circle,
+                  initAspectRatio: const CropAspectRatioPresetCustom(),
+                ),
+                IOSUiSettings(
+                  title: '裁剪',
+                  aspectRatioPresets: const [CropAspectRatioPresetCustom()],
+                  cropStyle: CropStyle.circle,
+                  aspectRatioLockEnabled: true,
+                  resetAspectRatioEnabled: false,
+                  aspectRatioPickerButtonHidden: true,
+                ),
+              ],
+            );
+            await File(imagePath).tryDel();
+            imagePath = croppedFile?.path;
+          }
+          if (imagePath == null) {
+            return;
+          }
+
+          final image = await UploadImageValidator.validate(
+            imagePath,
+            UploadImagePurpose.avatar,
           );
-          File(imagePath).tryDel();
-          imagePath = croppedFile?.path;
-        }
-        if (imagePath != null) {
-          Request()
-              .post(
-                '/x/member/web/face/update',
-                queryParameters: {
-                  'csrf': Accounts.main.csrf,
-                },
-                data: FormData.fromMap({
-                  'dopost': 'save',
-                  'DisplayRank': 10000,
-                  'face': await MultipartFile.fromFile(imagePath),
-                }),
-              )
-              .then((res) {
-                if (res.data['code'] == 0) {
-                  SmartDialog.showToast('修改成功');
-                  Future.delayed(const Duration(milliseconds: 500), () {
-                    if (mounted) {
-                      _getInfo();
-                    }
-                  });
-                } else {
-                  SmartDialog.showToast(res.data['message']);
-                }
-                if (PlatformUtils.isMobile && imagePath != null) {
-                  File(imagePath).tryDel();
-                }
-              });
+          final res = await Request().post(
+            '/x/member/web/face/update',
+            queryParameters: {
+              'csrf': Accounts.main.csrf,
+            },
+            data: FormData.fromMap({
+              'dopost': 'save',
+              'DisplayRank': 10000,
+              'face': await MultipartFile.fromFile(image.path),
+            }),
+          );
+          if (res.data['code'] == 0) {
+            SmartDialog.showToast('修改成功');
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                _getInfo();
+              }
+            });
+          } else {
+            SmartDialog.showToast(res.data['message']?.toString() ?? '头像修改失败');
+          }
+        } finally {
+          if (PlatformUtils.isMobile && imagePath != null) {
+            await File(imagePath).tryDel();
+          }
         }
       }
     } catch (e) {

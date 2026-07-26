@@ -200,6 +200,7 @@ class DetailItem extends StatelessWidget {
               spacing: 10,
               children: [
                 VideoDetailHero.source(
+                  clipStaticChild: true,
                   flightChild: AspectRatio(
                     aspectRatio: Style.aspectRatio,
                     child: LayoutBuilder(

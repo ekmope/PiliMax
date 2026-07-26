@@ -91,10 +91,20 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
+typedef VideoDetailInitialVisualReady =
+    void Function(
+      VideoDetailSession session,
+    );
+
 class VideoDetailPageV extends StatefulWidget {
-  const VideoDetailPageV({super.key, this.session});
+  const VideoDetailPageV({
+    super.key,
+    this.session,
+    this.onInitialVisualReady,
+  });
 
   final VideoDetailSession? session;
+  final VideoDetailInitialVisualReady? onInitialVisualReady;
 
   @override
   State<VideoDetailPageV> createState() => _VideoDetailPageVState();
@@ -150,6 +160,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   bool _initialVideoSourceReady = false;
   bool _initialPlayerStarted = false;
   bool _allowPlayerMount = false;
+  bool _initialVisualReadyReported = false;
+  int _initialVisualReadyGeneration = 0;
   // 页面可见性切换时递增，阻止旧的播放器恢复任务回写已离开的页面。
   int _didPopNextGeneration = 0;
 
@@ -743,21 +755,121 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     _initialPlayerStarted = true;
     plPlayerController = videoDetailController.plPlayerController;
     _bindPlayerListeners();
-    if (videoDetailController.isFileSource) {
-      unawaited(videoDetailController.queryVideoUrl(autoFullScreenFlag: true));
-      return;
-    }
-    if (videoDetailController.videoUrl == null ||
-        videoDetailController.audioUrl == null) {
-      return;
-    }
     unawaited(
-      videoDetailController.playerInit(
-        autoplay: true,
-        autoFullScreenFlag: true,
-      ),
+      _startInitialPlayerAndReportVisual(++_initialVisualReadyGeneration),
     );
   }
+
+  Future<void> _startInitialPlayerAndReportVisual(int generation) async {
+    final callback = widget.onInitialVisualReady;
+    final session = widget.session;
+    final initialController = videoDetailController.plPlayerController;
+    final initialVideoController = initialController.videoController;
+    final initialFirstFrameWasAlreadyRendered =
+        callback != null && session != null && initialVideoController != null
+        ? await _futureAlreadySettled(
+            initialVideoController.waitUntilFirstFrameRendered,
+          )
+        : false;
+    if (!_isInitialPlayerStartCurrent(generation)) {
+      return;
+    }
+
+    if (videoDetailController.isFileSource) {
+      await videoDetailController.queryVideoUrl(autoFullScreenFlag: true);
+    } else {
+      if (videoDetailController.videoUrl == null ||
+          videoDetailController.audioUrl == null) {
+        return;
+      }
+      await videoDetailController.playerInit(
+        autoplay: true,
+        autoFullScreenFlag: true,
+      );
+    }
+
+    if (callback == null || !_canReportInitialVisual(generation, session)) {
+      return;
+    }
+    final currentController = videoDetailController.plPlayerController;
+    final currentVideoController = currentController.videoController;
+    if (currentVideoController == null ||
+        !currentController.isSourceOwnerActive(videoDetailController)) {
+      return;
+    }
+
+    // This media-kit Future is one-shot per VideoController. A completed
+    // Future on a reused controller belongs to an earlier source, so leave the
+    // entry cover to the route's bounded timeout instead of reporting it as
+    // the new video's first frame.
+    if (identical(currentVideoController, initialVideoController) &&
+        initialFirstFrameWasAlreadyRendered) {
+      return;
+    }
+
+    try {
+      await currentVideoController.waitUntilFirstFrameRendered;
+    } catch (_) {
+      return;
+    }
+    if (!_isInitialVisualSourceCurrent(
+      generation,
+      session,
+      currentController,
+      currentVideoController,
+    )) {
+      return;
+    }
+
+    // The texture may become ready before the Obx/player subtree has painted.
+    // Keep the cover through that first Flutter frame as well.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!_isInitialVisualSourceCurrent(
+      generation,
+      session,
+      currentController,
+      currentVideoController,
+    )) {
+      return;
+    }
+    _initialVisualReadyReported = true;
+    callback(session!);
+  }
+
+  Future<bool> _futureAlreadySettled(Future<void> future) async {
+    var settled = false;
+    unawaited(
+      future.then<void>(
+        (_) => settled = true,
+        onError: (Object _, StackTrace _) => settled = true,
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+    return settled;
+  }
+
+  bool _isInitialPlayerStartCurrent(int generation) =>
+      mounted && generation == _initialVisualReadyGeneration;
+
+  bool _canReportInitialVisual(
+    int generation,
+    VideoDetailSession? session,
+  ) =>
+      _isInitialPlayerStartCurrent(generation) &&
+      !_initialVisualReadyReported &&
+      session != null &&
+      session.matchesLaunchContent;
+
+  bool _isInitialVisualSourceCurrent(
+    int generation,
+    VideoDetailSession? session,
+    PlPlayerController controller,
+    Object videoController,
+  ) =>
+      _canReportInitialVisual(generation, session) &&
+      identical(videoDetailController.plPlayerController, controller) &&
+      identical(controller.videoController, videoController) &&
+      controller.isSourceOwnerActive(videoDetailController);
 
   void _bindPlayerListeners() {
     plPlayerController ??= videoDetailController.plPlayerController;
@@ -1082,6 +1194,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   @override
   void dispose() {
     _didPopNextGeneration++;
+    _initialVisualReadyGeneration++;
     if (identical(
       _videoArgs[videoDetailExitVisualProviderKey],
       _exitVisualProvider,

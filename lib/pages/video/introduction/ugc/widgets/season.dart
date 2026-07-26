@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart';
-import 'package:PiliMax/models_new/video/video_detail/section.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
+import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -46,15 +46,10 @@ class _SeasonPanelState extends State<SeasonPanel> {
       tag: widget.heroTag,
     );
 
-    _videoDetailController.seasonCid = ugcIntroController.cid.value != 0
-        ? (videoDetail.pages?.isNotEmpty == true
-              ? videoDetail.listOrder.isDesc
-                    ? videoDetail.pages!.last.cid
-                    : videoDetail.pages!.first.cid
-              : ugcIntroController.cid.value)
-        : videoDetail.listOrder.isDesc
-        ? videoDetail.pages!.last.cid
-        : videoDetail.pages!.first.cid;
+    _videoDetailController.seasonCid = ugcSeasonPanelInitialCid(
+      videoDetail,
+      ugcIntroController.cid.value,
+    );
 
     /// 根据 cid 找到对应集，找到对应 episodes
     /// 有多个episodes时，只显示其中一个
@@ -93,12 +88,20 @@ class _SeasonPanelState extends State<SeasonPanel> {
     }
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 8, left: 2, right: 2),
+      padding: const EdgeInsets.only(
+        top: VideoDetailLayoutMetrics.seasonPanelTopPadding,
+        left: VideoDetailLayoutMetrics.seasonPanelHorizontalInset,
+        right: VideoDetailLayoutMetrics.seasonPanelHorizontalInset,
+      ),
       child: Material(
         color: theme.colorScheme.onInverseSurface,
-        borderRadius: const BorderRadius.all(Radius.circular(6)),
+        borderRadius: const BorderRadius.all(
+          Radius.circular(VideoDetailLayoutMetrics.seasonPanelRadius),
+        ),
         child: InkWell(
-          borderRadius: const BorderRadius.all(Radius.circular(6)),
+          borderRadius: const BorderRadius.all(
+            Radius.circular(VideoDetailLayoutMetrics.seasonPanelRadius),
+          ),
           onTap: widget.canTap
               ? () => widget.showEpisodes(
                   _videoDetailController.seasonIndex.value,
@@ -110,7 +113,12 @@ class _SeasonPanelState extends State<SeasonPanel> {
                 )
               : null,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
+            padding: const EdgeInsets.symmetric(
+              horizontal:
+                  VideoDetailLayoutMetrics.seasonPanelContentHorizontalPadding,
+              vertical:
+                  VideoDetailLayoutMetrics.seasonPanelContentVerticalPadding,
+            ),
             child: Row(
               children: <Widget>[
                 Expanded(
@@ -120,15 +128,21 @@ class _SeasonPanelState extends State<SeasonPanel> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 15),
+                const SizedBox(
+                  width: VideoDetailLayoutMetrics.seasonPanelLeadingGap,
+                ),
                 Image.asset(
                   Assets.livingStatic,
                   color: theme.colorScheme.primary,
-                  height: 12,
-                  cacheHeight: 12.cacheSize(context),
+                  height: VideoDetailLayoutMetrics.seasonPanelStatusIconExtent,
+                  cacheHeight: VideoDetailLayoutMetrics
+                      .seasonPanelStatusIconExtent
+                      .cacheSize(context),
                   semanticLabel: "正在播放：",
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(
+                  width: VideoDetailLayoutMetrics.seasonPanelStatusGap,
+                ),
                 Obx(
                   () => Text(
                     '${currentIndex.value + 1}/${episodes.length}',
@@ -137,10 +151,12 @@ class _SeasonPanelState extends State<SeasonPanel> {
                         '第${currentIndex.value + 1}集，共${episodes.length}集',
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(
+                  width: VideoDetailLayoutMetrics.seasonPanelArrowGap,
+                ),
                 const Icon(
                   Icons.arrow_forward_ios_outlined,
-                  size: 13,
+                  size: VideoDetailLayoutMetrics.seasonPanelArrowExtent,
                   semanticLabel: '查看',
                 ),
               ],
@@ -152,26 +168,16 @@ class _SeasonPanelState extends State<SeasonPanel> {
   }
 
   void _findEpisode() {
-    final List<SectionItem>? sections = videoDetail.ugcSeason?.sections;
-    if (sections == null || sections.isEmpty) {
+    final selection = resolveUgcSeasonPanel(
+      videoDetail,
+      _videoDetailController.seasonCid,
+    );
+    if (selection == null) {
       episodes = <EpisodeItem>[];
       return;
     }
-    for (int i = 0; i < sections.length; i++) {
-      final List<EpisodeItem>? episodesList = sections[i].episodes;
-      if (episodesList == null) {
-        continue;
-      }
-      for (int j = 0; j < episodesList.length; j++) {
-        if (episodesList[j].cid != _videoDetailController.seasonCid) {
-          continue;
-        }
-        episodes = episodesList;
-        _syncSeasonIndex(i);
-        return;
-      }
-    }
-    episodes = <EpisodeItem>[];
+    episodes = selection.episodes;
+    _syncSeasonIndex(selection.sectionIndex);
   }
 
   void _updateCurrentIndex() {

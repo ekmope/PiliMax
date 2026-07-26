@@ -165,6 +165,9 @@ class _VideoCardHState extends State<VideoCardH> {
                     crossAxisAlignment: .start,
                     children: [
                       VideoDetailHero.source(
+                        borderRadius:
+                            VideoCardHLayoutMetrics.thumbnailBorderRadius,
+                        clipStaticChild: true,
                         flightChild: AspectRatio(
                           aspectRatio: Style.aspectRatio,
                           child: LayoutBuilder(

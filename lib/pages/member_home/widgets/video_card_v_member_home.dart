@@ -99,6 +99,7 @@ class VideoCardVMemberHome extends StatelessWidget {
       tag: _heroTag,
       layout: VideoTransitionSourceLayout.verticalCard,
       child: Card(
+        shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
         clipBehavior: Clip.hardEdge,
         child: InkWell(
           onTap: onPushDetail,

@@ -115,6 +115,7 @@ final class VideoDetailSession {
             (state) => _skeletonProfileFromIntro(
               state,
               launchSkeletonProfile,
+              currentCid: snapshot['cid'] as int?,
             ),
             onError: (_, _) => launchSkeletonProfile,
           );
@@ -191,11 +192,12 @@ final class VideoDetailSession {
 
   static VideoDetailSkeletonProfile _skeletonProfileFromIntro(
     LoadingState<VideoDetailData> state,
-    VideoDetailSkeletonProfile base,
-  ) {
+    VideoDetailSkeletonProfile base, {
+    required int? currentCid,
+  }) {
     final data = state.dataOrNull;
     return base.copyWith(
-      hasSeasonPanel: data?.ugcSeason != null,
+      hasSeasonPanel: hasRenderableUgcSeasonPanel(data, currentCid),
       hasPagesPanel: (data?.pages?.length ?? 0) > 1,
     );
   }

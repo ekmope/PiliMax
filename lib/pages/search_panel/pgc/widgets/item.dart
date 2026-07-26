@@ -73,6 +73,7 @@ class SearchPgcItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 VideoDetailHero.source(
+                  clipStaticChild: true,
                   flightChild: NetworkImgLayer(
                     clip: false,
                     width: 111,

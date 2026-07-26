@@ -101,6 +101,7 @@ class SearchArchiveGrpc extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     VideoDetailHero.source(
+                      clipStaticChild: true,
                       flightChild: AspectRatio(
                         aspectRatio: Style.aspectRatio,
                         child: LayoutBuilder(

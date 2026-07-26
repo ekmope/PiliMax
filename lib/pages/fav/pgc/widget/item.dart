@@ -78,6 +78,8 @@ class FavPgcItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     VideoDetailHero.source(
+                      borderRadius: const BorderRadius.all(Radius.circular(4)),
+                      clipStaticChild: true,
                       flightChild: AspectRatio(
                         aspectRatio: 3 / 4,
                         child: LayoutBuilder(

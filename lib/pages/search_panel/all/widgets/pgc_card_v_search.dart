@@ -53,6 +53,7 @@ class PgcCardVSearch extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               VideoDetailHero.source(
+                clipStaticChild: true,
                 flightChild: AspectRatio(
                   aspectRatio: 0.75,
                   child: LayoutBuilder(

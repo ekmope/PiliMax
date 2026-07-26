@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show lerpDouble;
 
 import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/common/widgets/video_card/video_detail_hero_curve.dart';
 import 'package:PiliMax/common/widgets/video_card/video_detail_ugc_title_height_cache.dart';
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
@@ -148,18 +149,34 @@ final class VideoDetailEntryOverlayController {
     if (!isActive || _revealRequested || _reversibleExitInProgress) {
       return;
     }
-    final orientationChanged = isVertical != null && isVertical != _isVertical;
-    if (orientationChanged) {
+    final nextIsVertical = isVertical ?? _isVertical;
+    final nextVariant = variant ?? _variant;
+    final nextTitle = title ?? _title;
+    final nextHasSeasonPanel = hasSeasonPanel ?? _hasSeasonPanel;
+    final nextHasPagesPanel = hasPagesPanel ?? _hasPagesPanel;
+    final nextTabCount = tabCount ?? _tabCount;
+    final nextActionCount = actionCount ?? _actionCount;
+    final nextHasEpisodePanel = hasEpisodePanel ?? _hasEpisodePanel;
+    final profileChanged =
+        nextIsVertical != _isVertical ||
+        nextVariant != _variant ||
+        nextTitle != _title ||
+        nextHasSeasonPanel != _hasSeasonPanel ||
+        nextHasPagesPanel != _hasPagesPanel ||
+        nextTabCount != _tabCount ||
+        nextActionCount != _actionCount ||
+        nextHasEpisodePanel != _hasEpisodePanel;
+    if (profileChanged) {
       _presentation?._prepareProfileChange();
     }
-    _isVertical = isVertical ?? _isVertical;
-    _variant = variant ?? _variant;
-    _title = title ?? _title;
-    _hasSeasonPanel = hasSeasonPanel ?? _hasSeasonPanel;
-    _hasPagesPanel = hasPagesPanel ?? _hasPagesPanel;
-    _tabCount = tabCount ?? _tabCount;
-    _actionCount = actionCount ?? _actionCount;
-    _hasEpisodePanel = hasEpisodePanel ?? _hasEpisodePanel;
+    _isVertical = nextIsVertical;
+    _variant = nextVariant;
+    _title = nextTitle;
+    _hasSeasonPanel = nextHasSeasonPanel;
+    _hasPagesPanel = nextHasPagesPanel;
+    _tabCount = nextTabCount;
+    _actionCount = nextActionCount;
+    _hasEpisodePanel = nextHasEpisodePanel;
     _presentation?._profileUpdated();
   }
 
@@ -335,10 +352,8 @@ class _VideoDetailEntryOverlay extends StatefulWidget {
 
 class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     with TickerProviderStateMixin {
-  // Cross-fade the first/last 80 ms of the shared 400 ms route timeline. Keep
-  // the copied title anchored briefly so it cannot ghost against the real one.
+  // Cross-fade the first/last 80 ms of the shared 400 ms route timeline.
   static const _horizontalSourceHandoffFraction = 0.20;
-  static const _horizontalTitleMorphStart = 0.12;
 
   late final AnimationController _revealController = AnimationController(
     vsync: this,
@@ -359,6 +374,9 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
   bool _revealStarted = false;
   bool _resumeProfileAfterReversibleExit = false;
   double? _profileFromPlayerBottom;
+  double? _profileFromSeasonPanelVisibility;
+  double? _profileFromPagesPanelVisibility;
+  double? _profileFromUgcTitleHeight;
   final VideoDetailUgcTitleHeightCache _ugcTitleHeightCache =
       VideoDetailUgcTitleHeightCache();
 
@@ -382,16 +400,32 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     }
     final viewport = MediaQuery.sizeOf(context);
     final target = _targetPlayerBottom(viewport);
-    final from = _profileFromPlayerBottom;
-    _profileFromPlayerBottom = from == null
-        ? target
-        : lerpDouble(
-            from,
-            target,
-            Curves.easeInOutCubic.transform(_profileController.value),
-          );
+    _profileFromPlayerBottom = _profileValue(
+      _profileFromPlayerBottom,
+      target,
+    );
+    _profileFromSeasonPanelVisibility = _profileValue(
+      _profileFromSeasonPanelVisibility,
+      widget.controller._hasSeasonPanel ? 1.0 : 0.0,
+    );
+    _profileFromPagesPanelVisibility = _profileValue(
+      _profileFromPagesPanelVisibility,
+      widget.controller._hasPagesPanel ? 1.0 : 0.0,
+    );
+    _profileFromUgcTitleHeight = _profileValue(
+      _profileFromUgcTitleHeight,
+      _cachedUgcTitleHeight(context, viewport),
+    );
     _profileController.forward(from: 0);
   }
+
+  double _profileValue(double? from, double target) => from == null
+      ? target
+      : lerpDouble(
+          from,
+          target,
+          Curves.easeInOutCubic.transform(_profileController.value),
+        )!;
 
   void _pauseProfileForExit() {
     if (_profileController.isAnimating) {
@@ -430,27 +464,19 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     );
   }
 
-  Rect? _targetTitleRect(Size viewport, double playerBottom) {
+  Rect? _targetTitleRect(
+    Size viewport,
+    double playerBottom, {
+    required double ugcTitleHeight,
+  }) {
     const padding = VideoDetailLayoutMetrics.horizontalPadding;
     final bodyTop = playerBottom + VideoDetailLayoutMetrics.tabBarHeight;
     return switch (widget.controller._variant) {
-      VideoDetailSkeletonVariant.ugc => () {
-        final top =
-            bodyTop +
-            VideoDetailLayoutMetrics.introTopPadding +
-            VideoDetailLayoutMetrics.ownerHeight +
-            VideoDetailLayoutMetrics.sectionGap;
-        final availableHeight = (viewport.height - top)
-            .clamp(0.0, viewport.height)
-            .toDouble();
-        final height = availableHeight.clamp(0.0, 48.0).toDouble();
-        return Rect.fromLTWH(
-          padding,
-          top,
-          (viewport.width - 2 * padding).clamp(0.0, viewport.width).toDouble(),
-          height,
-        );
-      }(),
+      VideoDetailSkeletonVariant.ugc => VideoDetailLayoutMetrics.ugcTitleRect(
+        viewport,
+        bodyTop: bodyTop,
+        titleHeight: ugcTitleHeight,
+      ),
       VideoDetailSkeletonVariant.pgc || VideoDetailSkeletonVariant.pugv => () {
         final contentTop = bodyTop + padding;
         final coverWidth = (viewport.width * 0.32).clamp(0.0, 115.0).toDouble();
@@ -473,10 +499,19 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     return _ugcTitleHeightCache.resolve(
       title: widget.controller._title,
       viewportWidth: viewport.width,
-      style: DefaultTextStyle.of(context).style.copyWith(fontSize: 16),
+      style: _ugcTitleStyle(context),
       textScaler: MediaQuery.textScalerOf(context),
       textDirection: Directionality.of(context),
     );
+  }
+
+  TextStyle _ugcTitleStyle(BuildContext context) {
+    final theme = Pref.darkVideoPage ? ThemeUtils.darkTheme : Theme.of(context);
+    return (theme.textTheme.bodyMedium ?? DefaultTextStyle.of(context).style)
+        .copyWith(
+          fontSize: VideoDetailLayoutMetrics.ugcTitleFontSize,
+          color: theme.colorScheme.onSurface,
+        );
   }
 
   Widget? _buildSourceTitle() {
@@ -509,53 +544,83 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     );
   }
 
-  Widget _buildMorphingTitle({
+  Widget _buildTransitionTitles({
     required Rect morphRect,
     required Size viewport,
     required double playerBottom,
     required double progress,
     required double sourcePresentationOpacity,
     required double revealOpacity,
+    required double ugcTitleHeight,
   }) {
-    final title = widget.controller.transitionToken.title;
+    final sourceSnapshot = widget.controller.transitionToken.title;
     final sourceTitle = _sourceTitle;
-    if (title == null || sourceTitle == null) {
+    final targetText =
+        widget.controller._variant == VideoDetailSkeletonVariant.ugc &&
+            widget.controller._title?.isNotEmpty == true
+        ? widget.controller._title
+        : null;
+    final targetRect = _targetTitleRect(
+      viewport,
+      playerBottom,
+      ugcTitleHeight: ugcTitleHeight,
+    );
+    if ((sourceSnapshot == null || sourceTitle == null) &&
+        (targetText == null || targetRect == null || targetRect.isEmpty)) {
       return const SizedBox.shrink();
     }
-    final targetRect = _targetTitleRect(viewport, playerBottom);
-    final rect = Rect.lerp(title.rect, targetRect ?? title.rect, progress)!;
-    final sourceFontSize = switch (title.style.fontSize) {
-      final size? when size > 0 => size,
-      _ => 14.0,
-    };
-    final fontSize = lerpDouble(sourceFontSize, 16, progress)!;
-    final fontScale = fontSize / sourceFontSize;
-    final handoffBegin = targetRect == null ? 0.20 : 0.52;
-    final handoffEnd = targetRect == null ? 0.56 : 0.90;
+    final handoffBegin = targetText == null ? 0.20 : 0.46;
+    final handoffEnd = targetText == null ? 0.56 : 0.72;
     final handoffProgress =
         ((progress - handoffBegin) / (handoffEnd - handoffBegin))
             .clamp(0.0, 1.0)
             .toDouble();
-    final titleOpacity =
-        sourcePresentationOpacity *
-        revealOpacity *
-        (1 - Curves.easeInOutCubic.transform(handoffProgress));
-    if (titleOpacity <= 0) {
-      return const SizedBox.shrink();
-    }
-    return Positioned(
-      left: rect.left - morphRect.left,
-      top: rect.top - morphRect.top,
-      width: title.rect.width,
-      height: title.rect.height,
-      child: Opacity(
-        opacity: titleOpacity,
-        child: Transform.scale(
-          alignment: Alignment.topLeft,
-          scale: fontScale,
-          filterQuality: FilterQuality.medium,
-          child: sourceTitle,
-        ),
+    final easedHandoff = Curves.easeInOutCubic.transform(handoffProgress);
+    final sourceOpacity =
+        sourcePresentationOpacity * revealOpacity * (1 - easedHandoff);
+    final targetOpacity = revealOpacity * easedHandoff;
+    return Positioned.fill(
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (sourceSnapshot != null &&
+              sourceTitle != null &&
+              sourceOpacity > 0)
+            () {
+              final destination =
+                  targetRect?.topLeft ?? sourceSnapshot.rect.topLeft;
+              final position = Offset.lerp(
+                sourceSnapshot.rect.topLeft,
+                destination,
+                progress,
+              )!;
+              return Positioned(
+                left: position.dx - morphRect.left,
+                top: position.dy - morphRect.top,
+                width: sourceSnapshot.rect.width,
+                height: sourceSnapshot.rect.height,
+                child: Opacity(opacity: sourceOpacity, child: sourceTitle),
+              );
+            }(),
+          if (targetText != null &&
+              targetRect != null &&
+              !targetRect.isEmpty &&
+              targetOpacity > 0)
+            Positioned.fromRect(
+              rect: targetRect.shift(-morphRect.topLeft),
+              child: Opacity(
+                opacity: targetOpacity,
+                child: RepaintBoundary(
+                  child: Text(
+                    targetText,
+                    style: _ugcTitleStyle(context),
+                    maxLines: VideoDetailLayoutMetrics.ugcTitleMaxLines,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -590,20 +655,29 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
       final viewport = MediaQuery.sizeOf(context);
       final targetPlayerRect = _targetPlayerRect(viewport);
       final targetPlayerBottom = targetPlayerRect.bottom;
-      final profileFrom = _profileFromPlayerBottom;
-      final playerBottom = profileFrom == null
-          ? targetPlayerBottom
-          : lerpDouble(
-              profileFrom,
-              targetPlayerBottom,
-              Curves.easeInOutCubic.transform(_profileController.value),
-            )!;
+      final playerBottom = _profileValue(
+        _profileFromPlayerBottom,
+        targetPlayerBottom,
+      );
+      final targetUgcTitleHeight = _cachedUgcTitleHeight(context, viewport);
+      final ugcTitleHeight = _profileValue(
+        _profileFromUgcTitleHeight,
+        targetUgcTitleHeight,
+      );
+      final seasonPanelVisibility = _profileValue(
+        _profileFromSeasonPanelVisibility,
+        widget.controller._hasSeasonPanel ? 1.0 : 0.0,
+      );
+      final pagesPanelVisibility = _profileValue(
+        _profileFromPagesPanelVisibility,
+        widget.controller._hasPagesPanel ? 1.0 : 0.0,
+      );
       final routeProgress = widget.controller._routeProgress;
       final backSnapshot = widget.controller.backProgress.value;
       final isBackMotion = backSnapshot.phase != VideoDetailBackPhase.idle;
       final progress = isBackMotion
           ? backSnapshot.entryProgress
-          : Curves.easeOutCubic.transform(routeProgress);
+          : videoDetailHeroForwardCurve.transform(routeProgress);
       final sourceTimelineProgress = isBackMotion
           ? backSnapshot.sourcePresentationProgress
           : routeProgress;
@@ -669,14 +743,6 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
                   .toDouble(),
             )
           : progress;
-      final titleMorphProgress = isHorizontalSource
-          ? Curves.easeInOutCubic.transform(
-              ((sourceTimelineProgress - _horizontalTitleMorphStart) /
-                      (1 - _horizontalTitleMorphStart))
-                  .clamp(0.0, 1.0)
-                  .toDouble(),
-            )
-          : progress;
       final playerTopSurfaceOpacity =
           progress * _revealFade(revealProgress, 0, 0.34);
       final transitionSurfaceColor = Color.lerp(
@@ -732,6 +798,12 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
                                   widget.controller.showRecommendations,
                               hasSeasonPanel: widget.controller._hasSeasonPanel,
                               hasPagesPanel: widget.controller._hasPagesPanel,
+                              seasonPanelVisibility: seasonPanelVisibility,
+                              pagesPanelVisibility: pagesPanelVisibility,
+                              showUgcTitlePlaceholder:
+                                  widget.controller._variant !=
+                                      VideoDetailSkeletonVariant.ugc ||
+                                  widget.controller._title?.isNotEmpty != true,
                               tabCount: widget.controller._tabCount,
                               actionCount: widget.controller._actionCount,
                               hasEpisodePanel:
@@ -739,18 +811,19 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
                               ugcTitleHeightOverride:
                                   widget.controller._variant ==
                                       VideoDetailSkeletonVariant.ugc
-                                  ? _cachedUgcTitleHeight(context, viewport)
+                                  ? ugcTitleHeight
                                   : null,
                             ),
                           ),
-                          _buildMorphingTitle(
+                          _buildTransitionTitles(
                             morphRect: morphRect,
                             viewport: viewport,
                             playerBottom: playerBottom,
-                            progress: titleMorphProgress,
+                            progress: progress,
                             sourcePresentationOpacity:
                                 sourcePresentationOpacity,
                             revealOpacity: revealOpacity,
+                            ugcTitleHeight: ugcTitleHeight,
                           ),
                         ],
                       ),

@@ -2,10 +2,76 @@ import 'dart:math' as math;
 
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/video_card/video_card_h_layout_metrics.dart';
+import 'package:PiliMax/models_new/video/video_detail/data.dart';
+import 'package:PiliMax/models_new/video/video_detail/episode.dart';
 
 import 'package:flutter/widgets.dart';
 
 enum VideoDetailSkeletonVariant { ugc, pgc, pugv, local }
+
+final class UgcSeasonPanelSelection {
+  const UgcSeasonPanelSelection({
+    required this.seasonCid,
+    required this.sectionIndex,
+    required this.episodes,
+  });
+
+  final int seasonCid;
+  final int sectionIndex;
+  final List<EpisodeItem> episodes;
+}
+
+int? ugcSeasonPanelInitialCid(
+  VideoDetailData videoDetail,
+  int? currentCid,
+) {
+  final pages = videoDetail.pages;
+  if (pages?.isNotEmpty == true) {
+    return videoDetail.listOrder.isDesc ? pages!.last.cid : pages!.first.cid;
+  }
+  return currentCid != null && currentCid != 0 ? currentCid : videoDetail.cid;
+}
+
+UgcSeasonPanelSelection? resolveUgcSeasonPanel(
+  VideoDetailData? videoDetail,
+  int? seasonCid,
+) {
+  if (videoDetail == null || seasonCid == null) {
+    return null;
+  }
+  final sections = videoDetail.ugcSeason?.sections;
+  if (sections == null || sections.isEmpty) {
+    return null;
+  }
+  for (var sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+    final episodes = sections[sectionIndex].episodes;
+    if (episodes?.isNotEmpty != true) {
+      continue;
+    }
+    if (episodes!.any((episode) => episode.cid == seasonCid)) {
+      return UgcSeasonPanelSelection(
+        seasonCid: seasonCid,
+        sectionIndex: sectionIndex,
+        episodes: episodes,
+      );
+    }
+  }
+  return null;
+}
+
+bool hasRenderableUgcSeasonPanel(
+  VideoDetailData? videoDetail,
+  int? currentCid,
+) {
+  if (videoDetail == null) {
+    return false;
+  }
+  return resolveUgcSeasonPanel(
+        videoDetail,
+        ugcSeasonPanelInitialCid(videoDetail, currentCid),
+      ) !=
+      null;
+}
 
 /// Geometry shared by the real portrait detail page and its paint-only shell.
 abstract final class VideoDetailLayoutMetrics {
@@ -26,6 +92,8 @@ abstract final class VideoDetailLayoutMetrics {
   static const double introTopPadding = 10;
   static const double ownerHeight = 35;
   static const double sectionGap = 8;
+  static const double ugcTitleFontSize = 16;
+  static const int ugcTitleMaxLines = 2;
 
   static const double actionHeight = 48;
   static const double actionIconBoxExtent = 28;
@@ -46,6 +114,19 @@ abstract final class VideoDetailLayoutMetrics {
   static const int localActionCount = 0;
 
   static const double seasonPanelHeight = 48;
+  static const double seasonPanelTopPadding = 8;
+  static const double seasonPanelHorizontalInset = 2;
+  static const double seasonPanelRadius = 6;
+  static const double seasonPanelContentHorizontalPadding = 8;
+  static const double seasonPanelContentVerticalPadding = 12;
+  static const double seasonPanelSurfaceHeight =
+      seasonPanelHeight - seasonPanelTopPadding;
+  static const double seasonPanelLeadingGap = 15;
+  static const double seasonPanelStatusIconExtent = 12;
+  static const double seasonPanelStatusGap = 10;
+  static const double seasonPanelCountPlaceholderWidth = 30;
+  static const double seasonPanelArrowGap = 6;
+  static const double seasonPanelArrowExtent = 13;
   static const double pagesPanelHeight = 79;
 
   static const double pgcContentTopPadding = Style.safeSpace;
@@ -92,6 +173,29 @@ abstract final class VideoDetailLayoutMetrics {
     VideoDetailSkeletonVariant.pugv => pugvActionCount,
     VideoDetailSkeletonVariant.local => localActionCount,
   };
+
+  static double ugcTitleTop(double bodyTop) =>
+      bodyTop + introTopPadding + ownerHeight + sectionGap;
+
+  static Rect ugcTitleRect(
+    Size viewport, {
+    required double bodyTop,
+    required double titleHeight,
+  }) {
+    final top = ugcTitleTop(bodyTop);
+    final width = math.max(0.0, viewport.width - 2 * horizontalPadding);
+    final height = titleHeight
+        .clamp(0.0, math.max(0.0, viewport.height - top))
+        .toDouble();
+    return Rect.fromLTWH(horizontalPadding, top, width, height);
+  }
+
+  static Rect seasonPanelSurfaceRect(Rect slot) => Rect.fromLTWH(
+    slot.left + seasonPanelHorizontalInset,
+    slot.top + seasonPanelTopPadding,
+    math.max(0.0, slot.width - 2 * seasonPanelHorizontalInset),
+    seasonPanelSurfaceHeight,
+  );
 
   static double entryPlayerHeight(
     Size viewport, {

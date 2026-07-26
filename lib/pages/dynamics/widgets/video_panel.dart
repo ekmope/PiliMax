@@ -128,6 +128,7 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
     }) => heroTag == null
         ? child
         : VideoDetailHero.source(
+            clipStaticChild: true,
             flightChild: flightChild,
             flightOverlays: flightOverlays,
             child: child,

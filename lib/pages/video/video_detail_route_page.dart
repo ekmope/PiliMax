@@ -36,6 +36,8 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   static const _detailRevealDuration = videoDetailRevealDuration;
   static const _orientationTransitionDuration =
       videoDetailProfileTransitionDuration;
+  static const _playerHandoffFadeDuration = Duration(milliseconds: 100);
+  static const _playerHandoffTimeout = Duration(milliseconds: 800);
 
   late final Map<dynamic, dynamic> _arguments = VideoDetailArgs.normalize(
     Get.arguments,
@@ -49,6 +51,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   VideoDetailSession? _session;
   Timer? _fallbackTimer;
   Timer? _orientationSettleTimer;
+  Timer? _playerHandoffTimer;
   late final VideoDetailPrepareForExit _prepareForExitCallback;
   late final VoidCallback _cancelPreparedExitCallback;
   bool? _pendingEntryOrientation;
@@ -64,8 +67,14 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   bool _revealingDetail = false;
   bool _orientationSettling = false;
   bool _showStaticEntryCover = false;
+  bool _showPlayerHandoffCover = false;
+  bool _playerHandoffCoverOpaque = true;
+  bool _initialPlayerVisualReady = false;
+  bool _playerHandoffTimedOut = false;
+  bool _preparedExitUsesPlayerHandoff = false;
   bool _pendingPresentationReady = false;
   bool _isResolving = false;
+  int _playerHandoffGeneration = 0;
   Object? _error;
   Object? _pendingResolutionError;
   VideoDetailExitMode? _preparedExitMode;
@@ -156,6 +165,61 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     }
   }
 
+  bool get _shouldHoldCoverForPlayer =>
+      _hasVideoTransition && !_needsImmediatePipTakeover;
+
+  void _armPlayerHandoffTimeout() {
+    _playerHandoffTimer?.cancel();
+    final generation = ++_playerHandoffGeneration;
+    _playerHandoffTimer = Timer(_playerHandoffTimeout, () {
+      if (!mounted || generation != _playerHandoffGeneration) {
+        return;
+      }
+      _playerHandoffTimer = null;
+      _playerHandoffTimedOut = true;
+      _tryReleasePlayerHandoffCover();
+    });
+    _tryReleasePlayerHandoffCover();
+  }
+
+  void _cancelPlayerHandoffTimeout() {
+    _playerHandoffGeneration++;
+    _playerHandoffTimer?.cancel();
+    _playerHandoffTimer = null;
+  }
+
+  void _handleInitialPlayerVisualReady(VideoDetailSession session) {
+    if (!mounted ||
+        !identical(session, _session) ||
+        !session.matchesLaunchContent) {
+      return;
+    }
+    _initialPlayerVisualReady = true;
+    _tryReleasePlayerHandoffCover();
+  }
+
+  void _tryReleasePlayerHandoffCover() {
+    if (!mounted ||
+        !_showPlayerHandoffCover ||
+        !_playerHandoffCoverOpaque ||
+        _entryExitInProgress ||
+        (!_initialPlayerVisualReady && !_playerHandoffTimedOut)) {
+      return;
+    }
+    _cancelPlayerHandoffTimeout();
+    setState(() => _playerHandoffCoverOpaque = false);
+  }
+
+  void _handlePlayerHandoffFadeEnd() {
+    if (!mounted ||
+        !_showPlayerHandoffCover ||
+        _playerHandoffCoverOpaque ||
+        _entryExitInProgress) {
+      return;
+    }
+    setState(() => _showPlayerHandoffCover = false);
+  }
+
   VideoDetailExitMode _prepareForExit() {
     if (!mounted) {
       return VideoDetailExitMode.detail;
@@ -167,6 +231,31 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (_error != null) {
       _preparedExitMode = VideoDetailExitMode.errorFallback;
       return VideoDetailExitMode.errorFallback;
+    }
+
+    if (_showPlayerHandoffCover) {
+      _entryOverlay?.abort();
+      _detailRevealController.stop();
+      _orientationSettleTimer?.cancel();
+      _orientationSettleTimer = null;
+      _fallbackTimer?.cancel();
+      _fallbackTimer = null;
+      _preparedExitMode = VideoDetailExitMode.routeComposite;
+      _preparedExitUsesPlayerHandoff = true;
+      setState(() {
+        _showDetail = true;
+        _showEntryLayer = false;
+        _useHeroTarget = false;
+        _showStaticEntryCover = false;
+        _showPlayerHandoffCover = true;
+        _playerHandoffCoverOpaque = true;
+        _revealingDetail = true;
+        _orientationSettling = false;
+        _pendingEntryOrientation = null;
+        _pendingEntryVariant = null;
+        _pendingContentProfile = null;
+      });
+      return VideoDetailExitMode.routeComposite;
     }
 
     if (!_showDetail) {
@@ -217,7 +306,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   void _cancelPreparedExit() {
     final preparedExitMode = _preparedExitMode;
+    final preparedExitUsesPlayerHandoff = _preparedExitUsesPlayerHandoff;
     _preparedExitMode = null;
+    _preparedExitUsesPlayerHandoff = false;
     if (!mounted || preparedExitMode == null) {
       return;
     }
@@ -228,10 +319,19 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         _resumeDeferredEntryHandoff();
         break;
       case VideoDetailExitMode.routeComposite:
-        setState(() {
-          _showStaticEntryCover = false;
-          _useHeroTarget = true;
-        });
+        if (preparedExitUsesPlayerHandoff) {
+          setState(() {
+            _showStaticEntryCover = false;
+            _useHeroTarget = false;
+            _showPlayerHandoffCover = true;
+            _playerHandoffCoverOpaque = true;
+          });
+        } else {
+          setState(() {
+            _showStaticEntryCover = false;
+            _useHeroTarget = true;
+          });
+        }
         _resumeDeferredEntryHandoff();
         break;
       case VideoDetailExitMode.errorFallback:
@@ -247,6 +347,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         }
         break;
     }
+    _tryReleasePlayerHandoffCover();
   }
 
   void _resumeDeferredEntryHandoff() {
@@ -648,11 +749,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         return;
       }
       if (!_showDetail) {
-        setState(() {
-          _showDetail = true;
-          _useHeroTarget = false;
-          _showStaticEntryCover = false;
-        });
+        _mountDetailBehindEntry();
         WidgetsBinding.instance.addPostFrameCallback((_) => _tryMountDetail());
         return;
       }
@@ -677,12 +774,23 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     }
     _fallbackTimer?.cancel();
     _fallbackTimer = null;
+    _mountDetailBehindEntry();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _beginDetailReveal());
+  }
+
+  void _mountDetailBehindEntry() {
+    final holdCoverForPlayer = _shouldHoldCoverForPlayer;
     setState(() {
       _showDetail = true;
       _useHeroTarget = false;
       _showStaticEntryCover = false;
+      _showPlayerHandoffCover = holdCoverForPlayer;
+      _playerHandoffCoverOpaque = true;
+      _playerHandoffTimedOut = false;
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _beginDetailReveal());
+    if (holdCoverForPlayer) {
+      _armPlayerHandoffTimeout();
+    }
   }
 
   void _beginDetailReveal() {
@@ -724,11 +832,13 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   void _showResolutionError(Object error) {
     _entryOverlay?.abort();
+    _cancelPlayerHandoffTimeout();
     setState(() {
       _error = error;
       _showEntryLayer = false;
       _useHeroTarget = false;
       _showStaticEntryCover = false;
+      _showPlayerHandoffCover = false;
     });
   }
 
@@ -779,6 +889,14 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       ],
     );
   }
+
+  Widget _playerHandoffCoverLayer(BuildContext context) => AnimatedOpacity(
+    opacity: _playerHandoffCoverOpaque ? 1 : 0,
+    duration: _entryExitInProgress ? Duration.zero : _playerHandoffFadeDuration,
+    curve: Curves.easeOut,
+    onEnd: _handlePlayerHandoffFadeEnd,
+    child: _entryCoverLayer(context, enableHero: false),
+  );
 
   Widget _entryShell() => VideoDetailHeroShell.revealing(
     key: ValueKey((
@@ -869,6 +987,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   void dispose() {
     _fallbackTimer?.cancel();
     _orientationSettleTimer?.cancel();
+    _cancelPlayerHandoffTimeout();
     _routeAnimation?.removeStatusListener(_onRouteAnimationStatus);
     _detailRevealController
       ..removeStatusListener(_onDetailRevealStatus)
@@ -900,6 +1019,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     final showHeroTarget = _useHeroTarget && _hasVideoTransition;
     final showStaticEntryCover =
         _showStaticEntryCover && _showEntryLayer && !showHeroTarget;
+    final showPlayerHandoffCover = _showPlayerHandoffCover && !showHeroTarget;
     final hideDetail = _hideDetailDuringHeroFlight || _entryReverseInProgress;
     if (!_showDetail) {
       return Scaffold(
@@ -911,9 +1031,16 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           children: [
             if (!_externalEntryOwnsPresentation)
               IgnorePointer(child: _animatedEntryShell()),
-            if (showHeroTarget || showStaticEntryCover)
+            if (showHeroTarget ||
+                showStaticEntryCover ||
+                showPlayerHandoffCover)
               IgnorePointer(
-                child: _entryCoverLayer(context, enableHero: showHeroTarget),
+                child: showPlayerHandoffCover
+                    ? _playerHandoffCoverLayer(context)
+                    : _entryCoverLayer(
+                        context,
+                        enableHero: showHeroTarget,
+                      ),
               ),
           ],
         ),
@@ -927,7 +1054,10 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           ignoring: hideDetail,
           child: Opacity(
             opacity: hideDetail ? 0 : 1,
-            child: VideoDetailPageV(session: _session),
+            child: VideoDetailPageV(
+              session: _session,
+              onInitialVisualReady: _handleInitialPlayerVisualReady,
+            ),
           ),
         ),
         if (_showEntryLayer && !_externalEntryOwnsPresentation)
@@ -939,10 +1069,15 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
               ),
             ),
           ),
-        if (showHeroTarget || showStaticEntryCover)
+        if (showHeroTarget || showStaticEntryCover || showPlayerHandoffCover)
           Positioned.fill(
             child: IgnorePointer(
-              child: _entryCoverLayer(context, enableHero: showHeroTarget),
+              child: showPlayerHandoffCover
+                  ? _playerHandoffCoverLayer(context)
+                  : _entryCoverLayer(
+                      context,
+                      enableHero: showHeroTarget,
+                    ),
             ),
           ),
       ],

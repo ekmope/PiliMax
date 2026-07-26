@@ -144,6 +144,7 @@ class HistoryItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     VideoDetailHero.source(
+                      clipStaticChild: true,
                       flightChild: AspectRatio(
                         aspectRatio: Style.aspectRatio,
                         child: LayoutBuilder(

@@ -160,6 +160,7 @@ class _VideoCardVState extends State<VideoCardV> {
           tag: _heroTag,
           layout: VideoTransitionSourceLayout.verticalCard,
           child: Card(
+            shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
             clipBehavior: Clip.hardEdge,
             child: MouseRegion(
               onEnter: PlatformUtils.isMobile

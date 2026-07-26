@@ -716,6 +716,7 @@ class ChatItem extends StatelessWidget {
         activeHeroTag == null
             ? cover
             : VideoDetailHero.source(
+                clipStaticChild: true,
                 flightChild: flightCover,
                 child: cover,
               ),

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/account_activation_coordinator.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/retry_interceptor.dart';
@@ -90,6 +91,8 @@ class Request {
   static bool _cookieSetupComplete = false;
   static bool _accountManagerInstalled = false;
   static final _enableHttp2 = Pref.enableHttp2;
+  static final AccountActivationCoordinator<Account> _accountActivation =
+      AccountActivationCoordinator<Account>();
   static late final Dio dio;
   static Dio? _http11Dio;
   static Dio get http11Dio =>
@@ -157,51 +160,78 @@ class Request {
     }
   }
 
-  static Future<void> buvidActive(Account account) async {
-    // 这样线程不安全, 但仍按预期进行
-    if (account.activated) return;
-    account.activated = true;
-    try {
-      // final html = await Request().get(Api.dynamicSpmPrefix,
-      //     options: Options(extra: {'account': account}));
-      // final String spmPrefix = _spmPrefixExp.firstMatch(html.data)!.group(1)!;
-      final String randPngEnd = base64.encode([
-        ...Iterable<int>.generate(32, (_) => Utils.random.nextInt(256)),
-        0,
-        0,
-        0,
-        0,
-        73,
-        69,
-        78,
-        68,
-        ...Iterable<int>.generate(4, (_) => Utils.random.nextInt(256)),
-      ]);
-
-      final jsonData = json.encode({
-        '3064': 1,
-        '39c8': '333.1387.fp.risk',
-        '3c43': {
-          'adca': 'Linux',
-          'bfe9': randPngEnd.substring(randPngEnd.length - 50),
-        },
-      });
-
-      await Request().post(
-        Api.activateBuvidApi,
-        data: {'payload': jsonData},
-        options: Options(
-          extra: {'account': account},
-          contentType: Headers.jsonContentType,
+  static Future<void> buvidActive(Account account) =>
+      _accountActivation.activate(
+        key: account,
+        isActivated: () => account.activated,
+        request: () => _activateBuvid(account),
+        setActivated: (value) => account.activated = value,
+        onError: (error, stackTrace) => _reportOperationFailure(
+          'Request.buvidActive',
+          error,
+          stackTrace,
         ),
       );
-    } catch (error, stackTrace) {
-      _reportOperationFailure(
-        'Request.buvidActive',
-        error,
-        stackTrace,
+
+  static Future<void> _activateBuvid(Account account) async {
+    // final html = await Request().get(Api.dynamicSpmPrefix,
+    //     options: Options(extra: {'account': account}));
+    // final String spmPrefix = _spmPrefixExp.firstMatch(html.data)!.group(1)!;
+    final String randPngEnd = base64.encode([
+      ...Iterable<int>.generate(
+        32,
+        (_) => Utils.random.nextInt(256),
+      ),
+      0,
+      0,
+      0,
+      0,
+      73,
+      69,
+      78,
+      68,
+      ...Iterable<int>.generate(
+        4,
+        (_) => Utils.random.nextInt(256),
+      ),
+    ]);
+
+    final jsonData = json.encode({
+      '3064': 1,
+      '39c8': '333.1387.fp.risk',
+      '3c43': {
+        'adca': 'Linux',
+        'bfe9': randPngEnd.substring(randPngEnd.length - 50),
+      },
+    });
+
+    final response = await Request().post(
+      Api.activateBuvidApi,
+      data: {'payload': jsonData},
+      options: Options(
+        extra: {'account': account},
+        contentType: Headers.jsonContentType,
+      ),
+    );
+
+    if (!_isSuccessfulBuvidActivation(response)) {
+      final data = response.data;
+      final code = data is Map ? data['code'] : null;
+      throw StateError(
+        'Buvid activation rejected '
+        '(status=${response.statusCode}, code=$code)',
       );
     }
+  }
+
+  static bool _isSuccessfulBuvidActivation(Response response) {
+    final statusCode = response.statusCode;
+    final data = response.data;
+    return statusCode != null &&
+        statusCode >= 200 &&
+        statusCode < 300 &&
+        data is Map &&
+        data['code'] == 0;
   }
 
   static Dio _cloneHttp11Dio() {

@@ -1,4 +1,4 @@
-import 'package:PiliMax/common/widgets/flutter/vertical_tabs.dart';
+﻿import 'package:PiliMax/common/widgets/flutter/vertical_tabs.dart';
 import 'package:PiliMax/models/common/rank_type.dart';
 import 'package:PiliMax/pages/rank/controller.dart';
 import 'package:PiliMax/pages/rank/zone/view.dart';
@@ -15,6 +15,11 @@ class RankPage extends StatefulWidget {
 class _RankPageState extends State<RankPage>
     with AutomaticKeepAliveClientMixin {
   final RankController _rankController = Get.put(RankController());
+  
+  /// Fixed width for the vertical tab rail to prevent unbounded constraints
+  /// in Row layout. Without this, the ListView inside VerticalTabBar would
+  /// request infinite horizontal space, causing layout failure.
+  static const double _tabRailWidth = 64;
 
   @override
   bool get wantKeepAlive => true;
@@ -25,7 +30,10 @@ class _RankPageState extends State<RankPage>
     final theme = Theme.of(context);
     return Row(
       children: [
-        _buildTab(theme),
+        SizedBox(
+          width: _tabRailWidth,
+          child: _buildTab(theme),
+        ),
         Expanded(
           child: TabBarView(
             physics: const NeverScrollableScrollPhysics(),

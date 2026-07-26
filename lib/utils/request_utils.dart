@@ -582,16 +582,15 @@ abstract final class RequestUtils {
     }
 
     final json = await GeetestWebviewDialog.geetest(gt!, challenge!);
-    if (json is Map) {
-      captchaData
-        ..validate = json['geetest_validate']
-        ..seccode = json['geetest_seccode']
-        ..geetest = GeetestData(
-          challenge: json['geetest_challenge'],
-          gt: gt,
-        );
-      gaiaVgateValidate();
-    }
+    if (json == null) return;
+    captchaData
+      ..validate = json['geetest_validate']
+      ..seccode = json['geetest_seccode']
+      ..geetest = GeetestData(
+        challenge: json['geetest_challenge']!,
+        gt: gt,
+      );
+    gaiaVgateValidate();
   }
 
   static Future<void> showUserRealName(String mid) async {

@@ -17,6 +17,7 @@ import 'package:PiliMax/pages/live/view.dart';
 import 'package:PiliMax/pages/rank/view.dart';
 import 'package:PiliMax/pages/subscription_detail/view.dart';
 import 'package:PiliMax/pages/video/reply_reply/view.dart';
+import 'package:PiliMax/utils/external_uri_parser.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/request_utils.dart';
@@ -40,17 +41,40 @@ abstract final class PiliScheme {
     appLinks = AppLinks();
 
     listener?.cancel();
-    listener = appLinks.uriLinkStream.listen(routePush);
+    listener = appLinks.uriLinkStream.listen(
+      (uri) => unawaited(_handleAppLink(uri)),
+      onError: (Object error, StackTrace stackTrace) {
+        _reportRouteError(error, stackTrace, 'PiliScheme.appLinks');
+      },
+    );
+  }
+
+  static Future<void> _handleAppLink(Uri uri) async {
+    try {
+      await routePush(uri);
+    } catch (error, stackTrace) {
+      _reportRouteError(error, stackTrace, 'PiliScheme.handleAppLink');
+    }
+  }
+
+  static void _reportRouteError(
+    Object error,
+    StackTrace stackTrace,
+    String operation,
+  ) {
+    try {
+      Utils.reportError(error, stackTrace, operation);
+    } catch (_) {
+      // Error reporting must not make a rejected external route throw.
+    }
   }
 
   static int? _videoProgress(Map<String, String> queryParameters) {
     if ((queryParameters['start_progress'] ?? queryParameters['dm_progress'])
         case final p?) {
-      return int.tryParse(p);
+      return ExternalUriParser.nonNegativeInt(p);
     } else if (queryParameters['t'] case final t0?) {
-      if (double.tryParse(t0) case final t1?) {
-        return (t1 * 1000).toInt();
-      }
+      return ExternalUriParser.nonNegativeSecondsToMilliseconds(t0);
     }
     return null;
   }
@@ -62,23 +86,47 @@ abstract final class PiliScheme {
     Map? parameters,
     int? businessId,
     int? oid,
-  }) {
+  }) async {
+    Uri? uri;
     try {
       if (url.startsWith('//')) {
         url = 'https:$url';
       } else if (!_prefixRegex.hasMatch(url)) {
         url = 'https://$url';
       }
-      return routePush(
-        Uri.parse(url),
+      uri = Uri.tryParse(url);
+    } on FormatException {
+      return false;
+    }
+    if (uri == null || uri.scheme.isEmpty) {
+      return false;
+    }
+    if (uri.scheme == 'http' || uri.scheme == 'https') {
+      try {
+        if (uri.host.isEmpty) {
+          return false;
+        }
+      } on FormatException {
+        return false;
+      }
+    }
+
+    try {
+      return await routePush(
+        uri,
         selfHandle: selfHandle,
         off: off,
         parameters: parameters,
         businessId: businessId,
         oid: oid,
       );
-    } catch (_) {
-      return Future.syncValue(false);
+    } on FormatException catch (_) {
+      return false;
+    } on ArgumentError catch (_) {
+      return false;
+    } catch (error, stackTrace) {
+      _reportRouteError(error, stackTrace, 'PiliScheme.routePushFromUrl');
+      return false;
     }
   }
 
@@ -88,7 +136,8 @@ abstract final class PiliScheme {
     required bool off,
     required bool Function() canNavigate,
   }) async {
-    Uri uri;
+    late final Uri uri;
+    late final String normalizedHost;
     try {
       if (url.startsWith('//')) {
         url = 'https:$url';
@@ -96,11 +145,11 @@ abstract final class PiliScheme {
         url = 'https://$url';
       }
       uri = Uri.parse(url);
+      normalizedHost = uri.host.toLowerCase();
     } catch (_) {
       return false;
     }
 
-    final normalizedHost = uri.host.toLowerCase();
     if ((uri.scheme != 'http' && uri.scheme != 'https') ||
         uri.userInfo.isNotEmpty ||
         (normalizedHost != 'bilibili.com' &&
@@ -124,7 +173,7 @@ abstract final class PiliScheme {
       final result = await SearchHttp.ab2cWithDimension(
         aid: ids.av,
         bvid: ids.bv,
-        part: int.tryParse(uri.queryParameters['p'] ?? ''),
+        part: ExternalUriParser.positiveInt(uri.queryParameters['p']),
       );
       final cid = result?.cid;
       if (cid == null || !canNavigate()) {
@@ -220,10 +269,13 @@ abstract final class PiliScheme {
             if (queryParameters['comment_root_id'] != null) {
               // to video reply
               String? oid = uriDigitRegExp.firstMatch(path)?.group(1);
-              int? rpid = int.tryParse(queryParameters['comment_root_id']!);
-              if (oid != null && rpid != null) {
+              final parsedOid = ExternalUriParser.positiveInt(oid);
+              final rpid = ExternalUriParser.positiveInt(
+                queryParameters['comment_root_id'],
+              );
+              if (parsedOid != null && rpid != null) {
                 VideoReplyReplyPanel.toReply(
-                  oid: int.parse(oid),
+                  oid: parsedOid,
                   rootId: rpid,
                   rpIdStr: queryParameters['comment_secondary_id'],
                   type: 1,
@@ -239,18 +291,28 @@ abstract final class PiliScheme {
             String? aid = uriDigitRegExp.firstMatch(path)?.group(1);
             String? bvid = IdUtils.bvRegex.firstMatch(path)?.group(0);
             if (aid != null || bvid != null) {
+              final parsedAid = aid == null
+                  ? null
+                  : ExternalUriParser.positiveInt(aid);
+              if (aid != null && parsedAid == null) {
+                return false;
+              }
               final cid = queryParameters['cid'];
               if (cid != null) {
-                bvid ??= IdUtils.av2bv(int.parse(aid!));
+                final parsedCid = ExternalUriParser.positiveInt(cid);
+                if (parsedCid == null) {
+                  return false;
+                }
+                bvid ??= IdUtils.av2bv(parsedAid!);
                 PageUtils.toVideoPage(
                   bvid: bvid,
-                  cid: int.parse(cid),
+                  cid: parsedCid,
                   progress: _videoProgress(queryParameters),
                   off: off,
                 );
               } else {
                 videoPush(
-                  aid != null ? int.parse(aid) : null,
+                  parsedAid,
                   bvid,
                   off: off,
                   progress: _videoProgress(queryParameters),
@@ -262,8 +324,9 @@ abstract final class PiliScheme {
           case 'live':
             // bilibili://live/12345678?extra_jump_from=1&from=1&is_room_feed=1&h5awaken=random
             String? roomId = uriDigitRegExp.firstMatch(path)?.group(1);
-            if (roomId != null) {
-              PageUtils.toLiveRoom(int.parse(roomId), off: off);
+            final parsedRoomId = ExternalUriParser.positiveInt(roomId);
+            if (parsedRoomId != null) {
+              PageUtils.toLiveRoom(parsedRoomId, off: off);
               return true;
             }
             return false;
@@ -314,28 +377,49 @@ abstract final class PiliScheme {
               // bilibili://comment/msg_fold/11/22222/33333/11111/?enterUri=bilibili://following/detail/44444 (dynId)
               final pathSegments = uri.pathSegments;
               final queryParameters = uri.queryParameters;
-              final type = int.parse(pathSegments[1]); // business_id
-              final oid = int.parse(pathSegments[2]); // subject_id
-              final rootId = int.parse(pathSegments[3]); // root_id // target_id
+              if (pathSegments.length < 4) {
+                return false;
+              }
+              final type = ExternalUriParser.positivePathSegment(
+                pathSegments,
+                1,
+              );
+              final oid = ExternalUriParser.positivePathSegment(
+                pathSegments,
+                2,
+              );
+              final rootId = ExternalUriParser.positivePathSegment(
+                pathSegments,
+                3,
+              );
+              if (type == null || oid == null || rootId == null) {
+                return false;
+              }
               // int subType = int.parse(queryParameters['subType'] ?? '0');
               // int extraIntentId =
               // int.parse(queryParameters['extraIntentId'] ?? '0');
               final enterUri = queryParameters['enterUri'];
+              final parsedEnterUri = enterUri == null
+                  ? null
+                  : Uri.tryParse(enterUri);
+              if (enterUri != null && parsedEnterUri == null) {
+                return false;
+              }
               VideoReplyReplyPanel.toReply(
                 oid: oid,
                 rootId: rootId,
                 rpIdStr:
                     queryParameters['anchor'] ?? pathSegments[3], // source_id
                 type: type,
-                uri: enterUri != null
-                    ? Uri.parse(enterUri)
-                    : const [11, 16, 17].contains(type)
-                    ? Uri(
-                        scheme: 'bilibili',
-                        host: 'following',
-                        path: 'detail/$oid',
-                      )
-                    : null,
+                uri:
+                    parsedEnterUri ??
+                    (const [11, 16, 17].contains(type)
+                        ? Uri(
+                            scheme: 'bilibili',
+                            host: 'following',
+                            path: 'detail/$oid',
+                          )
+                        : null),
               );
               return true;
             }
@@ -365,10 +449,12 @@ abstract final class PiliScheme {
               final commentRootId = queryParameters['comment_root_id'];
               if (commentRootId != null) {
                 String? dynId = uriDigitRegExp.firstMatch(path)?.group(1);
-                int? rpid = int.tryParse(commentRootId);
-                if (dynId != null && rpid != null) {
+                final parsedDynId = ExternalUriParser.positiveInt(dynId);
+                final rpid = ExternalUriParser.positiveInt(commentRootId);
+                final parsedOid = oid ?? parsedDynId;
+                if (parsedOid != null && rpid != null) {
                   VideoReplyReplyPanel.toReply(
-                    oid: oid ?? int.parse(dynId),
+                    oid: parsedOid,
                     rootId: rpid,
                     rpIdStr: queryParameters['comment_secondary_id'],
                     type: businessId ?? 17,
@@ -504,8 +590,14 @@ abstract final class PiliScheme {
         String? aid = IdUtils.avRegexExact.matchAsPrefix(path)?.group(1);
         String? bvid = IdUtils.bvRegexExact.matchAsPrefix(path)?.group(0);
         if (aid != null || bvid != null) {
+          final parsedAid = aid == null
+              ? null
+              : ExternalUriParser.positiveInt(aid);
+          if (aid != null && parsedAid == null) {
+            return false;
+          }
           videoPush(
-            aid != null ? int.parse(aid) : null,
+            parsedAid,
             bvid,
             off: off,
           );
@@ -572,7 +664,7 @@ abstract final class PiliScheme {
       } else if (path.startsWith('/vote')) {
         // t.bilibili.com/vote/h5/index?vote_id={{vote_id}}#/result
         if (queryParameters['vote_id'] case final voteIdStr?) {
-          final voteId = int.tryParse(voteIdStr);
+          final voteId = ExternalUriParser.positiveInt(voteIdStr);
           if (voteId != null) {
             if (Get.context != null) {
               showVoteDialog(Get.context!, voteId);
@@ -585,8 +677,9 @@ abstract final class PiliScheme {
       return false;
     } else if (host.contains(bilibili_live)) {
       String? roomId = uriDigitRegExp.firstMatch(path)?.group(1);
-      if (roomId != null) {
-        PageUtils.toLiveRoom(int.parse(roomId), off: off);
+      final parsedRoomId = ExternalUriParser.positiveInt(roomId);
+      if (parsedRoomId != null) {
+        PageUtils.toLiveRoom(parsedRoomId, off: off);
         return true;
       }
       launchURL();
@@ -627,8 +720,9 @@ abstract final class PiliScheme {
       final sid =
           queryParameters['sid'] ??
           RegExp(r'lists/(\d+)').firstMatch(path)?.group(1);
-      if (sid != null) {
-        SubDetailPage.toSubDetailPage(int.parse(sid));
+      final parsedSid = ExternalUriParser.positiveInt(sid);
+      if (parsedSid != null) {
+        SubDetailPage.toSubDetailPage(parsedSid);
         return true;
       }
 
@@ -756,9 +850,13 @@ abstract final class PiliScheme {
           final rootIdStr = queryParameters['comment_root_id'];
           final part = queryParameters['p'];
           if (rootIdStr != null) {
+            final rootId = ExternalUriParser.positiveInt(rootIdStr);
+            if (rootId == null) {
+              return false;
+            }
             VideoReplyReplyPanel.toReply(
               oid: res.av ?? IdUtils.bv2av(res.bv!),
-              rootId: int.parse(rootIdStr),
+              rootId: rootId,
               rpIdStr: queryParameters['comment_secondary_id'],
               type: 1,
               uri: uri.replace(query: part != null ? 'p=$part' : ''),
@@ -857,11 +955,19 @@ abstract final class PiliScheme {
         final root = queryParameters['root'];
         final pageType = queryParameters['pageType'];
         if (oid != null && root != null && pageType != null) {
+          final parsedOid = ExternalUriParser.positiveInt(oid);
+          final parsedRoot = ExternalUriParser.positiveInt(root);
+          final parsedPageType = ExternalUriParser.positiveInt(pageType);
+          if (parsedOid == null ||
+              parsedRoot == null ||
+              parsedPageType == null) {
+            return false;
+          }
           VideoReplyReplyPanel.toReply(
-            oid: int.parse(oid),
-            rootId: int.parse(root),
+            oid: parsedOid,
+            rootId: parsedRoot,
             rpIdStr: queryParameters['comment_secondary_id'],
-            type: int.parse(pageType),
+            type: parsedPageType,
             uri: Uri(scheme: 'bilibili', host: 'video', path: oid),
           );
           return true;
@@ -897,10 +1003,11 @@ abstract final class PiliScheme {
           r'/au(\d+)',
           caseSensitive: false,
         ).firstMatch(path)?.group(1);
-        if (oid != null) {
+        final parsedOid = ExternalUriParser.positiveInt(oid);
+        if (parsedOid != null) {
           AudioPage.toAudioPage(
             itemType: 3,
-            oid: int.parse(oid),
+            oid: parsedOid,
             from: PlaylistSource.AUDIO_CARD,
           );
           return true;
@@ -978,7 +1085,7 @@ abstract final class PiliScheme {
       final res = await SearchHttp.ab2cWithDimension(
         bvid: bvid,
         aid: aid,
-        part: part != null ? int.tryParse(part) : null,
+        part: ExternalUriParser.positiveInt(part),
       );
       final cid = res?.cid;
       if (showDialog) {

@@ -2,6 +2,7 @@ import 'package:PiliMax/models/common/video/cdn_type.dart';
 import 'package:PiliMax/models/common/video/video_decode_type.dart';
 import 'package:PiliMax/models_new/live/live_room_play_info/codec.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
+import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 
@@ -73,7 +74,7 @@ abstract final class VideoUtils {
       }
 
       if (kDebugMode) {
-        debugPrint('unknown cdn type: $url');
+        debugPrint(LogRedactor.redactText('unknown cdn type: $url'));
       }
     }
 

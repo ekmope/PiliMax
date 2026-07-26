@@ -26,8 +26,10 @@ import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/extension/file_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
+import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -832,7 +834,12 @@ class DownloadService extends GetxService {
         await Request.dio.download(entry.cover, filePath);
       }
       return true;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _reportHandledFailure(
+        'DownloadService.copyCover',
+        error,
+        stackTrace,
+      );
       return false;
     }
   }
@@ -896,13 +903,17 @@ class DownloadService extends GetxService {
           );
         case Error(:final code) when code != 404:
           if (kDebugMode) {
-            debugPrint('download sponsorblock failed: $res');
+            debugPrint(
+              LogRedactor.redactText('download sponsorblock failed: $res'),
+            );
           }
         default:
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('download sponsorblock exception: $e');
+        debugPrint(
+          LogRedactor.redactText('download sponsorblock exception: $e'),
+        );
       }
     }
     return null;
@@ -942,7 +953,9 @@ class DownloadService extends GetxService {
       await playbackMetaFile.writeAsString(jsonEncode(meta.toJson()));
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('write playback meta failed: $e');
+        debugPrint(
+          LogRedactor.redactText('write playback meta failed: $e'),
+        );
       }
     }
   }
@@ -1060,14 +1073,41 @@ class DownloadService extends GetxService {
       }
       await _failTask(task, DownloadStatus.failPlayUrl);
       if (kDebugMode) {
-        debugPrint('get download url error: $e');
+        debugPrint(LogRedactor.redactText('get download url error: $e'));
       }
     }
   }
 
-  Future<void> _updateBiliDownloadEntryJson(BiliDownloadEntryInfo entry) {
+  Future<void> _updateBiliDownloadEntryJson(
+    BiliDownloadEntryInfo entry,
+  ) async {
     final entryJsonFile = File(path.join(entry.entryDirPath, _entryFile));
-    return entryJsonFile.writeAsString(jsonEncode(entry.toJson()));
+    try {
+      await entryJsonFile.writeAsString(jsonEncode(entry.toJson()));
+    } catch (error, stackTrace) {
+      _reportHandledFailure(
+        'DownloadService.persistEntry',
+        error,
+        stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  static void _reportHandledFailure(
+    String operation,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    try {
+      Utils.reportError(
+        StateError('$operation failed (${error.runtimeType})'),
+        stackTrace,
+        operation,
+      );
+    } catch (_) {
+      // Error reporting must not replace the original download failure.
+    }
   }
 
   void _onReceive(_ActiveDownloadTask task, int progress, int total) {
@@ -1076,7 +1116,11 @@ class DownloadService extends GetxService {
     }
     final entry = task.entry;
     if (progress == 0 && total != 0) {
-      unawaited(_updateBiliDownloadEntryJson(entry..totalBytes = total));
+      unawaited(
+        _updateBiliDownloadEntryJson(
+          entry..totalBytes = total,
+        ).catchError((_) {}),
+      );
     }
     entry
       ..downloadedBytes = progress

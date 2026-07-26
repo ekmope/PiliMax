@@ -7,6 +7,7 @@ import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
+import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
@@ -115,7 +116,7 @@ abstract final class Update {
                   onPressed: SmartDialog.dismiss,
                   child: Text(
                     '取消',
-                    style: TextStyle(color: colorScheme.outline), 
+                    style: TextStyle(color: colorScheme.outline),
                   ),
                 ),
                 if (Platform.isWindows) ...[
@@ -141,7 +142,9 @@ abstract final class Update {
         );
       }
     } catch (e) {
-      if (kDebugMode) debugPrint('failed to check update: $e');
+      if (kDebugMode) {
+        debugPrint(LogRedactor.redactText('failed to check update: $e'));
+      }
     }
   }
 
@@ -176,7 +179,9 @@ abstract final class Update {
         download(Platform.operatingSystem);
       }
     } catch (e) {
-      if (kDebugMode) debugPrint('download error: $e');
+      if (kDebugMode) {
+        debugPrint(LogRedactor.redactText('download error: $e'));
+      }
       PageUtils.launchURL('${Constants.sourceCodeUrl}/releases/latest');
     }
   }

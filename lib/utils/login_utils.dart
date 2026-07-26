@@ -96,7 +96,7 @@ abstract final class LoginUtils {
 
   static String generateBuvid() {
     final md5Str = Digest(
-      List.generate(16, (_) => Utils.random.nextInt(256)),
+      List.generate(16, (_) => Utils.secureRandom.nextInt(256)),
     ).toString();
     return 'XY${md5Str[2]}${md5Str[12]}${md5Str[22]}$md5Str';
   }
@@ -117,7 +117,7 @@ abstract final class LoginUtils {
     final time = DateTime.now();
 
     final List<int> bytes = [
-      ...Iterable.generate(16, (_) => Utils.random.nextInt(256)),
+      ...Iterable.generate(16, (_) => Utils.secureRandom.nextInt(256)),
       _dec2bcd(time.year ~/ 100),
       _dec2bcd(time.year % 100),
       _dec2bcd(time.month),
@@ -125,7 +125,7 @@ abstract final class LoginUtils {
       _dec2bcd(time.hour),
       _dec2bcd(time.minute),
       _dec2bcd(time.second),
-      ...Iterable.generate(8, (_) => Utils.random.nextInt(256)),
+      ...Iterable.generate(8, (_) => Utils.secureRandom.nextInt(256)),
     ];
     final check = (bytes.sum & 0xFF).toRadixString(16).padLeft(2, '0');
 

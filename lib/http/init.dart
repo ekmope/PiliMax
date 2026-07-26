@@ -180,7 +180,7 @@ class Request {
     final String randPngEnd = base64.encode([
       ...Iterable<int>.generate(
         32,
-        (_) => Utils.random.nextInt(256),
+        (_) => Utils.secureRandom.nextInt(256),
       ),
       0,
       0,
@@ -192,7 +192,7 @@ class Request {
       68,
       ...Iterable<int>.generate(
         4,
-        (_) => Utils.random.nextInt(256),
+        (_) => Utils.secureRandom.nextInt(256),
       ),
     ]);
 

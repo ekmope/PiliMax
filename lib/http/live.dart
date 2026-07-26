@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/http/api.dart';
@@ -32,6 +31,8 @@ import 'package:PiliMax/models_new/live/live_superchat/data.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/app_sign.dart';
+import 'package:PiliMax/utils/id_utils.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:PiliMax/utils/wbi_sign.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
@@ -242,7 +243,7 @@ abstract final class LiveHttp {
           'env': 'prod',
           'app-key': 'android',
           'User-Agent': Constants.userAgentApp,
-          'x-bili-trace-id': Constants.traceId,
+          'x-bili-trace-id': IdUtils.genTraceId(),
           'x-bili-aurora-eid': '',
           'x-bili-aurora-zone': '',
           'bili-http-engine': 'cronet',
@@ -322,7 +323,7 @@ abstract final class LiveHttp {
           'env': 'prod',
           'app-key': 'android',
           'User-Agent': Constants.userAgentApp,
-          'x-bili-trace-id': Constants.traceId,
+          'x-bili-trace-id': IdUtils.genTraceId(),
           'x-bili-aurora-eid': '',
           'x-bili-aurora-zone': '',
           'bili-http-engine': 'cronet',
@@ -802,29 +803,27 @@ abstract final class LiveHttp {
   }
 
   static String _generateUuidV4() {
-    final random = Random();
-    return '${_hex(random, 8)}-${_hex(random, 4)}-4${_hex(random, 3)}-'
-        '${_hexVariant(random)}${_hex(random, 3)}-${_hex(random, 12)}';
+    return '${_hex(8)}-${_hex(4)}-4${_hex(3)}-'
+        '${_hexVariant()}${_hex(3)}-${_hex(12)}';
   }
 
-  static String _hex(Random random, int length) {
+  static String _hex(int length) {
     return List.generate(
       length,
-      (_) => random.nextInt(16).toRadixString(16),
+      (_) => Utils.secureRandom.nextInt(16).toRadixString(16),
     ).join();
   }
 
-  static String _hexVariant(Random random) {
-    return (8 + random.nextInt(4)).toRadixString(16);
+  static String _hexVariant() {
+    return (8 + Utils.secureRandom.nextInt(4)).toRadixString(16);
   }
 
   static String _randomString(int length) {
     const chars =
         'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final random = Random();
     return List.generate(
       length,
-      (_) => chars[random.nextInt(chars.length)],
+      (_) => chars[Utils.secureRandom.nextInt(chars.length)],
     ).join();
   }
 

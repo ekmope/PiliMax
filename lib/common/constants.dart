@@ -2,7 +2,6 @@ abstract final class Constants {
   static const appName = 'PiliMax';
   static const sourceCodeUrl = 'https://github.com/ekmope/PiliMax';
   static const upstreamCodeUrl = 'https://github.com/bggRGjQaUbCoE/PiliPlus';
-    
 
   // 27eb53fc9058f8c3  移动端 Android
   // 4409e2ce8ffd12b8  HD版
@@ -13,8 +12,6 @@ abstract final class Constants {
   // static const String thirdApi =
   //     'https://www.mcbbs.net/template/mcbbs/image/special_photo_bg.png';
 
-  static const String traceId =
-      '11111111111111111111111111111111:1111111111111111:0:0';
   static const String userAgent =
       'Mozilla/5.0 BiliDroid/2.0.1 (bbcallen@gmail.com) os/android model/android_hd mobi_app/android_hd build/2001100 channel/master innerVer/2001100 osVer/15 network/2';
   static const String statistics =

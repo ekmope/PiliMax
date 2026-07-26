@@ -12,6 +12,7 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 abstract final class Utils {
   static final random = Random();
+  static final secureRandom = Random.secure();
 
   static const channel = MethodChannel(Constants.appName);
 
@@ -29,6 +30,18 @@ abstract final class Utils {
       Iterable.generate(
         length,
         (_) => characters.codeUnitAt(random.nextInt(characters.length)),
+      ),
+    );
+  }
+
+  static String generateSecureRandomString(int length) {
+    const characters = '0123456789abcdefghijklmnopqrstuvwxyz';
+    return String.fromCharCodes(
+      Iterable.generate(
+        length,
+        (_) => characters.codeUnitAt(
+          secureRandom.nextInt(characters.length),
+        ),
       ),
     );
   }

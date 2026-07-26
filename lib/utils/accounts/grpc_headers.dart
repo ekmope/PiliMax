@@ -6,6 +6,7 @@ import 'package:PiliMax/grpc/bilibili/metadata/device.pb.dart';
 import 'package:PiliMax/grpc/bilibili/metadata/fawkes.pb.dart';
 import 'package:PiliMax/grpc/bilibili/metadata/locale.pb.dart';
 import 'package:PiliMax/grpc/bilibili/metadata/network.pb.dart' as network;
+import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/login_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
 
@@ -17,8 +18,7 @@ abstract final class GrpcHeaders {
   static const _device = 'android';
 
   static String get _buvid => LoginUtils.buvid;
-  static String get _traceId => Constants.traceId;
-  static String get _sessionId => Utils.generateRandomString(8);
+  static String get _sessionId => Utils.generateSecureRandomString(8);
 
   static final Map<String, String> _base = {
     'grpc-encoding': 'gzip',
@@ -26,7 +26,7 @@ abstract final class GrpcHeaders {
     'user-agent': Constants.userAgent,
     'x-bili-gaia-vtoken': '',
     'x-bili-aurora-zone': '',
-    'x-bili-trace-id': _traceId,
+    'x-bili-trace-id': IdUtils.genTraceId(),
     'buvid': _buvid,
     'bili-http-engine': 'cronet',
     // 'te': 'trailers', // dio not supported

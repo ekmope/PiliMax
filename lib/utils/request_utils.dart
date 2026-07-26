@@ -33,6 +33,7 @@ import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
+import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
@@ -327,7 +328,9 @@ abstract final class RequestUtils {
           ctr.loadingState.value = Success([e.response]);
         }
       } catch (e) {
-        if (kDebugMode) debugPrint('create dyn $e');
+        if (kDebugMode) {
+          debugPrint(LogRedactor.redactText('create dyn $e'));
+        }
       }
     }
   }
@@ -392,7 +395,9 @@ abstract final class RequestUtils {
           );
         }
       } catch (e) {
-        if (kDebugMode) debugPrint('check dyn error: $e');
+        if (kDebugMode) {
+          debugPrint(LogRedactor.redactText('check dyn error: $e'));
+        }
       }
     }
   }

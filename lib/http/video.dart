@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
@@ -176,7 +176,7 @@ abstract final class VideoHttp {
           'env': 'prod',
           'app-key': 'android_hd',
           'User-Agent': Constants.userAgent,
-          'x-bili-trace-id': Constants.traceId,
+          'x-bili-trace-id': IdUtils.genTraceId(),
           'x-bili-aurora-eid': '',
           'x-bili-aurora-zone': '',
           'bili-http-engine': 'cronet',
@@ -943,7 +943,10 @@ abstract final class VideoHttp {
   }
 
   static final _fillerWords = RegExp(
-    r'(鍡?|鍟?|棰?|鍛?|閭ｄ釜|灏辨槸璇磡鐒跺悗鍛瀵瑰惂|鏄惂|瀵逛笉瀵箌浣犵煡閬撳悧|鍙嶆灏辨槸|鍩烘湰涓妡璇村疄璇?',
+    [
+      r'(鍡?|鍟?|棰?|鍛?|閭ｄ釜|灏辨槸璇磡鐒跺悗鍛瀵瑰惂|鏄惂|瀵逛笉瀵箌浣犵煡閬撳悧|鍙嶆灏辨槸|鍩烘湰涓妡璇村疄璇?',
+      ')',
+    ].join(),
   );
 
   /// Fetch raw subtitle body JSON list from URL.
@@ -1003,38 +1006,38 @@ abstract final class VideoHttp {
         Api.getRankApi,
         {'rid': rid, 'type': 'all'},
       );
-    if (res.data['code'] == 0) {
-      List<HotVideoItemModel> list = <HotVideoItemModel>[];
-      final applyFullFilter = RecommendFilter.applyFilterToRankVideos;
-      for (final i in res.data['data']['list']) {
-        if (!_canAddRank(i)) continue;
-        final isWhitelisted = RecommendFilter.isWhitelisted(
-          safeToInt(i['owner']?['mid']),
-        );
-        if (applyFullFilter) {
-          // 寮€鍏冲紑鍚細鍏ㄥ眬榛戝悕鍗?+ 瀹屾暣杩囨护锛堟椂闀裤€佹挱鏀鹃噺銆佺偣璧炵巼銆佹爣棰樺叧閿瘝銆佹帹鑽愬睆钄界敤鎴凤級
-          if (!isWhitelisted &&
-              GlobalData().blackMids.contains(i['owner']['mid'])) {
-            continue;
+      if (res.data['code'] == 0) {
+        List<HotVideoItemModel> list = <HotVideoItemModel>[];
+        final applyFullFilter = RecommendFilter.applyFilterToRankVideos;
+        for (final i in res.data['data']['list']) {
+          if (!_canAddRank(i)) continue;
+          final isWhitelisted = RecommendFilter.isWhitelisted(
+            safeToInt(i['owner']?['mid']),
+          );
+          if (applyFullFilter) {
+            // 寮€鍏冲紑鍚細鍏ㄥ眬榛戝悕鍗?+ 瀹屾暣杩囨护锛堟椂闀裤€佹挱鏀鹃噺銆佺偣璧炵巼銆佹爣棰樺叧閿瘝銆佹帹鑽愬睆钄界敤鎴凤級
+            if (!isWhitelisted &&
+                GlobalData().blackMids.contains(i['owner']['mid'])) {
+              continue;
+            }
+            final item = HotVideoItemModel.fromJson(i);
+            if (!RecommendFilter.filterAll(item)) list.add(item);
+          } else {
+            list.add(HotVideoItemModel.fromJson(i));
+            // final List? others = i['others'];
+            // if (others != null && others.isNotEmpty) {
+            //   for (final j in others) {
+            //     if (_canAddRank(j)) {
+            //       list.add(HotVideoItemModel.fromJson(j));
+            //     }
+            //   }
+            // }
           }
-          final item = HotVideoItemModel.fromJson(i);
-          if (!RecommendFilter.filterAll(item)) list.add(item);
-        } else {
-          list.add(HotVideoItemModel.fromJson(i));
-          // final List? others = i['others'];
-          // if (others != null && others.isNotEmpty) {
-          //   for (final j in others) {
-          //     if (_canAddRank(j)) {
-          //       list.add(HotVideoItemModel.fromJson(j));
-          //     }
-          //   }
-          // }
         }
+        return Success(list);
+      } else {
+        return Error(res.data['message']);
       }
-      return Success(list);
-    } else {
-      return Error(res.data['message']);
-    }
     } catch (e) {
       return Error(e.toString());
     }
@@ -1053,23 +1056,23 @@ abstract final class VideoHttp {
           'season_type': seasonType,
         },
       );
-    if (res.data['code'] == 0) {
-      final items = res.data['result']?['list'] as List?;
-      if (items == null) return const Success(null);
-      final applyFilter = RecommendFilter.applyFilterToRankVideos;
-      return Success(
-        items
-            .where(
-              (e) =>
-                  !applyFilter ||
-                  !RecommendFilter.filterTitle(e['title'] ?? ''),
-            )
-            .map((e) => PgcRankItemModel.fromJson(e))
-            .toList(),
-      );
-    } else {
-      return Error(res.data['message']);
-    }
+      if (res.data['code'] == 0) {
+        final items = res.data['result']?['list'] as List?;
+        if (items == null) return const Success(null);
+        final applyFilter = RecommendFilter.applyFilterToRankVideos;
+        return Success(
+          items
+              .where(
+                (e) =>
+                    !applyFilter ||
+                    !RecommendFilter.filterTitle(e['title'] ?? ''),
+              )
+              .map((e) => PgcRankItemModel.fromJson(e))
+              .toList(),
+        );
+      } else {
+        return Error(res.data['message']);
+      }
     } catch (e) {
       return Error(e.toString());
     }
@@ -1088,23 +1091,23 @@ abstract final class VideoHttp {
           'season_type': seasonType,
         },
       );
-    if (res.data['code'] == 0) {
-      final items = res.data['data']?['list'] as List?;
-      if (items == null) return const Success(null);
-      final applyFilter = RecommendFilter.applyFilterToRankVideos;
-      return Success(
-        items
-            .where(
-              (e) =>
-                  !applyFilter ||
-                  !RecommendFilter.filterTitle(e['title'] ?? ''),
-            )
-            .map((e) => PgcRankItemModel.fromJson(e))
-            .toList(),
-      );
-    } else {
-      return Error(res.data['message']);
-    }
+      if (res.data['code'] == 0) {
+        final items = res.data['data']?['list'] as List?;
+        if (items == null) return const Success(null);
+        final applyFilter = RecommendFilter.applyFilterToRankVideos;
+        return Success(
+          items
+              .where(
+                (e) =>
+                    !applyFilter ||
+                    !RecommendFilter.filterTitle(e['title'] ?? ''),
+              )
+              .map((e) => PgcRankItemModel.fromJson(e))
+              .toList(),
+        );
+      } else {
+        return Error(res.data['message']);
+      }
     } catch (e) {
       return Error(e.toString());
     }

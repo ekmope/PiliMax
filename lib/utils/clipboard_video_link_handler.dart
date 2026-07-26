@@ -6,6 +6,7 @@ import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/services/crash/crash_reporter.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/id_utils.dart';
+import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/url_utils.dart';
@@ -178,7 +179,11 @@ abstract final class ClipboardVideoLinkHandler {
       }
     } catch (error, stackTrace) {
       if (kDebugMode) {
-        debugPrint('check clipboard video link failed: $error');
+        debugPrint(
+          LogRedactor.redactText(
+            'check clipboard video link failed: $error',
+          ),
+        );
         debugPrintStack(stackTrace: stackTrace);
       }
     }

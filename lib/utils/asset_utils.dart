@@ -1,6 +1,7 @@
 import 'dart:async' show FutureOr;
 import 'dart:io' show Platform, Directory, File;
 
+import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path/path.dart' as path;
 
@@ -63,7 +64,17 @@ abstract final class AssetUtils {
       try {
         final data = await rootBundle.load('$src/$file');
         await targetFile.writeAsBytes(data.buffer.asUint8List());
-      } catch (_) {}
+      } catch (error, stackTrace) {
+        try {
+          Utils.reportError(
+            StateError('Asset copy failed (${error.runtimeType})'),
+            stackTrace,
+            'AssetUtils.getOrCopy',
+          );
+        } catch (_) {
+          // Reporting must not turn an optional asset fallback into a failure.
+        }
+      }
     }
     return dst;
   }

@@ -9,6 +9,7 @@ import 'package:PiliMax/models_new/login_devices/data.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/app_sign.dart';
+import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/login_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:crypto/crypto.dart';
@@ -18,12 +19,12 @@ import 'package:encrypt/encrypt.dart';
 abstract final class LoginHttp {
   static final String deviceId = LoginUtils.genDeviceId();
   static String get buvid => LoginUtils.buvid;
-  static final Map<String, String> headers = {
+  static Map<String, String> get headers => {
     'buvid': buvid,
     'env': 'prod',
     'app-key': 'android_hd',
     'user-agent': Constants.userAgent,
-    'x-bili-trace-id': Constants.traceId,
+    'x-bili-trace-id': IdUtils.genTraceId(),
     'x-bili-aurora-eid': '',
     'x-bili-aurora-zone': '',
     'bili-http-engine': 'cronet',
@@ -219,7 +220,7 @@ abstract final class LoginHttp {
       'dt': Uri.encodeComponent(
         Encrypter(
           RSA(publicKey: publicKey),
-        ).encrypt(Utils.generateRandomString(16)).base64,
+        ).encrypt(Utils.generateSecureRandomString(16)).base64,
       ),
       'from_pv': 'main.homepage.avatar-nologin.all.click',
       'from_url': Uri.encodeComponent('bilibili://pegasus/promo'),
@@ -291,7 +292,7 @@ abstract final class LoginHttp {
       'dt': Uri.encodeComponent(
         Encrypter(
           RSA(publicKey: publicKey),
-        ).encrypt(Utils.generateRandomString(16)).base64,
+        ).encrypt(Utils.generateSecureRandomString(16)).base64,
       ),
       'from_pv': 'main.my-information.my-login.0.click',
       'from_url': Uri.encodeComponent('bilibili://user_center/mine'),

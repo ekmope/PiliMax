@@ -376,7 +376,19 @@ abstract final class GStorage {
             await localCache.delete(entry.key);
           }
         }
-      } catch (_) {}
+      } catch (rollbackError, rollbackStackTrace) {
+        try {
+          Utils.reportError(
+            StateError(
+              'Settings rollback failed (${rollbackError.runtimeType})',
+            ),
+            rollbackStackTrace,
+            'GStorage.importAllSettings.rollback',
+          );
+        } catch (_) {
+          // Preserve the import error even if reporting also fails.
+        }
+      }
       Error.throwWithStackTrace(error, stackTrace);
     }
   }

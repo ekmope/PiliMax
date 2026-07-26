@@ -270,7 +270,7 @@ abstract final class DynamicsHttp {
           'pics': ?pics,
           "attach_card": attachCard,
           "upload_id":
-              "${rid != null ? 0 : mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${Utils.random.nextInt(9000) + 1000}",
+              "${rid != null ? 0 : mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${Utils.secureRandom.nextInt(9000) + 1000}",
           "meta": {
             "app_meta": {"from": "create.dynamic.web", "mobi_app": "web"},
           },
@@ -800,7 +800,7 @@ abstract final class DynamicsHttp {
     Map? attachCard,
   }) async {
     final uploadId =
-        "${Accounts.main.mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${Utils.random.nextInt(9000) + 1000}";
+        "${Accounts.main.mid}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}_${Utils.secureRandom.nextInt(9000) + 1000}";
     final res = await Request().post(
       Api.editDyn,
       queryParameters: await WbiSign.makSign({

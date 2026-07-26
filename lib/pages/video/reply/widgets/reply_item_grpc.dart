@@ -40,6 +40,7 @@ import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
+import 'package:PiliMax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -1314,7 +1315,7 @@ class ReplyItemGrpc extends StatelessWidget {
                   fontWeight: .bold,
                 ),
               ),
-              onConfirm: () {
+              onConfirm: () async {
                 final currentStored = Pref.banWordForReply;
                 // 检查是否已存在（按行分割检查）
                 final existingKeywords = currentStored.isEmpty
@@ -1327,10 +1328,19 @@ class ReplyItemGrpc extends StatelessWidget {
                 final newStored = currentStored.isEmpty
                     ? escapedText
                     : '$currentStored\n$escapedText';
-                GStorage.setting.put(SettingBoxKey.banWordForReply, newStored);
-                final newPattern = Pref.parseBanWordToRegex(newStored);
-                ReplyGrpc.replyRegExp = RegExp(newPattern, caseSensitive: true);
-                ReplyGrpc.enableFilter = true;
+                final CompiledFilterPattern compiled;
+                try {
+                  compiled = FilterPatternCompiler.compileStored(newStored);
+                } on FilterPatternException catch (error) {
+                  SmartDialog.showToast(error.message);
+                  return;
+                }
+                await GStorage.setting.put(
+                  SettingBoxKey.banWordForReply,
+                  compiled.storedValue,
+                );
+                ReplyGrpc.replyRegExp = compiled.regExp;
+                ReplyGrpc.enableFilter = compiled.isEnabled;
                 SmartDialog.showToast('已保存');
               },
             );

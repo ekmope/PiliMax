@@ -7,11 +7,13 @@ import 'package:PiliMax/models/model_avatar.dart';
 import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models_new/live/live_feed_index/watched_show.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
+import 'package:PiliMax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/parse_bool.dart';
 import 'package:PiliMax/utils/parse_int.dart';
 import 'package:PiliMax/utils/parse_string.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/utils.dart';
 
 class DynamicsDataModel {
   bool? hasMore;
@@ -40,11 +42,16 @@ class DynamicsDataModel {
     return title ?? '';
   }
 
-  static RegExp banWordForDyn = RegExp(
-    Pref.parseBanWordToRegex(Pref.banWordForDyn),
-    caseSensitive: false,
+  static final _initialFilter = FilterPatternCompiler.compileStoredSafely(
+    Pref.banWordForDyn,
+    onError: (error, stackTrace) => Utils.reportError(
+      error,
+      stackTrace,
+      'DynamicsDataModel.invalidStoredPattern',
+    ),
   );
-  static bool enableFilter = banWordForDyn.pattern.isNotEmpty;
+  static RegExp banWordForDyn = _initialFilter.regExp;
+  static bool enableFilter = _initialFilter.isEnabled;
 
   static bool antiGoodsDyn = Pref.antiGoodsDyn;
   static bool removeBlockedDyn = Pref.removeBlockedDyn;

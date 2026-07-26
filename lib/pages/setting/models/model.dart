@@ -4,6 +4,7 @@ import 'package:PiliMax/pages/setting/widgets/popup_item.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/switch_item.dart';
 import 'package:PiliMax/pages/setting/widgets/list_editor_dialog.dart';
+import 'package:PiliMax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:flutter/material.dart' hide PopupMenuItemSelected;
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
@@ -241,67 +242,19 @@ SettingsModel getListBanWordModel({
   required String key,
   required ValueChanged<RegExp> onChanged,
 }) {
-  String banWord = GStorage.setting.get(key, defaultValue: '');
-
-  // Helper function to parse stored data with backward compatibility
-  List<String> parseItems(String data) {
-    if (data.isEmpty) return [];
-
-    // Check if it's the old pipe-separated format (no newlines)
-    // If it contains no newlines but has pipes, it's likely old format
-    if (!data.contains('\n') && data.contains('|')) {
-      // Old format: pipe-separated
-      final parts = data
-          .split('|')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
-      // Heuristic: check for complex regex
-      if (parts.length > 1) {
-        final hasComplexRegex = parts.any(
-          (p) =>
-              p.contains('(') ||
-              p.contains('[') ||
-              p.contains('{') ||
-              p.contains('\\') ||
-              p.contains('^') ||
-              p.contains('\$'),
-        );
-
-        if (!hasComplexRegex) {
-          // Old format with simple keywords - migrate
-          return parts;
-        }
-      }
-
-      // Might be a single complex regex pattern - keep as single item
-      return [data];
-    }
-
-    // New format: newline-separated
-    return data
-        .split('\n')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-  }
-
-  // Helper function to join items using newline
-  String joinItems(List<String> items) {
-    return items.join('\n');
-  }
+  final stored = GStorage.setting.get(key, defaultValue: '');
+  String banWord = stored is String ? stored : '';
 
   return NormalModel(
     leading: const Icon(Icons.filter_alt_outlined),
     title: title,
     getSubtitle: () {
       if (banWord.isEmpty) return "点击添加";
-      final items = parseItems(banWord);
+      final items = FilterPatternCompiler.parseStoredRules(banWord);
       return items.isEmpty ? "点击添加" : '${items.length} 个关键词';
     },
     onTap: (context, setState) async {
-      final items = parseItems(banWord);
+      final items = FilterPatternCompiler.parseStoredRules(banWord);
 
       final result = await showDialog<List<String>>(
         context: context,
@@ -311,28 +264,26 @@ SettingsModel getListBanWordModel({
             initialItems: items,
             hintText: '输入关键词或正则表达式',
             itemLabel: '关键词',
+            validator: FilterPatternCompiler.validateRule,
           );
         },
       );
 
       if (result != null) {
-        banWord = joinItems(result);
-        setState();
-        // Build regex by joining all patterns with alternation
-        final regexPattern = result.isEmpty
-            ? ''
-            : result
-                  .map((item) {
-                    // If the item is already a complex pattern, wrap in non-capturing group
-                    if (item.contains('|') && !item.startsWith('(')) {
-                      return '($item)';
-                    }
-                    return item;
-                  })
-                  .join('|');
-        onChanged(RegExp(regexPattern, caseSensitive: false));
+        final CompiledFilterPattern compiled;
+        try {
+          compiled = FilterPatternCompiler.compileRules(result);
+        } on FilterPatternException catch (error) {
+          SmartDialog.showToast(error.message);
+          return;
+        }
+        await GStorage.setting.put(key, compiled.storedValue);
+        banWord = compiled.storedValue;
+        onChanged(compiled.regExp);
+        if (context.mounted) {
+          setState();
+        }
         SmartDialog.showToast('已保存');
-        GStorage.setting.put(key, banWord);
       }
     },
   );

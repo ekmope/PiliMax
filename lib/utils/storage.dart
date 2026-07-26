@@ -10,6 +10,7 @@ import 'package:PiliMax/utils/android/android_mmkv_box.dart';
 import 'package:PiliMax/utils/android/android_mmkv_recovery.dart';
 import 'package:PiliMax/utils/android/android_mmkv_storage_codec.dart';
 import 'package:PiliMax/utils/cache_policy.dart';
+import 'package:PiliMax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/accounts/account_adapter.dart';
@@ -319,6 +320,16 @@ abstract final class GStorage {
       importedSetting,
       periodKey: SettingBoxKey.autoClearCachePeriod,
     );
+    try {
+      FilterPatternCompiler.validateStoredSettings(settingValues, const [
+        SettingBoxKey.banWordForRecommend,
+        SettingBoxKey.banWordForReply,
+        SettingBoxKey.banWordForZone,
+        SettingBoxKey.banWordForDyn,
+      ]);
+    } on FilterPatternException catch (error) {
+      throw FormatException(error.message);
+    }
     final videoValues = Map<dynamic, dynamic>.from(importedVideo);
 
     final localCacheValues = <String, dynamic>{};

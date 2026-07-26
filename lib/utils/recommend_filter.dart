@@ -1,6 +1,8 @@
 import 'package:PiliMax/models/model_video.dart';
+import 'package:PiliMax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/utils.dart';
 
 abstract final class RecommendFilter {
   static int minDurationForRcmd = Pref.minDurationForRcmd;
@@ -12,11 +14,16 @@ abstract final class RecommendFilter {
   static bool applyFilterToRankVideos = Pref.applyFilterToRankVideos;
   static bool applyFilterToSearch = Pref.applyFilterToSearch;
 
-  static RegExp rcmdRegExp = RegExp(
-    Pref.parseBanWordToRegex(Pref.banWordForRecommend),
-    caseSensitive: false,
+  static final _initialFilter = FilterPatternCompiler.compileStoredSafely(
+    Pref.banWordForRecommend,
+    onError: (error, stackTrace) => Utils.reportError(
+      error,
+      stackTrace,
+      'RecommendFilter.invalidStoredPattern',
+    ),
   );
-  static bool enableFilter = rcmdRegExp.pattern.isNotEmpty;
+  static RegExp rcmdRegExp = _initialFilter.regExp;
+  static bool enableFilter = _initialFilter.isEnabled;
   static Map<int, String> recommendBlockedMids = Pref.recommendBlockedMids;
 
   static bool isWhitelisted(int? mid) {

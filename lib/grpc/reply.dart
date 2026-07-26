@@ -4,17 +4,24 @@ import 'package:PiliMax/grpc/bilibili/pagination.pb.dart';
 import 'package:PiliMax/grpc/grpc_req.dart';
 import 'package:PiliMax/grpc/url.dart';
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/user_whitelist.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:fixnum/fixnum.dart';
 
 abstract final class ReplyGrpc {
   static bool antiGoodsReply = Pref.antiGoodsReply;
-  static RegExp replyRegExp = RegExp(
-    Pref.parseBanWordToRegex(Pref.banWordForReply),
-    caseSensitive: false,
+  static final _initialFilter = FilterPatternCompiler.compileStoredSafely(
+    Pref.banWordForReply,
+    onError: (error, stackTrace) => Utils.reportError(
+      error,
+      stackTrace,
+      'ReplyGrpc.invalidStoredPattern',
+    ),
   );
-  static bool enableFilter = replyRegExp.pattern.isNotEmpty;
+  static RegExp replyRegExp = _initialFilter.regExp;
+  static bool enableFilter = _initialFilter.isEnabled;
   static Map<int, String> replyBlockedMids = Pref.replyBlockedMids;
   static int replyMinLevel = Pref.replyMinLevel;
   static bool keepUpOwnerReply = Pref.keepUpOwnerReply;

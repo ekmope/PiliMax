@@ -6,6 +6,7 @@ import 'package:PiliMax/common/widgets/image_grid/image_grid_view.dart';
 import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/widgets/rich_node_panel.dart';
+import 'package:PiliMax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
@@ -149,7 +150,7 @@ Widget _contextMenuBuilder(
                 fontWeight: .bold,
               ),
             ),
-            onConfirm: () {
+            onConfirm: () async {
               final currentStored = Pref.banWordForDyn;
               final existingKeywords = currentStored.isEmpty
                   ? <String>[]
@@ -161,11 +162,19 @@ Widget _contextMenuBuilder(
               final newStored = currentStored.isEmpty
                   ? escapedText
                   : '$currentStored\n$escapedText';
-              GStorage.setting.put(SettingBoxKey.banWordForDyn, newStored);
-              final newPattern = Pref.parseBanWordToRegex(newStored);
-              DynamicsDataModel.banWordForDyn =
-                  RegExp(newPattern, caseSensitive: true);
-              DynamicsDataModel.enableFilter = true;
+              final CompiledFilterPattern compiled;
+              try {
+                compiled = FilterPatternCompiler.compileStored(newStored);
+              } on FilterPatternException catch (error) {
+                SmartDialog.showToast(error.message);
+                return;
+              }
+              await GStorage.setting.put(
+                SettingBoxKey.banWordForDyn,
+                compiled.storedValue,
+              );
+              DynamicsDataModel.banWordForDyn = compiled.regExp;
+              DynamicsDataModel.enableFilter = compiled.isEnabled;
               SmartDialog.showToast('已保存');
             },
           );

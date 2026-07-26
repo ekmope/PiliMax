@@ -32,6 +32,7 @@ import 'package:PiliMax/models_new/video/video_shot/data.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/app_sign.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
+import 'package:PiliMax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/parse_int.dart';
@@ -48,11 +49,16 @@ import 'package:protobuf/protobuf.dart';
 
 /// view灞傛牴鎹?status 鍒ゆ柇娓叉煋閫昏緫
 abstract final class VideoHttp {
-  static RegExp zoneRegExp = RegExp(
-    Pref.parseBanWordToRegex(Pref.banWordForZone),
-    caseSensitive: false,
+  static final _initialZoneFilter = FilterPatternCompiler.compileStoredSafely(
+    Pref.banWordForZone,
+    onError: (error, stackTrace) => Utils.reportError(
+      error,
+      stackTrace,
+      'VideoHttp.invalidStoredZonePattern',
+    ),
   );
-  static bool enableFilter = zoneRegExp.pattern.isNotEmpty;
+  static RegExp zoneRegExp = _initialZoneFilter.regExp;
+  static bool enableFilter = _initialZoneFilter.isEnabled;
   static Future<Response> _getWbiFeed(
     String url,
     Map<String, Object> queryParameters,

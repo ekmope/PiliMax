@@ -8,7 +8,6 @@ import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart' show SourceModel;
-import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/widgets/vote.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -64,6 +63,21 @@ TextSpan? richNode(
         switch (i.type) {
           case 'RICH_TEXT_NODE_TYPE_TEXT':
             spanChildren.add(TextSpan(text: i.origText));
+            break;
+          // 表情
+          case 'RICH_TEXT_NODE_TYPE_EMOJI' when (i.emoji != null):
+            final size = i.emoji!.size * 20.0;
+            spanChildren.add(
+              EmoteSpan(
+                rawText: i.origText,
+                child: NetworkImgLayer(
+                  src: i.emoji!.url,
+                  type: .emote,
+                  width: size,
+                  height: size,
+                ),
+              ),
+            );
             break;
           // @用户
           case 'RICH_TEXT_NODE_TYPE_AT':
@@ -148,21 +162,6 @@ TextSpan? richNode(
                 ),
               );
             break;
-          // 表情
-          case 'RICH_TEXT_NODE_TYPE_EMOJI' when (i.emoji != null):
-            final size = i.emoji!.size * 20.0;
-            spanChildren.add(
-              EmoteSpan(
-                rawText: i.origText,
-                child: NetworkImgLayer(
-                  src: i.emoji!.url,
-                  type: ImageType.emote,
-                  width: size,
-                  height: size,
-                ),
-              ),
-            );
-            break;
           // 抽奖
           case 'RICH_TEXT_NODE_TYPE_LOTTERY':
             spanChildren
@@ -191,7 +190,6 @@ TextSpan? richNode(
                 ),
               );
             break;
-
           case 'RICH_TEXT_NODE_TYPE_GOODS':
             spanChildren
               ..add(

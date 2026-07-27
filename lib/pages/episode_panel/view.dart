@@ -270,7 +270,7 @@ class _EpisodePanelState extends State<EpisodePanel>
 
   double _calcItemHeight(ugc.BaseEpisodeItem episode) {
     if (episode is ugc.EpisodeItem && episode.pages!.length > 1) {
-      return 157; // 110 + 2 + 10 + 35
+      return 167; // 110 + 2 + 10 + 45
     }
     return 112;
   }
@@ -320,7 +320,7 @@ class _EpisodePanelState extends State<EpisodePanel>
                                 vertical: 5,
                               ), // 10
                               child: PagesPanel(
-                                // 35
+                                // 45
                                 list: isCurrTab && isCurrItem
                                     ? null
                                     : episode.pages,
@@ -442,6 +442,7 @@ class _EpisodePanelState extends State<EpisodePanel>
           type: .transparency,
           child: InkWell(
             onTap: () {
+              if (isCurrentIndex) return;
               if (episode.badge == "会员" &&
                   Accounts.mainEqVideo &&
                   vipStatus != 1) {

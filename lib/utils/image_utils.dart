@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:async' show FutureOr;
 import 'dart:io' show File, Platform;
 import 'dart:math' as math;
 import 'dart:typed_data' show Uint8List;
@@ -58,7 +58,8 @@ abstract final class ImageUtils {
         url.http2https,
       ))?.file;
       File? tempFile;
-      final filePath = file?.path ??
+      final filePath =
+          file?.path ??
           () {
             final name = Utils.getFileName(url);
             final path = '$tmpDirPath/$name';

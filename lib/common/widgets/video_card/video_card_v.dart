@@ -306,9 +306,9 @@ class _VideoCardVState extends State<VideoCardV> {
     final theme = Theme.of(context);
     return Expanded(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(6, 5, 6, 5),
+        padding: const .fromLTRB(6, 5, 6, 5),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: .start,
           children: [
             Expanded(
               child: VideoDetailTransitionTitle(
@@ -324,7 +324,7 @@ class _VideoCardVState extends State<VideoCardV> {
                 ),
               ),
             ),
-            videoStat(context, theme),
+            videoStat(theme),
             Row(
               spacing: 2,
               children: [
@@ -363,7 +363,7 @@ class _VideoCardVState extends State<VideoCardV> {
                   child: Text(
                     videoItem.owner.name.toString(),
                     maxLines: 1,
-                    overflow: TextOverflow.clip,
+                    overflow: .clip,
                     semanticsLabel: 'UP：${videoItem.owner.name}',
                     style: TextStyle(
                       height: 1.5,
@@ -381,7 +381,7 @@ class _VideoCardVState extends State<VideoCardV> {
     );
   }
 
-  Widget videoStat(BuildContext context, ThemeData theme) {
+  Widget videoStat(ThemeData theme) {
     return Row(
       children: [
         StatWidget(type: StatType.play, value: videoItem.stat.view),
@@ -407,23 +407,6 @@ class _VideoCardVState extends State<VideoCardV> {
           ),
           const SizedBox(width: 2),
         ],
-        // deprecated
-        //  else if (videoItem is RcmdVideoItemAppModel &&
-        //     videoItem.desc != null &&
-        //     videoItem.desc!.contains(' · ')) ...[
-        //   const Spacer(),
-        //   Text.rich(
-        //     maxLines: 1,
-        //     TextSpan(
-        //         style: TextStyle(
-        //           fontSize: theme.textTheme.labelSmall!.fontSize,
-        //           color: theme.colorScheme.outline.withValues(alpha: 0.8),
-        //         ),
-        //         text: Utils.shortenChineseDateString(
-        //             videoItem.desc!.split(' · ').last)),
-        //   ),
-        //   const SizedBox(width: 2),
-        // ]
       ],
     );
   }

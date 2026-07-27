@@ -1,7 +1,6 @@
 import 'dart:io' show Platform;
 
 import 'package:PiliMax/models/common/account_type.dart';
-import 'package:PiliMax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/api_type.dart';
@@ -36,7 +35,11 @@ List<SettingsModel> get privacySettings => [
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('账号模式详情'),
-          content: SingleChildScrollView(child: _getAccountDetail(context)),
+          content: SelectionArea(
+            child: SingleChildScrollView(
+              child: _getAccountDetail(context),
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: Get.back,
@@ -61,12 +64,12 @@ Widget _getAccountDetail(BuildContext context) {
 
     slivers
       ..add(Center(child: Text(i.title, style: theme.titleMedium)))
-      ..add(SelectionText(url.join('\n')));
+      ..add(Text(url.join('\n')));
   }
   return Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.start,
     spacing: 8,
+    mainAxisSize: .min,
+    crossAxisAlignment: .start,
     children: slivers,
   );
 }

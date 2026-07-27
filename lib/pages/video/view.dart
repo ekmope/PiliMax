@@ -48,6 +48,7 @@ import 'package:PiliMax/pages/video/reply/controller.dart';
 import 'package:PiliMax/pages/video/reply/view.dart';
 import 'package:PiliMax/pages/video/video_detail_args.dart';
 import 'package:PiliMax/pages/video/video_detail_exit_snapshot.dart';
+import 'package:PiliMax/pages/video/video_detail_fullscreen_exit_settle.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/pages/video/view_point/view.dart';
@@ -153,7 +154,17 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   late final VideoDetailExitVisualProvider _exitVisualProvider;
   final List<Worker> _predictiveBackWorkers = <Worker>[];
   final Set<TabController> _pendingTabControllerDisposals = <TabController>{};
+  static const Duration _fullScreenExitSettleTimeout = Duration(seconds: 2);
+  final VideoDetailFullScreenExitSettleTracker _fullScreenExitSettleTracker =
+      VideoDetailFullScreenExitSettleTracker();
   bool _layoutReadyForRoutePop = false;
+  bool _fullScreenExitSettling = false;
+  bool _fullScreenExitAwaitingStateChange = false;
+  int? _fullScreenExitSettleCheckScheduledGeneration;
+  bool _pendingPopAfterFullScreenExit = false;
+  bool? _lastObservedFullScreen;
+  int _fullScreenExitSettleGeneration = 0;
+  Timer? _fullScreenExitSettleTimer;
   Animation<double>? _initialRouteAnimation;
   bool _initialRouteAnimationAttachScheduled = false;
   bool _initialHeroTransitionCompleted = false;
@@ -215,7 +226,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   bool get isFullScreen =>
       videoDetailController.plPlayerController.isFullScreen.value;
 
-  bool get _allowVideoRoutePop {
+  bool get _canPopVideoRouteWithoutFullScreenSettle {
     if (!_layoutReadyForRoutePop) {
       return true;
     }
@@ -226,6 +237,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         !controller.isDesktopPip &&
         (videoDetailController.horizontalScreen || isPortrait);
   }
+
+  bool get _allowVideoRoutePop =>
+      !_fullScreenExitSettling && _canPopVideoRouteWithoutFullScreenSettle;
 
   void _syncAndroidPredictiveBack() {
     final canPop = _allowVideoRoutePop;
@@ -241,6 +255,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
     _disposeAndroidPredictiveBackWorkers();
     _predictiveBackController = controller;
+    _lastObservedFullScreen = controller.isFullScreen.value;
     _predictiveBackWorkers
       ..add(
         ever<bool>(
@@ -250,8 +265,20 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       )
       ..add(
         ever<bool>(
+          controller.isEnteringFullScreen,
+          _handleFullScreenEntryProcessingChanged,
+        ),
+      )
+      ..add(
+        ever<bool>(
+          controller.isExitingFullScreen,
+          _handleFullScreenExitProcessingChanged,
+        ),
+      )
+      ..add(
+        ever<bool>(
           controller.isFullScreen,
-          (_) => _syncAndroidPredictiveBack(),
+          _handleFullScreenChanged,
         ),
       )
       ..add(
@@ -269,6 +296,148 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
     _predictiveBackWorkers.clear();
     _predictiveBackController = null;
+    _lastObservedFullScreen = null;
+  }
+
+  void _handleFullScreenEntryProcessingChanged(bool isEntering) {
+    if (isEntering) {
+      _cancelFullScreenExitSettle(clearPendingPop: true);
+    }
+  }
+
+  void _handleFullScreenExitProcessingChanged(bool isExiting) {
+    if (!isExiting ||
+        _predictiveBackController?.isFullScreen.value != true ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    _beginFullScreenExitSettle(awaitStateChange: true);
+  }
+
+  void _handleFullScreenChanged(bool isFullScreen) {
+    final wasFullScreen = _lastObservedFullScreen;
+    _lastObservedFullScreen = isFullScreen;
+    if (isFullScreen) {
+      _cancelFullScreenExitSettle(clearPendingPop: true);
+    } else if (wasFullScreen == true &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      if (_fullScreenExitSettling) {
+        _startFullScreenExitSettleChecks();
+      } else {
+        _beginFullScreenExitSettle(awaitStateChange: false);
+      }
+    } else {
+      _syncAndroidPredictiveBack();
+    }
+  }
+
+  void _beginFullScreenExitSettle({required bool awaitStateChange}) {
+    if (_fullScreenExitSettling) {
+      if (!awaitStateChange) {
+        _startFullScreenExitSettleChecks();
+      }
+      return;
+    }
+    final generation = ++_fullScreenExitSettleGeneration;
+    _fullScreenExitSettling = true;
+    _fullScreenExitAwaitingStateChange = awaitStateChange;
+    _fullScreenExitSettleTracker.reset();
+    _syncAndroidPredictiveBack();
+    if (!awaitStateChange) {
+      _startFullScreenExitSettleChecks(generation: generation);
+    }
+  }
+
+  void _startFullScreenExitSettleChecks({int? generation}) {
+    if (!_fullScreenExitSettling) {
+      return;
+    }
+    _fullScreenExitAwaitingStateChange = false;
+    _fullScreenExitSettleTracker.reset();
+    _fullScreenExitSettleTimer?.cancel();
+    final activeGeneration = generation ?? _fullScreenExitSettleGeneration;
+    _fullScreenExitSettleTimer = Timer(
+      _fullScreenExitSettleTimeout,
+      () => _finishFullScreenExitSettle(activeGeneration),
+    );
+    _scheduleFullScreenExitSettleCheck(activeGeneration);
+  }
+
+  void _scheduleFullScreenExitSettleCheck(int generation) {
+    if (_fullScreenExitSettleCheckScheduledGeneration == generation) {
+      return;
+    }
+    _fullScreenExitSettleCheckScheduledGeneration = generation;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_fullScreenExitSettleCheckScheduledGeneration == generation) {
+        _fullScreenExitSettleCheckScheduledGeneration = null;
+      }
+      if (!mounted ||
+          !_fullScreenExitSettling ||
+          _fullScreenExitAwaitingStateChange ||
+          generation != _fullScreenExitSettleGeneration) {
+        return;
+      }
+      final mediaQuery = MediaQuery.of(context);
+      final signature = Object.hash(
+        mediaQuery.size,
+        mediaQuery.padding,
+        mediaQuery.viewPadding,
+        mediaQuery.viewInsets,
+        mediaQuery.devicePixelRatio,
+      );
+      final controller = videoDetailController.plPlayerController;
+      final targetLayoutReady =
+          _layoutReadyForRoutePop &&
+          (!controller.fullScreenExitRequiresPortrait ||
+              (isPortrait && mediaQuery.orientation == .portrait));
+      if (_fullScreenExitSettleTracker.observe(
+        layoutSignature: signature,
+        targetLayoutReady: targetLayoutReady,
+      )) {
+        _finishFullScreenExitSettle(generation);
+        return;
+      }
+      if (targetLayoutReady) {
+        _scheduleFullScreenExitSettleCheck(generation);
+      }
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  void _finishFullScreenExitSettle(int generation) {
+    if (!mounted ||
+        !_fullScreenExitSettling ||
+        generation != _fullScreenExitSettleGeneration) {
+      return;
+    }
+    _fullScreenExitSettleTimer?.cancel();
+    _fullScreenExitSettleTimer = null;
+    _fullScreenExitSettling = false;
+    _fullScreenExitAwaitingStateChange = false;
+    _fullScreenExitSettleTracker.reset();
+    _syncAndroidPredictiveBack();
+    final shouldPop =
+        _pendingPopAfterFullScreenExit &&
+        _canPopVideoRouteWithoutFullScreenSettle &&
+        ModalRoute.of(context)?.isCurrent == true;
+    _pendingPopAfterFullScreenExit = false;
+    if (shouldPop) {
+      _popVideoRoute();
+    }
+  }
+
+  void _cancelFullScreenExitSettle({required bool clearPendingPop}) {
+    _fullScreenExitSettleGeneration++;
+    _fullScreenExitSettleTimer?.cancel();
+    _fullScreenExitSettleTimer = null;
+    _fullScreenExitSettling = false;
+    _fullScreenExitAwaitingStateChange = false;
+    _fullScreenExitSettleTracker.reset();
+    if (clearPendingPop) {
+      _pendingPopAfterFullScreenExit = false;
+    }
+    _syncAndroidPredictiveBack();
   }
 
   void _disposeTabControllerAfterBuild(TabController controller) {
@@ -1193,6 +1362,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   @override
   void dispose() {
+    _fullScreenExitSettleGeneration++;
+    _fullScreenExitSettleTimer?.cancel();
+    _fullScreenExitSettleTimer = null;
+    _fullScreenExitSettling = false;
+    _fullScreenExitAwaitingStateChange = false;
+    _pendingPopAfterFullScreenExit = false;
     _didPopNextGeneration++;
     _initialVisualReadyGeneration++;
     if (identical(
@@ -1266,6 +1441,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   @override
   // 离开当前页面时
   void didPushNext() {
+    _cancelFullScreenExitSettle(clearPendingPop: true);
     _didPopNextGeneration++;
     super.didPushNext();
     isShowing = false;
@@ -3426,6 +3602,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   }
 
   void _onPopInvokedWithResult(bool didPop, result) {
+    if (!didPop && _fullScreenExitSettling) {
+      _pendingPopAfterFullScreenExit = true;
+      return;
+    }
     final returningToVideoPage = _isReturningToVideoPageInStack();
     if (didPop && Platform.isAndroid) {
       // 参考上游逻辑：返回时立即强制清空 Auto-PiP 状态，切断系统自动进入的时机，防止误触
@@ -3460,7 +3640,20 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   }
 
   void _popVideoRoute() {
+    if (_fullScreenExitSettling) {
+      _pendingPopAfterFullScreenExit = true;
+      return;
+    }
     unawaited(Navigator.of(context).maybePop());
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!_fullScreenExitSettling || _fullScreenExitAwaitingStateChange) {
+      return;
+    }
+    _fullScreenExitSettleTracker.reset();
+    _scheduleFullScreenExitSettleCheck(_fullScreenExitSettleGeneration);
   }
 
   bool _isReturningToVideoPageInStack() {

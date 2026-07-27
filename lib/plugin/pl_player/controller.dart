@@ -134,6 +134,11 @@ class PlPlayerController with BlockConfigMixin {
   final RxBool controlsLock = false.obs;
 
   final RxBool isFullScreen = false.obs;
+  final RxBool isEnteringFullScreen = false.obs;
+  final RxBool isExitingFullScreen = false.obs;
+
+  bool _fullScreenExitRequiresPortrait = false;
+  bool get fullScreenExitRequiresPortrait => _fullScreenExitRequiresPortrait;
 
   void Function(bool isFullScreen)? onFullScreenChanged;
   // 系统原生 PiP 状态
@@ -2190,6 +2195,19 @@ class PlPlayerController with BlockConfigMixin {
 
     if (_fsProcessing) return;
     _fsProcessing = true;
+    final skipExitRotation =
+        !status &&
+        PlatformUtils.isMobile &&
+        orientation == null &&
+        mode == .none;
+    if (status) {
+      isEnteringFullScreen.value = true;
+      _fullScreenExitRequiresPortrait = false;
+    } else {
+      _fullScreenExitRequiresPortrait =
+          PlatformUtils.isMobile && !skipExitRotation && !horizontalScreen;
+      isExitingFullScreen.value = true;
+    }
     this.isManualFS = isManualFS;
     try {
       if (status) {
@@ -2204,19 +2222,34 @@ class PlPlayerController with BlockConfigMixin {
         }
       } else {
         if (PlatformUtils.isMobile) {
+          final pendingPlatformChanges = <Future<void>>[];
           if (!removeSafeArea) {
-            showSystemBar();
+            final systemBarChange = showSystemBar();
+            if (systemBarChange != null) {
+              pendingPlatformChanges.add(systemBarChange);
+            }
           }
-          if (orientation == null && mode == .none) {
-            return;
+          if (!skipExitRotation) {
+            final rotationChange = resetScreenRotation();
+            if (rotationChange != null) {
+              pendingPlatformChanges.add(rotationChange);
+            }
           }
-          await resetScreenRotation();
+          if (pendingPlatformChanges.isNotEmpty) {
+            await Future.wait(pendingPlatformChanges);
+          }
+          if (skipExitRotation) return;
         } else {
           await exitDesktopFullScreen();
         }
       }
     } finally {
       _setFullScreen(status);
+      if (status) {
+        isEnteringFullScreen.value = false;
+      } else {
+        isExitingFullScreen.value = false;
+      }
       _fsProcessing = false;
     }
   }

@@ -369,7 +369,6 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     _revealController,
     _profileController,
   ]);
-  late final Widget? _sourceTitle = _buildSourceTitle();
 
   bool _revealStarted = false;
   bool _resumeProfileAfterReversibleExit = false;
@@ -464,13 +463,35 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
     );
   }
 
-  Rect? _targetTitleRect(
-    Size viewport,
-    double playerBottom, {
+  double _cachedUgcTitleHeight(BuildContext context, Size viewport) {
+    return _ugcTitleHeightCache.resolve(
+      title: widget.controller._title,
+      viewportWidth: viewport.width,
+      style: _ugcTitleStyle(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+    );
+  }
+
+  TextStyle _ugcTitleStyle(BuildContext context) {
+    final theme = Pref.darkVideoPage ? ThemeUtils.darkTheme : Theme.of(context);
+    return (theme.textTheme.bodyMedium ?? DefaultTextStyle.of(context).style)
+        .copyWith(
+          fontSize: VideoDetailLayoutMetrics.ugcTitleFontSize,
+          color: theme.colorScheme.onSurface,
+        );
+  }
+
+  Rect? _titleSemanticsRect(
+    Size viewport, {
+    required double mediaBottom,
     required double ugcTitleHeight,
   }) {
+    if (_revealStarted || widget.controller._title?.isNotEmpty != true) {
+      return null;
+    }
     const padding = VideoDetailLayoutMetrics.horizontalPadding;
-    final bodyTop = playerBottom + VideoDetailLayoutMetrics.tabBarHeight;
+    final bodyTop = mediaBottom + VideoDetailLayoutMetrics.tabBarHeight;
     return switch (widget.controller._variant) {
       VideoDetailSkeletonVariant.ugc => VideoDetailLayoutMetrics.ugcTitleRect(
         viewport,
@@ -493,136 +514,6 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
       }(),
       VideoDetailSkeletonVariant.local => null,
     };
-  }
-
-  double _cachedUgcTitleHeight(BuildContext context, Size viewport) {
-    return _ugcTitleHeightCache.resolve(
-      title: widget.controller._title,
-      viewportWidth: viewport.width,
-      style: _ugcTitleStyle(context),
-      textScaler: MediaQuery.textScalerOf(context),
-      textDirection: Directionality.of(context),
-    );
-  }
-
-  TextStyle _ugcTitleStyle(BuildContext context) {
-    final theme = Pref.darkVideoPage ? ThemeUtils.darkTheme : Theme.of(context);
-    return (theme.textTheme.bodyMedium ?? DefaultTextStyle.of(context).style)
-        .copyWith(
-          fontSize: VideoDetailLayoutMetrics.ugcTitleFontSize,
-          color: theme.colorScheme.onSurface,
-        );
-  }
-
-  Widget? _buildSourceTitle() {
-    final title = widget.controller.transitionToken.title;
-    if (title == null || title.text.isEmpty) {
-      return null;
-    }
-    final textSpan = title.textSpan;
-    final child = textSpan != null
-        ? Text.rich(
-            textSpan,
-            style: title.style,
-            maxLines: title.maxLines,
-            textAlign: title.textAlign,
-            overflow: title.overflow,
-            textDirection: title.textDirection,
-            textScaler: title.textScaler,
-          )
-        : Text(
-            title.text,
-            style: title.style,
-            maxLines: title.maxLines,
-            textAlign: title.textAlign,
-            overflow: title.overflow,
-            textDirection: title.textDirection,
-            textScaler: title.textScaler,
-          );
-    return RepaintBoundary(
-      child: SizedBox.fromSize(size: title.rect.size, child: child),
-    );
-  }
-
-  Widget _buildTransitionTitles({
-    required Rect morphRect,
-    required Size viewport,
-    required double playerBottom,
-    required double progress,
-    required double sourcePresentationOpacity,
-    required double revealOpacity,
-    required double ugcTitleHeight,
-  }) {
-    final sourceSnapshot = widget.controller.transitionToken.title;
-    final sourceTitle = _sourceTitle;
-    final targetText =
-        widget.controller._variant == VideoDetailSkeletonVariant.ugc &&
-            widget.controller._title?.isNotEmpty == true
-        ? widget.controller._title
-        : null;
-    final targetRect = _targetTitleRect(
-      viewport,
-      playerBottom,
-      ugcTitleHeight: ugcTitleHeight,
-    );
-    if ((sourceSnapshot == null || sourceTitle == null) &&
-        (targetText == null || targetRect == null || targetRect.isEmpty)) {
-      return const SizedBox.shrink();
-    }
-    final handoffBegin = targetText == null ? 0.20 : 0.46;
-    final handoffEnd = targetText == null ? 0.56 : 0.72;
-    final handoffProgress =
-        ((progress - handoffBegin) / (handoffEnd - handoffBegin))
-            .clamp(0.0, 1.0)
-            .toDouble();
-    final easedHandoff = Curves.easeInOutCubic.transform(handoffProgress);
-    final sourceOpacity =
-        sourcePresentationOpacity * revealOpacity * (1 - easedHandoff);
-    final targetOpacity = revealOpacity * easedHandoff;
-    return Positioned.fill(
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          if (sourceSnapshot != null &&
-              sourceTitle != null &&
-              sourceOpacity > 0)
-            () {
-              final destination =
-                  targetRect?.topLeft ?? sourceSnapshot.rect.topLeft;
-              final position = Offset.lerp(
-                sourceSnapshot.rect.topLeft,
-                destination,
-                progress,
-              )!;
-              return Positioned(
-                left: position.dx - morphRect.left,
-                top: position.dy - morphRect.top,
-                width: sourceSnapshot.rect.width,
-                height: sourceSnapshot.rect.height,
-                child: Opacity(opacity: sourceOpacity, child: sourceTitle),
-              );
-            }(),
-          if (targetText != null &&
-              targetRect != null &&
-              !targetRect.isEmpty &&
-              targetOpacity > 0)
-            Positioned.fromRect(
-              rect: targetRect.shift(-morphRect.topLeft),
-              child: Opacity(
-                opacity: targetOpacity,
-                child: RepaintBoundary(
-                  child: Text(
-                    targetText,
-                    style: _ugcTitleStyle(context),
-                    maxLines: VideoDetailLayoutMetrics.ugcTitleMaxLines,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
   }
 
   void _onRevealStatus(AnimationStatus status) {
@@ -724,6 +615,11 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
         progress,
       )!;
       final localMediaRect = mediaRect.shift(-morphRect.topLeft);
+      final titleSemanticsRect = _titleSemanticsRect(
+        viewport,
+        mediaBottom: mediaRect.bottom,
+        ugcTitleHeight: ugcTitleHeight,
+      );
       final mediaBorderRadius = BorderRadius.lerp(
         widget.controller.transitionToken.mediaLaunchBorderRadius,
         BorderRadius.zero,
@@ -800,10 +696,7 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
                               hasPagesPanel: widget.controller._hasPagesPanel,
                               seasonPanelVisibility: seasonPanelVisibility,
                               pagesPanelVisibility: pagesPanelVisibility,
-                              showUgcTitlePlaceholder:
-                                  widget.controller._variant !=
-                                      VideoDetailSkeletonVariant.ugc ||
-                                  widget.controller._title?.isNotEmpty != true,
+                              showUgcTitlePlaceholder: true,
                               tabCount: widget.controller._tabCount,
                               actionCount: widget.controller._actionCount,
                               hasEpisodePanel:
@@ -815,16 +708,18 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
                                   : null,
                             ),
                           ),
-                          _buildTransitionTitles(
-                            morphRect: morphRect,
-                            viewport: viewport,
-                            playerBottom: playerBottom,
-                            progress: progress,
-                            sourcePresentationOpacity:
-                                sourcePresentationOpacity,
-                            revealOpacity: revealOpacity,
-                            ugcTitleHeight: ugcTitleHeight,
-                          ),
+                          if (titleSemanticsRect != null)
+                            Positioned.fromRect(
+                              rect: titleSemanticsRect.shift(
+                                -morphRect.topLeft,
+                              ),
+                              child: Semantics(
+                                container: true,
+                                header: true,
+                                label: widget.controller._title,
+                                child: const SizedBox.expand(),
+                              ),
+                            ),
                         ],
                       ),
                     ),

@@ -458,10 +458,42 @@ abstract final class VideoTransitionRegistry {
   }
 
   static VideoReturnTarget? resolveReturn(VideoTransitionToken token) {
-    final source = _sourceByGeneration(
+    final exactSource = _sourceByGeneration(
       token.tag,
       token.sourceGeneration,
     );
+    final exactTarget = _resolveReturnFromSource(token, exactSource);
+    if (exactTarget != null) {
+      return exactTarget;
+    }
+
+    final sources = _sources[token.tag];
+    if (sources == null) {
+      return null;
+    }
+    VideoReturnTarget? bestTarget;
+    var bestScore = double.infinity;
+    for (final source in sources.reversed) {
+      if (source.generation <= token.sourceGeneration) {
+        continue;
+      }
+      final target = _resolveReturnFromSource(token, source);
+      if (target == null) {
+        continue;
+      }
+      final score = _returnCandidateScore(token, target);
+      if (score < bestScore) {
+        bestScore = score;
+        bestTarget = target;
+      }
+    }
+    return bestTarget;
+  }
+
+  static VideoReturnTarget? _resolveReturnFromSource(
+    VideoTransitionToken token,
+    _VideoTransitionSource? source,
+  ) {
     final rect = source?.currentRect();
     final visibleRect = source?.currentVisibleRect();
     final currentMediaRect = source?.currentMediaRect();
@@ -477,6 +509,7 @@ abstract final class VideoTransitionRegistry {
         visibleRect == null ||
         aspectRatioChanged ||
         !identical(source.route, token.sourceRoute) ||
+        source.layout != token.sourceLayout ||
         source.route?.isActive != true ||
         !_isVisibleRect(rect, visibleRect)) {
       return null;
@@ -501,6 +534,18 @@ abstract final class VideoTransitionRegistry {
           ? source.resolvedMediaBorderRadius()
           : null,
     );
+  }
+
+  static double _returnCandidateScore(
+    VideoTransitionToken token,
+    VideoReturnTarget target,
+  ) {
+    final centerDelta = target.rect.center - token.launchRect.center;
+    final widthDelta = target.rect.width - token.launchRect.width;
+    final heightDelta = target.rect.height - token.launchRect.height;
+    return centerDelta.distanceSquared +
+        widthDelta * widthDelta +
+        heightDelta * heightDelta;
   }
 
   static bool _isVisible(BuildContext? context, Rect rect) {

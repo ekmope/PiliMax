@@ -1,18 +1,45 @@
+import 'dart:io';
+
 import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/common/widgets/video_card/video_detail_hero_curve.dart';
 import 'package:PiliMax/common/widgets/video_card/video_detail_ugc_title_height_cache.dart';
+import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/models/common/list_order.dart';
 import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart';
 import 'package:PiliMax/models_new/video/video_detail/page.dart';
 import 'package:PiliMax/models_new/video/video_detail/section.dart';
 import 'package:PiliMax/models_new/video/video_detail/ugc_season.dart';
+import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
+import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
+import 'package:PiliMax/pages/video/video_detail_fullscreen_exit_settle.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
+import 'package:PiliMax/utils/storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive_ce/hive.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  late Directory hiveDirectory;
+  late Box<dynamic> settingBox;
+
+  setUpAll(() async {
+    hiveDirectory = await Directory.systemTemp.createTemp(
+      'pilimax-video-detail-hero-test-',
+    );
+    Hive.init(hiveDirectory.path);
+    settingBox = await Hive.openBox<dynamic>('setting');
+    GStorage.setting = settingBox;
+  });
+
+  tearDownAll(() async {
+    await settingBox.close();
+    if (hiveDirectory.existsSync()) {
+      await hiveDirectory.delete(recursive: true);
+    }
+  });
 
   group('VideoDetailHero flight timeline', () {
     test('inverts easeOutCubic for push and pop', () {
@@ -116,6 +143,278 @@ void main() {
       );
     });
   });
+
+  group('VideoTransitionRegistry return recovery', () {
+    testWidgets(
+      'recovers a recreated source with the same tag, route, and layout',
+      (tester) async {
+        const tag = 'return-recovery-same-layout';
+        final harnessKey = GlobalKey<_TransitionRegistryHarnessState>();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: _TransitionRegistryHarness(key: harnessKey, tag: tag),
+          ),
+        );
+
+        final token = VideoTransitionRegistry.claim(
+          tag: tag,
+          contentKey: 'video-1',
+        );
+        expect(token, isNotNull);
+
+        harnessKey.currentState!.recreateSource(
+          borderRadius: const BorderRadius.all(Radius.circular(19)),
+        );
+        await tester.pump();
+
+        final target = VideoTransitionRegistry.resolveReturn(token!);
+        expect(target, isNotNull);
+        expect(target!.layout, VideoTransitionSourceLayout.verticalCard);
+        expect(
+          target.borderRadius,
+          const BorderRadius.all(Radius.circular(19)),
+        );
+        expect(target.rect, token.launchRect);
+
+        token.dispose();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      },
+    );
+
+    testWidgets('does not recover a source registered before the launch', (
+      tester,
+    ) async {
+      const tag = 'return-recovery-older-source';
+      late StateSetter setHarnessState;
+      var showLaunchSource = true;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setHarnessState = setState;
+              return Scaffold(
+                body: Stack(
+                  children: [
+                    const Positioned(
+                      left: 32,
+                      top: 80,
+                      width: 240,
+                      height: 160,
+                      child: VideoDetailTransitionSource(
+                        tag: tag,
+                        child: ColoredBox(color: Colors.grey),
+                      ),
+                    ),
+                    if (showLaunchSource)
+                      const Positioned(
+                        left: 320,
+                        top: 80,
+                        width: 240,
+                        height: 160,
+                        child: VideoDetailTransitionSource(
+                          tag: tag,
+                          child: VideoDetailHero.source(
+                            flightChild: ColoredBox(color: Colors.black),
+                            child: ColoredBox(color: Colors.blue),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+      final token = VideoTransitionRegistry.claim(
+        tag: tag,
+        contentKey: 'video-older-source',
+      );
+      expect(token, isNotNull);
+      expect(token!.launchRect.left, 320);
+
+      setHarnessState(() => showLaunchSource = false);
+      await tester.pump();
+
+      expect(VideoTransitionRegistry.resolveReturn(token), isNull);
+
+      token.dispose();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('rejects a recreated source with a different layout', (
+      tester,
+    ) async {
+      const tag = 'return-recovery-different-layout';
+      final harnessKey = GlobalKey<_TransitionRegistryHarnessState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: _TransitionRegistryHarness(key: harnessKey, tag: tag),
+        ),
+      );
+
+      final token = VideoTransitionRegistry.claim(
+        tag: tag,
+        contentKey: 'video-2',
+      );
+      expect(token, isNotNull);
+
+      harnessKey.currentState!.recreateSource(
+        layout: VideoTransitionSourceLayout.horizontalRow,
+      );
+      await tester.pump();
+
+      expect(VideoTransitionRegistry.resolveReturn(token!), isNull);
+
+      token.dispose();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('rejects a recreated source that is no longer visible', (
+      tester,
+    ) async {
+      const tag = 'return-recovery-invisible';
+      final harnessKey = GlobalKey<_TransitionRegistryHarnessState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: _TransitionRegistryHarness(key: harnessKey, tag: tag),
+        ),
+      );
+
+      final token = VideoTransitionRegistry.claim(
+        tag: tag,
+        contentKey: 'video-3',
+      );
+      expect(token, isNotNull);
+
+      harnessKey.currentState!.recreateSource(opacity: 0);
+      await tester.pump();
+
+      expect(VideoTransitionRegistry.resolveReturn(token!), isNull);
+
+      token.dispose();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+  });
+
+  test(
+    'fullscreen exit settle waits for delayed target layout metrics',
+    () {
+      final tracker = VideoDetailFullScreenExitSettleTracker();
+
+      expect(
+        tracker.observe(layoutSignature: 1, targetLayoutReady: false),
+        isFalse,
+      );
+      expect(
+        tracker.observe(layoutSignature: 1, targetLayoutReady: false),
+        isFalse,
+      );
+
+      tracker.reset();
+      expect(
+        tracker.observe(layoutSignature: 2, targetLayoutReady: true),
+        isFalse,
+      );
+      expect(
+        tracker.observe(layoutSignature: 3, targetLayoutReady: true),
+        isFalse,
+      );
+      expect(
+        tracker.observe(layoutSignature: 3, targetLayoutReady: true),
+        isTrue,
+      );
+    },
+  );
+
+  testWidgets(
+    'UGC entry overlay keeps a title skeleton without an independent title',
+    (tester) async {
+      final semanticsHandle = tester.ensureSemantics();
+      const detailTitle = 'Detail transition title';
+      BuildContext? hostContext;
+      VideoDetailEntryOverlayController? controller;
+      addTearDown(() {
+        controller?.dispose();
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              hostContext = context;
+              return const SizedBox.expand();
+            },
+          ),
+        ),
+      );
+
+      final backProgress = VideoDetailBackProgressController();
+      controller =
+          VideoDetailEntryOverlayController(
+              overlay: Overlay.of(hostContext!),
+              transitionToken: VideoTransitionToken(
+                tag: 'title-skeleton-overlay',
+                sourceGeneration: -1,
+                sourceRoute: null,
+                launchRect: const Rect.fromLTWH(24, 80, 240, 160),
+                sourceVisibleRect: const Rect.fromLTWH(24, 80, 240, 160),
+                mediaLaunchRect: const Rect.fromLTWH(24, 80, 240, 135),
+                mediaLaunchBorderRadius: const BorderRadius.all(
+                  Radius.circular(10),
+                ),
+                launchBorderRadius: const BorderRadius.all(Radius.circular(10)),
+                sourceLayout: VideoTransitionSourceLayout.verticalCard,
+                sourceSurfaceColor: Colors.white,
+                title: const VideoTransitionTitleSnapshot(
+                  rect: Rect.fromLTWH(32, 220, 224, 20),
+                  text: 'Source transition title',
+                  textSpan: null,
+                  style: TextStyle(fontSize: 14),
+                  maxLines: 1,
+                  textAlign: TextAlign.start,
+                  overflow: TextOverflow.ellipsis,
+                  textDirection: TextDirection.ltr,
+                  textScaler: TextScaler.noScaling,
+                ),
+                contentKey: 'video-title',
+              ),
+              backProgress: backProgress,
+              isVertical: false,
+              variant: VideoDetailSkeletonVariant.ugc,
+              title: detailTitle,
+            )
+            ..insert()
+            ..bindRouteAnimation(const AlwaysStoppedAnimation<double>(1));
+      await tester.pump();
+
+      final shellFinder = find.byType(VideoDetailHeroShell);
+      expect(shellFinder, findsOneWidget);
+      final shell = tester.widget<VideoDetailHeroShell>(shellFinder);
+      expect(shell.showUgcTitlePlaceholder, isTrue);
+      expect(shell.title, detailTitle);
+      expect(find.text(detailTitle), findsNothing);
+      expect(find.text('Source transition title'), findsNothing);
+      final titleSemantics = find.bySemanticsLabel(detailTitle);
+      expect(titleSemantics, findsOneWidget);
+      expect(tester.getRect(titleSemantics).height, lessThan(100));
+
+      final reveal = controller.beginReveal();
+      await tester.pump();
+      expect(find.bySemanticsLabel(detailTitle), findsNothing);
+      await tester.pumpAndSettle();
+      await reveal;
+
+      controller.dispose();
+      controller = null;
+      await tester.pump();
+      semanticsHandle.dispose();
+    },
+  );
 
   group('VideoDetailUgcTitleHeightCache', () {
     test('prioritizes overrides and reuses matching text metrics', () {
@@ -232,4 +531,66 @@ void main() {
       expect(hasRenderableUgcSeasonPanel(data, 21), isFalse);
     });
   });
+}
+
+class _TransitionRegistryHarness extends StatefulWidget {
+  const _TransitionRegistryHarness({super.key, required this.tag});
+
+  final Object tag;
+
+  @override
+  State<_TransitionRegistryHarness> createState() =>
+      _TransitionRegistryHarnessState();
+}
+
+class _TransitionRegistryHarnessState
+    extends State<_TransitionRegistryHarness> {
+  int _generation = 0;
+  double _opacity = 1;
+  BorderRadiusGeometry _borderRadius = const BorderRadius.all(
+    Radius.circular(10),
+  );
+  VideoTransitionSourceLayout _layout =
+      VideoTransitionSourceLayout.verticalCard;
+
+  void recreateSource({
+    double opacity = 1,
+    BorderRadiusGeometry? borderRadius,
+    VideoTransitionSourceLayout? layout,
+  }) {
+    setState(() {
+      _generation++;
+      _opacity = opacity;
+      _borderRadius = borderRadius ?? _borderRadius;
+      _layout = layout ?? _layout;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Stack(
+      children: [
+        Positioned(
+          left: 32,
+          top: 80,
+          width: 240,
+          height: 160,
+          child: Opacity(
+            opacity: _opacity,
+            child: VideoDetailTransitionSource(
+              key: ValueKey(_generation),
+              tag: widget.tag,
+              borderRadius: _borderRadius,
+              layout: _layout,
+              child: VideoDetailHero.source(
+                borderRadius: _borderRadius,
+                flightChild: const ColoredBox(color: Colors.black),
+                child: const ColoredBox(color: Colors.blue),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }

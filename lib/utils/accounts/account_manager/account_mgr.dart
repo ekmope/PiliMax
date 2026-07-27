@@ -61,7 +61,12 @@ class AccountManager extends Interceptor {
     final isApp = path.startsWith(HttpString.appBaseUrl);
 
     if (isApp && options.responseType == ResponseType.bytes) {
-      options.headers.addAll(account.grpcHeaders);
+      final grpcHeadersOverride = options.extra['grpcHeadersOverride'];
+      options.headers.addAll(
+        grpcHeadersOverride is Map<String, String>
+            ? grpcHeadersOverride
+            : account.grpcHeaders,
+      );
       return handler.next(options);
     }
 

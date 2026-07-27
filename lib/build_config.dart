@@ -1,4 +1,11 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
+
 abstract final class BuildConfig {
+  static const bool localDiagnostics = bool.fromEnvironment(
+    'pilimax.localDiagnostics',
+    defaultValue: kDebugMode,
+  );
+
   static const int versionCode = int.fromEnvironment(
     'pili.code',
     defaultValue: 1,

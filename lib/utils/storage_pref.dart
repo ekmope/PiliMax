@@ -160,6 +160,7 @@ abstract final class Pref {
         SettingBoxKey.openInBrowser: () => openInBrowser,
         SettingBoxKey.optTabletNav: () => optTabletNav,
         SettingBoxKey.p1080: () => p1080,
+        SettingBoxKey.unlimitedQnTrial: () => unlimitedQnTrial,
         SettingBoxKey.pauseOnMinimize: () => pauseOnMinimize,
         SettingBoxKey.pipNoDanmaku: () => pipNoDanmaku,
         SettingBoxKey.preInitPlayer: () => preInitPlayer,
@@ -1317,6 +1318,9 @@ abstract final class Pref {
 
   static bool get p1080 =>
       _setting.get(SettingBoxKey.p1080, defaultValue: true);
+
+  static bool get unlimitedQnTrial =>
+      _setting.get(SettingBoxKey.unlimitedQnTrial, defaultValue: false);
 
   static int get customColor =>
       _setting.get(SettingBoxKey.customColor, defaultValue: 0);

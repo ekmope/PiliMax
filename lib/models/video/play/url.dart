@@ -43,6 +43,95 @@ class PlayUrlModel {
   List<FormatItem>? supportFormats;
   Volume? volume;
 
+  Set<int> get playableQualityIds => {
+    ...?dash?.video?.where(_hasUsableUrl).map((item) => item.quality.code),
+  };
+
+  static bool _hasUsableUrl(BaseItem item) =>
+      item.playUrls.any((url) => url.trim().isNotEmpty);
+
+  String? playableCapabilityLabel(int? qualityCode) {
+    if (qualityCode == null) return null;
+
+    VideoQuality? quality;
+    double? highestFrameRate;
+    for (final item in dash?.video ?? const <VideoItem>[]) {
+      if (item.quality.code != qualityCode || !_hasUsableUrl(item)) continue;
+      quality = item.quality;
+      final frameRate = _parseFrameRate(item.frameRate);
+      if (frameRate != null &&
+          (highestFrameRate == null || frameRate > highestFrameRate)) {
+        highestFrameRate = frameRate;
+      }
+    }
+    if (quality == null) return null;
+
+    final qualityLabel = _capabilityQualityLabel(quality);
+    return highestFrameRate == null
+        ? qualityLabel
+        : '$qualityLabel/${_formatFrameRate(highestFrameRate)}帧';
+  }
+
+  static double? _parseFrameRate(String? rawValue) {
+    final value = rawValue?.trim();
+    if (value == null || value.isEmpty) return null;
+
+    double? frameRate;
+    final parts = value.split('/');
+    if (parts.length == 1) {
+      frameRate = double.tryParse(value);
+    } else if (parts.length == 2) {
+      final numerator = double.tryParse(parts[0].trim());
+      final denominator = double.tryParse(parts[1].trim());
+      if (numerator != null && denominator != null && denominator > 0) {
+        frameRate = numerator / denominator;
+      }
+    }
+    if (frameRate == null ||
+        !frameRate.isFinite ||
+        frameRate < 1 ||
+        frameRate > 240) {
+      return null;
+    }
+    return frameRate;
+  }
+
+  static String _formatFrameRate(double frameRate) {
+    final rounded = frameRate.round();
+    if ((frameRate - rounded).abs() < 0.1) return rounded.toString();
+    return frameRate
+        .toStringAsFixed(2)
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
+  }
+
+  static String _capabilityQualityLabel(VideoQuality quality) =>
+      switch (quality) {
+        VideoQuality.hdrVivid => 'HDR Vivid',
+        VideoQuality.super8k => '8K',
+        VideoQuality.dolbyVision => '杜比视界',
+        VideoQuality.hdr => 'HDR',
+        VideoQuality.super4K => '4K',
+        VideoQuality.high108060 => '1080P',
+        VideoQuality.high1080plus => '1080P+',
+        VideoQuality.high1080 => '1080P',
+        VideoQuality.high72060 => '720P',
+        VideoQuality.high720 => '720P',
+        VideoQuality.clear480 => '480P',
+        VideoQuality.fluent360 => '360P',
+        VideoQuality.speed240 => '240P',
+      };
+
+  bool isPreviewQuality(int? quality) =>
+      quality != null &&
+      dash?.video?.any(
+            (item) =>
+                item.quality.code == quality &&
+                item.isPreview &&
+                _hasUsableUrl(item),
+          ) ==
+          true;
+
   late int _lastPlayTime;
   int get lastPlayTime => _lastPlayTime;
   set lastPlayTime(int? value) {
@@ -278,6 +367,7 @@ abstract class BaseItem {
 
 class VideoItem extends BaseItem {
   late VideoQuality quality;
+  final bool isPreview;
 
   VideoItem({
     super.id,
@@ -294,9 +384,12 @@ class VideoItem extends BaseItem {
     super.segmentBase,
     super.codecid,
     required this.quality,
+    this.isPreview = false,
   });
 
-  VideoItem.fromJson(Map<String, dynamic> json) : super.fromJson(json) {
+  VideoItem.fromJson(Map<String, dynamic> json)
+    : isPreview = false,
+      super.fromJson(json) {
     quality = VideoQuality.fromCode(json['id']);
   }
 }

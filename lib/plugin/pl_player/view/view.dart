@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/cropped_image.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/disabled_icon.dart';
@@ -20,6 +21,7 @@ import 'package:PiliMax/common/widgets/plus_one_icon.dart';
 import 'package:PiliMax/common/widgets/progress_bar/audio_video_progress_bar.dart';
 import 'package:PiliMax/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
+import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/sponsor_block/action_type.dart';
 import 'package:PiliMax/models/common/sponsor_block/post_segment_model.dart';
 import 'package:PiliMax/models/common/sponsor_block/segment_type.dart';
@@ -909,12 +911,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           if (videoInfo.dash == null) {
             return const SizedBox.shrink();
           }
-          final videoFormat = videoInfo.supportFormats!;
+          final videoFormat = (videoInfo.supportFormats ?? const <FormatItem>[])
+              .where((item) => item.quality != null)
+              .toList(growable: false);
+          if (videoFormat.isEmpty) return const SizedBox.shrink();
           final totalQaSam = videoFormat.length;
-          final usefulQaSam = videoInfo.dash!.video!
-              .map((i) => i.id)
-              .toSet()
-              .length;
+          final playableQualityIds = videoInfo.playableQualityIds;
           return StaticPopupMenuButton<int>(
             tooltip: '画质',
             requestFocus: false,
@@ -925,7 +927,16 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                 totalQaSam,
                 (index) {
                   final item = videoFormat[index];
-                  final enabled = index >= totalQaSam - usefulQaSam;
+                  final enabled = playableQualityIds.contains(item.quality);
+                  final isPreview = videoInfo.isPreviewQuality(item.quality);
+                  final capabilityLabel = isPreview
+                      ? videoInfo.playableCapabilityLabel(item.quality)
+                      : null;
+                  final badgeLabel = !isPreview
+                      ? null
+                      : capabilityLabel == null
+                      ? '试看'
+                      : '试看/$capabilityLabel';
                   return PopupMenuItem<int>(
                     enabled: enabled,
                     height: 35,
@@ -936,24 +947,32 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                         return;
                       }
                       final int quality = item.quality!;
-                      final newQa = VideoQuality.fromCode(quality);
-                      videoDetailController
-                        ..plPlayerController.cacheVideoQa = newQa.code
-                        ..currentVideoQa.value = newQa
-                        ..updatePlayer();
-
-                      SmartDialog.showToast("画质已变为：${newQa.desc}");
-
-                      videoDetailController.persistVideoQa(quality);
+                      videoDetailController.switchVideoQuality(quality);
                     },
-                    child: Text(
-                      item.newDesc ?? '',
-                      style: enabled
-                          ? const TextStyle(color: Colors.white, fontSize: 13)
-                          : const TextStyle(
-                              color: Color(0x62FFFFFF),
-                              fontSize: 13,
-                            ),
+                    child: Row(
+                      spacing: 6,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            item.newDesc ?? '',
+                            style: enabled
+                                ? const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                  )
+                                : const TextStyle(
+                                    color: Color(0x62FFFFFF),
+                                    fontSize: 13,
+                                  ),
+                          ),
+                        ),
+                        if (badgeLabel != null)
+                          PBadge(
+                            isStack: false,
+                            text: badgeLabel,
+                            type: PBadgeType.primary,
+                          ),
+                      ],
                     ),
                   );
                 },
@@ -962,7 +981,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
-                currentVideoQa.shortDesc,
+                videoInfo.isPreviewQuality(currentVideoQa.code)
+                    ? '${currentVideoQa.shortDesc}·试看'
+                    : currentVideoQa.shortDesc,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
               ),
             ),
@@ -2307,11 +2328,17 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   Future<void> screenshotWebp() async {
     final videoInfo = videoDetailController.data;
-    final ids = videoInfo.dash!.video!.map((i) => i.id!).toSet();
+    final playableVideos = videoInfo.dash?.video
+        ?.where(
+          (item) => item.playUrls.any((url) => url.trim().isNotEmpty),
+        )
+        .toList(growable: false);
+    if (playableVideos == null || playableVideos.isEmpty) return;
+    final ids = playableVideos.map((item) => item.quality.code).toSet();
     final video = videoDetailController.findVideoByQa(ids.min);
 
     VideoQuality qa = video.quality;
-    String? url = video.baseUrl;
+    String? url = videoDetailController.resolveVideoUrl(video);
     if (url == null) return;
 
     final ctr = plPlayerController;
@@ -2349,19 +2376,21 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   value: () => qa.code,
                   onSelected: (value) {
                     final video = videoDetailController.findVideoByQa(value);
-                    url = video.baseUrl;
+                    url = videoDetailController.resolveVideoUrl(video);
                     qa = video.quality;
                     return false;
                   },
-                  itemBuilder: (context) => videoInfo.supportFormats!
-                      .map(
-                        (i) => PopupMenuItem(
-                          enabled: ids.contains(i.quality),
-                          value: i.quality,
-                          child: Text(i.newDesc ?? ''),
-                        ),
-                      )
-                      .toList(),
+                  itemBuilder: (context) =>
+                      (videoInfo.supportFormats ?? const <FormatItem>[])
+                          .where((item) => item.quality != null)
+                          .map(
+                            (i) => PopupMenuItem(
+                              enabled: ids.contains(i.quality),
+                              value: i.quality,
+                              child: Text(i.newDesc ?? ''),
+                            ),
+                          )
+                          .toList(),
                   getSelectTitle: (_) => qa.shortDesc,
                 ),
                 PopupMenuText(

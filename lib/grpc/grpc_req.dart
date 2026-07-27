@@ -5,10 +5,15 @@ import 'package:PiliMax/grpc/bilibili/rpc.pb.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/http/retry_interceptor.dart';
+import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, compute;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kDebugMode, compute, visibleForTesting;
 import 'package:protobuf/protobuf.dart' show GeneratedMessage;
+
+enum GrpcTransportPolicy { inherited, primaryThenHttp11 }
 
 abstract final class GrpcReq {
   static const _isolateSize = 256 * 1024;
@@ -52,21 +57,83 @@ abstract final class GrpcReq {
     }
   }
 
+  @visibleForTesting
+  static Future<Response<dynamic>> sendWithTransportPolicy({
+    required Future<Response<dynamic>> Function({required bool useHttp11})
+    makeRequest,
+    required GrpcTransportPolicy transportPolicy,
+    required bool protocolFallbackAvailable,
+    required bool Function(Response<dynamic> response) shouldFallback,
+    String? debugLabel,
+  }) async {
+    bool isTransportFailure(DioException error) => switch (error.type) {
+      DioExceptionType.connectionError ||
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.sendTimeout ||
+      DioExceptionType.receiveTimeout ||
+      DioExceptionType.badCertificate ||
+      DioExceptionType.unknown => true,
+      _ => false,
+    };
+
+    final independentFallback =
+        transportPolicy == GrpcTransportPolicy.primaryThenHttp11 &&
+        protocolFallbackAvailable;
+    var usedProtocolFallback = false;
+    late Response<dynamic> response;
+    try {
+      response = await makeRequest(useHttp11: false);
+    } on DioException catch (error) {
+      if (!independentFallback || !isTransportFailure(error)) rethrow;
+      usedProtocolFallback = true;
+      if (kDebugMode) {
+        debugPrint('GrpcReq: fallback to http11 for ${debugLabel ?? 'gRPC'}');
+      }
+      response = await makeRequest(useHttp11: true);
+    }
+    if (!usedProtocolFallback &&
+        shouldFallback(response) &&
+        (transportPolicy == GrpcTransportPolicy.inherited ||
+            independentFallback)) {
+      if (kDebugMode) {
+        debugPrint('GrpcReq: fallback to http11 for ${debugLabel ?? 'gRPC'}');
+      }
+      response = await makeRequest(useHttp11: true);
+    }
+    return response;
+  }
+
   static Future<LoadingState<T>> request<T extends GeneratedMessage>(
     String url,
     GeneratedMessage request,
     T Function(Uint8List) grpcParser, {
     bool isolate = false,
+    Account? account,
+    Map<String, String>? grpcHeaders,
+    GrpcTransportPolicy transportPolicy = GrpcTransportPolicy.inherited,
   }) async {
     final requestUrl = HttpString.appBaseUrl + url;
     final requestData = compressProtobuf(request.writeToBuffer());
+    final requestOptions =
+        account == null &&
+            grpcHeaders == null &&
+            transportPolicy == GrpcTransportPolicy.inherited
+        ? options
+        : options.copyWith(
+            extra: {
+              'account': ?account,
+              'grpcHeadersOverride': ?grpcHeaders,
+              if (transportPolicy == GrpcTransportPolicy.primaryThenHttp11)
+                RetryInterceptor.skipTransportRetryExtraKey: true,
+            },
+          );
 
     Future<Response<dynamic>> makeRequest({required bool useHttp11}) {
       final client = useHttp11 ? Request.http11Dio : Request.dio;
       return client.post<Uint8List>(
         requestUrl,
         data: requestData,
-        options: options,
+        options: requestOptions,
       );
     }
 
@@ -82,13 +149,18 @@ abstract final class GrpcReq {
           message.contains('network');
     }
 
-    var response = await makeRequest(useHttp11: false);
-    if (shouldFallbackToHttp11(response)) {
-      if (kDebugMode) {
-        debugPrint('GrpcReq: fallback to http11 for $url');
-      }
-      response = await makeRequest(useHttp11: true);
-    }
+    final protocolFallbackEnabled =
+        transportPolicy == GrpcTransportPolicy.primaryThenHttp11 &&
+        !identical(Request.dio, Request.http11Dio);
+    final response = await sendWithTransportPolicy(
+      makeRequest: makeRequest,
+      transportPolicy: transportPolicy,
+      protocolFallbackAvailable:
+          transportPolicy == GrpcTransportPolicy.inherited ||
+          protocolFallbackEnabled,
+      shouldFallback: shouldFallbackToHttp11,
+      debugLabel: url,
+    );
 
     if (response.data case final Map map) {
       return Error(map['message']);

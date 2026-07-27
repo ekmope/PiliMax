@@ -36,6 +36,7 @@ import 'package:PiliMax/plugin/pl_player/preview_request_coordinator.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliMax/services/live_pip_overlay_service.dart';
 import 'package:PiliMax/services/pip_overlay_service.dart';
+import 'package:PiliMax/services/playback/trial_quality_policy.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
@@ -169,7 +170,10 @@ class PlPlayerController with BlockConfigMixin {
   int? width;
   int? height;
 
-  late final tryLook = !Accounts.get(AccountType.video).isLogin && Pref.p1080;
+  bool get tryLook => TrialQualityPolicy.shouldRequestWebTryLook(
+    isLoggedIn: Accounts.get(AccountType.video).isLogin,
+    allowAnonymous1080: Pref.p1080,
+  );
 
   late DataSource dataSource;
 

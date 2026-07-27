@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:http2/http2.dart';
 
 class RetryInterceptor extends Interceptor {
+  static const skipTransportRetryExtraKey = 'skipTransportRetry';
+
   final Dio _client;
   final int _count;
   final int _delay;
@@ -61,6 +63,9 @@ class RetryInterceptor extends Interceptor {
       }
       return handler.next(err);
     } else {
+      if (err.requestOptions.extra[skipTransportRetryExtraKey] == true) {
+        return handler.next(err);
+      }
       switch (err.type) {
         case DioExceptionType.connectionError:
         case DioExceptionType.connectionTimeout:

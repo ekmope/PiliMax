@@ -155,7 +155,7 @@ jobs:
             - name: Flutter Build Dev Apk
               if: ${{ github.event_name == 'pull_request' }}
               run: |
-                  flutter build apk --release --split-per-abi --android-project-arg dev=1 --pub
+                  flutter build apk --release --split-per-abi --android-project-arg dev=1 --dart-define=pilimax.localDiagnostics=false --pub
 
             - name: Rename
               run: |

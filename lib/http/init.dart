@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:PiliMax/build_config.dart';
 import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/account_activation_coordinator.dart';
 import 'package:PiliMax/http/constants.dart';
@@ -10,6 +11,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/retry_interceptor.dart';
 import 'package:PiliMax/http/system_proxy_config.dart';
 import 'package:PiliMax/http/user.dart';
+import 'package:PiliMax/services/local_diagnostics.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/accounts/account_manager/account_mgr.dart';
@@ -379,7 +381,7 @@ class Request {
     }
 
     // 日志拦截器 输出请求、响应内容
-    if (kDebugMode && Pref.enableNetworkLog) {
+    if (BuildConfig.localDiagnostics && Pref.enableNetworkLog) {
       dio.interceptors.add(
         LogInterceptor(
           request: false,
@@ -490,6 +492,24 @@ class Request {
     required String operation,
     bool showToast = false,
   }) async {
+    if (BuildConfig.localDiagnostics) {
+      final requestUri = error.requestOptions.uri;
+      unawaited(
+        LocalDiagnostics.record(
+          LocalDiagnosticArea.http,
+          'request_failed',
+          details: {
+            'operation': operation,
+            'method': error.requestOptions.method,
+            'uri': requestUri
+                .replace(userInfo: '', query: '', fragment: '')
+                .toString(),
+            'statusCode': error.response?.statusCode,
+            'errorType': error.type.name,
+          },
+        ),
+      );
+    }
     if (showToast) {
       try {
         AccountManager.toast(error);

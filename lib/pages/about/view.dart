@@ -11,6 +11,7 @@ import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/pages/mine/controller.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
+import 'package:PiliMax/services/local_diagnostics.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
@@ -285,6 +286,18 @@ Commit Hash: ${BuildConfig.commitHash}''',
             subtitle: Text('长按清除日志', style: subTitleStyle),
             trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
           ),
+          if (BuildConfig.localDiagnostics)
+            ListTile(
+              onTap: () => Get.toNamed('/localDiagnostics'),
+              onLongPress: LocalDiagnostics.clear,
+              onSecondaryTap: PlatformUtils.isMobile
+                  ? null
+                  : LocalDiagnostics.clear,
+              leading: const Icon(Icons.developer_mode_outlined),
+              title: const Text('本地诊断日志'),
+              subtitle: Text('长按清除日志', style: subTitleStyle),
+              trailing: Icon(Icons.arrow_forward, size: 16, color: outline),
+            ),
           ListTile(
             onTap: () {
               if (cacheSize.value.isNotEmpty) {

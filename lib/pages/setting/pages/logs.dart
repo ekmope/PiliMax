@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:PiliMax/build_config.dart';
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
@@ -148,19 +149,20 @@ class _LogsPageState extends State<LogsPage> {
                 },
                 child: Text('${enableLog ? '关闭' : '开启'}日志'),
               ),
-              PopupMenuItem(
-                onTap: () {
-                  enableNetworkLog = !enableNetworkLog;
-                  GStorage.setting.put(
-                    SettingBoxKey.enableNetworkLog,
-                    enableNetworkLog,
-                  );
-                  SmartDialog.showToast(
-                    '已${enableNetworkLog ? '开启' : '关闭'}网络日志，重启生效',
-                  );
-                },
-                child: Text('${enableNetworkLog ? '关闭' : '开启'}网络日志'),
-              ),
+              if (BuildConfig.localDiagnostics)
+                PopupMenuItem(
+                  onTap: () {
+                    enableNetworkLog = !enableNetworkLog;
+                    GStorage.setting.put(
+                      SettingBoxKey.enableNetworkLog,
+                      enableNetworkLog,
+                    );
+                    SmartDialog.showToast(
+                      '已${enableNetworkLog ? '开启' : '关闭'}网络日志，重启生效',
+                    );
+                  },
+                  child: Text('${enableNetworkLog ? '关闭' : '开启'}网络日志'),
+                ),
               PopupMenuItem(
                 onTap: copyLogs,
                 child: const Text('复制日志'),

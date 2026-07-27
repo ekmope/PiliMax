@@ -35,6 +35,7 @@ try {
         'pili.code' = $versionCode
         'pili.hash' = $commitHash
         'pili.time' = $buildTime
+        'pilimax.localDiagnostics' = $false
     }
 
     $data | ConvertTo-Json -Compress | Out-File 'pili_release.json' -Encoding UTF8

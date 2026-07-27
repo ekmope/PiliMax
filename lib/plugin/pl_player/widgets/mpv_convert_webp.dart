@@ -5,6 +5,7 @@ import 'dart:ffi';
 
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/http/constants.dart';
+import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -100,7 +101,9 @@ class MpvConvertWebp {
         final prefix = log.prefix.toDartString().trim();
         final level = log.level.toDartString().trim();
         final text = log.text.toDartString().trim();
-        debugPrint('WebpConvert: $level $prefix : $text');
+        debugPrint(
+          LogRedactor.redactText('WebpConvert: $level $prefix : $text'),
+        );
         if (kDebugMode) {
           if (level == 'error' || level == 'fatal') _success = false;
         } else {

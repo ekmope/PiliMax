@@ -36,6 +36,12 @@ List<SettingsModel> get videoSettings => [
     leading: Icon(Icons.hd_outlined),
     setKey: SettingBoxKey.p1080,
   ),
+  const SwitchModel(
+    title: 'App 试看视频（无限试看）',
+    subtitle: '官方可用时显示试看画质',
+    leading: Icon(Icons.all_inclusive),
+    setKey: SettingBoxKey.unlimitedQnTrial,
+  ),
   NormalModel(
     title: 'B站定向流量支持',
     subtitle: '若套餐含B站定向流量，则会自动使用。可查阅运营商的流量记录确认。',

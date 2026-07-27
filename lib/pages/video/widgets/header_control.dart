@@ -4,6 +4,7 @@ import 'dart:io' show Platform, File;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:PiliMax/common/constants.dart';
+import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
@@ -16,6 +17,7 @@ import 'package:PiliMax/http/init.dart';
 import 'package:PiliMax/http/live.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/video.dart';
+import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/super_resolution_type.dart';
 import 'package:PiliMax/models/common/video/audio_quality.dart';
 import 'package:PiliMax/models/common/video/cdn_type.dart';
@@ -476,7 +478,7 @@ class HeaderControlState extends State<HeaderControl>
   @override
   late final PlPlayerController plPlayerController = widget.controller;
   late final VideoDetailController videoDetailCtr = widget.videoDetailCtr;
-  late final PlayUrlModel videoInfo = videoDetailCtr.data;
+  PlayUrlModel get videoInfo => videoDetailCtr.data;
   static const TextStyle subTitleStyle = TextStyle(fontSize: 12);
   static const TextStyle titleStyle = TextStyle(fontSize: 14);
 
@@ -726,7 +728,11 @@ class HeaderControlState extends State<HeaderControl>
                       final result = await showDialog<CDNService>(
                         context: context,
                         builder: (context) => CdnSelectDialog(
-                          sample: videoInfo.dash?.video?.firstOrNull,
+                          sample: videoInfo.dash?.video?.firstWhereOrNull(
+                            (item) => item.playUrls.any(
+                              (url) => url.trim().isNotEmpty,
+                            ),
+                          ),
                         ),
                       );
                       if (result != null) {
@@ -1113,22 +1119,17 @@ class HeaderControlState extends State<HeaderControl>
     final VideoQuality? currentVideoQa = videoDetailCtr.currentVideoQa.value;
     if (currentVideoQa == null) return;
 
-    final List<FormatItem> videoFormat = videoInfo.supportFormats!;
+    final videoFormat = (videoInfo.supportFormats ?? const <FormatItem>[])
+        .where((item) => item.quality != null)
+        .toList(growable: false);
+    if (videoFormat.isEmpty) {
+      SmartDialog.showToast('当前视频没有可选画质');
+      return;
+    }
 
     /// 总质量分类
     final int totalQaSam = videoFormat.length;
-
-    /// 可用的质量分类
-    int usefulQaSam = 0;
-    final List<VideoItem> video = videoInfo.dash!.video!;
-    final Set<int> idSet = {};
-    for (final VideoItem item in video) {
-      final int id = item.id!;
-      if (!idSet.contains(id)) {
-        idSet.add(id);
-        usefulQaSam++;
-      }
-    }
+    final playableQualityIds = videoInfo.playableQualityIds;
 
     showBottomSheet(
       (context, setState) {
@@ -1146,7 +1147,7 @@ class HeaderControlState extends State<HeaderControl>
                     height: 45,
                     child: GestureDetector(
                       onTap: () => SmartDialog.showToast(
-                        '标灰画质需要bilibili会员（已是会员？请关闭无痕模式）；4k和杜比视界播放效果可能不佳',
+                        '“试看”由官方接口决定；标灰表示未返回可播放流。4K 和杜比视界播放效果可能不佳',
                       ),
                       child: Row(
                         spacing: 8,
@@ -1168,6 +1169,16 @@ class HeaderControlState extends State<HeaderControl>
                   itemBuilder: (context, index) {
                     final item = videoFormat[index];
                     final isCurr = currentVideoQa.code == item.quality;
+                    final enabled = playableQualityIds.contains(item.quality);
+                    final isPreview = videoInfo.isPreviewQuality(item.quality);
+                    final capabilityLabel = isPreview
+                        ? videoInfo.playableCapabilityLabel(item.quality)
+                        : null;
+                    final badgeLabel = !isPreview
+                        ? null
+                        : capabilityLabel == null
+                        ? '试看'
+                        : '试看/$capabilityLabel';
                     return ListTile(
                       dense: true,
                       onTap: () {
@@ -1176,29 +1187,31 @@ class HeaderControlState extends State<HeaderControl>
                         }
                         Get.back();
                         final int quality = item.quality!;
-                        final newQa = VideoQuality.fromCode(quality);
-                        videoDetailCtr
-                          ..plPlayerController.cacheVideoQa = newQa.code
-                          ..currentVideoQa.value = newQa
-                          ..updatePlayer();
-
-                        SmartDialog.showToast("画质已变为：${newQa.desc}");
-
-                        videoDetailCtr.persistVideoQa(quality);
+                        videoDetailCtr.switchVideoQuality(quality);
                       },
-                      // 可能包含会员解锁画质
-                      enabled: index >= totalQaSam - usefulQaSam,
+                      enabled: enabled,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 20,
                       ),
-                      title: Text(item.newDesc!),
+                      title: Row(
+                        spacing: 6,
+                        children: [
+                          Flexible(child: Text(item.newDesc ?? '')),
+                          if (badgeLabel != null)
+                            PBadge(
+                              isStack: false,
+                              text: badgeLabel,
+                              type: PBadgeType.primary,
+                            ),
+                        ],
+                      ),
                       trailing: isCurr
                           ? Icon(
                               Icons.done,
                               color: theme.colorScheme.primary,
                             )
                           : Text(
-                              item.format!,
+                              item.format ?? '',
                               style: subTitleStyle,
                             ),
                     );
@@ -1214,8 +1227,18 @@ class HeaderControlState extends State<HeaderControl>
 
   /// 选择音质
   void showSetAudioQa() {
-    final AudioQuality currentAudioQa = videoDetailCtr.currentAudioQa!;
-    final List<AudioItem> audio = videoInfo.dash!.audio!;
+    final currentAudioQa = videoDetailCtr.currentAudioQa;
+    final audio = (videoInfo.dash?.audio ?? const <AudioItem>[])
+        .where(
+          (item) =>
+              item.id != null &&
+              item.playUrls.any((url) => url.trim().isNotEmpty),
+        )
+        .toList(growable: false);
+    if (currentAudioQa == null || audio.isEmpty) {
+      SmartDialog.showToast('当前视频没有可选音质');
+      return;
+    }
     showBottomSheet(
       (context, setState) {
         final theme = Theme.of(context);
@@ -1271,7 +1294,7 @@ class HeaderControlState extends State<HeaderControl>
                       ),
                       title: Text(item.quality),
                       subtitle: Text(
-                        item.codecs!,
+                        item.codecs ?? '',
                         style: subTitleStyle,
                       ),
                       trailing: isCurr

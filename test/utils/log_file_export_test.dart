@@ -47,7 +47,7 @@ void main() {
       expect(file.path, endsWith('.log'));
       expect(exportText, contains('Cookie: [REDACTED]'));
       expect(exportText, contains('Authorization: [REDACTED]'));
-      expect(exportText, contains('[app-path]'));
+      expect(exportText, contains('[local-path]'));
       expect(exportText, isNot(contains('session')));
       expect(exportText, isNot(contains('access-token')));
       expect(exportText, isNot(contains('private.log')));

@@ -1,4 +1,6 @@
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
+import java.nio.charset.StandardCharsets
+import java.util.Base64
 import org.gradle.api.GradleException
 import org.jetbrains.kotlin.konan.properties.Properties
 
@@ -17,6 +19,20 @@ val isBuiltInKotlinEnabled = agpMajorVersion >= 9 &&
 if (!isBuiltInKotlinEnabled) {
     apply(plugin = "org.jetbrains.kotlin.android")
 }
+
+// Flutter passes --dart-define values to Gradle as comma-separated Base64
+// key/value pairs. A release with local diagnostics must never retain the
+// production application ID, even when --android-project-arg dev=1 is missed.
+val localDiagnosticsEnabled = project
+    .findProperty("dart-defines")
+    ?.toString()
+    ?.split(',')
+    ?.any { encoded ->
+        runCatching {
+            String(Base64.getDecoder().decode(encoded), StandardCharsets.UTF_8)
+        }.getOrNull() == "pilimax.localDiagnostics=true"
+    } == true
+val isDevBuild = project.hasProperty("dev") || localDiagnosticsEnabled
 
 android {
     namespace = "com.PiliMax.android"
@@ -56,14 +72,14 @@ android {
     }
 
     buildFeatures {
-        if (project.hasProperty("dev")) {
+        if (isDevBuild) {
             resValues = true
         }
     }
 
     buildTypes {
         release {
-            if (project.hasProperty("dev")) {
+            if (isDevBuild) {
                 signingConfig = config ?: signingConfigs["debug"]
                 applicationIdSuffix = ".dev"
                 resValue(

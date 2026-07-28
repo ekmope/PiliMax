@@ -175,5 +175,11 @@ void main() {
       expect(redacted, isNot(contains('/workspace/user')));
       expect(redacted, isNot(contains('/app/data')));
     });
+
+    test('preserves application route names', () {
+      const routes = 'route=/webQrAuth\nrecent=Route push /videoV';
+
+      expect(LogRedactor.redactText(routes), routes);
+    });
   });
 }

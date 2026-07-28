@@ -142,7 +142,6 @@ abstract final class SettingBoxKey {
       keepUpLikeReply = 'keepUpLikeReply',
       keepUpReplyReply = 'keepUpReplyReply',
       expandDynLivePanel = 'expandDynLivePanel',
-      dynamicsShowSelfUp = 'dynamicsShowSelfUp',
       springDescription = 'springDescription',
       enableHttp2 = 'enableHttp2',
       slideDismissReplyPage = 'slideDismissReplyPage',

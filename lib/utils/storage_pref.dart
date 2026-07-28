@@ -95,7 +95,6 @@ abstract final class Pref {
         SettingBoxKey.disableMobileDownload: () => disableMobileDownload,
         SettingBoxKey.dynamicsShowAllFollowedUp: () =>
             dynamicsShowAllFollowedUp,
-        SettingBoxKey.dynamicsShowSelfUp: () => dynamicsShowSelfUp,
         SettingBoxKey.dynamicsWaterfallFlow: () => dynamicsWaterfallFlow,
         SettingBoxKey.enableAi: () => enableAi,
         SettingBoxKey.enableAndroidRouteRestore: () =>
@@ -1303,9 +1302,6 @@ abstract final class Pref {
     SettingBoxKey.dynamicsShowAllFollowedUp,
     defaultValue: false,
   );
-
-  static bool get dynamicsShowSelfUp =>
-      _setting.get(SettingBoxKey.dynamicsShowSelfUp, defaultValue: true);
 
   static bool get enableShowDanmaku =>
       _setting.get(SettingBoxKey.enableShowDanmaku, defaultValue: true);

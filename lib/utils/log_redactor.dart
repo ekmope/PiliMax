@@ -31,7 +31,7 @@ abstract final class LogRedactor {
     caseSensitive: false,
   );
   static final RegExp _quotedAbsolutePath = RegExp(
-    r'''(["'])(?:(?:[A-Za-z]:[\\/]|\\\\[^\\/\r\n]+[\\/][^\\/\r\n]+[\\/]?)[^"'\r\n]*|/(?!/)[^"'\r\n]*)\1''',
+    r'''(["'])(?:(?:[A-Za-z]:[\\/]|\\\\[^\\/\r\n]+[\\/][^\\/\r\n]+[\\/]?)[^"'\r\n]*|/(?:Applications|Library|System|Users|app|data|dev|etc|home|media|mnt|opt|private|proc|root|run|sdcard|srv|storage|tmp|usr|var|Volumes|workspace)(?:/[^"'\r\n]*)?)\1''',
     caseSensitive: false,
   );
   static final RegExp _windowsAbsolutePath = RegExp(
@@ -39,7 +39,7 @@ abstract final class LogRedactor {
     multiLine: true,
   );
   static final RegExp _unixAbsolutePath = RegExp(
-    r'''(^|[\s=:\[({,"'])/(?!/)[^\r\n,;)\]}"']*''',
+    r'''(^|[\s=:\[({,"'])/(?:Applications|Library|System|Users|app|data|dev|etc|home|media|mnt|opt|private|proc|root|run|sdcard|srv|storage|tmp|usr|var|Volumes|workspace)(?:/[^\r\n,;)\]}"']*)?(?=$|[\s,;)\]}"'])''',
     caseSensitive: false,
     multiLine: true,
   );

@@ -79,15 +79,6 @@ class DynamicsController extends GetxController
     final items = <UpItem>[
       UpItem(face: '', uname: '全部动态', mid: -1),
     ];
-    if (Pref.dynamicsShowSelfUp && accountService.isLogin.value) {
-      items.add(
-        UpItem(
-          uname: '我',
-          face: accountService.face.value,
-          mid: Accounts.main.mid,
-        ),
-      );
-    }
     if (upState.value case Success<FollowUpModel>(:final response)) {
       items.addAll(response.upList);
     }

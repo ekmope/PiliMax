@@ -37,8 +37,8 @@ List<SettingsModel> get videoSettings => [
     setKey: SettingBoxKey.p1080,
   ),
   const SwitchModel(
-    title: 'App 试看视频（无限试看）',
-    subtitle: '官方可用时显示试看画质',
+    title: '无限试用试看画质',
+    subtitle: '仅忽略客户端试用次数，能否试看取决于官方接口，永不维护该功能',
     leading: Icon(Icons.all_inclusive),
     setKey: SettingBoxKey.unlimitedQnTrial,
   ),

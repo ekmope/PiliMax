@@ -5,17 +5,12 @@ import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models/dynamics/up.dart';
 import 'package:PiliMax/pages/dynamics/controller.dart';
 import 'package:PiliMax/pages/live_follow/view.dart';
-import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:PiliMax/utils/storage.dart';
-import 'package:PiliMax/utils/storage_key.dart';
-import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hive_ce/hive.dart';
 
 class UpPanel extends StatefulWidget {
   const UpPanel({
@@ -95,8 +90,11 @@ class _UpPanelState extends State<UpPanel> {
     final currentIndex = controller.indexOfMid(controller.currentMid.value);
     final liveList = controller.upState.value.dataOrNull?.liveUsers?.items;
     final fixedExtent =
-        _actionExtent + _actionExtent + _visibleLiveCount(liveList) * _itemExtent;
-    final currentCenter = fixedExtent + currentIndex * _itemExtent + _itemExtent / 2;
+        _actionExtent +
+        _actionExtent +
+        _visibleLiveCount(liveList) * _itemExtent;
+    final currentCenter =
+        fixedExtent + currentIndex * _itemExtent + _itemExtent / 2;
     final target = (currentCenter - position.viewportDimension / 2)
         .clamp(position.minScrollExtent, position.maxScrollExtent)
         .toDouble();
@@ -119,7 +117,6 @@ class _UpPanelState extends State<UpPanel> {
       controller.currentMid.value,
       upList.length,
       liveList?.length ?? 0,
-      Pref.dynamicsShowSelfUp,
     );
     if (_lastScrollSignature == signature) {
       return;
@@ -212,28 +209,6 @@ class _UpPanelState extends State<UpPanel> {
           ),
         SliverToBoxAdapter(
           child: upItemBuild(theme, UpItem(face: '', uname: '全部动态', mid: -1)),
-        ),
-        StreamBuilder<BoxEvent>(
-          stream: GStorage.setting.watch().where(
-            (event) => event.key == SettingBoxKey.dynamicsShowSelfUp,
-          ),
-          builder: (context, _) {
-            if (!Pref.dynamicsShowSelfUp) {
-              return const SliverToBoxAdapter(child: SizedBox.shrink());
-            }
-            return SliverToBoxAdapter(
-              child: Obx(
-                () => upItemBuild(
-                  theme,
-                  UpItem(
-                    uname: '我',
-                    face: accountService.face.value,
-                    mid: Accounts.main.mid,
-                  ),
-                ),
-              ),
-            );
-          },
         ),
         if (upList.isNotEmpty)
           SliverList.builder(

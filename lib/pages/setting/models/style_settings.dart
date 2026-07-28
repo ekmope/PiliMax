@@ -215,12 +215,6 @@ List<SettingsModel> get styleSettings => [
     onTap: _showUpPosDialog,
   ),
   const SwitchModel(
-    title: '动态页UP主列表显示“我”置顶',
-    subtitle: '用于快速查看个人的动态',
-    leading: Icon(Icons.push_pin_outlined),
-    setKey: SettingBoxKey.dynamicsShowSelfUp,
-  ),
-  const SwitchModel(
     title: '动态页显示所有已关注UP主',
     leading: Icon(Icons.people_alt_outlined),
     setKey: SettingBoxKey.dynamicsShowAllFollowedUp,

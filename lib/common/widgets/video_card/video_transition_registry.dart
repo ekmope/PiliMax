@@ -96,6 +96,7 @@ final class VideoReturnTarget {
     required this.visibleRect,
     required this.borderRadius,
     required this.layout,
+    this.isResponsiveReflow = false,
     this.mediaRect,
     this.mediaVisibleRect,
     this.mediaBorderRadius,
@@ -105,6 +106,10 @@ final class VideoReturnTarget {
   final Rect visibleRect;
   final BorderRadius borderRadius;
   final VideoTransitionSourceLayout layout;
+
+  /// The source card survived, but responsive layout changed its shape while
+  /// the detail page was open. Only its media surface is safe to morph back.
+  final bool isResponsiveReflow;
   final Rect? mediaRect;
   final Rect? mediaVisibleRect;
   final BorderRadius? mediaBorderRadius;
@@ -507,9 +512,7 @@ abstract final class VideoTransitionRegistry {
     if (source == null ||
         rect == null ||
         visibleRect == null ||
-        aspectRatioChanged ||
         !identical(source.route, token.sourceRoute) ||
-        source.layout != token.sourceLayout ||
         source.route?.isActive != true ||
         !_isVisibleRect(rect, visibleRect)) {
       return null;
@@ -522,12 +525,21 @@ abstract final class VideoTransitionRegistry {
         mediaRect == null || currentMediaVisibleRect == null
         ? null
         : currentMediaVisibleRect.intersect(visibleRect);
-    final hasVisibleMediaRect = mediaVisibleRect?.isEmpty == false;
+    final hasVisibleMediaRect =
+        mediaRect != null &&
+        mediaVisibleRect != null &&
+        _isVisibleRect(mediaRect, mediaVisibleRect);
+    final isResponsiveReflow =
+        aspectRatioChanged || source.layout != token.sourceLayout;
+    if (isResponsiveReflow && !hasVisibleMediaRect) {
+      return null;
+    }
     return VideoReturnTarget(
       rect: rect,
       visibleRect: visibleRect,
       borderRadius: source.resolvedBorderRadius(),
       layout: source.layout,
+      isResponsiveReflow: isResponsiveReflow,
       mediaRect: hasVisibleMediaRect ? mediaRect : null,
       mediaVisibleRect: hasVisibleMediaRect ? mediaVisibleRect : null,
       mediaBorderRadius: hasVisibleMediaRect

@@ -9,6 +9,7 @@ import 'package:PiliMax/pages/video/video_detail_exit_snapshot.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -76,6 +77,94 @@ class AppZoomPageTransitionsBuilder extends PageTransitionsBuilder {
   const AppZoomPageTransitionsBuilder();
 
   static const _delegate = ZoomPageTransitionsBuilder();
+
+  @override
+  DelegatedTransitionBuilder? get delegatedTransition => _delegatedTransition;
+
+  static Widget? _delegatedTransition(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    bool allowSnapshotting,
+    Widget? child,
+  ) {
+    final delegatedTransition = _delegate.delegatedTransition;
+    if (delegatedTransition == null) {
+      return child;
+    }
+    return AnimatedBuilder(
+      animation: secondaryAnimation,
+      child: child ?? const SizedBox.shrink(),
+      builder: (context, child) =>
+          _VideoRouteAnimations.drives(secondaryAnimation)
+          ? child!
+          : delegatedTransition(
+                  context,
+                  animation,
+                  secondaryAnimation,
+                  allowSnapshotting,
+                  child,
+                ) ??
+                child!,
+    );
+  }
+
+  @override
+  Duration get transitionDuration => _delegate.transitionDuration;
+
+  @override
+  Duration get reverseTransitionDuration => _delegate.reverseTransitionDuration;
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (route.settings.name != '/videoV') {
+      return AnimatedBuilder(
+        animation: secondaryAnimation,
+        child: child,
+        builder: (context, child) =>
+            _VideoRouteAnimations.drives(secondaryAnimation)
+            ? child!
+            : _delegate.buildTransitions(
+                route,
+                context,
+                animation,
+                secondaryAnimation,
+                child!,
+              ),
+      );
+    }
+    final arguments = route.settings.arguments;
+    final token = arguments is Map
+        ? arguments[videoTransitionTokenKey] as VideoTransitionToken?
+        : null;
+    if (arguments is Map) {
+      (arguments[videoDetailEntryOverlayKey]
+              as VideoDetailEntryOverlayController?)
+          ?.bindRouteAnimation(route.offstage ? null : animation);
+    }
+    _VideoRouteAnimations.register(animation);
+    return _VideoPredictiveBackDriver(
+      route: route,
+      animation: animation,
+      token: token,
+      enablePredictiveBack: false,
+      child: child,
+    );
+  }
+}
+
+/// Keeps Cupertino navigation for ordinary routes while giving video details
+/// the same shared-media exit on Apple platforms.
+class AppCupertinoVideoPageTransitionsBuilder extends PageTransitionsBuilder {
+  const AppCupertinoVideoPageTransitionsBuilder();
+
+  static const _delegate = CupertinoPageTransitionsBuilder();
 
   @override
   DelegatedTransitionBuilder? get delegatedTransition => _delegatedTransition;
@@ -268,22 +357,13 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     widget.animation
       ..addListener(_handleAnimationTick)
       ..addStatusListener(_handleAnimationStatus);
-    if (widget.enablePredictiveBack) {
-      WidgetsBinding.instance.addObserver(this);
-    }
+    WidgetsBinding.instance.addObserver(this);
     _publishBackProgress(0);
   }
 
   @override
   void didUpdateWidget(_VideoPredictiveBackDriver oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.enablePredictiveBack != widget.enablePredictiveBack) {
-      if (widget.enablePredictiveBack) {
-        WidgetsBinding.instance.addObserver(this);
-      } else {
-        WidgetsBinding.instance.removeObserver(this);
-      }
-    }
     if (!identical(oldWidget.animation, widget.animation)) {
       _VideoRouteAnimations.unregister(oldWidget.animation);
       _VideoRouteAnimations.register(widget.animation);
@@ -302,7 +382,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   @override
   void didChangeMetrics() {
-    if (!_snapshotController.allowSnapshotting) {
+    if (!_snapshotController.allowSnapshotting && _returnTarget == null) {
       return;
     }
     _endSnapshotExit();
@@ -310,6 +390,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     _publishBackProgress(_lastProgress);
     if (mounted) {
       setState(() {});
+      _retryReturnTargetAfterLayout();
     }
   }
 
@@ -321,8 +402,9 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
       return false;
     }
     _phase = VideoDetailBackPhase.predicting;
-    _setProgress(backEvent.progress);
     widget.route.handleStartBackGesture(progress: 1 - backEvent.progress);
+    _setProgress(backEvent.progress);
+    _retryReturnTargetAfterLayout();
     return true;
   }
 
@@ -331,10 +413,10 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (_phase != VideoDetailBackPhase.predicting) {
       return;
     }
-    _setProgress(backEvent.progress);
     widget.route.handleUpdateBackGestureProgress(
       progress: 1 - backEvent.progress,
     );
+    _setProgress(backEvent.progress);
   }
 
   @override
@@ -540,22 +622,18 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
         _returnTarget = null;
         _endSnapshotExit();
       } else {
-        final session = _session;
-        final token = widget.token;
-        final canReturnToSource =
-            token != null &&
-            (session == null ||
-                (session.matchesLaunchContent &&
-                    session.launchContentKey == token.contentKey));
-        _returnTarget = canReturnToSource
-            ? VideoTransitionRegistry.resolveReturn(token)
-            : null;
+        _resolveReturnTarget();
         if (exitMode == VideoDetailExitMode.detail) {
           _prepareSnapshotExit();
         } else {
           _endSnapshotExit();
         }
       }
+    } else if (_returnTarget == null &&
+        next > 0 &&
+        _exitMode != VideoDetailExitMode.entryReverse &&
+        _exitMode != VideoDetailExitMode.errorFallback) {
+      _resolveReturnTarget();
     }
     _lastProgress = next;
     _publishBackProgress(next);
@@ -565,6 +643,39 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (_progress.value != next) {
       _progress.value = next;
     }
+  }
+
+  void _resolveReturnTarget() {
+    final session = _session;
+    final token = widget.token;
+    final canReturnToSource =
+        token != null &&
+        (session == null ||
+            (session.matchesLaunchContent &&
+                session.launchContentKey == token.contentKey));
+    _returnTarget = canReturnToSource
+        ? VideoTransitionRegistry.resolveReturn(token)
+        : null;
+  }
+
+  void _retryReturnTargetAfterLayout() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _phase == VideoDetailBackPhase.idle ||
+          _phase == VideoDetailBackPhase.dismissed ||
+          _lastProgress <= 0 ||
+          _returnTarget != null ||
+          _exitMode == VideoDetailExitMode.entryReverse ||
+          _exitMode == VideoDetailExitMode.errorFallback) {
+        return;
+      }
+      _resolveReturnTarget();
+      if (_returnTarget == null) {
+        return;
+      }
+      _publishBackProgress(_lastProgress);
+      setState(() {});
+    });
   }
 
   void _publishBackProgress(double exitProgress) {
@@ -613,9 +724,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   @override
   void dispose() {
     _VideoRouteAnimations.unregister(widget.animation);
-    if (widget.enablePredictiveBack) {
-      WidgetsBinding.instance.removeObserver(this);
-    }
+    WidgetsBinding.instance.removeObserver(this);
     widget.animation
       ..removeListener(_handleAnimationTick)
       ..removeStatusListener(_handleAnimationStatus);
@@ -699,11 +808,13 @@ class VideoPageExitTransition extends StatelessWidget {
             visual != null &&
             texture != null;
         final geometry = hasSharedTarget
-            ? _sharedElementGeometry(
-                size,
-                target,
-                splitMedia: splitMedia,
-              )
+            ? target.isResponsiveReflow
+                  ? _responsiveReflowGeometry(size)
+                  : _sharedElementGeometry(
+                      size,
+                      target,
+                      splitMedia: splitMedia,
+                    )
             : _fallbackGeometry(size);
         if (splitMedia) {
           return _splitPageLayers(
@@ -778,6 +889,17 @@ class VideoPageExitTransition extends StatelessWidget {
         ..scaleByDouble(contentScale, contentScale, 1, 1),
       borderRadius: lerpDouble(0, radius, progress)!,
       bodyHandoff: bodyHandoff,
+    );
+  }
+
+  _VideoExitGeometry _responsiveReflowGeometry(Size size) {
+    final screenRect = Offset.zero & size;
+    return _VideoExitGeometry(
+      clipRect: screenRect,
+      visibleClipRect: screenRect,
+      contentTransform: Matrix4.identity(),
+      borderRadius: 0,
+      bodyHandoff: _sourceHandoffForExitProgress(progress),
     );
   }
 

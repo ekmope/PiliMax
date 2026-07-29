@@ -157,6 +157,11 @@ abstract final class ThemeUtils {
           TargetPlatform.android: Pref.enablePredictiveBack
               ? const AppPredictiveBackPageTransitionsBuilder()
               : const AppZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: const AppCupertinoVideoPageTransitionsBuilder(),
+          TargetPlatform.macOS: const AppCupertinoVideoPageTransitionsBuilder(),
+          TargetPlatform.windows: const AppZoomPageTransitionsBuilder(),
+          TargetPlatform.linux: const AppZoomPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: const AppZoomPageTransitionsBuilder(),
         },
       ),
     );

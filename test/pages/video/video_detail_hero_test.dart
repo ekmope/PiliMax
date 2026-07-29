@@ -245,7 +245,7 @@ void main() {
       await tester.pump();
     });
 
-    testWidgets('rejects a recreated source with a different layout', (
+    testWidgets('returns to a recreated source with a responsive layout', (
       tester,
     ) async {
       const tag = 'return-recovery-different-layout';
@@ -264,6 +264,69 @@ void main() {
 
       harnessKey.currentState!.recreateSource(
         layout: VideoTransitionSourceLayout.horizontalRow,
+      );
+      await tester.pump();
+
+      final target = VideoTransitionRegistry.resolveReturn(token!);
+      expect(target, isNotNull);
+      expect(target!.isResponsiveReflow, isTrue);
+      expect(target.hasMediaTarget, isTrue);
+
+      token.dispose();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('returns to a source resized by responsive reflow', (
+      tester,
+    ) async {
+      const tag = 'return-recovery-responsive-size';
+      final harnessKey = GlobalKey<_TransitionRegistryHarnessState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: _TransitionRegistryHarness(key: harnessKey, tag: tag),
+        ),
+      );
+
+      final token = VideoTransitionRegistry.claim(
+        tag: tag,
+        contentKey: 'video-responsive-size',
+      );
+      expect(token, isNotNull);
+
+      harnessKey.currentState!.recreateSource(width: 160, height: 240);
+      await tester.pump();
+
+      final target = VideoTransitionRegistry.resolveReturn(token!);
+      expect(target, isNotNull);
+      expect(target!.isResponsiveReflow, isTrue);
+      expect(target.hasMediaTarget, isTrue);
+
+      token.dispose();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    });
+
+    testWidgets('rejects responsive reflow with only a clipped media strip', (
+      tester,
+    ) async {
+      const tag = 'return-recovery-clipped-media';
+      final harnessKey = GlobalKey<_TransitionRegistryHarnessState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: _TransitionRegistryHarness(key: harnessKey, tag: tag),
+        ),
+      );
+
+      final token = VideoTransitionRegistry.claim(
+        tag: tag,
+        contentKey: 'video-clipped-media',
+      );
+      expect(token, isNotNull);
+
+      harnessKey.currentState!.recreateSource(
+        layout: VideoTransitionSourceLayout.horizontalRow,
+        mediaClipHeight: 1,
       );
       await tester.pump();
 
@@ -569,6 +632,9 @@ class _TransitionRegistryHarnessState
     extends State<_TransitionRegistryHarness> {
   int _generation = 0;
   double _opacity = 1;
+  double _width = 240;
+  double _height = 160;
+  double? _mediaClipHeight;
   BorderRadiusGeometry _borderRadius = const BorderRadius.all(
     Radius.circular(10),
   );
@@ -577,42 +643,69 @@ class _TransitionRegistryHarnessState
 
   void recreateSource({
     double opacity = 1,
+    double? width,
+    double? height,
+    double? mediaClipHeight,
     BorderRadiusGeometry? borderRadius,
     VideoTransitionSourceLayout? layout,
   }) {
     setState(() {
       _generation++;
       _opacity = opacity;
+      _width = width ?? _width;
+      _height = height ?? _height;
+      _mediaClipHeight = mediaClipHeight ?? _mediaClipHeight;
       _borderRadius = borderRadius ?? _borderRadius;
       _layout = layout ?? _layout;
     });
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: Stack(
-      children: [
-        Positioned(
-          left: 32,
-          top: 80,
-          width: 240,
-          height: 160,
-          child: Opacity(
-            opacity: _opacity,
-            child: VideoDetailTransitionSource(
-              key: ValueKey(_generation),
-              tag: widget.tag,
-              borderRadius: _borderRadius,
-              layout: _layout,
-              child: VideoDetailHero.source(
+  Widget build(BuildContext context) {
+    final media = VideoDetailHero.source(
+      borderRadius: _borderRadius,
+      flightChild: const ColoredBox(color: Colors.black),
+      child: const ColoredBox(color: Colors.blue),
+    );
+    final mediaClipHeight = _mediaClipHeight;
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned(
+            left: 32,
+            top: 80,
+            width: _width,
+            height: _height,
+            child: Opacity(
+              opacity: _opacity,
+              child: VideoDetailTransitionSource(
+                key: ValueKey(_generation),
+                tag: widget.tag,
                 borderRadius: _borderRadius,
-                flightChild: const ColoredBox(color: Colors.black),
-                child: const ColoredBox(color: Colors.blue),
+                layout: _layout,
+                child: mediaClipHeight == null
+                    ? media
+                    : ClipRect(
+                        clipper: _TopStripClipper(height: mediaClipHeight),
+                        child: media,
+                      ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
+}
+
+class _TopStripClipper extends CustomClipper<Rect> {
+  const _TopStripClipper({required this.height});
+
+  final double height;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTWH(0, 0, size.width, height);
+
+  @override
+  bool shouldReclip(_TopStripClipper oldClipper) => oldClipper.height != height;
 }

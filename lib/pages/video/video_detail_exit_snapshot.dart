@@ -10,6 +10,13 @@ const videoDetailExitVisualProviderKey = '_videoDetailExitVisualProvider';
 typedef VideoDetailExitVisualProvider =
     VideoDetailExitVisual? Function(RenderBox transitionRoot);
 
+/// Snapshotting freezes every Flutter layer below the route. Keep the page
+/// live whenever the visible player has animated danmaku.
+abstract final class VideoDetailExitSnapshotPolicy {
+  static bool shouldCapture({required bool hasVisibleDanmaku}) =>
+      !hasVisibleDanmaku;
+}
+
 /// Player geometry captured when a video-detail exit starts.
 ///
 /// The detail page is snapshotted during the transition. This object paints a

@@ -2672,9 +2672,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   }
 
   VideoDetailExitVisual? _captureExitVisual(RenderBox transitionRoot) {
-    if (!mounted ||
-        !Platform.isAndroid ||
-        !videoDetailController.videoState.value) {
+    if (!mounted || !videoDetailController.videoState.value) {
       return null;
     }
     final playerController = plPlayerController;
@@ -2685,6 +2683,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     final videoRenderObject = videoContext?.findRenderObject();
     if (playerController == null ||
         videoController == null ||
+        !VideoDetailExitSnapshotPolicy.shouldCapture(
+          hasVisibleDanmaku: playerController.enableShowDanmaku.value,
+        ) ||
         playerController.isFullScreen.value ||
         playerController.isPipMode ||
         playerController.isDesktopPip ||

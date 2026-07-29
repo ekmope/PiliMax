@@ -11,6 +11,7 @@ import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/keep_alive_wrapper.dart';
+import 'package:PiliMax/common/widgets/pip_mini_video_content.dart';
 import 'package:PiliMax/common/widgets/route_aware_mixin.dart';
 import 'package:PiliMax/common/widgets/scroll_behavior.dart'
     show NoOverscrollIndicator;
@@ -64,6 +65,7 @@ import 'package:PiliMax/services/live_pip_overlay_service.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/services/playback/completed_gate.dart';
 import 'package:PiliMax/services/pip_overlay_service.dart';
+import 'package:PiliMax/services/pip_transition_coordinator.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/services/shutdown_timer_service.dart'
     show shutdownTimerService;
@@ -190,6 +192,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   // 从 PiP 恢复时提前取出的 additional controllers（在 stopPip 清空前保存）
   dynamic _savedIntroControllerFromPip;
   VideoReplyController? _savedReplyControllerFromPip;
+
+  // The destination player stays laid out but invisible until the overlay's
+  // restore animation and page attachment handshake both complete.
+  bool _pipRestoreInFlight = false;
+  int _pipRestoreRectAttempts = 0;
+  final _pageRootKey = GlobalKey();
 
   // intro ctr
   late final CommonIntroController introController =
@@ -501,6 +509,58 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   final _transitionPageForegroundKey = GlobalKey();
   final _transitionHeaderForegroundKey = GlobalKey();
 
+  Rect? _playerRect({bool relativeToPage = false}) {
+    final renderObject = videoDetailController.videoPlayerKey.currentContext
+        ?.findRenderObject();
+    if (renderObject is! RenderBox ||
+        !renderObject.attached ||
+        !renderObject.hasSize ||
+        renderObject.size.isEmpty) {
+      return null;
+    }
+    if (!relativeToPage) {
+      return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    }
+
+    final pageRenderObject = _pageRootKey.currentContext?.findRenderObject();
+    if (pageRenderObject is! RenderBox || !pageRenderObject.attached) {
+      return null;
+    }
+    return renderObject.localToGlobal(
+          Offset.zero,
+          ancestor: pageRenderObject,
+        ) &
+        renderObject.size;
+  }
+
+  void _schedulePipRestoreAttach() {
+    _pipRestoreRectAttempts = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _attachPipRestore());
+  }
+
+  void _attachPipRestore() {
+    if (!mounted || !_pipRestoreInFlight) return;
+
+    final targetRect = _playerRect(relativeToPage: true);
+    if (targetRect == null && _pipRestoreRectAttempts++ < 10) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _attachPipRestore());
+      return;
+    }
+
+    PipOverlayService.transition.attachRestorePage(
+      targetRect: targetRect,
+      onCompleted: () {
+        if (!mounted) {
+          _pipRestoreInFlight = false;
+          return;
+        }
+        setState(() => _pipRestoreInFlight = false);
+        plPlayerController?.controls = false;
+        _resetEnteringPipFlags();
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -536,11 +596,18 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         videoDetailController.$reopenLifeCycle(); // 重置 isClosed
         Get.put(savedController, tag: heroTag);
 
-        PipOverlayService.stopPip(
-          callOnClose: false,
-          immediate: true,
-          targetContextKey: targetContextKey,
-        );
+        if (PipOverlayService.transition.phase == PipPhase.restoring &&
+            targetContextKey != null &&
+            targetContextKey == PipOverlayService.savedVideoContextKey) {
+          _pipRestoreInFlight = true;
+          _schedulePipRestoreAttach();
+        } else {
+          PipOverlayService.stopPip(
+            callOnClose: false,
+            immediate: true,
+            targetContextKey: targetContextKey,
+          );
+        }
 
         // 将提前取出的 additional controllers 存回局部变量供后续使用
         _savedReplyControllerFromPip = savedReplyControllerFromPip;
@@ -729,7 +796,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       if (plPlayerController!.isFullScreen.value) {
         plPlayerController!.triggerFullScreen(status: false);
       }
-      plPlayerController!.controls = true;
+      plPlayerController!.controls = false;
 
       _logSponsorBlock(
         'Returning from PiP, segmentList.length: ${videoDetailController.segmentList.length}',
@@ -1492,10 +1559,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       videoDetailController.cancelBlockListener();
     }
 
-    // 无论是否进入小窗，离开当前页面时都标记隐藏播放器 UI
-    // 这样做有两个目的：
-    // 1. 释放 GlobalKey (videoPlayerKey)，确保小窗能够接管它而不会冲突
-    // 2. 确保下次 didPopNext 时 videoState.value = true 能触发 Obx 刷新
+    // 无论是否进入小窗，离开当前页面时都标记隐藏播放器 UI：
+    // 1. 收起页面播放器副本，小窗使用不带页面 GlobalKey 的轻量副本；
+    // 2. 确保下次 didPopNext 时 videoState.value = true 能触发 Obx 刷新。
     videoDetailController.videoState.value = false;
 
     // 4. 处理播放器实例
@@ -1563,16 +1629,20 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         // 先于 stopPip 记录，交由 didPopNext 末尾统一对账
         videoDetailController.playerStatus =
             plPlayerController?.playerStatus.value;
-        PipOverlayService.stopPip(
-          callOnClose: false,
-          immediate: true,
-          targetContextKey: PipOverlayService.contextKeyFromArgs(
-            videoDetailController.args,
-          ),
-        );
-        _resetEnteringPipFlags();
-        // 小窗模式下控制栏可能被隐藏了，恢复它
-        plPlayerController?.controls = true;
+        if (PipOverlayService.transition.beginRestore()) {
+          _pipRestoreInFlight = true;
+          _schedulePipRestoreAttach();
+        } else {
+          PipOverlayService.stopPip(
+            callOnClose: false,
+            immediate: true,
+            targetContextKey: PipOverlayService.contextKeyFromArgs(
+              videoDetailController.args,
+            ),
+          );
+          _resetEnteringPipFlags();
+          plPlayerController?.controls = false;
+        }
       } else {
         // 小窗里播放的是其他视频，返回到新的视频页面时必须关闭小窗，否则会同时播放两个视频
         _logSponsorBlock(
@@ -1668,8 +1738,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       plPlayerController = videoDetailController.plPlayerController;
     } else {
       // 场景 3：直接恢复关联的小窗/后台播放器，确保界面正常显示
-      // 由于小窗可能刚刚被关闭（OverlayEntry 移除），我们需要延迟一个帧再显示主页播放器
-      // 以确保 GlobalKey (videoPlayerKey) 已经从小窗中彻底释放，避免冲突
+      // 小窗可能刚刚被关闭（OverlayEntry 移除），延迟一帧再展开主页播放器，
+      // 确保移除生效后两份播放器副本不会同帧共存
       _logSponsorBlock('Restoring current player (delayed refresh)');
       // 统一对账：以离开页面/小窗时记录的期望状态为准，对齐实际播放状态。
       // 期望播放但实际暂停（如 didPushNext 未进小窗时暂停、关小窗时暂停）→ 恢复播放；
@@ -2547,54 +2617,59 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     required double height,
     bool isPipMode = false,
     bool isInAppPip = false,
-  }) => Obx(() {
-    final child =
-        (!isPipMode && !_allowPlayerMount) ||
-            (!isPipMode && !videoDetailController.videoState.value) ||
-            !videoDetailController.autoPlay ||
-            plPlayerController?.videoController == null
-        ? const SizedBox.shrink()
-        : PLVideoPlayer(
-            maxWidth: width,
-            maxHeight: height,
-            isPipMode: isPipMode,
-            isInAppPip: isInAppPip,
-            plPlayerController: plPlayerController!,
-            videoDetailController: videoDetailController,
-            introController: introController,
-            headerControl: HeaderControl(
-              key: videoDetailController.headerCtrKey,
-              isPortrait: isPortrait,
-              controller: videoDetailController.plPlayerController,
-              videoDetailCtr: videoDetailController,
+  }) {
+    return Obx(() {
+      final child =
+          (!isPipMode && !_allowPlayerMount) ||
+              (!isPipMode && !videoDetailController.videoState.value) ||
+              !videoDetailController.autoPlay ||
+              plPlayerController?.videoController == null
+          ? const SizedBox.shrink()
+          : PLVideoPlayer(
+              maxWidth: width,
+              maxHeight: height,
+              isPipMode: isPipMode,
+              isInAppPip: isInAppPip,
+              plPlayerController: plPlayerController!,
+              videoDetailController: videoDetailController,
               introController: introController,
-              heroTag: heroTag,
-              onBack: _popVideoRoute,
-            ),
-            danmuWidget: isPipMode && pipNoDanmaku
-                ? null
-                : Obx(
-                    () => PlDanmaku(
-                      key: ValueKey(videoDetailController.cid.value),
-                      isPipMode: isPipMode,
-                      cid: videoDetailController.cid.value,
-                      playerController: plPlayerController!,
-                      isFullScreen: plPlayerController!.isFullScreen.value,
-                      isFileSource: videoDetailController.isFileSource,
-                      size: Size(width, height),
+              headerControl: HeaderControl(
+                key: videoDetailController.headerCtrKey,
+                isPortrait: isPortrait,
+                controller: videoDetailController.plPlayerController,
+                videoDetailCtr: videoDetailController,
+                introController: introController,
+                heroTag: heroTag,
+                onBack: _popVideoRoute,
+              ),
+              danmuWidget: isPipMode && pipNoDanmaku
+                  ? null
+                  : Obx(
+                      () => PlDanmaku(
+                        key: ValueKey(videoDetailController.cid.value),
+                        isPipMode: isPipMode,
+                        cid: videoDetailController.cid.value,
+                        playerController: plPlayerController!,
+                        isFullScreen: plPlayerController!.isFullScreen.value,
+                        isFileSource: videoDetailController.isFileSource,
+                        size: Size(width, height),
+                      ),
                     ),
-                  ),
-            showEpisodes: showEpisodes,
-            showViewPoints: showViewPoints,
-            transitionVideoKey: _transitionVideoKey,
-            transitionForegroundKey: _transitionPlayerForegroundKey,
-          );
+              showEpisodes: showEpisodes,
+              showViewPoints: showViewPoints,
+              transitionVideoKey: _transitionVideoKey,
+              transitionForegroundKey: _transitionPlayerForegroundKey,
+            );
 
-    return StatefulBuilder(
-      key: videoDetailController.videoPlayerKey,
-      builder: (_, _) => child,
-    );
-  });
+      final player = StatefulBuilder(
+        key: videoDetailController.videoPlayerKey,
+        builder: (_, _) => child,
+      );
+      return _pipRestoreInFlight
+          ? IgnorePointer(child: Opacity(opacity: 0, child: player))
+          : player;
+    });
+  }
 
   VideoDetailExitVisual? _captureExitVisual(RenderBox transitionRoot) {
     if (!mounted ||
@@ -2752,9 +2827,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         child: child,
       );
     }
-    return videoDetailController.plPlayerController.darkVideoPage
+    final page = videoDetailController.plPlayerController.darkVideoPage
         ? Theme(data: themeData, child: child)
         : child;
+    return KeyedSubtree(key: _pageRootKey, child: page);
   }
 
   Widget buildTabBar({
@@ -3785,6 +3861,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       'Saved ${additionalControllers.length} additional controllers',
     );
 
+    // Capture before a predictive-back pop can remove the page player from
+    // the render tree. A failed capture still falls back to an active PiP.
+    final sourceRect = _playerRect();
+
     void handleStartFailure() {
       _logSponsorBlock('PiP overlay failed to start');
       _resetEnteringPipFlags();
@@ -3799,11 +3879,23 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         controller: videoDetailController,
         additionalControllers: additionalControllers,
         context: context,
-        videoPlayerBuilder: (isNative, w, h) => plPlayer(
-          width: w,
-          height: h,
-          isPipMode: true,
-          isInAppPip: !isNative,
+        sourceRect: sourceRect,
+        videoPlayerBuilder: (_, w, h) => PipMiniVideoContent(
+          plPlayerController: plPlayerController!,
+          transition: PipOverlayService.transition,
+          danmuWidget: pipNoDanmaku
+              ? null
+              : Obx(
+                  () => PlDanmaku(
+                    key: ValueKey(videoDetailController.cid.value),
+                    isPipMode: true,
+                    cid: videoDetailController.cid.value,
+                    playerController: plPlayerController!,
+                    isFullScreen: false,
+                    isFileSource: videoDetailController.isFileSource,
+                    size: Size(w, h),
+                  ),
+                ),
         ),
         onClose: () {
           _isEnteringPipMode = false;
@@ -3902,7 +3994,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           fallbackDuration:
               plPlayerController!.videoPlayerController?.state.duration,
         );
-      plPlayerController!.dispose();
+      if (mounted) {
+        plPlayerController!.pause();
+        videoDetailController.playerStatus = PlayerStatus.paused;
+      } else {
+        plPlayerController!.dispose();
+      }
     } else {
       PlPlayerController.updatePlayCount();
     }

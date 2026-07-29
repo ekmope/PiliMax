@@ -38,7 +38,7 @@ List<SettingsModel> get videoSettings => [
   ),
   const SwitchModel(
     title: '无限试用试看画质',
-    subtitle: '仅忽略客户端试用次数，能否试看取决于官方接口，永不维护该功能',
+    subtitle: '仅忽略客户端试用次数，能否试看取决于官方接口，失效不修',
     leading: Icon(Icons.all_inclusive),
     setKey: SettingBoxKey.unlimitedQnTrial,
   ),

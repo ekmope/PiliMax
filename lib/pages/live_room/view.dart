@@ -38,6 +38,7 @@ import 'package:PiliMax/plugin/pl_player/view/view.dart';
 import 'package:PiliMax/services/live_pip_overlay_service.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/services/pip_overlay_service.dart';
+import 'package:PiliMax/services/pip_transition_coordinator.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
@@ -86,6 +87,60 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   late final GlobalKey scKey = GlobalKey();
   late final GlobalKey playerKey = GlobalKey();
 
+  bool _pipRestoreInFlight = false;
+  int _pipRestoreRectAttempts = 0;
+  final _pageRootKey = GlobalKey();
+
+  Rect? _livePlayerRect({bool relativeToPage = false}) {
+    final renderObject = playerKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox ||
+        !renderObject.attached ||
+        !renderObject.hasSize ||
+        renderObject.size.isEmpty) {
+      return null;
+    }
+    if (relativeToPage) {
+      final pageRenderObject = _pageRootKey.currentContext?.findRenderObject();
+      if (pageRenderObject is RenderBox && pageRenderObject.attached) {
+        return renderObject.localToGlobal(
+              Offset.zero,
+              ancestor: pageRenderObject,
+            ) &
+            renderObject.size;
+      }
+      return null;
+    }
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+  }
+
+  void _scheduleLivePipRestoreAttach() {
+    _pipRestoreRectAttempts = 0;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _attachLivePipRestore(),
+    );
+  }
+
+  void _attachLivePipRestore() {
+    if (!mounted || !_pipRestoreInFlight) return;
+    final targetRect = _livePlayerRect(relativeToPage: true);
+    if (targetRect == null && _pipRestoreRectAttempts++ < 10) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _attachLivePipRestore(),
+      );
+      return;
+    }
+    LivePipOverlayService.transition.attachRestorePage(
+      targetRect: targetRect,
+      onCompleted: () {
+        if (!mounted) {
+          _pipRestoreInFlight = false;
+          return;
+        }
+        setState(() => _pipRestoreInFlight = false);
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -108,9 +163,15 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     // 无论是否是同一个房间，既然进入了直播详情页，就关闭现有的小窗（不销毁播放器）
     if (LivePipOverlayService.isInPipMode) {
       // 使用非销毁式关闭，让新页面接管播放器
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        LivePipOverlayService.stopLivePip(callOnClose: false);
-      });
+      if (isReturningFromPip &&
+          LivePipOverlayService.transition.phase == PipPhase.restoring) {
+        _pipRestoreInFlight = true;
+        _scheduleLivePipRestoreAttach();
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          LivePipOverlayService.stopLivePip(callOnClose: false);
+        });
+      }
     }
 
     // 如果有视频小窗也关闭
@@ -174,7 +235,15 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     // 如果返回当前页面时应用内小窗正在运行，且房间号匹配，说明是从正在小窗播放的页面返回
     if (LivePipOverlayService.isInPipMode) {
       if (LivePipOverlayService.currentRoomId == _liveRoomController.roomId) {
-        LivePipOverlayService.stopLivePip(callOnClose: false, immediate: true);
+        if (LivePipOverlayService.transition.beginRestore()) {
+          _pipRestoreInFlight = true;
+          _scheduleLivePipRestoreAttach();
+        } else {
+          LivePipOverlayService.stopLivePip(
+            callOnClose: false,
+            immediate: true,
+          );
+        }
       } else {
         // 小窗里是其他房间，返回直播间时必须关闭，否则会同时播放两个视频
         LivePipOverlayService.stopLivePip(callOnClose: true, immediate: true);
@@ -364,9 +433,12 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         child: child,
       );
     }
-    return Theme(
-      data: ThemeUtils.darkTheme,
-      child: child,
+    return KeyedSubtree(
+      key: _pageRootKey,
+      child: Theme(
+        data: ThemeUtils.darkTheme,
+        child: child,
+      ),
     );
   }
 
@@ -534,11 +606,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         }),
       ],
     );
-    return popScope(
+    final result = popScope(
       canPop: !isFullScreen && !plPlayerController.isDesktopPip,
       onPopInvokedWithResult: _onPopInvokedWithResult,
       child: player,
     );
+    return _pipRestoreInFlight
+        ? IgnorePointer(child: Opacity(opacity: 0, child: result))
+        : result;
   }
 
   void _onPopInvokedWithResult(bool didPop, Object? result) {
@@ -589,6 +664,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         roomId: _liveRoomController.roomId,
         plPlayerController: plPlayerController,
         controller: _liveRoomController,
+        sourceRect: _livePlayerRect(),
         onClose: () {
           _isEnteringPipMode = false;
           _liveRoomController.isInPipMode.value = false;

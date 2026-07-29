@@ -281,6 +281,13 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       vsync: this,
       duration: const Duration(milliseconds: 100),
     );
+    if (plPlayerController.showControls.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && plPlayerController.showControls.value) {
+          _onControlChanged(true);
+        }
+      });
+    }
     videoController = plPlayerController.videoController!;
 
     if (PlatformUtils.isMobile) {

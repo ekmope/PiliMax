@@ -147,6 +147,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       Get.isRegistered<AiChatController>(tag: tag);
 
   late final VideoDetailController videoDetailController;
+  bool _hasVideoDetailController = false;
   late final VideoReplyController _videoReplyController;
   PlPlayerController? plPlayerController;
   PlPlayerController? _playerListenersController;
@@ -594,6 +595,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       }
       videoDetailController = Get.put(VideoDetailController(), tag: heroTag);
     }
+    _hasVideoDetailController = true;
 
     if (videoDetailController.removeSafeArea) {
       hideSystemBar();
@@ -1369,6 +1371,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     _fullScreenExitAwaitingStateChange = false;
     _pendingPopAfterFullScreenExit = false;
     _didPopNextGeneration++;
+    if (!_hasVideoDetailController) {
+      VideoStackManager.decrement();
+      removeObserverMobile(this);
+      super.dispose();
+      return;
+    }
     _initialVisualReadyGeneration++;
     if (identical(
       _videoArgs[videoDetailExitVisualProviderKey],
@@ -1447,6 +1455,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     isShowing = false;
 
     removeObserverMobile(this);
+    if (!_hasVideoDetailController) {
+      return;
+    }
 
     if (Platform.isAndroid && !videoDetailController.setSystemBrightness) {
       ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();
@@ -1508,6 +1519,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     super.didPopNext();
 
     final resumeGeneration = ++_didPopNextGeneration;
+    if (!_hasVideoDetailController) {
+      return;
+    }
     unawaited(_handleDidPopNext(resumeGeneration));
   }
 

@@ -854,6 +854,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       viewport,
       isVertical: _entryIsVertical,
       topInset: topInset,
+      isPortrait: viewport.height >= viewport.width,
     );
     final cover = _entryCover;
     final coverLayer = cover == null

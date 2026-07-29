@@ -460,6 +460,7 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
       viewport,
       isVertical: widget.controller._isVertical,
       topInset: topInset,
+      isPortrait: viewport.height >= viewport.width,
     );
   }
 
@@ -685,6 +686,7 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
                               recommendationSurfaceOpacity:
                                   progress * recommendationRevealOpacity,
                               isVertical: widget.controller._isVertical,
+                              isPortrait: viewport.height >= viewport.width,
                               playerBottomOverride:
                                   localMediaRect.bottom - profileOffset,
                               variant: widget.controller._variant,

@@ -706,6 +706,7 @@ class VideoDetailHeroShell extends StatefulWidget {
     this.recommendationSurfaceOpacity = 1,
     this.recommendationCount = 4,
     this.isVertical,
+    this.isPortrait,
     this.playerBottomOverride,
     this.variant = VideoDetailSkeletonVariant.ugc,
     this.title,
@@ -745,6 +746,7 @@ class VideoDetailHeroShell extends StatefulWidget {
     required double progress,
     int recommendationCount = 4,
     bool? isVertical,
+    bool? isPortrait,
     double? playerBottomOverride,
     VideoDetailSkeletonVariant variant = VideoDetailSkeletonVariant.ugc,
     String? title,
@@ -767,6 +769,7 @@ class VideoDetailHeroShell extends StatefulWidget {
     recommendationSurfaceOpacity: _remaining(progress, 0.56, 1),
     recommendationCount: recommendationCount,
     isVertical: isVertical,
+    isPortrait: isPortrait,
     playerBottomOverride: playerBottomOverride,
     variant: variant,
     title: title,
@@ -789,6 +792,7 @@ class VideoDetailHeroShell extends StatefulWidget {
   final double recommendationSurfaceOpacity;
   final int recommendationCount;
   final bool? isVertical;
+  final bool? isPortrait;
   final double? playerBottomOverride;
   final VideoDetailSkeletonVariant variant;
   final String? title;
@@ -842,6 +846,7 @@ class _VideoDetailHeroShellState extends State<VideoDetailHeroShell> {
         final height = constraints.hasBoundedHeight
             ? constraints.maxHeight
             : mediaSize.height;
+        final isPortrait = widget.isPortrait ?? height >= width;
         final ugcTitleHeight = widget.variant == VideoDetailSkeletonVariant.ugc
             ? _ugcTitleHeightCache.resolve(
                 title: widget.title,
@@ -865,6 +870,7 @@ class _VideoDetailHeroShellState extends State<VideoDetailHeroShell> {
               recommendationSurfaceOpacity: widget.recommendationSurfaceOpacity,
               recommendationCount: widget.recommendationCount,
               isVertical: widget.isVertical,
+              isPortrait: isPortrait,
               playerBottomOverride: widget.playerBottomOverride,
               topInset: Pref.removeSafeArea
                   ? 0
@@ -970,6 +976,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     required this.recommendationSurfaceOpacity,
     required this.recommendationCount,
     required this.isVertical,
+    required this.isPortrait,
     required this.playerBottomOverride,
     required this.topInset,
     required this.variant,
@@ -991,6 +998,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   final double recommendationSurfaceOpacity;
   final int recommendationCount;
   final bool? isVertical;
+  final bool isPortrait;
   final double? playerBottomOverride;
   final double topInset;
   final VideoDetailSkeletonVariant variant;
@@ -1013,6 +1021,12 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     canvas
       ..save()
       ..clipRect(Offset.zero & size);
+
+    if (!isPortrait) {
+      _paintLandscape(canvas, size);
+      canvas.restore();
+      return;
+    }
 
     final playerBottom =
         (playerBottomOverride ??
@@ -1058,6 +1072,128 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     canvas.restore();
   }
 
+  void _paintLandscape(Canvas canvas, Size size) {
+    final playerRect = VideoDetailLayoutMetrics.entryPlayerRect(
+      size,
+      isVertical: isVertical,
+      topInset: topInset,
+      isPortrait: false,
+    );
+    if (playerSurfaceOpacity > 0) {
+      canvas.drawRect(
+        playerRect,
+        Paint()..color = Colors.black.withValues(alpha: playerSurfaceOpacity),
+      );
+    }
+
+    final sidebar = Rect.fromLTRB(playerRect.right, 0, size.width, size.height);
+    if (sidebar.width > 0) {
+      _paintLandscapeSidebar(canvas, sidebar);
+    }
+    if (playerRect.bottom < size.height) {
+      _paintLandscapeInfo(
+        canvas,
+        Rect.fromLTRB(0, playerRect.bottom, playerRect.right, size.height),
+      );
+    }
+  }
+
+  void _paintLandscapeSidebar(Canvas canvas, Rect rect) {
+    const padding = VideoDetailLayoutMetrics.horizontalPadding;
+    final navigation = Rect.fromLTWH(
+      rect.left,
+      rect.top,
+      rect.width,
+      math.min(VideoDetailLayoutMetrics.tabBarHeight, rect.height),
+    );
+    _paintNavigation(canvas, navigation);
+
+    final bodyTop =
+        navigation.bottom + VideoDetailLayoutMetrics.relatedTopPadding;
+    _paintSection(
+      canvas,
+      Rect.fromLTRB(rect.left, bodyTop, rect.right, rect.bottom),
+      recommendationSurfaceOpacity,
+      () {
+        final primaryPaint = _skeletonPaint(recommendationSurfaceOpacity);
+        final subtlePaint = _subtlePaint(recommendationSurfaceOpacity);
+        var top = bodyTop;
+        for (
+          var index = 0;
+          index < recommendationCount && top < rect.bottom;
+          index++
+        ) {
+          final itemHeight = math.min(
+            VideoDetailLayoutMetrics.relatedCardHeight,
+            rect.bottom - top,
+          );
+          final thumbnailWidth = math.min(
+            itemHeight * Style.aspectRatio16x9,
+            rect.width * 0.48,
+          );
+          final thumbnail = Rect.fromLTWH(
+            rect.left + padding,
+            top,
+            thumbnailWidth,
+            itemHeight,
+          );
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(thumbnail, const Radius.circular(4)),
+            _thumbnailPaint(recommendationSurfaceOpacity),
+          );
+          final textLeft = thumbnail.right + 10;
+          final textWidth = math.max(0.0, rect.right - padding - textLeft);
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(textLeft, top + 6, textWidth * 0.9, 10),
+            primaryPaint,
+          );
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(textLeft, top + 25, textWidth * 0.65, 8),
+            subtlePaint,
+          );
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(textLeft, top + itemHeight - 12, textWidth * 0.42, 7),
+            subtlePaint,
+          );
+          top += itemHeight + VideoDetailLayoutMetrics.relatedCardSpacing;
+        }
+      },
+    );
+  }
+
+  void _paintLandscapeInfo(Canvas canvas, Rect rect) {
+    const padding = VideoDetailLayoutMetrics.horizontalPadding;
+    _paintSection(canvas, rect, detailSurfaceOpacity, () {
+      final primaryPaint = _skeletonPaint(detailSurfaceOpacity);
+      final subtlePaint = _subtlePaint(detailSurfaceOpacity);
+      final contentWidth = math.max(0.0, rect.width - 2 * padding);
+      final top = rect.top + VideoDetailLayoutMetrics.introTopPadding;
+      _drawBar(
+        canvas,
+        Rect.fromLTWH(padding, top, contentWidth * 0.72, 12),
+        primaryPaint,
+      );
+      _drawBar(
+        canvas,
+        Rect.fromLTWH(padding, top + 23, contentWidth * 0.48, 8),
+        subtlePaint,
+      );
+      _paintActions(
+        canvas,
+        Rect.fromLTWH(
+          padding,
+          top + 38,
+          contentWidth,
+          VideoDetailLayoutMetrics.actionHeight,
+        ),
+        detailSurfaceOpacity,
+      );
+    });
+  }
+
   void _paintNavigation(Canvas canvas, Rect rect) {
     _paintSection(canvas, rect, navigationSurfaceOpacity, () {
       final primaryPaint = _skeletonPaint(navigationSurfaceOpacity);
@@ -1076,7 +1212,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         _drawBar(
           canvas,
           Rect.fromCenter(
-            center: Offset(tabWidth * (index + 0.5), centerY),
+            center: Offset(rect.left + tabWidth * (index + 0.5), centerY),
             width: barWidth,
             height: index == 0 ? 10 : 8,
           ),
@@ -1114,7 +1250,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         )
         ..drawRect(
           Rect.fromCenter(
-            center: Offset(tabWidth / 2, rect.bottom - 1),
+            center: Offset(rect.left + tabWidth / 2, rect.bottom - 1),
             width: math.min(42, tabWidth * 0.62),
             height: 2,
           ),
@@ -1839,6 +1975,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
             oldDelegate.recommendationSurfaceOpacity ||
         recommendationCount != oldDelegate.recommendationCount ||
         isVertical != oldDelegate.isVertical ||
+        isPortrait != oldDelegate.isPortrait ||
         playerBottomOverride != oldDelegate.playerBottomOverride ||
         topInset != oldDelegate.topInset ||
         variant != oldDelegate.variant ||

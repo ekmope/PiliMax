@@ -471,6 +471,28 @@ void main() {
   });
 
   group('Video detail shared UGC layout', () {
+    test('uses a split player slot for landscape entry skeletons', () {
+      const viewport = Size(1200, 720);
+
+      final portrait = VideoDetailLayoutMetrics.entryPlayerRect(
+        viewport,
+        isVertical: false,
+        topInset: 0,
+      );
+      final landscape = VideoDetailLayoutMetrics.entryPlayerRect(
+        viewport,
+        isVertical: false,
+        topInset: 0,
+        isPortrait: false,
+      );
+
+      expect(portrait, const Rect.fromLTWH(0, 0, 1200, 405));
+      expect(landscape.left, 0);
+      expect(landscape.width, 780);
+      expect(landscape.height, 438.75);
+      expect(landscape.right, lessThan(viewport.width));
+    });
+
     test('resolves the title and season surface geometry', () {
       const viewport = Size(400, 800);
       final titleRect = VideoDetailLayoutMetrics.ugcTitleRect(

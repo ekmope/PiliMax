@@ -213,8 +213,26 @@ abstract final class VideoDetailLayoutMetrics {
     Size viewport, {
     required bool? isVertical,
     required double topInset,
+    bool isPortrait = true,
   }) {
     final top = topInset.clamp(0.0, viewport.height).toDouble();
+    if (!isPortrait) {
+      final availableHeight = math.max(0.0, viewport.height - top);
+      final width =
+          (isVertical == true
+                  ? math.min(
+                      availableHeight / Style.aspectRatio16x9,
+                      viewport.width * 0.62,
+                    )
+                  : _landscapePlayerWidth(viewport, availableHeight))
+              .toDouble();
+      final height =
+          (isVertical == true
+                  ? availableHeight
+                  : math.min(width / Style.aspectRatio16x9, availableHeight))
+              .toDouble();
+      return Rect.fromLTWH(0, top, width, height);
+    }
     final height = entryPlayerHeight(
       viewport,
       isVertical: isVertical,
@@ -222,14 +240,32 @@ abstract final class VideoDetailLayoutMetrics {
     return Rect.fromLTWH(0, top, viewport.width, height);
   }
 
+  static double _landscapePlayerWidth(Size viewport, double availableHeight) {
+    if (viewport.width <= 0) {
+      return 0;
+    }
+    var width =
+        ((availableHeight / viewport.width * 1.08).clamp(0.5, 0.7) *
+                viewport.width)
+            .toDouble();
+    if (viewport.width >= 560) {
+      width =
+          viewport.width -
+          (viewport.width - width).clamp(280.0, 425.0).toDouble();
+    }
+    return width.clamp(0.0, viewport.width).toDouble();
+  }
+
   static double entryPlayerBottom(
     Size viewport, {
     required bool? isVertical,
     required double topInset,
+    bool isPortrait = true,
   }) => entryPlayerRect(
     viewport,
     isVertical: isVertical,
     topInset: topInset,
+    isPortrait: isPortrait,
   ).bottom;
 }
 

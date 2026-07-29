@@ -906,9 +906,6 @@ abstract final class PageUtils {
             hasEpisodePanel: skeletonProfile.hasEpisodePanel,
           )..insert();
           arguments[videoDetailEntryOverlayKey] = entryOverlay;
-        } else {
-          (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
-              ?.dispose();
         }
       }
       if (canInstallRoute?.call() == false) {

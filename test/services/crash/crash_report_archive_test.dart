@@ -196,5 +196,5 @@ CrashReport _report(
     source: CrashSource.explicit,
     severity: severity,
     sessionId: 'test-session',
-  );
+  ).normalized();
 }

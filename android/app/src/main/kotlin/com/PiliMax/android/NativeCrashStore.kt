@@ -14,7 +14,8 @@ internal object NativeCrashStore {
     private const val DIRECTORY_NAME = "native_crashes"
     private const val MAX_REPORTS = 12
     private const val MAX_MESSAGE_LENGTH = 4096
-    private const val MAX_STACK_LENGTH = 131_072
+    private const val MAX_STACK_LENGTH = 32 * 1024
+    private const val MAX_BRIDGE_STACK_LENGTH = 32 * 1024
     private const val MAX_THREAD_NAME_LENGTH = 256
     private val recordSequence = AtomicLong()
 
@@ -85,13 +86,22 @@ internal object NativeCrashStore {
         return "exit_$digest"
     }
 
-    fun pendingReports(context: Context): List<Map<String, Any?>> {
+    fun pendingReports(context: Context, limit: Int? = null): List<Map<String, Any?>> {
+        val requestedLimit = limit?.coerceIn(1, MAX_REPORTS) ?: MAX_REPORTS
         return reportDirectory(context)
             .listFiles { file -> file.extension == "json" }
             ?.sortedBy(File::lastModified)
+            ?.take(requestedLimit)
             ?.mapNotNull { file ->
                 try {
                     jsonToMap(JSONObject(file.readText())).toMutableMap().apply {
+                        val stackTrace = this["stackTrace"] as? String
+                        if (stackTrace != null) {
+                            this["stackTrace"] = truncate(
+                                stackTrace,
+                                MAX_BRIDGE_STACK_LENGTH,
+                            )
+                        }
                         put("recordId", file.nameWithoutExtension)
                     }
                 } catch (_: Exception) {

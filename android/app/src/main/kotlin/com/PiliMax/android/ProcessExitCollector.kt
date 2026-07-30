@@ -11,7 +11,7 @@ internal object ProcessExitCollector {
     private const val PREFERENCES_NAME = "native_crash_exit_state"
     private const val LAST_EXIT_TIMESTAMP = "last_exit_timestamp"
     private const val LAST_EXIT_KEYS = "last_exit_keys"
-    private const val MAX_TRACE_BYTES = 131_072
+    private const val MAX_TRACE_BYTES = 32 * 1024
     private const val FIRST_COLLECTION_WINDOW_MS = 10 * 60 * 1000L
 
     fun collect(context: Context) {

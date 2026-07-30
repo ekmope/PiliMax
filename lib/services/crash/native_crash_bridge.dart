@@ -5,10 +5,13 @@ import 'package:flutter/services.dart';
 abstract final class NativeCrashBridge {
   static const _channel = MethodChannel('com.PiliMax.android/native_crash');
 
-  static Future<List<Map<String, dynamic>>> getPendingReports() async {
+  static Future<List<Map<String, dynamic>>> getPendingReports({
+    int? limit,
+  }) async {
     if (!Platform.isAndroid) return const [];
     final reports = await _channel.invokeListMethod<Object?>(
       'getPendingReports',
+      limit == null ? null : {'limit': limit},
     );
     return [
       for (final report in reports ?? const [])

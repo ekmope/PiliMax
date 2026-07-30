@@ -19,10 +19,15 @@ abstract final class CrashReporter {
   static bool _installed = false;
   static FlutterExceptionHandler? _installedFlutterErrorHandler;
   static ErrorCallback? _installedPlatformErrorHandler;
-  static final List<CrashReport> _bufferedReports = [];
+  static final List<_QueuedCrashReport> _queuedReports = [];
   static final Map<String, _PersistedOccurrence> _persistedOccurrences = {};
   static const _dedupWindow = Duration(seconds: 3);
+  static const _startupNativeImportLimit = 1;
+  static const _backgroundNativeImportLimit = 2;
+  static const _maximumBackgroundNativeImportBatches = 6;
   static bool _nativeImportCompleted = false;
+  static bool _isPersistingReports = false;
+  static bool _isDrainingNativeReports = false;
   static final Completer<void> _startupOverlayCompleted = Completer<void>();
   static final String sessionId =
       '$pid-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
@@ -50,7 +55,7 @@ abstract final class CrashReporter {
   static Future<CrashReport?> importNativeAndResolvePending() async {
     if (!_nativeImportCompleted) {
       try {
-        await _importNativeReports();
+        await _importNativeReports(limit: _startupNativeImportLimit);
         _nativeImportCompleted = true;
       } on MissingPluginException {
         // Channel not registered yet (before MainActivity.configureFlutterEngine).
@@ -77,6 +82,7 @@ abstract final class CrashReporter {
     if (!_startupOverlayCompleted.isCompleted) {
       _startupOverlayCompleted.complete();
     }
+    unawaited(_drainRemainingNativeReports());
   }
 
   /// Clears both the Dart archive and native Android staging files. Native
@@ -195,7 +201,14 @@ abstract final class CrashReporter {
       );
     } catch (_) {}
     if (!ignored) {
-      _persistReport(report, makePending: severity.isFatalCandidate);
+      final persistedSynchronously =
+          severity.isFatalCandidate && _persistFatalSynchronously(report);
+      if (!persistedSynchronously) {
+        _queueReportForPersistence(
+          report,
+          makePending: severity.isFatalCandidate,
+        );
+      }
     }
     return report;
   }
@@ -222,37 +235,16 @@ abstract final class CrashReporter {
     );
   }
 
-  static Future<void> _importNativeReports() async {
+  static Future<void> _importNativeReports({required int limit}) async {
     try {
       // The native channel performs exit-history collection on its serial
-      // background executor and completes this future without blocking Android's
-      // main thread.
-      final reports = await NativeCrashBridge.getPendingReports();
-      final acknowledged = <String>[];
-      for (final json in reports) {
-        final recordId = json['recordId']?.toString();
-        try {
-          final report = CrashReport.fromNative(
-            json,
-            systemInfo: CrashReportSystemInfo.cached,
-          );
-          if (_isDuplicateGenericExit(report)) {
-            if (recordId != null && recordId.isNotEmpty) {
-              acknowledged.add(recordId);
-            }
-            continue;
-          }
-          final persisted = _persistReport(
-            report,
-            makePending: report.isFatalCandidate,
-          );
-          if (persisted && recordId != null && recordId.isNotEmpty) {
-            acknowledged.add(recordId);
-          }
-        } catch (_) {
-          continue;
-        }
-      }
+      // background executor. Dart conversion, redaction, and archive I/O run
+      // in CrashReportStore's worker isolate before a record is acknowledged.
+      final reports = await NativeCrashBridge.getPendingReports(limit: limit);
+      final acknowledged = await CrashReportStore.importNativeBatch(
+        reports,
+        systemInfo: CrashReportSystemInfo.cached,
+      );
       await NativeCrashBridge.acknowledgeReports(acknowledged);
     } on MissingPluginException {
       rethrow;
@@ -264,91 +256,157 @@ abstract final class CrashReporter {
     }
   }
 
-  static bool _isDuplicateGenericExit(CrashReport report) {
-    if (report.source != CrashSource.androidExitInfo ||
-        (report.reason != 'java_crash' && report.reason != 'native_crash')) {
+  static void _flushBufferedReports() {
+    _scheduleQueuedReportPersistence();
+  }
+
+  static bool _persistFatalSynchronously(CrashReport report) {
+    if (!CrashReportStore.isInitialized) return false;
+    try {
+      CrashReportStore.saveSync(report, makePending: true);
+      _rememberPersistedReports([
+        _QueuedCrashReport(report: report, makePending: true),
+      ]);
+      return true;
+    } catch (_) {
       return false;
     }
-    final pending = CrashReportStore.load();
-    if (pending == null || !pending.isFatalCandidate) return false;
-    return (pending.crashedAtMillis - report.crashedAtMillis).abs() <= 10_000;
   }
 
-  static void _flushBufferedReports() {
-    while (_bufferedReports.isNotEmpty) {
-      final report = _bufferedReports.first;
-      try {
-        if (_persistReport(report, makePending: report.isFatalCandidate)) {
-          _bufferedReports.removeAt(0);
-        } else {
-          break;
-        }
-      } catch (error) {
-        if (kDebugMode) debugPrint('Buffered crash report save failed: $error');
-        break;
-      }
-    }
-  }
-
-  static void _bufferReport(CrashReport report) {
-    final fingerprint = _fingerprint(report);
-    final duplicateIndex = _bufferedReports.indexWhere(
-      (item) => _fingerprint(item) == fingerprint,
-    );
-    if (duplicateIndex != -1) {
-      final existing = _bufferedReports[duplicateIndex];
-      if (_severityRank(report.severity) > _severityRank(existing.severity) ||
-          _hasBetterAttribution(report, existing)) {
-        _bufferedReports[duplicateIndex] = report;
-      }
-      return;
-    }
-    if (_bufferedReports.length >= 8) {
-      final nonFatalIndex = _bufferedReports.indexWhere(
-        (item) => !item.isFatalCandidate,
-      );
-      _bufferedReports.removeAt(nonFatalIndex == -1 ? 0 : nonFatalIndex);
-    }
-    _bufferedReports.add(report);
-  }
-
-  static bool _persistReport(
+  static void _queueReportForPersistence(
     CrashReport report, {
     required bool makePending,
   }) {
+    final fingerprint = _fingerprint(report);
     final now = DateTime.now();
     _persistedOccurrences.removeWhere(
       (_, occurrence) => now.difference(occurrence.persistedAt) >= _dedupWindow,
     );
-    final fingerprint = _fingerprint(report);
-    final previous = _persistedOccurrences[fingerprint];
-    if (previous != null &&
-        now.difference(previous.persistedAt) < _dedupWindow &&
-        !_shouldReplaceOccurrence(report, previous.report)) {
-      return true;
+    final persisted = _persistedOccurrences[fingerprint];
+    if (persisted != null &&
+        now.difference(persisted.persistedAt) < _dedupWindow &&
+        !_shouldReplaceOccurrence(report, persisted.report)) {
+      return;
     }
-
-    try {
-      if (!CrashReportStore.isInitialized) {
-        _bufferReport(report);
-        return false;
+    final duplicateIndex = _queuedReports.indexWhere(
+      (item) => _fingerprint(item.report) == fingerprint,
+    );
+    if (duplicateIndex != -1) {
+      final existing = _queuedReports[duplicateIndex];
+      if (_severityRank(report.severity) >
+              _severityRank(existing.report.severity) ||
+          _hasBetterAttribution(report, existing.report)) {
+        _queuedReports[duplicateIndex] = _QueuedCrashReport(
+          report: report,
+          makePending: makePending || existing.makePending,
+        );
+      } else if (makePending && !existing.makePending) {
+        _queuedReports[duplicateIndex] = _QueuedCrashReport(
+          report: existing.report,
+          makePending: true,
+        );
       }
-      CrashReportStore.saveSync(report, makePending: makePending);
-      // A dedup entry is recorded only after the synchronous write succeeds.
+      return;
+    }
+    if (_queuedReports.length >= 8) {
+      final nonFatalIndex = _queuedReports.indexWhere(
+        (item) => !item.report.isFatalCandidate,
+      );
+      _queuedReports.removeAt(nonFatalIndex == -1 ? 0 : nonFatalIndex);
+    }
+    _queuedReports.add(
+      _QueuedCrashReport(report: report, makePending: makePending),
+    );
+    _scheduleQueuedReportPersistence();
+  }
+
+  static void _scheduleQueuedReportPersistence() {
+    if (!CrashReportStore.isInitialized ||
+        _isPersistingReports ||
+        _queuedReports.isEmpty) {
+      return;
+    }
+    unawaited(_persistQueuedReports());
+  }
+
+  static Future<void> _persistQueuedReports() async {
+    if (_isPersistingReports || !CrashReportStore.isInitialized) return;
+    _isPersistingReports = true;
+    var madeProgress = false;
+    try {
+      while (_queuedReports.isNotEmpty && CrashReportStore.isInitialized) {
+        final batch = List<_QueuedCrashReport>.from(_queuedReports);
+        _queuedReports.clear();
+        try {
+          await CrashReportStore.saveBatch([
+            for (final entry in batch)
+              (report: entry.report, makePending: entry.makePending),
+          ]);
+        } catch (error) {
+          _queuedReports.insertAll(0, batch);
+          if (kDebugMode) {
+            debugPrint('Crash report save failed: ${_safeTypeName(error)}');
+          }
+          return;
+        }
+        madeProgress = true;
+        _rememberPersistedReports(batch);
+      }
+    } finally {
+      _isPersistingReports = false;
+      if (madeProgress && _queuedReports.isNotEmpty) {
+        _scheduleQueuedReportPersistence();
+      }
+    }
+  }
+
+  static Future<void> _drainRemainingNativeReports() async {
+    if (!Platform.isAndroid ||
+        !_nativeImportCompleted ||
+        _isDrainingNativeReports) {
+      return;
+    }
+    _isDrainingNativeReports = true;
+    try {
+      for (
+        var batchIndex = 0;
+        batchIndex < _maximumBackgroundNativeImportBatches;
+        batchIndex++
+      ) {
+        final reports = await NativeCrashBridge.getPendingReports(
+          limit: _backgroundNativeImportLimit,
+        );
+        if (reports.isEmpty) return;
+        final acknowledged = await CrashReportStore.importNativeBatch(
+          reports,
+          systemInfo: CrashReportSystemInfo.cached,
+        );
+        if (acknowledged.isEmpty) return;
+        await NativeCrashBridge.acknowledgeReports(acknowledged);
+        await Future<void>.delayed(Duration.zero);
+      }
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('Native crash drain failed: ${_safeTypeName(error)}');
+      }
+    } finally {
+      _isDrainingNativeReports = false;
+    }
+  }
+
+  static void _rememberPersistedReports(Iterable<_QueuedCrashReport> entries) {
+    final now = DateTime.now();
+    _persistedOccurrences.removeWhere(
+      (_, occurrence) => now.difference(occurrence.persistedAt) >= _dedupWindow,
+    );
+    for (final entry in entries) {
+      final report = entry.report;
+      final fingerprint = _fingerprint(report);
+      final previous = _persistedOccurrences[fingerprint];
       _persistedOccurrences[fingerprint] = _PersistedOccurrence(
         report: previous?.report.mergeWith(report) ?? report,
         persistedAt: now,
       );
-      return true;
-    } catch (error) {
-      _bufferReport(report);
-      if (kDebugMode) {
-        debugPrint(
-          'Crash report save failed (${_safeTypeName(error)}): '
-          '${_safeErrorText(error)}',
-        );
-      }
-      return false;
     }
   }
 
@@ -460,14 +518,6 @@ abstract final class CrashReporter {
     }
   }
 
-  static String _safeErrorText(Object? value) {
-    try {
-      return value.toString();
-    } catch (_) {
-      return 'unavailable';
-    }
-  }
-
   static Future<String> _buildSystemInfo() async {
     final lines = <String>[
       'App version: ${BuildConfig.versionName} (${BuildConfig.versionCode})',
@@ -536,4 +586,14 @@ class _PersistedOccurrence {
 
   final CrashReport report;
   final DateTime persistedAt;
+}
+
+class _QueuedCrashReport {
+  const _QueuedCrashReport({
+    required this.report,
+    required this.makePending,
+  });
+
+  final CrashReport report;
+  final bool makePending;
 }

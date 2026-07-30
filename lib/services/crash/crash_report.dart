@@ -19,11 +19,13 @@ class CrashReport {
   static const _maxThreadLength = 256;
   static const _maxProcessLength = 256;
   static const _maxSystemInfoLength = 32 * 1024;
-  static const _maxStackTraceLength = 128 * 1024;
+  static const _maxStackTraceLength = 32 * 1024;
   static const _maxEventCount = 40;
   static const _maxEventLength = 180;
   static const _maxSessionLength = 128;
   static const _maxContextLength = 512;
+  // Keep the fast path private so callers cannot bypass redaction.
+  static final Expando<bool> _normalizationState = Expando<bool>();
 
   final String reportId;
   final int crashedAtMillis;
@@ -68,7 +70,7 @@ class CrashReport {
   /// Applies the same bounds to reports created by factories, native input,
   /// JSON decoding, or callers constructing a report directly.
   CrashReport normalized() {
-    if (_isAlreadyNormalized()) return this;
+    if (_normalizationState[this] == true) return this;
     final normalized = CrashReport(
       reportId: _context(reportId, 'unknown', maxLength: _maxReportIdLength),
       crashedAtMillis: crashedAtMillis,
@@ -120,59 +122,8 @@ class CrashReport {
       route: _context(route, '', maxLength: _maxContextLength),
       reason: _context(reason, '', maxLength: _maxContextLength),
     );
+    _normalizationState[normalized] = true;
     return normalized._fitSerializedLimit();
-  }
-
-  bool _isAlreadyNormalized() {
-    if (reportId.length > _maxReportIdLength ||
-        crashedAtText.length > _maxDateTextLength ||
-        exceptionType.length > _maxExceptionTypeLength ||
-        rootCause.length > _maxRootCauseLength ||
-        threadName.length > _maxThreadLength ||
-        processName.length > _maxProcessLength ||
-        systemInfo.length > _maxSystemInfoLength ||
-        stackTrace.length > _maxStackTraceLength ||
-        recentEvents.length > _maxEventCount ||
-        sessionId.length > _maxSessionLength ||
-        module.length > _maxContextLength ||
-        operation.length > _maxContextLength ||
-        route.length > _maxContextLength ||
-        reason.length > _maxContextLength) {
-      return false;
-    }
-    for (final event in recentEvents) {
-      if (event.length > _maxEventLength ||
-          _context(event, '', maxLength: _maxEventLength) != event) {
-        return false;
-      }
-    }
-    return _context(reportId, 'unknown', maxLength: _maxReportIdLength) ==
-            reportId &&
-        _context(crashedAtText, '', maxLength: _maxDateTextLength) ==
-            crashedAtText &&
-        _context(
-              exceptionType,
-              'unknown',
-              maxLength: _maxExceptionTypeLength,
-            ) ==
-            exceptionType &&
-        _context(rootCause, 'unknown', maxLength: _maxRootCauseLength) ==
-            rootCause &&
-        _context(threadName, 'unknown', maxLength: _maxThreadLength) ==
-            threadName &&
-        _context(processName, 'unknown', maxLength: _maxProcessLength) ==
-            processName &&
-        _context(systemInfo, '', maxLength: _maxSystemInfoLength) ==
-            systemInfo &&
-        _context(stackTrace, '', maxLength: _maxStackTraceLength) ==
-            stackTrace &&
-        _context(sessionId, 'legacy', maxLength: _maxSessionLength) ==
-            sessionId &&
-        _context(module, 'unknown', maxLength: _maxContextLength) == module &&
-        _context(operation, '', maxLength: _maxContextLength) == operation &&
-        _context(route, '', maxLength: _maxContextLength) == route &&
-        _context(reason, '', maxLength: _maxContextLength) == reason &&
-        _serializedByteLength(this) <= maxSerializedBytes;
   }
 
   CrashReport mergeWith(CrashReport other) {
@@ -582,7 +533,7 @@ class CrashReport {
     String? route,
     String? reason,
   }) {
-    return CrashReport(
+    final copy = CrashReport(
       reportId: reportId ?? this.reportId,
       crashedAtMillis: crashedAtMillis,
       crashedAtText: crashedAtText,
@@ -601,6 +552,10 @@ class CrashReport {
       route: route ?? this.route,
       reason: reason ?? this.reason,
     );
+    if (_normalizationState[this] == true) {
+      _normalizationState[copy] = true;
+    }
+    return copy;
   }
 
   static int _serializedByteLength(CrashReport report) {
@@ -730,11 +685,15 @@ class CrashReport {
     String fallback, {
     int maxLength = 512,
   }) {
-    final raw = _safeToString(value, '').trim();
-    final preboundedLength = maxLength * 4;
-    final prebounded = raw.length <= preboundedLength
-        ? raw
-        : raw.substring(0, preboundedLength);
+    final raw = _safeToString(value, '');
+    final preboundedLength = maxLength <= 4096
+        ? maxLength * 2
+        : maxLength + 4096;
+    final prebounded =
+        (raw.length <= preboundedLength
+                ? raw
+                : raw.substring(0, preboundedLength))
+            .trim();
     final text = _sanitize(prebounded);
     final resolved = text.isEmpty ? fallback : text;
     return resolved.length <= maxLength

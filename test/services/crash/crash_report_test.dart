@@ -36,6 +36,22 @@ void main() {
       expect(decoded.isFatalCandidate, isTrue);
     });
 
+    test('does not let direct construction bypass redaction', () {
+      const report = CrashReport(
+        reportId: 'direct',
+        crashedAtMillis: 1,
+        crashedAtText: 'time',
+        exceptionType: 'StateError',
+        rootCause: 'token=secret-value',
+        threadName: 'main',
+        processName: 'pid:1',
+        systemInfo: 'system',
+        stackTrace: 'stack',
+      );
+
+      expect(report.toJson()['rootCause'], 'token=[REDACTED]');
+    });
+
     test('migrates legacy reports as non-fatal unknown attribution', () {
       final report = CrashReport.fromJson({
         'reportId': 'legacy',
@@ -123,6 +139,26 @@ void main() {
       expect(report.systemInfo, contains('Exit status: 0'));
       expect(report.systemInfo, contains('Exit importance: 100'));
       expect(report.isFatalCandidate, isTrue);
+    });
+
+    test('bounds a legacy Android ANR trace before archiving it', () {
+      final trace = List<String>.filled(128 * 1024, 'x').join();
+
+      final report = CrashReport.fromNative({
+        'timestamp': 3000,
+        'source': 'android_exit_info',
+        'severity': 'fatal',
+        'module': 'android_process',
+        'reason': 'anr',
+        'exceptionType': 'ApplicationExitInfo',
+        'message': 'Input dispatching timed out',
+        'processName': 'com.PiliMax.android',
+        'stackTrace': trace,
+      }, systemInfo: 'current system');
+
+      expect(report.stackTrace, hasLength(32 * 1024));
+      expect(identical(report, report.normalized()), isTrue);
+      expect(report.toJson()['stackTrace'], report.stackTrace);
     });
   });
 }

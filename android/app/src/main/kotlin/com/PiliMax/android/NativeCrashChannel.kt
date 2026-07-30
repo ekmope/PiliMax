@@ -18,11 +18,15 @@ internal class NativeCrashChannel(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         try {
             when (call.method) {
-                "getPendingReports" -> PiliMaxApplication.loadPendingReports(
-                    context = context,
-                    onSuccess = result::success,
-                    onError = { error -> reportError(result, error) },
-                )
+                "getPendingReports" -> {
+                    val limit = call.argument<Int>("limit")
+                    PiliMaxApplication.loadPendingReports(
+                        context = context,
+                        limit = limit,
+                        onSuccess = result::success,
+                        onError = { error -> reportError(result, error) },
+                    )
+                }
                 "acknowledgeReports" -> {
                     val recordIds = call.argument<List<*>>("recordIds")
                         ?.filterIsInstance<String>()

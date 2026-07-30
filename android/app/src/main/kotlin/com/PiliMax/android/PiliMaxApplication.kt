@@ -30,12 +30,13 @@ class PiliMaxApplication : Application() {
 
         fun loadPendingReports(
             context: android.content.Context,
+            limit: Int?,
             onSuccess: (List<Map<String, Any?>>) -> Unit,
             onError: (Throwable) -> Unit,
         ) {
             executeCrashIo {
                 try {
-                    val reports = NativeCrashStore.pendingReports(context)
+                    val reports = NativeCrashStore.pendingReports(context, limit)
                     mainHandler.post { onSuccess(reports) }
                 } catch (error: Throwable) {
                     mainHandler.post { onError(error) }

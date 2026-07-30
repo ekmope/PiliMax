@@ -155,6 +155,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   PlPlayerController? _playerListenersController;
   PlPlayerController? _predictiveBackController;
   late final VideoDetailExitVisualProvider _exitVisualProvider;
+  late final VideoDetailPipExitIntent _pipExitIntentProvider;
   final List<Worker> _predictiveBackWorkers = <Worker>[];
   final Set<TabController> _pendingTabControllerDisposals = <TabController>{};
   static const Duration _fullScreenExitSettleTimeout = Duration(seconds: 2);
@@ -767,6 +768,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
     _exitVisualProvider = _captureExitVisual;
     _videoArgs[videoDetailExitVisualProviderKey] = _exitVisualProvider;
+    _pipExitIntentProvider = _canUseInAppPipExit;
+    _videoArgs[videoDetailPipExitIntentKey] = _pipExitIntentProvider;
 
     if (_fromPip) {
       _allowPlayerMount = true;
@@ -1450,6 +1453,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       _exitVisualProvider,
     )) {
       _videoArgs.remove(videoDetailExitVisualProviderKey);
+    }
+    if (identical(
+      _videoArgs[videoDetailPipExitIntentKey],
+      _pipExitIntentProvider,
+    )) {
+      _videoArgs.remove(videoDetailPipExitIntentKey);
     }
     VideoStackManager.decrement(); // 减少视频页面层级追踪
     _runPendingPipStart();
@@ -2683,9 +2692,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     final videoRenderObject = videoContext?.findRenderObject();
     if (playerController == null ||
         videoController == null ||
-        !VideoDetailExitSnapshotPolicy.shouldCapture(
-          hasVisibleDanmaku: playerController.enableShowDanmaku.value,
-        ) ||
+        !VideoDetailExitSnapshotPolicy.shouldCapture() ||
         playerController.isFullScreen.value ||
         playerController.isPipMode ||
         playerController.isDesktopPip ||
@@ -3703,7 +3710,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       plPlayerController?.disableAutoEnterPip();
     }
     if (didPop) {
-      _startInAppPipIfNeeded(fromPop: true);
+      _startInAppPipIfNeeded();
       // 消费 didPopNext else 分支设的重试标志（用户真的继续 pop 了）。
       // 立即调用通常足够（didPopNext 已同步关闭其他 PiP，playerInit 多半已完成）；
       // 若立即失败（rapid back press 时 playerInit 还在 await，playerStatus 不是 playing），
@@ -3716,7 +3723,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             if (!mounted) {
               return;
             }
-            _startInAppPipIfNeeded(fromPop: true);
+            _startInAppPipIfNeeded();
           });
         }
       }
@@ -3753,7 +3760,30 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         previousRoute.startsWith('/video');
   }
 
-  bool _shouldStartInAppPip({bool fromPop = false}) {
+  bool _canUseInAppPipExit() {
+    if (!Pref.enableInAppPip ||
+        PageUtils.isOpeningVideoRoute ||
+        PipOverlayService.isInPipMode ||
+        LivePipOverlayService.isInPipMode ||
+        Get.currentRoute == '/audio' ||
+        !videoDetailController.autoPlay) {
+      return false;
+    }
+    final controller =
+        plPlayerController ?? videoDetailController.plPlayerController;
+    if (controller.videoController == null ||
+        controller.isDesktopPip ||
+        controller.isPipMode ||
+        controller.playerStatus.value != PlayerStatus.playing) {
+      return false;
+    }
+    final previousRoute = Get.previousRoute;
+    return !VideoStackManager.isReturningToVideo() ||
+        (!previousRoute.startsWith('/video') &&
+            !previousRoute.startsWith('/liveRoom'));
+  }
+
+  bool _shouldStartInAppPip() {
     _logSponsorBlock(
       'Checking PiP: count=${VideoStackManager.getCount()}, previousRoute=${Get.previousRoute}',
     );
@@ -3765,8 +3795,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       _logSponsorBlock('Reject PiP: entering another video detail route');
       return false;
     }
-    if (PipOverlayService.isInPipMode) {
-      _logSponsorBlock('Reject PiP: already in PiP mode');
+    if (PipOverlayService.isInPipMode || LivePipOverlayService.isInPipMode) {
+      _logSponsorBlock('Reject PiP: another PiP overlay is already active');
       return false;
     }
     plPlayerController ??= videoDetailController.plPlayerController;
@@ -3813,11 +3843,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     return true;
   }
 
-  void _startInAppPipIfNeeded({bool fromPop = false}) {
+  void _startInAppPipIfNeeded() {
     if (_isEnteringPipMode || _pendingPipStart != null) {
       return;
     }
-    if (!_shouldStartInAppPip(fromPop: fromPop)) {
+    if (!_shouldStartInAppPip()) {
       return;
     }
 
@@ -3869,6 +3899,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     void handleStartFailure() {
       _logSponsorBlock('PiP overlay failed to start');
       _resetEnteringPipFlags();
+      if (mounted) {
+        videoDetailController.videoState.value = true;
+      }
       if (!mounted) {
         _handleInAppPipCloseCleanup();
       }
@@ -3900,6 +3933,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         ),
         onClose: () {
           _isEnteringPipMode = false;
+          if (mounted) {
+            videoDetailController.videoState.value = true;
+          }
           _logSponsorBlock('PiP closed by user');
           _handleInAppPipCloseCleanup();
         },
@@ -3931,6 +3967,13 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           );
         },
         onStartFailed: handleStartFailure,
+        onOverlayInserted: () {
+          if (mounted) {
+            // The overlay begins at the page player's current rect. Hide the
+            // source only after that layer exists, avoiding a duplicate frame.
+            videoDetailController.videoState.value = false;
+          }
+        },
       );
 
       if (!started) {
@@ -3943,25 +3986,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       _logSponsorBlock('PiP started, positionSubscription preserved');
     }
 
-    if (fromPop) {
-      final routeAnimation = ModalRoute.of(context)?.animation;
-      if (routeAnimation != null && !routeAnimation.isDismissed) {
-        _pendingPipStart = startPip;
-        _pendingPipRouteAnimation = routeAnimation;
-        late final AnimationStatusListener listener;
-        listener = (status) {
-          if (status == AnimationStatus.dismissed) {
-            _runPendingPipStart();
-          }
-        };
-        _pendingPipRouteListener = listener;
-        routeAnimation.addStatusListener(listener);
-        _logSponsorBlock(
-          'Deferring PiP overlay until the pop flight completes',
-        );
-        return;
-      }
-    }
     startPip();
   }
 

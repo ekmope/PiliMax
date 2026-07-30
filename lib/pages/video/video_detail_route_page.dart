@@ -842,20 +842,25 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     });
   }
 
+  VideoDetailEntryLayout _entryLayout(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final pagePadding = Pref.removeSafeArea
+        ? EdgeInsets.zero
+        : MediaQuery.viewPaddingOf(context);
+    return VideoDetailLayoutMetrics.entryLayout(
+      viewport,
+      isVertical: _entryIsVertical,
+      topInset: pagePadding.top,
+      pagePadding: pagePadding,
+      isPortrait: viewport.height >= viewport.width,
+    );
+  }
+
   Widget _entryCoverLayer(
     BuildContext context, {
     required bool enableHero,
   }) {
-    final viewport = MediaQuery.sizeOf(context);
-    final topInset = Pref.removeSafeArea
-        ? 0.0
-        : MediaQuery.viewPaddingOf(context).top;
-    final playerRect = VideoDetailLayoutMetrics.entryPlayerRect(
-      viewport,
-      isVertical: _entryIsVertical,
-      topInset: topInset,
-      isPortrait: viewport.height >= viewport.width,
-    );
+    final playerRect = _entryLayout(context).playerRect;
     final cover = _entryCover;
     final coverLayer = cover == null
         ? const ColoredBox(color: Colors.black)
@@ -899,36 +904,42 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     child: _entryCoverLayer(context, enableHero: false),
   );
 
-  Widget _entryShell() => VideoDetailHeroShell.revealing(
-    key: ValueKey((
-      _entryIsVertical,
-      _skeletonVariant,
-      !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasSeasonPanel,
-      !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasPagesPanel,
-      _entryContentProfile.tabCount,
-      _entryContentProfile.actionCount,
-      _entryContentProfile.hasEpisodePanel,
-    )),
-    progress: _revealingDetail ? _detailRevealController.value : 0,
-    isVertical: _entryIsVertical,
-    variant: _skeletonVariant,
-    title: _entryTitle,
-    expandedIntro: Pref.alwaysExpandIntroPanel,
-    showRecommendations: Pref.showRelatedVideo && !Pref.alwaysExpandIntroPanel,
-    hasSeasonPanel:
+  Widget _entryShell(BuildContext context) {
+    final entryLayout = _entryLayout(context);
+    return VideoDetailHeroShell.revealing(
+      key: ValueKey((
+        entryLayout.pageLayout,
+        _entryIsVertical,
+        _skeletonVariant,
         !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasSeasonPanel,
-    hasPagesPanel:
         !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasPagesPanel,
-    tabCount: _entryContentProfile.tabCount,
-    actionCount: _entryContentProfile.actionCount,
-    hasEpisodePanel: _entryContentProfile.hasEpisodePanel,
-  );
+        _entryContentProfile.tabCount,
+        _entryContentProfile.actionCount,
+        _entryContentProfile.hasEpisodePanel,
+      )),
+      progress: _revealingDetail ? _detailRevealController.value : 0,
+      isVertical: _entryIsVertical,
+      isPortrait: entryLayout.isPortrait,
+      variant: _skeletonVariant,
+      title: _entryTitle,
+      expandedIntro: Pref.alwaysExpandIntroPanel,
+      showRecommendations:
+          Pref.showRelatedVideo && !Pref.alwaysExpandIntroPanel,
+      hasSeasonPanel:
+          !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasSeasonPanel,
+      hasPagesPanel:
+          !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasPagesPanel,
+      tabCount: _entryContentProfile.tabCount,
+      actionCount: _entryContentProfile.actionCount,
+      hasEpisodePanel: _entryContentProfile.hasEpisodePanel,
+    );
+  }
 
-  Widget _animatedEntryShell() => AnimatedSwitcher(
+  Widget _animatedEntryShell(BuildContext context) => AnimatedSwitcher(
     duration: _orientationTransitionDuration,
     switchInCurve: Curves.easeOutCubic,
     switchOutCurve: Curves.easeInCubic,
-    child: _entryShell(),
+    child: _entryShell(context),
   );
 
   Widget _errorOverlay(BuildContext context, Object error) {
@@ -1031,7 +1042,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           fit: StackFit.expand,
           children: [
             if (!_externalEntryOwnsPresentation)
-              IgnorePointer(child: _animatedEntryShell()),
+              IgnorePointer(child: _animatedEntryShell(context)),
             if (showHeroTarget ||
                 showStaticEntryCover ||
                 showPlayerHandoffCover)
@@ -1066,7 +1077,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
             child: IgnorePointer(
               child: AnimatedBuilder(
                 animation: _detailRevealController,
-                builder: (context, _) => _animatedEntryShell(),
+                builder: (context, _) => _animatedEntryShell(context),
               ),
             ),
           ),

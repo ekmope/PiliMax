@@ -833,6 +833,9 @@ class _VideoDetailHeroShellState extends State<VideoDetailHeroShell> {
         ? ThemeUtils.darkTheme.colorScheme
         : Theme.of(context).colorScheme;
     final mediaSize = MediaQuery.sizeOf(context);
+    final entryPadding = Pref.removeSafeArea
+        ? EdgeInsets.zero
+        : MediaQuery.viewPaddingOf(context);
     final textScaler = MediaQuery.textScalerOf(context);
     final titleStyle = DefaultTextStyle.of(context).style.copyWith(
       fontSize: VideoDetailLayoutMetrics.ugcTitleFontSize,
@@ -872,9 +875,8 @@ class _VideoDetailHeroShellState extends State<VideoDetailHeroShell> {
               isVertical: widget.isVertical,
               isPortrait: isPortrait,
               playerBottomOverride: widget.playerBottomOverride,
-              topInset: Pref.removeSafeArea
-                  ? 0
-                  : MediaQuery.viewPaddingOf(context).top,
+              topInset: entryPadding.top,
+              entryPadding: entryPadding,
               variant: widget.variant,
               expandedIntro: widget.expandedIntro,
               showRecommendations: widget.showRecommendations,
@@ -979,6 +981,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     required this.isPortrait,
     required this.playerBottomOverride,
     required this.topInset,
+    required this.entryPadding,
     required this.variant,
     required this.expandedIntro,
     required this.showRecommendations,
@@ -1001,6 +1004,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   final bool isPortrait;
   final double? playerBottomOverride;
   final double topInset;
+  final EdgeInsets entryPadding;
   final VideoDetailSkeletonVariant variant;
   final bool expandedIntro;
   final bool showRecommendations;
@@ -1073,17 +1077,36 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   }
 
   void _paintLandscape(Canvas canvas, Size size) {
-    final playerRect = VideoDetailLayoutMetrics.entryPlayerRect(
+    final entryLayout = VideoDetailLayoutMetrics.entryLayout(
       size,
       isVertical: isVertical,
       topInset: topInset,
+      pagePadding: entryPadding,
       isPortrait: false,
     );
+    final playerRect = entryLayout.playerRect;
     if (playerSurfaceOpacity > 0) {
       canvas.drawRect(
         playerRect,
         Paint()..color = Colors.black.withValues(alpha: playerSurfaceOpacity),
       );
+    }
+
+    if (entryLayout.pageLayout == VideoDetailEntryPageLayout.verticalExpanded) {
+      final leftPanel = Rect.fromLTRB(0, 0, playerRect.left, size.height);
+      if (leftPanel.width > 0) {
+        _paintLandscapeInfo(canvas, leftPanel);
+      }
+      final rightPanel = Rect.fromLTRB(
+        playerRect.right,
+        0,
+        size.width,
+        size.height,
+      );
+      if (rightPanel.width > 0) {
+        _paintLandscapeSidebar(canvas, rightPanel);
+      }
+      return;
     }
 
     final sidebar = Rect.fromLTRB(playerRect.right, 0, size.width, size.height);

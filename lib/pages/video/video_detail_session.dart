@@ -11,6 +11,7 @@ import 'package:PiliMax/utils/storage_pref.dart';
 const videoDetailSessionKey = '_videoDetailSession';
 const videoDetailPrepareForExitKey = '_videoDetailPrepareForExit';
 const videoDetailCancelPreparedExitKey = '_videoDetailCancelPreparedExit';
+const videoDetailPipExitIntentKey = '_videoDetailPipExitIntent';
 
 enum VideoDetailExitMode {
   /// The entry overlay and Hero still own the visible presentation, so the
@@ -29,6 +30,7 @@ enum VideoDetailExitMode {
 }
 
 typedef VideoDetailPrepareForExit = VideoDetailExitMode Function();
+typedef VideoDetailPipExitIntent = bool Function();
 
 final class VideoDetailSkeletonProfile {
   const VideoDetailSkeletonProfile({

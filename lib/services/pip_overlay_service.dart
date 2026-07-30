@@ -200,6 +200,7 @@ class PipOverlayService {
     VoidCallback? onClose,
     VoidCallback? onTapToReturn,
     VoidCallback? onStartFailed,
+    VoidCallback? onOverlayInserted,
     dynamic controller,
     Map<String, dynamic>? additionalControllers,
     Rect? sourceRect,
@@ -242,6 +243,7 @@ class PipOverlayService {
       try {
         final overlayContext = Get.overlayContext ?? context;
         Overlay.of(overlayContext).insert(_overlayEntry!);
+        onOverlayInserted?.call();
 
         // 允许应用内小窗继续使用 Auto-PiP 手势
         WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -4,10 +4,34 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/video_card/video_card_h_layout_metrics.dart';
 import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 
 import 'package:flutter/widgets.dart';
 
 enum VideoDetailSkeletonVariant { ugc, pgc, pugv, local }
+
+/// The page arrangement used while a detail route is entering.
+///
+/// This is intentionally separate from the video's [isVertical] metadata:
+/// landscape detail pages use the normal 16:9 split by default, while the
+/// centered vertical arrangement is opt-in on every platform.
+enum VideoDetailEntryPageLayout {
+  portrait,
+  landscape,
+  verticalExpanded,
+}
+
+final class VideoDetailEntryLayout {
+  const VideoDetailEntryLayout({
+    required this.pageLayout,
+    required this.playerRect,
+  });
+
+  final VideoDetailEntryPageLayout pageLayout;
+  final Rect playerRect;
+
+  bool get isPortrait => pageLayout == VideoDetailEntryPageLayout.portrait;
+}
 
 final class UgcSeasonPanelSelection {
   const UgcSeasonPanelSelection({
@@ -209,63 +233,152 @@ abstract final class VideoDetailLayoutMetrics {
     ),
   };
 
+  /// Resolves the entry geometry shared by the Hero target, skeleton, and
+  /// player-handoff cover.
+  ///
+  /// [isPortrait] describes the page/window layout rather than the video's
+  /// content orientation. Test-only callers can override the preference input
+  /// without mutating global storage.
+  static VideoDetailEntryLayout entryLayout(
+    Size viewport, {
+    required bool? isVertical,
+    required double topInset,
+    EdgeInsets? pagePadding,
+    bool isPortrait = true,
+    bool? enableVerticalExpand,
+  }) {
+    final padding = pagePadding ?? EdgeInsets.only(top: topInset);
+    final top = padding.top.clamp(0.0, viewport.height).toDouble();
+    final left = padding.left.clamp(0.0, viewport.width).toDouble();
+    final right = padding.right
+        .clamp(0.0, math.max(0.0, viewport.width - left))
+        .toDouble();
+    final bottom = padding.bottom
+        .clamp(0.0, math.max(0.0, viewport.height - top))
+        .toDouble();
+    final shouldExpandVertical =
+        !isPortrait &&
+        isVertical == true &&
+        (enableVerticalExpand ?? Pref.enableVerticalExpand);
+    final pageLayout = isPortrait
+        ? VideoDetailEntryPageLayout.portrait
+        : shouldExpandVertical
+        ? VideoDetailEntryPageLayout.verticalExpanded
+        : VideoDetailEntryPageLayout.landscape;
+    final availableHeight = math.max(0.0, viewport.height - top).toDouble();
+    final landscapeWidth = math
+        .max(0.0, viewport.width - left - right)
+        .toDouble();
+    final landscapeHeight = math.max(0.0, availableHeight - bottom).toDouble();
+    final playerRect = switch (pageLayout) {
+      VideoDetailEntryPageLayout.portrait => () {
+        final height = entryPlayerHeight(
+          viewport,
+          isVertical: isVertical,
+        ).clamp(0.0, availableHeight).toDouble();
+        return Rect.fromLTWH(0, top, viewport.width, height);
+      }(),
+      VideoDetailEntryPageLayout.verticalExpanded =>
+        _verticalExpandedPlayerRect(
+          left: left,
+          top: top,
+          availableWidth: landscapeWidth,
+          availableHeight: landscapeHeight,
+        ),
+      VideoDetailEntryPageLayout.landscape => _landscapePlayerRect(
+        left: left,
+        top: top,
+        availableWidth: landscapeWidth,
+        availableHeight: landscapeHeight,
+      ),
+    };
+    return VideoDetailEntryLayout(
+      pageLayout: pageLayout,
+      playerRect: playerRect,
+    );
+  }
+
   static Rect entryPlayerRect(
     Size viewport, {
     required bool? isVertical,
     required double topInset,
+    EdgeInsets? pagePadding,
     bool isPortrait = true,
+    bool? enableVerticalExpand,
+  }) => entryLayout(
+    viewport,
+    isVertical: isVertical,
+    topInset: topInset,
+    pagePadding: pagePadding,
+    isPortrait: isPortrait,
+    enableVerticalExpand: enableVerticalExpand,
+  ).playerRect;
+
+  static Rect _landscapePlayerRect({
+    required double left,
+    required double top,
+    required double availableWidth,
+    required double availableHeight,
   }) {
-    final top = topInset.clamp(0.0, viewport.height).toDouble();
-    if (!isPortrait) {
-      final availableHeight = math.max(0.0, viewport.height - top);
-      final width =
-          (isVertical == true
-                  ? math.min(
-                      availableHeight / Style.aspectRatio16x9,
-                      viewport.width * 0.62,
-                    )
-                  : _landscapePlayerWidth(viewport, availableHeight))
-              .toDouble();
-      final height =
-          (isVertical == true
-                  ? availableHeight
-                  : math.min(width / Style.aspectRatio16x9, availableHeight))
-              .toDouble();
-      return Rect.fromLTWH(0, top, width, height);
-    }
-    final height = entryPlayerHeight(
-      viewport,
-      isVertical: isVertical,
-    ).clamp(0.0, viewport.height - top).toDouble();
-    return Rect.fromLTWH(0, top, viewport.width, height);
+    final width = _landscapePlayerWidth(availableWidth, availableHeight);
+    final height = math.min(
+      width / Style.aspectRatio16x9,
+      availableHeight,
+    );
+    return Rect.fromLTWH(left, top, width, height);
   }
 
-  static double _landscapePlayerWidth(Size viewport, double availableHeight) {
-    if (viewport.width <= 0) {
+  static Rect _verticalExpandedPlayerRect({
+    required double left,
+    required double top,
+    required double availableWidth,
+    required double availableHeight,
+  }) {
+    final width = math.min(
+      availableHeight / Style.aspectRatio16x9,
+      availableWidth,
+    );
+    return Rect.fromLTWH(
+      left + (availableWidth - width) / 2,
+      top,
+      width,
+      availableHeight,
+    );
+  }
+
+  static double _landscapePlayerWidth(
+    double availableWidth,
+    double availableHeight,
+  ) {
+    if (availableWidth <= 0) {
       return 0;
     }
     var width =
-        ((availableHeight / viewport.width * 1.08).clamp(0.5, 0.7) *
-                viewport.width)
+        ((availableHeight / availableWidth * 1.08).clamp(0.5, 0.7) *
+                availableWidth)
             .toDouble();
-    if (viewport.width >= 560) {
+    if (availableWidth >= 560) {
       width =
-          viewport.width -
-          (viewport.width - width).clamp(280.0, 425.0).toDouble();
+          availableWidth -
+          (availableWidth - width).clamp(280.0, 425.0).toDouble();
     }
-    return width.clamp(0.0, viewport.width).toDouble();
+    return width.clamp(0.0, availableWidth).toDouble();
   }
 
   static double entryPlayerBottom(
     Size viewport, {
     required bool? isVertical,
     required double topInset,
+    EdgeInsets? pagePadding,
     bool isPortrait = true,
+    bool? enableVerticalExpand,
   }) => entryPlayerRect(
     viewport,
     isVertical: isVertical,
     topInset: topInset,
+    pagePadding: pagePadding,
     isPortrait: isPortrait,
+    enableVerticalExpand: enableVerticalExpand,
   ).bottom;
 }
 

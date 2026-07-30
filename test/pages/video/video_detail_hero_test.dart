@@ -551,9 +551,72 @@ void main() {
 
       expect(portrait, const Rect.fromLTWH(0, 0, 1200, 405));
       expect(landscape.left, 0);
-      expect(landscape.width, 780);
-      expect(landscape.height, 438.75);
+      expect(landscape.width, closeTo(777.6, 0.001));
+      expect(landscape.height, closeTo(437.4, 0.001));
       expect(landscape.right, lessThan(viewport.width));
+    });
+
+    test('uses the expanded vertical layout on every landscape platform', () {
+      const viewport = Size(1200, 720);
+      final standardLandscape = VideoDetailLayoutMetrics.entryLayout(
+        viewport,
+        isVertical: true,
+        topInset: 0,
+        isPortrait: false,
+        enableVerticalExpand: false,
+      );
+      final expandedLandscape = VideoDetailLayoutMetrics.entryLayout(
+        viewport,
+        isVertical: true,
+        topInset: 0,
+        isPortrait: false,
+        enableVerticalExpand: true,
+      );
+      final mobileExpandedLandscape = VideoDetailLayoutMetrics.entryLayout(
+        viewport,
+        isVertical: true,
+        topInset: 0,
+        isPortrait: false,
+        enableVerticalExpand: true,
+      );
+
+      expect(
+        standardLandscape.pageLayout,
+        VideoDetailEntryPageLayout.landscape,
+      );
+      expect(
+        standardLandscape.playerRect,
+        const Rect.fromLTWH(0, 0, 777.6, 437.4),
+      );
+      expect(
+        expandedLandscape.pageLayout,
+        VideoDetailEntryPageLayout.verticalExpanded,
+      );
+      expect(
+        expandedLandscape.playerRect,
+        const Rect.fromLTWH(397.5, 0, 405, 720),
+      );
+      expect(
+        mobileExpandedLandscape.pageLayout,
+        VideoDetailEntryPageLayout.verticalExpanded,
+      );
+      expect(
+        mobileExpandedLandscape.playerRect,
+        const Rect.fromLTWH(397.5, 0, 405, 720),
+      );
+
+      final safeAreaExpanded = VideoDetailLayoutMetrics.entryLayout(
+        viewport,
+        isVertical: true,
+        topInset: 10,
+        pagePadding: const EdgeInsets.fromLTRB(30, 10, 20, 15),
+        isPortrait: false,
+        enableVerticalExpand: true,
+      );
+      expect(safeAreaExpanded.playerRect.top, 10);
+      expect(safeAreaExpanded.playerRect.height, 695);
+      expect(safeAreaExpanded.playerRect.width, closeTo(390.9375, 0.001));
+      expect(safeAreaExpanded.playerRect.left, closeTo(409.53125, 0.001));
     });
 
     test('resolves the title and season surface geometry', () {

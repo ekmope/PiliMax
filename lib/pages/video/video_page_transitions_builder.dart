@@ -324,6 +324,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   VideoDetailExitVisual? _exitVisual;
   Widget? _exitTexture;
   VideoDetailExitMode? _exitMode;
+  bool _isPipExit = false;
   bool _routeCompleted = false;
   double _lastProgress = 0;
   double _commitStartProgress = 0;
@@ -377,6 +378,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (!identical(oldWidget.token, widget.token) && _progress.value == 0) {
       _returnTarget = null;
       _exitMode = null;
+      _isPipExit = false;
     }
   }
 
@@ -543,6 +545,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
         _arguments?[videoDetailCancelPreparedExitKey] as VoidCallback?;
     cancelPreparedExit?.call();
     _exitMode = null;
+    _isPipExit = false;
     _returnTarget = null;
     _endSnapshotExit();
     if (mounted) {
@@ -616,9 +619,16 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
               as VideoDetailPrepareForExit?;
       final exitMode = prepareForExit?.call() ?? VideoDetailExitMode.detail;
       _exitMode = exitMode;
+      _isPipExit =
+          exitMode == VideoDetailExitMode.detail && _shouldUsePipExit();
       preparedExit = true;
       if (exitMode == VideoDetailExitMode.entryReverse ||
           exitMode == VideoDetailExitMode.errorFallback) {
+        _returnTarget = null;
+        _endSnapshotExit();
+      } else if (_isPipExit) {
+        // PiP has no source-card destination. Keep the page as one reversible
+        // live layer until a successful pop starts the mini-window handoff.
         _returnTarget = null;
         _endSnapshotExit();
       } else {
@@ -629,7 +639,8 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
           _endSnapshotExit();
         }
       }
-    } else if (_returnTarget == null &&
+    } else if (!_isPipExit &&
+        _returnTarget == null &&
         next > 0 &&
         _exitMode != VideoDetailExitMode.entryReverse &&
         _exitMode != VideoDetailExitMode.errorFallback) {
@@ -646,6 +657,9 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   }
 
   void _resolveReturnTarget() {
+    if (_isPipExit) {
+      return;
+    }
     final session = _session;
     final token = widget.token;
     final canReturnToSource =
@@ -658,6 +672,11 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
         : null;
   }
 
+  bool _shouldUsePipExit() {
+    final intent = _arguments?[videoDetailPipExitIntentKey];
+    return intent is VideoDetailPipExitIntent && intent();
+  }
+
   void _retryReturnTargetAfterLayout() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
@@ -665,6 +684,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
           _phase == VideoDetailBackPhase.dismissed ||
           _lastProgress <= 0 ||
           _returnTarget != null ||
+          _isPipExit ||
           _exitMode == VideoDetailExitMode.entryReverse ||
           _exitMode == VideoDetailExitMode.errorFallback) {
         return;
@@ -694,23 +714,10 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   }
 
   void _prepareSnapshotExit() {
-    _exitVisual?.dispose();
-    final provider =
-        _arguments?[videoDetailExitVisualProviderKey]
-            as VideoDetailExitVisualProvider?;
-    final transitionRoot = _transitionRootKey.currentContext
-        ?.findRenderObject();
-    final visual = transitionRoot is RenderBox
-        ? provider?.call(transitionRoot)
-        : null;
-    if (visual?.isUsable == true) {
-      _exitVisual = visual;
-    } else {
-      visual?.dispose();
-      _exitVisual = null;
-    }
-    _exitTexture = _exitVisual?.buildLiveTexture();
-    _snapshotController.allowSnapshotting = _exitVisual != null;
+    // A video-detail exit must preserve one live page tree. Extracting a
+    // texture above a snapshot makes the media and the rest of the page use
+    // different geometry, which causes the visibly split return animation.
+    _endSnapshotExit();
   }
 
   void _endSnapshotExit() {

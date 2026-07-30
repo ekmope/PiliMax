@@ -453,13 +453,14 @@ class _VideoDetailEntryOverlayState extends State<_VideoDetailEntryOverlay>
   }
 
   Rect _targetPlayerRect(Size viewport) {
-    final topInset = Pref.removeSafeArea
-        ? 0.0
-        : MediaQuery.viewPaddingOf(context).top;
+    final pagePadding = Pref.removeSafeArea
+        ? EdgeInsets.zero
+        : MediaQuery.viewPaddingOf(context);
     return VideoDetailLayoutMetrics.entryPlayerRect(
       viewport,
       isVertical: widget.controller._isVertical,
-      topInset: topInset,
+      topInset: pagePadding.top,
+      pagePadding: pagePadding,
       isPortrait: viewport.height >= viewport.width,
     );
   }

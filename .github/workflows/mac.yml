@@ -52,6 +52,7 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag }}
           name: ${{ github.event.inputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: |
             PiliMax_macos_*.dmg
 

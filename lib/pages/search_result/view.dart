@@ -88,10 +88,14 @@ class _SearchResultPageState extends State<SearchResultPage>
           behavior: HitTestBehavior.opaque,
           child: SizedBox(
             width: double.infinity,
-            child: Text(
-              _searchResultController.keyword,
-              style: theme.textTheme.titleMedium,
-              maxLines: 1,
+            height: kMinInteractiveDimension,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                _searchResultController.keyword,
+                style: theme.textTheme.titleMedium,
+                maxLines: 1,
+              ),
             ),
           ),
         ),

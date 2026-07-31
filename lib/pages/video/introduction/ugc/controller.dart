@@ -635,6 +635,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         }
       }
 
+      aiConclusionResult = null;
       videoDetailCtr.plPlayerController.pause();
       if (!fromAudioPage) {
         videoDetailCtr
@@ -666,7 +667,6 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
       if (this.bvid != bvid) {
         reload = true;
-        aiConclusionResult = null;
 
         if (cover != null && cover.isNotEmpty) {
           videoDetailCtr.cover.value = cover;
@@ -1034,10 +1034,19 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
   }
 
   Future<void> aiConclusion() async {
-    aiConclusionResult = await getAiConclusion(
-      bvid,
-      cid.value,
+    final requestedBvid = bvid;
+    final requestedCid = cid.value;
+    final result = await getAiConclusion(
+      requestedBvid,
+      requestedCid,
       videoDetail.value.owner?.mid,
     );
+    if (!isClosed &&
+        bvid == requestedBvid &&
+        cid.value == requestedCid &&
+        videoDetailCtr.bvid == requestedBvid &&
+        videoDetailCtr.cid.value == requestedCid) {
+      aiConclusionResult = result;
+    }
   }
 }

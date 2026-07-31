@@ -171,6 +171,7 @@ jobs:
               with:
                   tag_name: ${{ github.event.inputs.tag }}
                   name: ${{ github.event.inputs.tag }}
+                  target_commitish: ${{ github.sha }}
                   files: PiliMax_android_*.apk
 
             - name: 上传

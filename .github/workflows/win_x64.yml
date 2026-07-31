@@ -84,6 +84,7 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag }}
           name: ${{ github.event.inputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: |
             PiliMax_windows_*.zip
             PiliMax-Win-Setup/PiliMax_windows_*.exe

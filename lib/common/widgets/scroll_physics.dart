@@ -23,6 +23,8 @@ SpringDescription _customSpringDescription() {
   );
 }
 
+SpringDescription kSpringDescription = _customSpringDescription();
+
 const clampingScrollPhysics = CustomTabBarViewScrollPhysics(
   parent: ClampingScrollPhysics(),
 );
@@ -35,10 +37,8 @@ class CustomTabBarViewScrollPhysics extends ScrollPhysics {
     return CustomTabBarViewScrollPhysics(parent: buildParent(ancestor));
   }
 
-  static final _springDescription = _customSpringDescription();
-
   @override
-  SpringDescription get spring => _springDescription;
+  SpringDescription get spring => kSpringDescription;
 }
 
 mixin ReloadMixin {

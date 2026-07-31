@@ -2,7 +2,7 @@ import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:PiliMax/common/style.dart';
-import 'package:PiliMax/common/widgets/flutter/draggable_scrollable_sheet.dart';
+import 'package:PiliMax/common/widgets/draggable_sheet/dyn.dart';
 import 'package:PiliMax/common/widgets/marquee.dart';
 import 'package:PiliMax/models/common/video/live_quality.dart';
 import 'package:PiliMax/pages/live_room/controller.dart';

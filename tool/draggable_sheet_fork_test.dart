@@ -1,4 +1,4 @@
-import 'package:PiliMax/common/widgets/flutter/draggable_scrollable_sheet.dart';
+import 'package:PiliMax/common/widgets/draggable_sheet/dyn.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -77,7 +77,7 @@ void main() {
             rebuild = setState;
             return SizedBox(
               height: 500,
-              child: TopicDraggableScrollableSheet(
+              child: DraggableScrollableSheet(
                 initialChildSize: 1,
                 minChildSize: 1,
                 maxChildSize: 1,
@@ -121,7 +121,7 @@ void main() {
               rebuild = setState;
               return SizedBox(
                 height: 500,
-                child: TopicDraggableScrollableSheet(
+                child: DraggableScrollableSheet(
                   initialChildSize: 1,
                   minChildSize: 1,
                   maxChildSize: 1,

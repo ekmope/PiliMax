@@ -6,6 +6,8 @@ import 'package:PiliMax/common/widgets/custom_toast.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/scale_app.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart'
+    show kSpringDescription;
 import 'package:PiliMax/common/widgets/stateful_builder.dart';
 import 'package:PiliMax/models/common/bar_hide_type.dart';
 import 'package:PiliMax/models/common/danmaku/danmaku_font_sync_mode.dart';
@@ -800,7 +802,12 @@ void _showSpringDialog(BuildContext context, _) {
               final res = springDescription.map(double.parse).toList();
               Get.back();
               GStorage.setting.put(SettingBoxKey.springDescription, res);
-              SmartDialog.showToast('设置成功，重启生效');
+              kSpringDescription = SpringDescription(
+                mass: res[0],
+                stiffness: res[1],
+                damping: res[2],
+              );
+              SmartDialog.showToast('设置成功');
             } catch (e) {
               SmartDialog.showToast(e.toString());
             }

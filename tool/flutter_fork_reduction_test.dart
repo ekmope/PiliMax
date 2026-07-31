@@ -1,7 +1,6 @@
 import 'dart:ui' show SemanticsAction;
 
 import 'package:PiliMax/common/widgets/flutter/chat_list_view.dart';
-import 'package:PiliMax/common/widgets/flutter/draggable_scrollable_sheet.dart';
 import 'package:PiliMax/common/widgets/flutter/page/page_view.dart'
     as custom_page;
 import 'package:PiliMax/common/widgets/flutter/page/tabs.dart' as custom_tabs;
@@ -295,7 +294,7 @@ void main() {
       MaterialApp(
         home: SizedBox(
           height: 500,
-          child: TopicDraggableScrollableSheet(
+          child: DraggableScrollableSheet(
             initialChildSize: 1,
             minChildSize: 1,
             maxChildSize: 1,

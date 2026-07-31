@@ -38,6 +38,8 @@ $ScrollPositionPatch = "lib/scripts/scroll_position.patch"
 
 $ScrollablePatch = "lib/scripts/scrollable.patch"
 
+$DraggableScrollableSheetPatch = "lib/scripts/draggable_scrollable_sheet.patch"
+
 # TODO: remove
 # https://github.com/flutter/flutter/pull/183261
 $SelectableRegionPatch = "lib/scripts/null_safety_for_selectable_region.patch"
@@ -70,7 +72,8 @@ $patches = @($ModalBarrierPatch, $TextSelectionPatch, $MouseCursorPatch,
             $ImageAnimPatch, $LayoutBuilderPatch, $NavigationDrawerPatch,
             $PopupMenuPatch, $FABPatch, $SelectableRegionPatch, $SelectableRegionSelectionPatch,
             $ScrollPositionPatch,
-            $ScrollablePatch)
+            $ScrollablePatch,
+            $DraggableScrollableSheetPatch)
 
 switch ($platform.ToLower()) {
     "android" {

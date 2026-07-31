@@ -4,7 +4,7 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/button/toolbar_icon_button.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
-import 'package:PiliMax/common/widgets/flutter/draggable_scrollable_sheet.dart';
+import 'package:PiliMax/common/widgets/draggable_sheet/dyn.dart';
 import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';

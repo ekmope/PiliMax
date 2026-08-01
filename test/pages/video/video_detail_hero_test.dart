@@ -556,6 +556,31 @@ void main() {
       expect(landscape.right, lessThan(viewport.width));
     });
 
+    test(
+      'fills a tall landscape sidebar with visible recommendation skeletons',
+      () {
+        expect(
+          VideoDetailLayoutMetrics.landscapeRecommendationCountForSidebarHeight(
+            720,
+          ),
+          6,
+        );
+        expect(
+          VideoDetailLayoutMetrics.landscapeRecommendationCountForSidebarHeight(
+            1440,
+          ),
+          13,
+        );
+        expect(
+          VideoDetailLayoutMetrics.landscapeRecommendationCountForSidebarHeight(
+            VideoDetailLayoutMetrics.tabBarHeight +
+                VideoDetailLayoutMetrics.relatedTopPadding,
+          ),
+          0,
+        );
+      },
+    );
+
     test('uses the expanded vertical layout on every landscape platform', () {
       const viewport = Size(1200, 720);
       final standardLandscape = VideoDetailLayoutMetrics.entryLayout(
@@ -617,6 +642,22 @@ void main() {
       expect(safeAreaExpanded.playerRect.height, 695);
       expect(safeAreaExpanded.playerRect.width, closeTo(390.9375, 0.001));
       expect(safeAreaExpanded.playerRect.left, closeTo(409.53125, 0.001));
+      expect(
+        VideoDetailLayoutMetrics.landscapeInfoPanelRect(
+          viewport,
+          safeAreaExpanded,
+          pagePadding: const EdgeInsets.fromLTRB(30, 10, 20, 15),
+        ),
+        Rect.fromLTRB(30, 10, safeAreaExpanded.playerRect.left, 720),
+      );
+      expect(
+        VideoDetailLayoutMetrics.landscapeSidebarPanelRect(
+          viewport,
+          safeAreaExpanded,
+          pagePadding: const EdgeInsets.fromLTRB(30, 10, 20, 15),
+        ),
+        Rect.fromLTRB(safeAreaExpanded.playerRect.right, 10, 1180, 720),
+      );
     });
 
     test('resolves the title and season surface geometry', () {

@@ -8,6 +8,8 @@ import 'package:PiliMax/pages/video/video_detail_entry_overlay.dart';
 import 'package:PiliMax/pages/video/video_detail_exit_snapshot.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/theme_utils.dart';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -883,7 +885,12 @@ class VideoPageExitTransition extends StatelessWidget {
             texture: texture,
           );
         }
-        return _combinedPageLayer(geometry);
+        return _combinedPageLayer(
+          geometry,
+          detailSurfaceColor: geometry.fillsContainedSurface
+              ? _detailSurfaceColor(context)
+              : null,
+        );
       },
     );
   }
@@ -905,6 +912,8 @@ class VideoPageExitTransition extends StatelessWidget {
         ..scaleByDouble(scale, scale, 1, 1),
       borderRadius: 24 * progress,
       bodyHandoff: 1 - opacity,
+      deferRoundedClip: false,
+      fillsContainedSurface: false,
     );
   }
 
@@ -928,26 +937,38 @@ class VideoPageExitTransition extends StatelessWidget {
             : _geometryHandoff(currentRect, target.rect),
     };
     final radius = _maxRadius(target.borderRadius);
-    final contentScale = math.max(
+    // A live detail page cannot cover a target card with a different aspect
+    // ratio without discarding part of the page. Keep it as one contained
+    // surface and hand the source card back only at the end of the timeline.
+    final contentScale = math.min(
       currentRect.width / size.width,
       currentRect.height / size.height,
     );
     final scaledWidth = size.width * contentScale;
+    final scaledHeight = size.height * contentScale;
     final contentLeft =
         currentRect.left + (currentRect.width - scaledWidth) / 2;
+    final contentTop =
+        currentRect.top + (currentRect.height - scaledHeight) / 2;
+    // A list viewport may only expose part of the source card. Keep the
+    // complete outgoing detail page visible while the gesture is reversible,
+    // then converge on that clipped source region during the late handoff.
+    final visibleClipRect = Rect.lerp(
+      currentRect,
+      target.visibleRect,
+      bodyHandoff,
+    )!.intersect(currentRect);
 
     return _VideoExitGeometry(
       clipRect: currentRect,
-      visibleClipRect: Rect.lerp(
-        screenRect,
-        target.visibleRect,
-        progress,
-      )!.intersect(currentRect),
+      visibleClipRect: visibleClipRect,
       contentTransform: Matrix4.identity()
-        ..translateByDouble(contentLeft, currentRect.top, 0, 1)
+        ..translateByDouble(contentLeft, contentTop, 0, 1)
         ..scaleByDouble(contentScale, contentScale, 1, 1),
       borderRadius: lerpDouble(0, radius, progress)!,
       bodyHandoff: bodyHandoff,
+      deferRoundedClip: true,
+      fillsContainedSurface: true,
     );
   }
 
@@ -959,68 +980,92 @@ class VideoPageExitTransition extends StatelessWidget {
       contentTransform: Matrix4.identity(),
       borderRadius: 0,
       bodyHandoff: _sourceHandoffForExitProgress(progress),
+      deferRoundedClip: false,
+      fillsContainedSurface: false,
     );
   }
 
-  Widget _combinedPageLayer(_VideoExitGeometry geometry) {
+  Color _detailSurfaceColor(BuildContext context) => Pref.darkVideoPage
+      ? ThemeUtils.darkTheme.colorScheme.surface
+      : Theme.of(context).colorScheme.surface;
+
+  Widget _combinedPageLayer(
+    _VideoExitGeometry geometry, {
+    required Color? detailSurfaceColor,
+  }) {
+    final transformedPage = Transform(
+      alignment: Alignment.topLeft,
+      transform: geometry.contentTransform,
+      transformHitTests: false,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          child,
+          if (exitVisual case final visual?)
+            Positioned.fromRect(
+              rect: visual.clipRect,
+              child: const ColoredBox(color: Colors.black),
+            ),
+          if ((exitVisual, exitTexture) case (
+            final visual?,
+            final texture?,
+          ))
+            ClipRect(
+              clipper: _VideoExitRectClipper(visual.clipRect),
+              clipBehavior: Clip.hardEdge,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned.fromRect(rect: visual.playerRect, child: texture),
+                ],
+              ),
+            ),
+          if (exitVisual case final visual?)
+            for (final foreground in visual.foregrounds)
+              ClipRect(
+                clipper: _VideoExitRectClipper(foreground.clipRect),
+                clipBehavior: Clip.hardEdge,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Positioned.fromRect(
+                      rect: foreground.rect,
+                      child: foreground.build(),
+                    ),
+                  ],
+                ),
+              ),
+        ],
+      ),
+    );
+    Widget layer = switch (detailSurfaceColor) {
+      final color? => Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fromRect(
+            rect: geometry.clipRect,
+            child: IgnorePointer(child: ColoredBox(color: color)),
+          ),
+          transformedPage,
+        ],
+      ),
+      null => transformedPage,
+    };
+    if (geometry.bodyOpacity < 1) {
+      layer = Opacity(opacity: geometry.bodyOpacity, child: layer);
+    }
+    if (!geometry.deferRoundedClip ||
+        progress >= videoDetailSourceHandoffStart) {
+      layer = ClipRRect(
+        clipper: _VideoExitClipper(geometry.clipRRect),
+        clipBehavior: progress <= 0 ? Clip.none : Clip.antiAlias,
+        child: layer,
+      );
+    }
     return ClipRect(
       clipper: _VideoExitRectClipper(geometry.visibleClipRect),
       clipBehavior: progress <= 0 ? Clip.none : Clip.hardEdge,
-      child: ClipRRect(
-        clipper: _VideoExitClipper(geometry.clipRRect),
-        clipBehavior: progress <= 0 ? Clip.none : Clip.antiAlias,
-        child: Opacity(
-          opacity: geometry.bodyOpacity,
-          child: Transform(
-            alignment: Alignment.topLeft,
-            transform: geometry.contentTransform,
-            transformHitTests: false,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                child,
-                if (exitVisual case final visual?)
-                  Positioned.fromRect(
-                    rect: visual.clipRect,
-                    child: const ColoredBox(color: Colors.black),
-                  ),
-                if ((exitVisual, exitTexture) case (
-                  final visual?,
-                  final texture?,
-                ))
-                  ClipRect(
-                    clipper: _VideoExitRectClipper(visual.clipRect),
-                    clipBehavior: Clip.hardEdge,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Positioned.fromRect(
-                          rect: visual.playerRect,
-                          child: texture,
-                        ),
-                      ],
-                    ),
-                  ),
-                if (exitVisual case final visual?)
-                  for (final foreground in visual.foregrounds)
-                    ClipRect(
-                      clipper: _VideoExitRectClipper(foreground.clipRect),
-                      clipBehavior: Clip.hardEdge,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Positioned.fromRect(
-                            rect: foreground.rect,
-                            child: foreground.build(),
-                          ),
-                        ],
-                      ),
-                    ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      child: layer,
     );
   }
 
@@ -1326,6 +1371,8 @@ final class _VideoExitGeometry {
     required this.contentTransform,
     required this.borderRadius,
     required this.bodyHandoff,
+    required this.deferRoundedClip,
+    required this.fillsContainedSurface,
   });
 
   final Rect clipRect;
@@ -1333,6 +1380,8 @@ final class _VideoExitGeometry {
   final Matrix4 contentTransform;
   final double borderRadius;
   final double bodyHandoff;
+  final bool deferRoundedClip;
+  final bool fillsContainedSurface;
 
   double get bodyOpacity => 1 - bodyHandoff;
 

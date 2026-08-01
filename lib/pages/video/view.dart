@@ -1864,6 +1864,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                 preferredSize: const Size.fromHeight(0),
                 child: Obx(() {
                   final scrollRatio = videoDetailController.scrollRatio.value;
+                  final useSurfaceStyle = isPortrait && scrollRatio >= 0.5;
+                  final brightness = themeData.brightness;
                   return AppBar(
                     toolbarHeight: 0,
                     backgroundColor: isPortrait && scrollRatio > 0
@@ -1873,16 +1875,17 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                             scrollRatio,
                           )
                         : Colors.black,
-                    systemOverlayStyle: Platform.isAndroid
-                        ? SystemUiOverlayStyle(
-                            statusBarIconBrightness:
-                                isPortrait && scrollRatio >= 0.5
-                                ? themeData.brightness.reverse
-                                : .light,
-                            systemNavigationBarIconBrightness:
-                                themeData.brightness.reverse,
-                          )
-                        : null,
+                    systemOverlayStyle: SystemUiOverlayStyle(
+                      statusBarBrightness: useSurfaceStyle
+                          ? brightness
+                          : Brightness.dark,
+                      statusBarColor: Colors.transparent,
+                      statusBarIconBrightness: useSurfaceStyle
+                          ? brightness.reverse
+                          : Brightness.light,
+                      systemStatusBarContrastEnforced: false,
+                      systemNavigationBarIconBrightness: brightness.reverse,
+                    ),
                   );
                 }),
               ),

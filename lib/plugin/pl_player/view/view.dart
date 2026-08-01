@@ -1929,8 +1929,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                                   right: 0,
                                   bottom: 0.75,
                                   child: SegmentProgressBar(
-                                    segments: videoDetailController
-                                        .segmentProgressList,
+                                    segments: List<Segment>.of(
+                                      videoDetailController.segmentProgressList,
+                                    ),
                                   ),
                                 ),
                               if (!widget.isPipMode &&

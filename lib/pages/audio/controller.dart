@@ -825,7 +825,13 @@ class AudioController extends GetxController
       try {
         final bvid = IdUtils.av2bv(oid.toInt());
         final cid = subId.first.toInt();
-        querySponsorBlock(bvid: bvid, cid: cid);
+        final queryOid = oid;
+        final queryCid = subId.first;
+        querySponsorBlock(
+          bvid: bvid,
+          cid: cid,
+          isCurrent: () => oid == queryOid && subId.firstOrNull == queryCid,
+        );
       } catch (_) {}
     }
   }
@@ -946,6 +952,11 @@ class AudioController extends GetxController
       }),
       stream.duration.listen((duration) {
         this.duration.value = duration.inSeconds;
+        if (duration > Duration.zero &&
+            segmentList.isNotEmpty &&
+            blockListener == null) {
+          initSkip();
+        }
       }),
       stream.playing.listen((playing) {
         final PlayerStatus playerStatus;

@@ -68,16 +68,18 @@ mixin BlockMixin on GetxController {
     required int cid,
     bool Function()? isCurrent,
   }) async {
-    bool canApply() =>
-        !isClosed && isBlockSourceCurrent && (isCurrent?.call() ?? true);
-    if (!canApply()) return;
+    // This request starts before the player source becomes loaded. Route
+    // identity prevents stale responses; source readiness is enforced when a
+    // skip listener is attached or a seek is performed.
+    bool isRequestCurrent() => !isClosed && (isCurrent?.call() ?? true);
+    if (!isRequestCurrent()) return;
     resetBlock();
 
     final result = await SponsorBlock.getSkipSegments(bvid: bvid, cid: cid);
-    if (!canApply()) return;
+    if (!isRequestCurrent()) return;
     switch (result) {
       case Success<List<SegmentItemModel>>(:final response):
-        await handleSBData(response, isCurrent: canApply);
+        await handleSBData(response, isCurrent: isRequestCurrent);
       case Error(:final code) when code != 404:
         if (kDebugMode) {
           result.toast();
@@ -92,6 +94,9 @@ mixin BlockMixin on GetxController {
       return;
     }
     if (_segmentList.isNotEmpty) {
+      if (segmentProgressList.length != _segmentList.length) {
+        _updateSegmentProgressList(timeLength);
+      }
       _blockListener?.cancel();
       final skipWhenSeekIntoSegment = blockConfig.blockSkipWhenSeekIntoSegment;
       _blockListener = player?.stream.position.listen((position) {
@@ -147,7 +152,6 @@ mixin BlockMixin on GetxController {
     if (list.isNotEmpty && canApply()) {
       try {
         Future<void>? future;
-        final duration = list.first.videoDuration ?? timeLength!;
         // segmentList
         _segmentList.addAll(
           list
@@ -213,18 +217,19 @@ mixin BlockMixin on GetxController {
               }),
         );
 
-        // _segmentProgressList
-        segmentProgressList.addAll(
-          _segmentList.map((e) {
-            double start = (e.segment.$1 / duration).clamp(0.0, 1.0);
-            double end = (e.segment.$2 / duration).clamp(0.0, 1.0);
-            return Segment(
-              start: start,
-              end: end,
-              color: blockConfig._getColor(e.segmentType),
-            );
-          }),
-        );
+        num? videoDuration;
+        for (final item in list) {
+          final duration = item.videoDuration;
+          if (duration != null && duration > 0) {
+            videoDuration = duration;
+            break;
+          }
+        }
+        if (videoDuration != null && videoDuration > 0) {
+          _updateSegmentProgressList(videoDuration);
+        } else if (isBlockSourceCurrent) {
+          _updateSegmentProgressList(timeLength);
+        }
 
         if (_blockListener == null && (autoPlay || preInitPlayer)) {
           await future;
@@ -236,6 +241,21 @@ mixin BlockMixin on GetxController {
         if (kDebugMode) debugPrint('failed to parse sponsorblock: $e');
       }
     }
+  }
+
+  void _updateSegmentProgressList(num? duration) {
+    if (_segmentList.isEmpty || duration == null || duration <= 0) return;
+    segmentProgressList.assignAll(
+      _segmentList.map((e) {
+        double start = (e.segment.$1 / duration).clamp(0.0, 1.0);
+        double end = (e.segment.$2 / duration).clamp(0.0, 1.0);
+        return Segment(
+          start: start,
+          end: end,
+          color: blockConfig._getColor(e.segmentType),
+        );
+      }),
+    );
   }
 
   void onAddItem(Object item) {

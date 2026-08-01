@@ -95,7 +95,9 @@ class BottomControl extends StatelessWidget {
                         right: 0,
                         bottom: 5.25,
                         child: SegmentProgressBar(
-                          segments: videoDetailController.segmentProgressList,
+                          segments: List<Segment>.of(
+                            videoDetailController.segmentProgressList,
+                          ),
                         ),
                       ),
                     if (!isPipMode &&

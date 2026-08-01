@@ -883,7 +883,7 @@ class _AudioPageState extends State<AudioPage> {
               if (_controller.segmentProgressList.isNotEmpty) {
                 return SegmentProgressBar(
                   height: 5,
-                  segments: _controller.segmentProgressList,
+                  segments: List<Segment>.of(_controller.segmentProgressList),
                 );
               }
               return const SizedBox.shrink();

@@ -43,6 +43,9 @@ class DynamicsController extends GetxController
   int _readAccountEpoch = 0;
   bool isQuerying = false;
   bool _pendingFollowUpRefresh = false;
+  bool _postFrameRefreshScheduled = false;
+  bool _postFrameRefreshScrollToTop = false;
+  Completer<void>? _postFrameRefreshCompleter;
   bool _isClosing = false;
 
   final upPanelPosition = Pref.upPanelPosition;
@@ -475,16 +478,79 @@ class DynamicsController extends GetxController
     return _refreshCurrentDynamics();
   }
 
-  Future<void> _refreshCurrentDynamics({bool scrollToTop = false}) {
-    _refreshFollowUp();
-    final currentController = controller;
-    if (currentController == null) {
+  Future<void> _refreshCurrentDynamics({
+    bool scrollToTop = false,
+    bool deferUntilMounted = true,
+  }) {
+    if (_isClosing) {
       return Future<void>.value();
     }
-    if (scrollToTop) {
-      currentController.animateToTop();
+    final currentController = controller;
+    if (currentController?.refreshKey.currentState != null) {
+      if (scrollToTop) {
+        currentController!.animateToTop();
+      }
+      // The tab's RefreshIndicator callback refreshes both the UP panel and feed.
+      return currentController!.showRefresh();
     }
-    return currentController.onRefresh();
+    if (deferUntilMounted) {
+      return _scheduleCurrentDynamicsRefresh(scrollToTop: scrollToTop);
+    }
+
+    // A tab can be created after the first frame. Keep data refresh reliable
+    // even if its RefreshIndicator still cannot be shown at that point.
+    _refreshFollowUp();
+    if (scrollToTop) {
+      currentController?.animateToTop();
+    }
+    return currentController?.onRefresh() ?? Future<void>.value();
+  }
+
+  Future<void> _scheduleCurrentDynamicsRefresh({
+    required bool scrollToTop,
+  }) {
+    _postFrameRefreshScrollToTop |= scrollToTop;
+    final completer = _postFrameRefreshCompleter ??= Completer<void>();
+    if (_postFrameRefreshScheduled) {
+      return completer.future;
+    }
+
+    _postFrameRefreshScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _postFrameRefreshScheduled = false;
+      final pendingCompleter = _postFrameRefreshCompleter;
+      final pendingScrollToTop = _postFrameRefreshScrollToTop;
+      _postFrameRefreshCompleter = null;
+      _postFrameRefreshScrollToTop = false;
+      if (pendingCompleter != null) {
+        unawaited(
+          _completeScheduledDynamicsRefresh(
+            pendingCompleter,
+            scrollToTop: pendingScrollToTop,
+          ),
+        );
+      }
+    });
+    return completer.future;
+  }
+
+  Future<void> _completeScheduledDynamicsRefresh(
+    Completer<void> completer, {
+    required bool scrollToTop,
+  }) async {
+    try {
+      await _refreshCurrentDynamics(
+        scrollToTop: scrollToTop,
+        deferUntilMounted: false,
+      );
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+    } catch (error, stackTrace) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, stackTrace);
+      }
+    }
   }
 
   void _refreshAllAfterPageChange() {
@@ -561,6 +627,14 @@ class DynamicsController extends GetxController
     _isClosing = true;
     _resetUpReadResolutionState();
     _pendingFollowUpRefresh = false;
+    _postFrameRefreshScheduled = false;
+    _postFrameRefreshScrollToTop = false;
+    final pendingRefreshCompleter = _postFrameRefreshCompleter;
+    _postFrameRefreshCompleter = null;
+    if (pendingRefreshCompleter != null &&
+        !pendingRefreshCompleter.isCompleted) {
+      pendingRefreshCompleter.complete();
+    }
     tabController.dispose();
     upPageController.dispose();
     scrollController.dispose();

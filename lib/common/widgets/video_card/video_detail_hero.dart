@@ -7,7 +7,9 @@ import 'package:PiliMax/common/widgets/video_card/video_detail_ugc_title_height_
 import 'package:PiliMax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
+import 'package:PiliMax/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliMax/utils/grid.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
 
@@ -850,10 +852,29 @@ class _VideoDetailHeroShellState extends State<VideoDetailHeroShell> {
             ? constraints.maxHeight
             : mediaSize.height;
         final isPortrait = widget.isPortrait ?? height >= width;
+        final viewport = Size(width, height);
+        final landscapeEntryLayout = isPortrait
+            ? null
+            : VideoDetailLayoutMetrics.entryLayout(
+                viewport,
+                isVertical: widget.isVertical,
+                topInset: entryPadding.top,
+                pagePadding: entryPadding,
+                isPortrait: false,
+              );
+        final landscapeInfoWidth = landscapeEntryLayout == null
+            ? width
+            : VideoDetailLayoutMetrics.landscapeInfoPanelRect(
+                viewport,
+                landscapeEntryLayout,
+                pagePadding: entryPadding,
+              ).width;
         final ugcTitleHeight = widget.variant == VideoDetailSkeletonVariant.ugc
             ? _ugcTitleHeightCache.resolve(
                 title: widget.title,
-                viewportWidth: width,
+                viewportWidth: landscapeInfoWidth > 0
+                    ? landscapeInfoWidth
+                    : width,
                 style: titleStyle,
                 textScaler: textScaler,
                 textDirection: textDirection,
@@ -874,6 +895,7 @@ class _VideoDetailHeroShellState extends State<VideoDetailHeroShell> {
               recommendationCount: widget.recommendationCount,
               isVertical: widget.isVertical,
               isPortrait: isPortrait,
+              isDesktop: PlatformUtils.isDesktop,
               playerBottomOverride: widget.playerBottomOverride,
               topInset: entryPadding.top,
               entryPadding: entryPadding,
@@ -979,6 +1001,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     required this.recommendationCount,
     required this.isVertical,
     required this.isPortrait,
+    required this.isDesktop,
     required this.playerBottomOverride,
     required this.topInset,
     required this.entryPadding,
@@ -1002,6 +1025,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   final int recommendationCount;
   final bool? isVertical;
   final bool isPortrait;
+  final bool isDesktop;
   final double? playerBottomOverride;
   final double topInset;
   final EdgeInsets entryPadding;
@@ -1085,6 +1109,38 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
       isPortrait: false,
     );
     final playerRect = entryLayout.playerRect;
+    final infoPanel = VideoDetailLayoutMetrics.landscapeInfoPanelRect(
+      size,
+      entryLayout,
+      pagePadding: entryPadding,
+    );
+    final sidebarPanel = VideoDetailLayoutMetrics.landscapeSidebarPanelRect(
+      size,
+      entryLayout,
+      pagePadding: entryPadding,
+    );
+    final showsRelatedSidebar =
+        entryLayout.pageLayout == VideoDetailEntryPageLayout.landscape &&
+        variant == VideoDetailSkeletonVariant.ugc &&
+        showRecommendations;
+
+    final surroundingSurfaceOpacity = math.max(
+      math.max(navigationSurfaceOpacity, detailSurfaceOpacity),
+      showsRelatedSidebar ? recommendationSurfaceOpacity : 0.0,
+    );
+    if (surroundingSurfaceOpacity > 0) {
+      final surroundingSurface = Path()
+        ..fillType = PathFillType.evenOdd
+        ..addRect(Offset.zero & size)
+        ..addRect(playerRect);
+      canvas.drawPath(
+        surroundingSurface,
+        Paint()
+          ..color = colorScheme.surface.withValues(
+            alpha: surroundingSurfaceOpacity,
+          ),
+      );
+    }
     if (playerSurfaceOpacity > 0) {
       canvas.drawRect(
         playerRect,
@@ -1092,37 +1148,23 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
       );
     }
 
-    if (entryLayout.pageLayout == VideoDetailEntryPageLayout.verticalExpanded) {
-      final leftPanel = Rect.fromLTRB(0, 0, playerRect.left, size.height);
-      if (leftPanel.width > 0) {
-        _paintLandscapeInfo(canvas, leftPanel);
-      }
-      final rightPanel = Rect.fromLTRB(
-        playerRect.right,
-        0,
-        size.width,
-        size.height,
-      );
-      if (rightPanel.width > 0) {
-        _paintLandscapeSidebar(canvas, rightPanel);
-      }
-      return;
-    }
-
-    final sidebar = Rect.fromLTRB(playerRect.right, 0, size.width, size.height);
-    if (sidebar.width > 0) {
-      _paintLandscapeSidebar(canvas, sidebar);
-    }
-    if (playerRect.bottom < size.height) {
-      _paintLandscapeInfo(
+    if (sidebarPanel.width > 0) {
+      _paintLandscapeSidebar(
         canvas,
-        Rect.fromLTRB(0, playerRect.bottom, playerRect.right, size.height),
+        sidebarPanel,
+        showRelatedList: showsRelatedSidebar,
       );
+    }
+    if (!infoPanel.isEmpty) {
+      _paintLandscapeInfo(canvas, infoPanel);
     }
   }
 
-  void _paintLandscapeSidebar(Canvas canvas, Rect rect) {
-    const padding = VideoDetailLayoutMetrics.horizontalPadding;
+  void _paintLandscapeSidebar(
+    Canvas canvas,
+    Rect rect, {
+    required bool showRelatedList,
+  }) {
     final navigation = Rect.fromLTWH(
       rect.left,
       rect.top,
@@ -1133,52 +1175,120 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
 
     final bodyTop =
         navigation.bottom + VideoDetailLayoutMetrics.relatedTopPadding;
+    final bodyOpacity = showRelatedList
+        ? recommendationSurfaceOpacity
+        : detailSurfaceOpacity;
     _paintSection(
       canvas,
       Rect.fromLTRB(rect.left, bodyTop, rect.right, rect.bottom),
-      recommendationSurfaceOpacity,
+      bodyOpacity,
       () {
+        if (!showRelatedList) {
+          return;
+        }
         final primaryPaint = _skeletonPaint(recommendationSurfaceOpacity);
         final subtlePaint = _subtlePaint(recommendationSurfaceOpacity);
         var top = bodyTop;
+        final visibleRecommendationCount = math.max(
+          recommendationCount,
+          VideoDetailLayoutMetrics.landscapeRecommendationCountForSidebarHeight(
+            rect.height,
+          ),
+        );
         for (
           var index = 0;
-          index < recommendationCount && top < rect.bottom;
+          index < visibleRecommendationCount && top < rect.bottom;
           index++
         ) {
-          final itemHeight = math.min(
-            VideoDetailLayoutMetrics.relatedCardHeight,
-            rect.bottom - top,
-          );
+          const itemHeight = VideoDetailLayoutMetrics.relatedCardHeight;
+          final itemContentTop = top + VideoCardHLayoutMetrics.verticalPadding;
           final thumbnailWidth = math.min(
-            itemHeight * Style.aspectRatio16x9,
-            rect.width * 0.48,
+            VideoCardHLayoutMetrics.thumbnailWidth,
+            math.max(
+              0.0,
+              rect.width - 2 * VideoCardHLayoutMetrics.horizontalPadding,
+            ),
+          );
+          final thumbnailHeight = math.min(
+            VideoCardHLayoutMetrics.thumbnailHeight,
+            math.max(
+              0.0,
+              itemHeight - 2 * VideoCardHLayoutMetrics.verticalPadding,
+            ),
           );
           final thumbnail = Rect.fromLTWH(
-            rect.left + padding,
-            top,
+            rect.left + VideoCardHLayoutMetrics.horizontalPadding,
+            itemContentTop,
             thumbnailWidth,
-            itemHeight,
+            thumbnailHeight,
           );
           canvas.drawRRect(
-            RRect.fromRectAndRadius(thumbnail, const Radius.circular(4)),
+            RRect.fromRectAndRadius(
+              thumbnail,
+              const Radius.circular(VideoCardHLayoutMetrics.thumbnailRadius),
+            ),
             _thumbnailPaint(recommendationSurfaceOpacity),
           );
-          final textLeft = thumbnail.right + 10;
-          final textWidth = math.max(0.0, rect.right - padding - textLeft);
+          final textLeft = thumbnail.right + VideoCardHLayoutMetrics.contentGap;
+          final textWidth = math.max(
+            0.0,
+            rect.right -
+                VideoCardHLayoutMetrics.horizontalPadding -
+                6 -
+                textLeft,
+          );
+          final textTop = itemContentTop + 4;
+          final textBottom = itemContentTop + thumbnailHeight - 4;
+          final detailTop = math.max(textTop + 29, textBottom - 31);
+          final statTop = math.max(detailTop + 18, textBottom - 13);
           _drawBar(
             canvas,
-            Rect.fromLTWH(textLeft, top + 6, textWidth * 0.9, 10),
+            Rect.fromLTWH(
+              textLeft,
+              textTop,
+              math.min(200.0, textWidth),
+              11,
+            ),
             primaryPaint,
           );
           _drawBar(
             canvas,
-            Rect.fromLTWH(textLeft, top + 25, textWidth * 0.65, 8),
+            Rect.fromLTWH(
+              textLeft,
+              textTop + 16,
+              math.min(150.0, textWidth),
+              13,
+            ),
             subtlePaint,
           );
           _drawBar(
             canvas,
-            Rect.fromLTWH(textLeft, top + itemHeight - 12, textWidth * 0.42, 7),
+            Rect.fromLTWH(
+              textLeft,
+              detailTop,
+              math.min(100.0, textWidth),
+              13,
+            ),
+            subtlePaint,
+          );
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(
+              textLeft,
+              statTop,
+              math.min(40.0, textWidth),
+              13,
+            ),
+            subtlePaint,
+          );
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(
+              textLeft + math.min(48.0, textWidth),
+              statTop,
+              math.min(40.0, math.max(0.0, textWidth - 48)),
+              13,
+            ),
             subtlePaint,
           );
           top += itemHeight + VideoDetailLayoutMetrics.relatedCardSpacing;
@@ -1188,33 +1298,159 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   }
 
   void _paintLandscapeInfo(Canvas canvas, Rect rect) {
+    if (rect.isEmpty) {
+      return;
+    }
+    canvas
+      ..save()
+      ..clipRect(rect)
+      ..translate(rect.left, rect.top);
+    final panelSize = rect.size;
+    switch (variant) {
+      case VideoDetailSkeletonVariant.ugc:
+        _paintLandscapeUgcInfo(
+          canvas,
+          panelSize,
+        );
+        break;
+      case VideoDetailSkeletonVariant.pgc:
+        _paintPgcBody(canvas, panelSize, 0, showActions: true);
+        break;
+      case VideoDetailSkeletonVariant.pugv:
+        _paintPgcBody(canvas, panelSize, 0, showActions: false);
+        break;
+      case VideoDetailSkeletonVariant.local:
+        _paintLocalBody(canvas, panelSize, 0);
+        break;
+    }
+    canvas.restore();
+  }
+
+  void _paintLandscapeUgcInfo(Canvas canvas, Size size) {
+    final layout = _LandscapeUgcInfoLayout.resolve(
+      size,
+      titleHeight: ugcTitleHeight,
+      isDesktop: isDesktop,
+      expandedIntro: expandedIntro,
+    );
     const padding = VideoDetailLayoutMetrics.horizontalPadding;
-    _paintSection(canvas, rect, detailSurfaceOpacity, () {
-      final primaryPaint = _skeletonPaint(detailSurfaceOpacity);
-      final subtlePaint = _subtlePaint(detailSurfaceOpacity);
-      final contentWidth = math.max(0.0, rect.width - 2 * padding);
-      final top = rect.top + VideoDetailLayoutMetrics.introTopPadding;
-      _drawBar(
-        canvas,
-        Rect.fromLTWH(padding, top, contentWidth * 0.72, 12),
-        primaryPaint,
-      );
-      _drawBar(
-        canvas,
-        Rect.fromLTWH(padding, top + 23, contentWidth * 0.48, 8),
-        subtlePaint,
-      );
-      _paintActions(
-        canvas,
-        Rect.fromLTWH(
-          padding,
-          top + 38,
-          contentWidth,
-          VideoDetailLayoutMetrics.actionHeight,
-        ),
-        detailSurfaceOpacity,
-      );
-    });
+    final contentWidth = math.max(0.0, size.width - 2 * padding);
+    final actionRect = layout.actionRect;
+    final panelHeight =
+        seasonPanelVisibility * VideoDetailLayoutMetrics.seasonPanelHeight +
+        pagesPanelVisibility * VideoDetailLayoutMetrics.pagesPanelHeight;
+
+    _paintSection(
+      canvas,
+      Offset.zero & size,
+      detailSurfaceOpacity,
+      () {
+        final primaryPaint = _skeletonPaint(detailSurfaceOpacity);
+        final subtlePaint = _subtlePaint(detailSurfaceOpacity);
+        canvas
+          ..drawCircle(
+            layout.avatarRect.center,
+            layout.avatarRect.width / 2,
+            primaryPaint,
+          )
+          ..drawRRect(
+            RRect.fromRectAndRadius(
+              layout.followRect,
+              const Radius.circular(6),
+            ),
+            Paint()
+              ..color = colorScheme.secondaryContainer.withValues(
+                alpha: 0.72 * detailSurfaceOpacity,
+              ),
+          );
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(
+            layout.authorRect.left,
+            layout.authorRect.top + 5,
+            layout.authorRect.width * 0.58,
+            10,
+          ),
+          primaryPaint,
+        );
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(
+            layout.authorRect.left,
+            layout.authorRect.top + 23,
+            layout.authorRect.width * 0.78,
+            8,
+          ),
+          subtlePaint,
+        );
+
+        if (showUgcTitlePlaceholder) {
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(
+              padding,
+              layout.titleRect.top,
+              contentWidth * 0.92,
+              14,
+            ),
+            primaryPaint,
+          );
+          if (layout.titleRect.height > 24) {
+            _drawBar(
+              canvas,
+              Rect.fromLTWH(
+                padding,
+                layout.titleRect.top + 20,
+                contentWidth * 0.64,
+                10,
+              ),
+              subtlePaint,
+            );
+          }
+        }
+        _paintStats(canvas, padding, layout.statsTop, subtlePaint);
+        if (layout.showsDescription) {
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(
+              padding,
+              layout.descriptionTop,
+              contentWidth * 0.22,
+              9,
+            ),
+            subtlePaint,
+          );
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(
+              padding,
+              layout.descriptionTop + 20,
+              contentWidth * 0.94,
+              9,
+            ),
+            subtlePaint,
+          );
+          _drawBar(
+            canvas,
+            Rect.fromLTWH(
+              padding,
+              layout.descriptionTop + 39,
+              contentWidth * 0.72,
+              9,
+            ),
+            subtlePaint,
+          );
+        }
+        if (actionRect != null) {
+          _paintActions(canvas, actionRect, detailSurfaceOpacity);
+        }
+        _paintUgcPanels(
+          canvas,
+          Rect.fromLTWH(padding, layout.panelsTop, contentWidth, panelHeight),
+          detailSurfaceOpacity,
+        );
+      },
+    );
   }
 
   void _paintNavigation(Canvas canvas, Rect rect) {
@@ -1999,6 +2235,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         recommendationCount != oldDelegate.recommendationCount ||
         isVertical != oldDelegate.isVertical ||
         isPortrait != oldDelegate.isPortrait ||
+        isDesktop != oldDelegate.isDesktop ||
         playerBottomOverride != oldDelegate.playerBottomOverride ||
         topInset != oldDelegate.topInset ||
         variant != oldDelegate.variant ||
@@ -2011,5 +2248,109 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         actionCount != oldDelegate.actionCount ||
         hasEpisodePanel != oldDelegate.hasEpisodePanel ||
         ugcTitleHeight != oldDelegate.ugcTitleHeight;
+  }
+}
+
+final class _LandscapeUgcInfoLayout {
+  const _LandscapeUgcInfoLayout({
+    required this.avatarRect,
+    required this.authorRect,
+    required this.followRect,
+    required this.actionRect,
+    required this.titleRect,
+    required this.statsTop,
+    required this.descriptionTop,
+    required this.panelsTop,
+    required this.showsDescription,
+  });
+
+  final Rect avatarRect;
+  final Rect authorRect;
+  final Rect followRect;
+  final Rect? actionRect;
+  final Rect titleRect;
+  final double statsTop;
+  final double descriptionTop;
+  final double panelsTop;
+  final bool showsDescription;
+
+  static _LandscapeUgcInfoLayout resolve(
+    Size panelSize, {
+    required double titleHeight,
+    required bool isDesktop,
+    required bool expandedIntro,
+  }) {
+    const padding = VideoDetailLayoutMetrics.horizontalPadding;
+    const inlineGap = 10.0;
+    final contentWidth = math.max(0.0, panelSize.width - 2 * padding);
+    final actionsInline =
+        panelSize.height > 0 &&
+        panelSize.width / panelSize.height >= kScreenRatio;
+    final followWidth = math.min(72.0, contentWidth * 0.2);
+    final flexWidth = math.max(
+      0.0,
+      contentWidth - followWidth - (actionsInline ? inlineGap : 0.0),
+    );
+    final ownerWidth = actionsInline ? flexWidth / 2 : flexWidth;
+    const ownerTop = VideoDetailLayoutMetrics.introTopPadding;
+    const ownerHeight = VideoDetailLayoutMetrics.ownerHeight;
+    const avatarRect = Rect.fromLTWH(
+      padding,
+      ownerTop,
+      ownerHeight,
+      ownerHeight,
+    );
+    final authorLeft = avatarRect.right + 10;
+    final ownerRight = padding + ownerWidth;
+    final authorRect = Rect.fromLTWH(
+      authorLeft,
+      ownerTop,
+      math.max(0.0, ownerRight - authorLeft),
+      ownerHeight,
+    );
+    final followRect = Rect.fromLTWH(ownerRight, ownerTop + 3, followWidth, 29);
+    final actionRect = actionsInline
+        ? Rect.fromLTWH(
+            followRect.right + inlineGap,
+            ownerTop,
+            ownerWidth,
+            VideoDetailLayoutMetrics.actionHeight,
+          )
+        : null;
+    final ownerRowHeight = actionsInline
+        ? VideoDetailLayoutMetrics.actionHeight
+        : ownerHeight;
+    final titleTop =
+        ownerTop + ownerRowHeight + VideoDetailLayoutMetrics.sectionGap;
+    final titleRect = Rect.fromLTWH(
+      padding,
+      titleTop,
+      contentWidth,
+      math.max(0.0, titleHeight),
+    );
+    final statsTop = titleRect.bottom + VideoDetailLayoutMetrics.sectionGap;
+    final descriptionTop = statsTop + 18 + VideoDetailLayoutMetrics.sectionGap;
+    final showsDescription = expandedIntro || (actionsInline && isDesktop);
+    final belowActionsRect = actionsInline
+        ? null
+        : Rect.fromLTWH(
+            padding,
+            descriptionTop + (showsDescription ? 72 : 0),
+            contentWidth,
+            VideoDetailLayoutMetrics.actionHeight,
+          );
+    return _LandscapeUgcInfoLayout(
+      avatarRect: avatarRect,
+      authorRect: authorRect,
+      followRect: followRect,
+      actionRect: actionRect ?? belowActionsRect,
+      titleRect: titleRect,
+      statsTop: statsTop,
+      descriptionTop: descriptionTop,
+      panelsTop: actionsInline
+          ? descriptionTop + (showsDescription ? 72 : 0)
+          : belowActionsRect!.bottom,
+      showsDescription: showsDescription,
+    );
   }
 }

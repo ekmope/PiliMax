@@ -75,6 +75,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   bool _pendingPresentationReady = false;
   bool _isResolving = false;
   int _playerHandoffGeneration = 0;
+  int _entryRevealGeneration = 0;
   Object? _error;
   Object? _pendingResolutionError;
   VideoDetailExitMode? _preparedExitMode;
@@ -120,6 +121,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   bool get _entryReverseInProgress =>
       _preparedExitMode == VideoDetailExitMode.entryReverse;
+
+  bool get _routeCompositeOwnsPresentation =>
+      _preparedExitMode == VideoDetailExitMode.routeComposite;
 
   bool get _externalEntryOwnsPresentation =>
       _usesExternalEntryOverlay ||
@@ -188,6 +192,14 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     _playerHandoffTimer = null;
   }
 
+  void _abortEntryOverlay() {
+    // An aborted overlay completes beginReveal's future. Invalidate that
+    // continuation before removing it so it cannot clear a replacement local
+    // entry layer during a fast exit.
+    _entryRevealGeneration++;
+    _entryOverlay?.abort();
+  }
+
   void _handleInitialPlayerVisualReady(VideoDetailSession session) {
     if (!mounted ||
         !identical(session, _session) ||
@@ -234,7 +246,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     }
 
     if (_showPlayerHandoffCover) {
-      _entryOverlay?.abort();
+      _abortEntryOverlay();
       _detailRevealController.stop();
       _orientationSettleTimer?.cancel();
       _orientationSettleTimer = null;
@@ -244,12 +256,15 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _preparedExitUsesPlayerHandoff = true;
       setState(() {
         _showDetail = true;
-        _showEntryLayer = false;
+        // Keep a complete, opaque entry scene while a just-mounted detail
+        // route reverses. Otherwise the live page can leak through the
+        // skeleton's still-fading regions during a fast back action.
+        _showEntryLayer = true;
         _useHeroTarget = false;
         _showStaticEntryCover = false;
         _showPlayerHandoffCover = true;
         _playerHandoffCoverOpaque = true;
-        _revealingDetail = true;
+        _revealingDetail = false;
         _orientationSettling = false;
         _pendingEntryOrientation = null;
         _pendingEntryVariant = null;
@@ -282,7 +297,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       }
     }
 
-    _entryOverlay?.abort();
+    _abortEntryOverlay();
     if (!_showDetail) {
       return _preparedExitMode = VideoDetailExitMode.detail;
     }
@@ -812,10 +827,16 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _revealingDetail = true;
     });
     final entryOverlay = _entryOverlay;
-    if (entryOverlay != null) {
+    if (entryOverlay?.isActive == true) {
+      final revealGeneration = ++_entryRevealGeneration;
       unawaited(
-        entryOverlay.beginReveal().whenComplete(() {
-          if (mounted && _showEntryLayer) {
+        entryOverlay!.beginReveal().whenComplete(() {
+          if (mounted &&
+              revealGeneration == _entryRevealGeneration &&
+              identical(entryOverlay, _entryOverlay) &&
+              entryOverlay.didCompleteReveal &&
+              !_entryExitInProgress &&
+              _showEntryLayer) {
             setState(() => _showEntryLayer = false);
           }
         }),
@@ -831,7 +852,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   }
 
   void _showResolutionError(Object error) {
-    _entryOverlay?.abort();
+    _abortEntryOverlay();
     _cancelPlayerHandoffTimeout();
     setState(() {
       _error = error;
@@ -1032,7 +1053,10 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     final showStaticEntryCover =
         _showStaticEntryCover && _showEntryLayer && !showHeroTarget;
     final showPlayerHandoffCover = _showPlayerHandoffCover && !showHeroTarget;
-    final hideDetail = _hideDetailDuringHeroFlight || _entryReverseInProgress;
+    final hideDetail =
+        _hideDetailDuringHeroFlight ||
+        _entryReverseInProgress ||
+        _routeCompositeOwnsPresentation;
     if (!_showDetail) {
       return Scaffold(
         backgroundColor: showHeroTarget || _externalEntryOwnsPresentation

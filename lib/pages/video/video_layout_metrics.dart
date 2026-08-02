@@ -179,6 +179,73 @@ abstract final class VideoDetailLayoutMetrics {
   static const double relatedCardSpacing =
       VideoCardHLayoutMetrics.mainAxisSpacing;
 
+  /// Includes a partially visible final row, matching the scrollable sidebar.
+  static int landscapeRecommendationCountForSidebarHeight(
+    double sidebarHeight,
+  ) {
+    final availableHeight = math.max(
+      0.0,
+      sidebarHeight - tabBarHeight - relatedTopPadding,
+    );
+    if (availableHeight <= 0) {
+      return 0;
+    }
+    return (availableHeight / (relatedCardHeight + relatedCardSpacing)).ceil();
+  }
+
+  /// The information pane below a standard landscape player, or to the left
+  /// of a vertically expanded player. The painter and entry cover use this
+  /// geometry so their safe-area bounds stay aligned with the detail page.
+  static Rect landscapeInfoPanelRect(
+    Size viewport,
+    VideoDetailEntryLayout entryLayout, {
+    required EdgeInsets pagePadding,
+  }) {
+    final panelLeft = pagePadding.left.clamp(0.0, viewport.width).toDouble();
+    final panelRight = (viewport.width - pagePadding.right)
+        .clamp(panelLeft, viewport.width)
+        .toDouble();
+    final playerRect = entryLayout.playerRect;
+    return switch (entryLayout.pageLayout) {
+      VideoDetailEntryPageLayout.landscape => Rect.fromLTRB(
+        panelLeft,
+        playerRect.bottom,
+        playerRect.right.clamp(panelLeft, panelRight).toDouble(),
+        viewport.height,
+      ),
+      VideoDetailEntryPageLayout.verticalExpanded => Rect.fromLTRB(
+        panelLeft,
+        playerRect.top,
+        playerRect.left.clamp(panelLeft, panelRight).toDouble(),
+        viewport.height,
+      ),
+      VideoDetailEntryPageLayout.portrait => Rect.zero,
+    };
+  }
+
+  /// The tab and related-video pane on the right of a landscape detail page.
+  static Rect landscapeSidebarPanelRect(
+    Size viewport,
+    VideoDetailEntryLayout entryLayout, {
+    required EdgeInsets pagePadding,
+  }) {
+    final panelLeft = pagePadding.left.clamp(0.0, viewport.width).toDouble();
+    final panelRight = (viewport.width - pagePadding.right)
+        .clamp(panelLeft, viewport.width)
+        .toDouble();
+    final playerRect = entryLayout.playerRect;
+    return switch (entryLayout.pageLayout) {
+      VideoDetailEntryPageLayout.landscape ||
+      VideoDetailEntryPageLayout.verticalExpanded => Rect.fromLTRB(
+        playerRect.right.clamp(panelLeft, panelRight).toDouble(),
+        playerRect.top,
+        panelRight,
+        viewport.height,
+      ),
+      VideoDetailEntryPageLayout.portrait => Rect.zero,
+    };
+  }
+
   static int navigationTabRegionFlex(int tabCount) => tabCount >= 3 ? 2 : 1;
 
   static int portraitTabCount({

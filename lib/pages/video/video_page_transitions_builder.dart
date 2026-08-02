@@ -11,6 +11,7 @@ import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'package:flutter/services.dart';
 
 /// Keeps the stock Android transition everywhere except the video route.
@@ -333,6 +334,8 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   double _cancelStartProgress = 0;
   double _programmaticStartProgress = 0;
   double _programmaticStartRouteValue = 1;
+  double? _pendingPredictiveBackProgress;
+  int? _predictiveBackFrameCallbackId;
   Map<dynamic, dynamic>? get _arguments {
     final arguments = widget.route.settings.arguments;
     return arguments is Map ? arguments : null;
@@ -403,6 +406,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
         !_isEnabled) {
       return false;
     }
+    _discardPendingPredictiveBackProgress();
     _phase = VideoDetailBackPhase.predicting;
     widget.route.handleStartBackGesture(progress: 1 - backEvent.progress);
     _setProgress(backEvent.progress);
@@ -415,10 +419,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (_phase != VideoDetailBackPhase.predicting) {
       return;
     }
-    widget.route.handleUpdateBackGestureProgress(
-      progress: 1 - backEvent.progress,
-    );
-    _setProgress(backEvent.progress);
+    _queuePredictiveBackProgress(backEvent.progress);
   }
 
   @override
@@ -426,6 +427,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (_phase != VideoDetailBackPhase.predicting) {
       return;
     }
+    _flushPendingPredictiveBackProgress();
     _cancelStartProgress = _lastProgress;
     _phase = VideoDetailBackPhase.canceling;
     _publishBackProgress(_lastProgress);
@@ -445,6 +447,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (_phase != VideoDetailBackPhase.predicting) {
       return;
     }
+    _flushPendingPredictiveBackProgress();
     _commitStartProgress = _lastProgress;
     _phase = VideoDetailBackPhase.committing;
     _publishBackProgress(_lastProgress);
@@ -489,6 +492,54 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     if (mounted) {
       _handleAnimationTick();
     }
+  }
+
+  void _queuePredictiveBackProgress(double progress) {
+    _pendingPredictiveBackProgress = progress.clamp(0.0, 1.0).toDouble();
+    if (_predictiveBackFrameCallbackId != null) {
+      return;
+    }
+    _predictiveBackFrameCallbackId = SchedulerBinding.instance
+        .scheduleFrameCallback((_) {
+          _predictiveBackFrameCallbackId = null;
+          final pending = _pendingPredictiveBackProgress;
+          _pendingPredictiveBackProgress = null;
+          if (pending != null && mounted) {
+            _applyPredictiveBackProgress(pending);
+          }
+        });
+  }
+
+  void _flushPendingPredictiveBackProgress() {
+    final callbackId = _predictiveBackFrameCallbackId;
+    if (callbackId != null) {
+      SchedulerBinding.instance.cancelFrameCallbackWithId(callbackId);
+      _predictiveBackFrameCallbackId = null;
+    }
+    final pending = _pendingPredictiveBackProgress;
+    _pendingPredictiveBackProgress = null;
+    if (pending != null) {
+      _applyPredictiveBackProgress(pending);
+    }
+  }
+
+  void _discardPendingPredictiveBackProgress() {
+    final callbackId = _predictiveBackFrameCallbackId;
+    if (callbackId != null) {
+      SchedulerBinding.instance.cancelFrameCallbackWithId(callbackId);
+      _predictiveBackFrameCallbackId = null;
+    }
+    _pendingPredictiveBackProgress = null;
+  }
+
+  void _applyPredictiveBackProgress(double progress) {
+    if (!mounted ||
+        _phase != VideoDetailBackPhase.predicting ||
+        !widget.route.isCurrent) {
+      return;
+    }
+    widget.route.handleUpdateBackGestureProgress(progress: 1 - progress);
+    _setProgress(progress);
   }
 
   void _handleAnimationStatus(AnimationStatus status) {
@@ -730,6 +781,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   @override
   void dispose() {
+    _discardPendingPredictiveBackProgress();
     _VideoRouteAnimations.unregister(widget.animation);
     WidgetsBinding.instance.removeObserver(this);
     widget.animation

@@ -384,6 +384,7 @@ class MainController extends GetxController
         checkUnread();
       } else if (currentNav == NavigationBarType.dynamics) {
         clearDynCount();
+        unawaited(dynamicController.onNavigationRefresh());
       }
     } else {
       int now = DateTime.now().millisecondsSinceEpoch;
@@ -393,7 +394,9 @@ class MainController extends GetxController
       }
       if (now - _lastSelectTime < 500) {
         EasyThrottle.throttle(
-          'topOrRefresh',
+          currentNav == NavigationBarType.dynamics
+              ? 'dynamicsNavigationRefresh'
+              : 'topOrRefresh',
           const Duration(milliseconds: 500),
           () {
             if (currentNav == NavigationBarType.home) {

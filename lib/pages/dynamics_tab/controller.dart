@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/msg.dart';
@@ -19,6 +21,8 @@ class DynamicsTabController
 
   String offset = '';
   int? mid;
+  bool _pendingRefresh = false;
+  Completer<void>? _pendingRefreshCompleter;
 
   late final mainController = Get.find<MainController>();
   final dynamicsController = Get.find<DynamicsController>();
@@ -31,11 +35,43 @@ class DynamicsTabController
 
   @override
   Future<void> onRefresh() {
-    if (dynamicsType == .all) {
-      mainController.clearDynCount();
+    if (isLoading) {
+      _pendingRefresh = true;
+      return (_pendingRefreshCompleter ??= Completer<void>()).future;
     }
-    offset = '';
-    return super.onRefresh();
+    return _performRefresh();
+  }
+
+  Future<void> _performRefresh() async {
+    try {
+      if (dynamicsType == .all) {
+        mainController.clearDynCount();
+      }
+      offset = '';
+      await super.onRefresh();
+    } finally {
+      await _drainPendingRefresh();
+    }
+  }
+
+  Future<void> _drainPendingRefresh() async {
+    if (!_pendingRefresh) {
+      return;
+    }
+    _pendingRefresh = false;
+    final pendingCompleter = _pendingRefreshCompleter;
+    _pendingRefreshCompleter = null;
+    try {
+      await _performRefresh();
+      if (pendingCompleter != null && !pendingCompleter.isCompleted) {
+        pendingCompleter.complete();
+      }
+    } catch (error, stackTrace) {
+      if (pendingCompleter != null && !pendingCompleter.isCompleted) {
+        pendingCompleter.completeError(error, stackTrace);
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -68,6 +104,9 @@ class DynamicsTabController
   @override
   Future<void> onReload() {
     scrollController.jumpToTop();
+    if (isLoading) {
+      return onRefresh();
+    }
     return super.onReload();
   }
 
@@ -94,4 +133,15 @@ class DynamicsTabController
 
   @override
   void onChangeAccount(bool isLogin) => onReload();
+
+  @override
+  void onClose() {
+    _pendingRefresh = false;
+    final pendingCompleter = _pendingRefreshCompleter;
+    _pendingRefreshCompleter = null;
+    if (pendingCompleter != null && !pendingCompleter.isCompleted) {
+      pendingCompleter.complete();
+    }
+    super.onClose();
+  }
 }

@@ -59,7 +59,7 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
     return refreshIndicator(
       key: controller.refreshKey,
       onRefresh: () {
-        dynamicsController.queryFollowUp();
+        dynamicsController.refreshFollowUp();
         return controller.onRefresh();
       },
       child: CustomScrollView(

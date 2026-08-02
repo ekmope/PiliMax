@@ -419,11 +419,11 @@ class DynamicsController extends GetxController
       tabController.index = DynamicsTabType.all.index;
       if (mid == -1) {
         _markAllUpAsRead();
-        unawaited(queryFollowUp());
+        unawaited(_refreshCurrentDynamics(scrollToTop: true));
       } else {
         _markUpAsRead(mid);
+        unawaited(_refreshCurrentDynamics(scrollToTop: true));
       }
-      controller?.onReload();
       return;
     }
 
@@ -451,7 +451,9 @@ class DynamicsController extends GetxController
     this.mid.value = mid;
     currentMid.value = mid;
     tabController.index = DynamicsTabType.all.index;
-    if (mid != -1) {
+    if (mid == -1) {
+      _refreshAllAfterPageChange();
+    } else {
       _markUpAsRead(mid);
     }
     if (index >= items.length - 3) {
@@ -460,15 +462,37 @@ class DynamicsController extends GetxController
   }
 
   @override
-  Future<void> onRefresh() {
+  Future<void> onRefresh() => _refreshCurrentDynamics();
+
+  /// Queues an update of the UP panel without discarding an in-flight request.
+  void refreshFollowUp() {
     _refreshFollowUp();
-    return controller?.showRefresh() ?? Future.value();
   }
 
   Future<void> onNavigationRefresh() {
     _refreshNavigationSelection();
     animateToTop();
-    return onRefresh();
+    return _refreshCurrentDynamics();
+  }
+
+  Future<void> _refreshCurrentDynamics({bool scrollToTop = false}) {
+    _refreshFollowUp();
+    final currentController = controller;
+    if (currentController == null) {
+      return Future<void>.value();
+    }
+    if (scrollToTop) {
+      currentController.animateToTop();
+    }
+    return currentController.onRefresh();
+  }
+
+  void _refreshAllAfterPageChange() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isClosing && isAllUpPage) {
+        unawaited(_refreshCurrentDynamics(scrollToTop: true));
+      }
+    });
   }
 
   void _refreshFollowUp() {
@@ -515,16 +539,15 @@ class DynamicsController extends GetxController
     final ctr = controller;
     if (ctr?.scrollController.hasClients == true) {
       EasyThrottle.throttle(
-        'topOrRefresh',
+        'dynamicsTopOrRefresh',
         const Duration(milliseconds: 500),
         () {
           animateToTop();
-          ctr!.showRefresh();
-          _refreshFollowUp();
+          unawaited(_refreshCurrentDynamics());
         },
       );
     } else {
-      super.toTopOrRefresh();
+      unawaited(_refreshCurrentDynamics());
     }
   }
 

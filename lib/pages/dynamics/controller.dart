@@ -510,7 +510,12 @@ class DynamicsController extends GetxController
     required bool scrollToTop,
   }) {
     _postFrameRefreshScrollToTop |= scrollToTop;
-    final completer = _postFrameRefreshCompleter ??= Completer<void>();
+    final existingCompleter = _postFrameRefreshCompleter;
+    if (existingCompleter != null) {
+      return existingCompleter.future;
+    }
+
+    final completer = _postFrameRefreshCompleter = Completer<void>();
     if (_postFrameRefreshScheduled) {
       return completer.future;
     }
@@ -520,7 +525,6 @@ class DynamicsController extends GetxController
       _postFrameRefreshScheduled = false;
       final pendingCompleter = _postFrameRefreshCompleter;
       final pendingScrollToTop = _postFrameRefreshScrollToTop;
-      _postFrameRefreshCompleter = null;
       _postFrameRefreshScrollToTop = false;
       if (pendingCompleter != null) {
         unawaited(
@@ -549,6 +553,10 @@ class DynamicsController extends GetxController
     } catch (error, stackTrace) {
       if (!completer.isCompleted) {
         completer.completeError(error, stackTrace);
+      }
+    } finally {
+      if (identical(_postFrameRefreshCompleter, completer)) {
+        _postFrameRefreshCompleter = null;
       }
     }
   }

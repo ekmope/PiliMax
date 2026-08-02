@@ -437,7 +437,12 @@ class RefreshIndicatorState extends State<RefreshIndicator>
     assert(_status != RefreshIndicatorStatus.snap);
     final Completer<void> completer = Completer<void>();
     _pendingRefreshFuture = completer.future;
-    _status = RefreshIndicatorStatus.snap;
+    // Rebuild before the position animation starts. Without this, a
+    // programmatic show() first paints at the settled state and appears
+    // without the pull-down transition.
+    setState(() {
+      _status = RefreshIndicatorStatus.snap;
+    });
     _positionController
         .animateTo(
           1.0 / _kDragSizeFactorLimit,

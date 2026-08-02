@@ -95,17 +95,14 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
 
     reserves = data.reservationCardList;
 
-    switch (data.relation) {
-      case -1:
-        relation.value = 128;
-      case -999 when data.guestRelation == -1:
-        relation.value = -1;
-      default:
-        relation.value = card?.relation?.isFollow == 1
-            ? data.relSpecial == 1
-                  ? -10
-                  : card?.relation?.status ?? 2
-            : data.relation ?? 0;
+    if (data.relation == -1) {
+      relation.value = 128;
+    } else if (data.relation == -999 && data.guestRelation == -1) {
+      relation.value = -1;
+    } else if (card?.relation?.isFollow == 1) {
+      relation.value = data.relSpecial == 1 ? -10 : card?.relation?.status ?? 2;
+    } else {
+      relation.value = 0;
     }
     tab2 = data.tab2;
     live = data.live;

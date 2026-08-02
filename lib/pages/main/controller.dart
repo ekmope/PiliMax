@@ -382,16 +382,9 @@ class MainController extends GetxController
       if (currentNav == NavigationBarType.home) {
         checkDefaultSearch();
         checkUnread();
-      } else if (currentNav == NavigationBarType.dynamics) {
-        clearDynCount();
-        unawaited(dynamicController.onNavigationRefresh());
       }
     } else {
       int now = DateTime.now().millisecondsSinceEpoch;
-      if (currentNav == NavigationBarType.dynamics &&
-          dynamicController.isAllUpPage) {
-        clearDynCount();
-      }
       if (now - _lastSelectTime < 500) {
         EasyThrottle.throttle(
           currentNav == NavigationBarType.dynamics

@@ -454,9 +454,7 @@ class DynamicsController extends GetxController
     this.mid.value = mid;
     currentMid.value = mid;
     tabController.index = DynamicsTabType.all.index;
-    if (mid == -1) {
-      _refreshAllAfterPageChange();
-    } else {
+    if (mid != -1) {
       _markUpAsRead(mid);
     }
     if (index >= items.length - 3) {
@@ -559,14 +557,6 @@ class DynamicsController extends GetxController
         _postFrameRefreshCompleter = null;
       }
     }
-  }
-
-  void _refreshAllAfterPageChange() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_isClosing && isAllUpPage) {
-        unawaited(_refreshCurrentDynamics(scrollToTop: true));
-      }
-    });
   }
 
   void _refreshFollowUp() {

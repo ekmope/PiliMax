@@ -184,6 +184,7 @@ abstract final class Pref {
         SettingBoxKey.showDynInteraction: () => showDynInteraction,
         SettingBoxKey.showFSActionItem: () => showFSActionItem,
         SettingBoxKey.showFsLockBtn: () => showFsLockBtn,
+        SettingBoxKey.showFsLockBtnRight: () => showFsLockBtnRight,
         SettingBoxKey.showFsScreenshotBtn: () => showFsScreenshotBtn,
         SettingBoxKey.showHotRcmd: () => showHotRcmd,
         SettingBoxKey.showMedal: () => showMedal,
@@ -1528,6 +1529,9 @@ abstract final class Pref {
 
   static bool get showFsLockBtn =>
       _setting.get(SettingBoxKey.showFsLockBtn, defaultValue: true);
+
+  static bool get showFsLockBtnRight =>
+      _setting.get(SettingBoxKey.showFsLockBtnRight, defaultValue: false);
 
   static bool get silentDownImg =>
       _setting.get(SettingBoxKey.silentDownImg, defaultValue: false);

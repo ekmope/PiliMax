@@ -3,7 +3,9 @@ import 'dart:io' show Platform;
 import 'dart:math' show max;
 
 import 'package:PiliMax/common/widgets/pip_mini_video_content.dart';
+import 'package:PiliMax/pages/live_room/controller.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
+import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/services/pip_transition_coordinator.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/device_utils.dart';
@@ -257,6 +259,7 @@ class _LivePipWidgetState extends State<LivePipWidget>
   bool _showControls = true;
   Timer? _hideTimer;
   bool _isClosing = false;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -346,13 +349,38 @@ class _LivePipWidgetState extends State<LivePipWidget>
 
   void _startHideTimer() {
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(seconds: 2), () {
+    _hideTimer = Timer(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
           _showControls = false;
         });
       }
     });
+  }
+
+  void _resetHideTimer() {
+    if (_showControls) {
+      _startHideTimer();
+    }
+  }
+
+  Future<void> _onRefresh() async {
+    if (_isRefreshing) return;
+    final controller = LivePipOverlayService
+        .getSavedController<LiveRoomController>();
+    if (controller == null || controller.isClosed) return;
+
+    _resetHideTimer();
+    _isRefreshing = true;
+    try {
+      await controller.queryLiveUrl();
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('Error refreshing live PiP: $error');
+      }
+    } finally {
+      _isRefreshing = false;
+    }
   }
 
   void _onTap() {
@@ -549,6 +577,51 @@ class _LivePipWidgetState extends State<LivePipWidget>
                                       size: 18,
                                     ),
                                   ),
+                                ),
+                              ),
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 8,
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    const SizedBox(width: 22),
+                                    Obx(() {
+                                      final isPlaying =
+                                          widget
+                                              .plPlayerController
+                                              .playerStatus
+                                              .value ==
+                                          PlayerStatus.playing;
+                                      return GestureDetector(
+                                        onTap: () {
+                                          _resetHideTimer();
+                                          if (isPlaying) {
+                                            widget.plPlayerController.pause();
+                                          } else {
+                                            widget.plPlayerController.play();
+                                          }
+                                        },
+                                        child: Icon(
+                                          isPlaying
+                                              ? Icons.pause
+                                              : Icons.play_arrow,
+                                          color: Colors.white,
+                                          size: 30,
+                                        ),
+                                      );
+                                    }),
+                                    GestureDetector(
+                                      onTap: _onRefresh,
+                                      child: const Icon(
+                                        Icons.refresh,
+                                        color: Colors.white70,
+                                        size: 22,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],

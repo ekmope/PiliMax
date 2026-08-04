@@ -171,6 +171,7 @@ abstract final class SettingBoxKey {
       quickFavId = 'quickFavId',
       showFsScreenshotBtn = 'showFsScreenshotBtn',
       showFsLockBtn = 'showFsLockBtn',
+      showFsLockBtnRight = 'showFsLockBtnRight',
       silentDownImg = 'silentDownImg',
       showMemberShop = 'showMemberShop',
       enablePlayAll = 'enablePlayAll',

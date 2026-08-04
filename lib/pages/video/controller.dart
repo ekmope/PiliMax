@@ -2303,7 +2303,7 @@ class VideoDetailController extends GetxController
       if (response.subtitle?.subtitles case final sub? when (sub.isNotEmpty)) {
         await _setSubtitle(sub, isCurrent: isCurrentQuery);
         if (!isCurrentQuery()) return;
-      } else if (!Accounts.main.isLogin) {
+      } else if (!Accounts.heartbeat.isLogin) {
         final res = await DmGrpc.dmView(requestAid, requestCid);
         if (!isCurrentQuery()) return;
         if (res case Success(:final response)) {

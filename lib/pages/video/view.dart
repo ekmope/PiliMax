@@ -197,6 +197,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   bool _initialLayoutReadyReported = false;
   bool _initialVisualReadyReported = false;
   int _initialVisualReadyGeneration = 0;
+  int _viewMetricsGeneration = 0;
   // 页面可见性切换时递增，阻止旧的播放器恢复任务回写已离开的页面。
   int _didPopNextGeneration = 0;
 
@@ -1055,14 +1056,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     final initialController = videoDetailController.plPlayerController;
     final initialVideoController = initialController.videoController;
     final initialSourceGeneration = initialController.activeSourceGeneration;
-    final initialPlaybackPosition =
-        initialController.videoPlayerController?.state.position;
-    final initialFirstFrameWasAlreadyRendered =
-        callback != null && session != null && initialVideoController != null
-        ? await _futureAlreadySettled(
-            initialVideoController.waitUntilFirstFrameRendered,
-          )
-        : false;
     if (!_isInitialPlayerStartCurrent(generation)) {
       return;
     }
@@ -1095,35 +1088,30 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
     var validatedVideoController = currentVideoController;
 
-    // This media-kit Future is one-shot per VideoController. A reused
-    // controller may already have a completed Future from an earlier source,
-    // so use the source generation and stable-surface gates below as well.
-    final reusedVideoController =
+    // media-kit's first-frame Future is one-shot per VideoController. Identity
+    // plus source generation, rather than the Future's timing, determines
+    // whether that signal belongs to the current source.
+    final reusedForNewSource =
         identical(currentVideoController, initialVideoController) &&
-        initialFirstFrameWasAlreadyRendered;
-    var firstFrameSignalReady = initialFirstFrameWasAlreadyRendered;
-    if (!reusedVideoController) {
-      firstFrameSignalReady = await _waitForInitialFirstFrameSignal(
-        currentVideoController.waitUntilFirstFrameRendered,
-      );
-      // Do not infer a rendered frame from metadata/geometry for a fresh
-      // surface. The route-level hard timeout remains the final fallback.
-      if (!firstFrameSignalReady) {
-        return;
-      }
-    } else if (sourceGeneration != initialSourceGeneration) {
-      // A reused VideoController has a one-shot frame Future. Confirm that
-      // this source, rather than the previous one, has begun playback before
-      // accepting its stable texture as the handoff surface.
-      if (!await _waitForReusedSourcePlayback(
+        sourceGeneration != initialSourceGeneration;
+    if (reusedForNewSource) {
+      if (!await _waitForCurrentPlaybackAdvance(
         generation: generation,
         session: session,
         controller: currentController,
         videoController: currentVideoController,
         sourceGeneration: sourceGeneration,
-        previousSourceGeneration: initialSourceGeneration,
-        initialPosition: initialPlaybackPosition ?? Duration.zero,
+        minimumAdvanceEvents: Platform.isAndroid ? 2 : 1,
       )) {
+        return;
+      }
+    } else {
+      final firstFrameSignalReady = await _waitForInitialFirstFrameSignal(
+        currentVideoController.waitUntilFirstFrameRendered,
+      );
+      // Do not infer a rendered frame from metadata/geometry for a fresh
+      // surface. The route-level hard timeout remains the final fallback.
+      if (!firstFrameSignalReady) {
         return;
       }
     }
@@ -1137,9 +1125,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       return;
     }
 
-    // A completed media-kit Future only says that a frame can be scheduled.
-    // Keep the cover until the texture ID, decoded size and Rect are stable
-    // for two consecutive Flutter frames.
+    // A native first-frame signal or post-active playback advance only says
+    // that rendering can begin. Keep the cover until the texture ID, decoded
+    // size and Rect are stable for two consecutive Flutter frames.
     if (!await _waitForStableInitialVideoSurface(
       generation: generation,
       session: session,
@@ -1151,6 +1139,24 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
     if (currentController.autoEnterFullScreen &&
         !currentController.isFullScreen.value) {
+      // Re-check immediately before the platform side effect. The surface
+      // probe performs asynchronous subscription cleanup, during which the
+      // page or shared player can be replaced.
+      if (!_isInitialVisualSourceCurrent(
+        generation,
+        session,
+        currentController,
+        currentVideoController,
+        sourceGeneration,
+      )) {
+        return;
+      }
+      if (!mounted) {
+        return;
+      }
+      final metricsGeneration = _viewMetricsGeneration;
+      final viewportSize = MediaQuery.sizeOf(context);
+      final playerRect = _playerRect();
       try {
         await currentController.triggerFullScreen(
           status: true,
@@ -1175,17 +1181,35 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         postFullscreenVideoController,
         currentVideoController,
       )) {
-        firstFrameSignalReady = await _waitForInitialFirstFrameSignal(
+        final firstFrameSignalReady = await _waitForInitialFirstFrameSignal(
           postFullscreenVideoController.waitUntilFirstFrameRendered,
         );
         if (!firstFrameSignalReady) {
           return;
         }
       }
-      // A fullscreen request can reuse the same texture while the native
-      // surface is being reconfigured. Give that reconfiguration a few
-      // Flutter frames before accepting a stable handoff.
-      await _waitForSurfaceSettleFrames(generation, session, currentController);
+      if (!await _waitForFullscreenLayout(
+        generation: generation,
+        session: session,
+        controller: currentController,
+        videoController: postFullscreenVideoController,
+        sourceGeneration: sourceGeneration,
+        previousMetricsGeneration: metricsGeneration,
+        previousViewportSize: viewportSize,
+        previousPlayerRect: playerRect,
+      )) {
+        return;
+      }
+      if (!await _waitForCurrentPlaybackAdvance(
+        generation: generation,
+        session: session,
+        controller: currentController,
+        videoController: postFullscreenVideoController,
+        sourceGeneration: sourceGeneration,
+        minimumAdvanceEvents: Platform.isAndroid ? 2 : 1,
+      )) {
+        return;
+      }
       if (!await _waitForStableInitialVideoSurface(
         generation: generation,
         session: session,
@@ -1242,6 +1266,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       try {
         await WidgetsBinding.instance.endOfFrame;
         if (stopped || result.isCompleted) {
+          return;
+        }
+        if (!mounted) {
+          finish(false);
           return;
         }
         if (!_isInitialVisualSourceCurrent(
@@ -1338,14 +1366,13 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
   }
 
-  Future<bool> _waitForReusedSourcePlayback({
+  Future<bool> _waitForCurrentPlaybackAdvance({
     required int generation,
     required VideoDetailSession? session,
     required PlPlayerController controller,
     required VideoController videoController,
     required int sourceGeneration,
-    required int? previousSourceGeneration,
-    required Duration initialPosition,
+    int minimumAdvanceEvents = 1,
   }) async {
     final player = controller.videoPlayerController;
     if (player == null) {
@@ -1353,6 +1380,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
     final result = Completer<bool>();
     var stopped = false;
+    final baselinePosition = player.state.position;
+    var latestPosition = baselinePosition;
+    var advanceEvents = 0;
 
     void finish(bool value) {
       if (!result.isCompleted) {
@@ -1360,7 +1390,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       }
     }
 
-    void check(Duration position) {
+    void check() {
       if (stopped || result.isCompleted) {
         return;
       }
@@ -1374,31 +1404,34 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         finish(false);
         return;
       }
-      if (controller.activeSourceGeneration == null ||
-          controller.activeSourceGeneration == previousSourceGeneration) {
-        return;
-      }
       final state = player.state;
-      final playbackAdvanced =
-          position != initialPosition ||
-          state.position != initialPosition ||
-          state.buffer > Duration.zero;
-      if (state.playing && !state.buffering && playbackAdvanced) {
+      if (state.playing &&
+          !state.buffering &&
+          advanceEvents >= minimumAdvanceEvents) {
         finish(true);
       }
     }
 
+    void onPosition(Duration position) {
+      if (position != latestPosition) {
+        latestPosition = position;
+        if (position != baselinePosition) {
+          advanceEvents++;
+        }
+      }
+      check();
+    }
+
     final subscriptions = <StreamSubscription<dynamic>>[
-      player.stream.position.listen(check),
-      player.stream.playing.listen((_) => check(player.state.position)),
-      player.stream.buffering.listen((_) => check(player.state.position)),
-      player.stream.buffer.listen((_) => check(player.state.position)),
+      player.stream.position.listen(onPosition),
+      player.stream.playing.listen((_) => check()),
+      player.stream.buffering.listen((_) => check()),
     ];
     final timeout = Timer(
       _initialVideoSurfaceWaitTimeout,
       () => finish(false),
     );
-    check(player.state.position);
+    check();
     try {
       return await result.future;
     } finally {
@@ -1407,6 +1440,110 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       for (final subscription in subscriptions) {
         await subscription.cancel();
       }
+    }
+  }
+
+  Future<bool> _waitForFullscreenLayout({
+    required int generation,
+    required VideoDetailSession? session,
+    required PlPlayerController controller,
+    required VideoController videoController,
+    required int sourceGeneration,
+    required int previousMetricsGeneration,
+    required Size previousViewportSize,
+    required Rect? previousPlayerRect,
+  }) async {
+    final result = Completer<bool>();
+    var stopped = false;
+    var checkInFlight = false;
+    var layoutChanged = false;
+    var stableFrames = 0;
+    Size? lastViewportSize;
+    Rect? lastPlayerRect;
+
+    void finish(bool value) {
+      if (!result.isCompleted) {
+        result.complete(value);
+      }
+    }
+
+    Future<void> checkLayout() async {
+      if (stopped || result.isCompleted || checkInFlight) {
+        return;
+      }
+      checkInFlight = true;
+      try {
+        await WidgetsBinding.instance.endOfFrame;
+        if (stopped || result.isCompleted) {
+          return;
+        }
+        if (!mounted) {
+          finish(false);
+          return;
+        }
+        if (!_isInitialVisualSourceCurrent(
+          generation,
+          session,
+          controller,
+          videoController,
+          sourceGeneration,
+        )) {
+          finish(false);
+          return;
+        }
+        final viewportSize = MediaQuery.sizeOf(context);
+        final currentPlayerRect = _playerRect();
+        final metricsChanged =
+            _viewMetricsGeneration != previousMetricsGeneration;
+        final viewportChanged = viewportSize != previousViewportSize;
+        final playerRectChanged =
+            previousPlayerRect != null &&
+            currentPlayerRect != null &&
+            !_rectNearlyEqual(previousPlayerRect, currentPlayerRect);
+        layoutChanged =
+            layoutChanged ||
+            metricsChanged ||
+            viewportChanged ||
+            playerRectChanged;
+        if (!layoutChanged ||
+            currentPlayerRect == null ||
+            currentPlayerRect.isEmpty ||
+            !currentPlayerRect.isFinite) {
+          stableFrames = 0;
+          return;
+        }
+        if (lastViewportSize == viewportSize &&
+            lastPlayerRect != null &&
+            _rectNearlyEqual(lastPlayerRect!, currentPlayerRect)) {
+          stableFrames++;
+        } else {
+          stableFrames = 1;
+        }
+        lastViewportSize = viewportSize;
+        lastPlayerRect = currentPlayerRect;
+        if (stableFrames >= 3) {
+          finish(true);
+        }
+      } finally {
+        checkInFlight = false;
+      }
+    }
+
+    final timeout = Timer(
+      _initialVideoSurfaceWaitTimeout,
+      () => finish(false),
+    );
+    final probeTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) => unawaited(checkLayout()),
+    );
+    unawaited(checkLayout());
+    try {
+      return await result.future;
+    } finally {
+      stopped = true;
+      timeout.cancel();
+      probeTimer.cancel();
     }
   }
 
@@ -1424,37 +1561,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     return false;
   }
 
-  Future<void> _waitForSurfaceSettleFrames(
-    int generation,
-    VideoDetailSession? session,
-    PlPlayerController controller,
-  ) async {
-    for (var i = 0; i < 3; i++) {
-      await WidgetsBinding.instance.endOfFrame;
-      if (!_canReportInitialVisual(generation, session) ||
-          !identical(videoDetailController.plPlayerController, controller)) {
-        return;
-      }
-    }
-  }
-
   bool _rectNearlyEqual(Rect first, Rect second) =>
       (first.left - second.left).abs() < 0.5 &&
       (first.top - second.top).abs() < 0.5 &&
       (first.right - second.right).abs() < 0.5 &&
       (first.bottom - second.bottom).abs() < 0.5;
-
-  Future<bool> _futureAlreadySettled(Future<void> future) async {
-    var settled = false;
-    unawaited(
-      future.then<void>(
-        (_) => settled = true,
-        onError: (Object _, StackTrace _) => settled = true,
-      ),
-    );
-    await Future<void>.delayed(Duration.zero);
-    return settled;
-  }
 
   bool _isInitialPlayerStartCurrent(int generation) =>
       mounted && generation == _initialVisualReadyGeneration;
@@ -4145,6 +4256,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   @override
   void didChangeMetrics() {
+    _viewMetricsGeneration++;
     if (!_fullScreenExitSettling || _fullScreenExitAwaitingStateChange) {
       return;
     }

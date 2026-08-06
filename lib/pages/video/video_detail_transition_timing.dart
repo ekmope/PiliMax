@@ -1,3 +1,5 @@
+import 'package:flutter/animation.dart';
+
 /// Shared timeline for the video detail Hero, route, entry skeleton and
 /// skeleton-to-detail reveal.
 ///
@@ -29,6 +31,48 @@ const videoDetailMediaMorphEnd = 0.98;
 /// Keep the live frame authoritative until the media geometry is nearly at
 /// rest. The geometry gate in the transition can delay this handoff further.
 const videoDetailMediaHandoffStart = 0.94;
+
+/// Fade the source thumbnail over a live player during the final part of a
+/// return. This protects the card handoff from a platform texture that has
+/// already gone black while the route is still being transformed.
+const videoDetailReturnMediaCoverStart = 0.70;
+const videoDetailReturnMediaCoverEnd = 0.95;
+
+/// The real detail subtree owns its reveal timing. Media readiness only
+/// controls the cover layered over the player rectangle.
+bool videoDetailEntryCanReveal({required bool detailLayoutReady}) =>
+    detailLayoutReady;
+
+bool videoDetailPlayerHandoffCanRelease({
+  required bool playerVisualReady,
+  required bool forceRelease,
+  required bool detailLayoutReady,
+}) => detailLayoutReady && (playerVisualReady || forceRelease);
+
+/// Desktop fullscreen APIs can keep the same Flutter viewport and player
+/// rectangle. Mobile rotation still requires an observed geometry change so a
+/// pre-rotation surface is never accepted as the settled target.
+bool videoDetailFullscreenTransitionObserved({
+  required bool requireGeometryChange,
+  required bool fullScreenActive,
+  required bool metricsChanged,
+  required bool viewportChanged,
+  required bool playerRectChanged,
+}) =>
+    metricsChanged ||
+    viewportChanged ||
+    playerRectChanged ||
+    (!requireGeometryChange && fullScreenActive);
+
+double videoDetailReturnMediaCoverOpacity(double exitProgress) {
+  final normalized =
+      ((exitProgress - videoDetailReturnMediaCoverStart) /
+              (videoDetailReturnMediaCoverEnd -
+                  videoDetailReturnMediaCoverStart))
+          .clamp(0.0, 1.0)
+          .toDouble();
+  return Curves.easeInOutCubic.transform(normalized);
+}
 
 Duration videoDetailCommitTailDuration(double exitProgress) {
   final remaining = 1 - _unitInterval(exitProgress);

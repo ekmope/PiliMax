@@ -762,6 +762,8 @@ class PlPlayerController with BlockConfigMixin {
         : null;
   }
 
+  int? get activeSourceGeneration => _activeSourceGeneration;
+
   bool isSourceOwnerActive(Object sourceOwner) =>
       _sourceCoordinator.isOwnerActive(sourceOwner);
 

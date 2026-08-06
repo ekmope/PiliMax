@@ -48,9 +48,11 @@ import 'package:PiliMax/pages/video/related/view.dart';
 import 'package:PiliMax/pages/video/reply/controller.dart';
 import 'package:PiliMax/pages/video/reply/view.dart';
 import 'package:PiliMax/pages/video/video_detail_args.dart';
+import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pages/video/video_detail_exit_snapshot.dart';
 import 'package:PiliMax/pages/video/video_detail_fullscreen_exit_settle.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
+import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/pages/video/view_point/view.dart';
 import 'package:PiliMax/pages/video/widgets/header_control.dart';
@@ -92,9 +94,15 @@ import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
 typedef VideoDetailInitialVisualReady =
+    void Function(
+      VideoDetailSession session,
+    );
+
+typedef VideoDetailInitialLayoutReady =
     void Function(
       VideoDetailSession session,
     );
@@ -104,10 +112,12 @@ class VideoDetailPageV extends StatefulWidget {
     super.key,
     this.session,
     this.onInitialVisualReady,
+    this.onInitialLayoutReady,
   });
 
   final VideoDetailSession? session;
   final VideoDetailInitialVisualReady? onInitialVisualReady;
+  final VideoDetailInitialLayoutReady? onInitialLayoutReady;
 
   @override
   State<VideoDetailPageV> createState() => _VideoDetailPageVState();
@@ -118,6 +128,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   final Map _videoArgs = VideoDetailArgs.normalize(Get.arguments);
   late final String heroTag = _resolveControllerTag();
   late final bool _fromPip = _videoArgs['fromPip'] ?? false;
+
+  VideoDetailBackProgress? get _videoBackProgress =>
+      _videoArgs[videoDetailBackProgressKey] as VideoDetailBackProgress?;
 
   String _resolveControllerTag() {
     final requestedTag = _videoArgs['heroTag'] as String;
@@ -159,6 +172,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   final List<Worker> _predictiveBackWorkers = <Worker>[];
   final Set<TabController> _pendingTabControllerDisposals = <TabController>{};
   static const Duration _fullScreenExitSettleTimeout = Duration(seconds: 2);
+  // A newly-created VideoController has a real native first-frame signal.
+  // Keep waiting for it for the same bounded interval as the surface probe;
+  // geometry alone can be valid before Android has uploaded a texture frame.
+  static const Duration _initialFirstFrameSignalWait = Duration(seconds: 5);
+  static const Duration _initialVideoSurfaceWaitTimeout = Duration(seconds: 5);
   final VideoDetailFullScreenExitSettleTracker _fullScreenExitSettleTracker =
       VideoDetailFullScreenExitSettleTracker();
   bool _layoutReadyForRoutePop = false;
@@ -175,8 +193,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   bool _initialVideoSourceReady = false;
   bool _initialPlayerStarted = false;
   bool _allowPlayerMount = false;
+  bool _initialLayoutReadyScheduled = false;
+  bool _initialLayoutReadyReported = false;
   bool _initialVisualReadyReported = false;
   int _initialVisualReadyGeneration = 0;
+  int _viewMetricsGeneration = 0;
   // 页面可见性切换时递增，阻止旧的播放器恢复任务回写已离开的页面。
   int _didPopNextGeneration = 0;
 
@@ -988,6 +1009,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     } else {
       _allowPlayerMount = true;
     }
+    _scheduleInitialLayoutReady();
     if (!videoDetailController.autoPlay ||
         _initialPlayerStarted ||
         !_initialVideoSourceReady) {
@@ -1001,23 +1023,45 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     );
   }
 
+  void _scheduleInitialLayoutReady() {
+    final session = widget.session;
+    if (_initialLayoutReadyScheduled ||
+        widget.onInitialLayoutReady == null ||
+        session == null) {
+      return;
+    }
+    _initialLayoutReadyScheduled = true;
+    unawaited(_reportInitialLayoutReady(session));
+  }
+
+  Future<void> _reportInitialLayoutReady(VideoDetailSession session) async {
+    // _allowPlayerMount may have changed the layout in the preceding setState.
+    // Wait an additional frame so the route never releases its cover against a
+    // still-empty detail subtree.
+    await WidgetsBinding.instance.endOfFrame;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted ||
+        _initialLayoutReadyReported ||
+        !identical(widget.session, session) ||
+        !session.matchesLaunchContent) {
+      return;
+    }
+    _initialLayoutReadyReported = true;
+    widget.onInitialLayoutReady!(session);
+  }
+
   Future<void> _startInitialPlayerAndReportVisual(int generation) async {
     final callback = widget.onInitialVisualReady;
     final session = widget.session;
     final initialController = videoDetailController.plPlayerController;
     final initialVideoController = initialController.videoController;
-    final initialFirstFrameWasAlreadyRendered =
-        callback != null && session != null && initialVideoController != null
-        ? await _futureAlreadySettled(
-            initialVideoController.waitUntilFirstFrameRendered,
-          )
-        : false;
+    final initialSourceGeneration = initialController.activeSourceGeneration;
     if (!_isInitialPlayerStartCurrent(generation)) {
       return;
     }
 
     if (videoDetailController.isFileSource) {
-      await videoDetailController.queryVideoUrl(autoFullScreenFlag: true);
+      await videoDetailController.queryVideoUrl(autoFullScreenFlag: false);
     } else {
       if (videoDetailController.videoUrl == null ||
           videoDetailController.audioUrl == null) {
@@ -1025,7 +1069,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       }
       await videoDetailController.playerInit(
         autoplay: true,
-        autoFullScreenFlag: true,
+        // Orientation/window changes are performed after the first frame,
+        // while the route's opaque handoff cover is still active.
+        autoFullScreenFlag: false,
       );
     }
 
@@ -1034,42 +1080,159 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
     final currentController = videoDetailController.plPlayerController;
     final currentVideoController = currentController.videoController;
+    final sourceGeneration = currentController.activeSourceGeneration;
     if (currentVideoController == null ||
+        sourceGeneration == null ||
         !currentController.isSourceOwnerActive(videoDetailController)) {
       return;
     }
+    var validatedVideoController = currentVideoController;
 
-    // This media-kit Future is one-shot per VideoController. A completed
-    // Future on a reused controller belongs to an earlier source, so leave the
-    // entry cover to the route's bounded timeout instead of reporting it as
-    // the new video's first frame.
-    if (identical(currentVideoController, initialVideoController) &&
-        initialFirstFrameWasAlreadyRendered) {
-      return;
-    }
-
-    try {
-      await currentVideoController.waitUntilFirstFrameRendered;
-    } catch (_) {
-      return;
+    // media-kit's first-frame Future is one-shot per VideoController. Identity
+    // plus source generation, rather than the Future's timing, determines
+    // whether that signal belongs to the current source.
+    final reusedForNewSource =
+        identical(currentVideoController, initialVideoController) &&
+        sourceGeneration != initialSourceGeneration;
+    if (reusedForNewSource) {
+      if (!await _waitForCurrentPlaybackAdvance(
+        generation: generation,
+        session: session,
+        controller: currentController,
+        videoController: currentVideoController,
+        sourceGeneration: sourceGeneration,
+        minimumAdvanceEvents: Platform.isAndroid ? 2 : 1,
+      )) {
+        return;
+      }
+    } else {
+      final firstFrameSignalReady = await _waitForInitialFirstFrameSignal(
+        currentVideoController.waitUntilFirstFrameRendered,
+      );
+      // Do not infer a rendered frame from metadata/geometry for a fresh
+      // surface. The route-level hard timeout remains the final fallback.
+      if (!firstFrameSignalReady) {
+        return;
+      }
     }
     if (!_isInitialVisualSourceCurrent(
       generation,
       session,
       currentController,
       currentVideoController,
+      sourceGeneration,
     )) {
       return;
     }
 
-    // The texture may become ready before the Obx/player subtree has painted.
-    // Keep the cover through that first Flutter frame as well.
-    await WidgetsBinding.instance.endOfFrame;
+    // A native first-frame signal or post-active playback advance only says
+    // that rendering can begin. Keep the cover until the texture ID, decoded
+    // size and Rect are stable for two consecutive Flutter frames.
+    if (!await _waitForStableInitialVideoSurface(
+      generation: generation,
+      session: session,
+      controller: currentController,
+      videoController: currentVideoController,
+      sourceGeneration: sourceGeneration,
+    )) {
+      return;
+    }
+    if (currentController.autoEnterFullScreen &&
+        !currentController.isFullScreen.value) {
+      // Re-check immediately before the platform side effect. The surface
+      // probe performs asynchronous subscription cleanup, during which the
+      // page or shared player can be replaced.
+      if (!_isInitialVisualSourceCurrent(
+        generation,
+        session,
+        currentController,
+        currentVideoController,
+        sourceGeneration,
+      )) {
+        return;
+      }
+      if (!mounted) {
+        return;
+      }
+      final metricsGeneration = _viewMetricsGeneration;
+      final viewportSize = MediaQuery.sizeOf(context);
+      final playerRect = _playerRect();
+      try {
+        await currentController.triggerFullScreen(
+          status: true,
+          isManualFS: false,
+        );
+      } catch (_) {
+        // A platform may reject a late orientation request. The player frame
+        // is still a valid handoff surface, so continue without fullscreen.
+      }
+      final postFullscreenVideoController = currentController.videoController;
+      if (postFullscreenVideoController == null ||
+          !_isInitialVisualSourceCurrent(
+            generation,
+            session,
+            currentController,
+            postFullscreenVideoController,
+            sourceGeneration,
+          )) {
+        return;
+      }
+      if (!identical(
+        postFullscreenVideoController,
+        currentVideoController,
+      )) {
+        final firstFrameSignalReady = await _waitForInitialFirstFrameSignal(
+          postFullscreenVideoController.waitUntilFirstFrameRendered,
+        );
+        if (!firstFrameSignalReady) {
+          return;
+        }
+      }
+      if (!await _waitForFullscreenLayout(
+        generation: generation,
+        session: session,
+        controller: currentController,
+        videoController: postFullscreenVideoController,
+        sourceGeneration: sourceGeneration,
+        previousMetricsGeneration: metricsGeneration,
+        previousViewportSize: viewportSize,
+        previousPlayerRect: playerRect,
+      )) {
+        return;
+      }
+      // Mobile fullscreen can recreate or rebind its output surface during
+      // rotation. Desktop native outputs keep the same source/texture and are
+      // fully covered by the stable-layout and stable-surface gates.
+      if (PlatformUtils.isMobile) {
+        if (!await _waitForCurrentPlaybackAdvance(
+          generation: generation,
+          session: session,
+          controller: currentController,
+          videoController: postFullscreenVideoController,
+          sourceGeneration: sourceGeneration,
+          minimumAdvanceEvents: Platform.isAndroid ? 2 : 1,
+        )) {
+          return;
+        }
+      }
+      if (!await _waitForStableInitialVideoSurface(
+        generation: generation,
+        session: session,
+        controller: currentController,
+        videoController: postFullscreenVideoController,
+        sourceGeneration: sourceGeneration,
+        stableFrameCount: 3,
+      )) {
+        return;
+      }
+      validatedVideoController = postFullscreenVideoController;
+    }
     if (!_isInitialVisualSourceCurrent(
       generation,
       session,
       currentController,
-      currentVideoController,
+      validatedVideoController,
+      sourceGeneration,
     )) {
       return;
     }
@@ -1077,17 +1240,341 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     callback(session!);
   }
 
-  Future<bool> _futureAlreadySettled(Future<void> future) async {
-    var settled = false;
-    unawaited(
-      future.then<void>(
-        (_) => settled = true,
-        onError: (Object _, StackTrace _) => settled = true,
-      ),
+  Future<bool> _waitForStableInitialVideoSurface({
+    required int generation,
+    required VideoDetailSession? session,
+    required PlPlayerController controller,
+    required VideoController videoController,
+    required int sourceGeneration,
+    int stableFrameCount = 2,
+  }) async {
+    final result = Completer<bool>();
+    var stopped = false;
+    var checkInFlight = false;
+    Rect? previousRect;
+    int? previousTextureId;
+    int? previousWidth;
+    int? previousHeight;
+    var stableFrames = 0;
+
+    void finish(bool value) {
+      if (!result.isCompleted) {
+        result.complete(value);
+      }
+    }
+
+    Future<void> checkSurface() async {
+      if (stopped || result.isCompleted || checkInFlight) {
+        return;
+      }
+      checkInFlight = true;
+      try {
+        await WidgetsBinding.instance.endOfFrame;
+        if (stopped || result.isCompleted) {
+          return;
+        }
+        if (!mounted) {
+          finish(false);
+          return;
+        }
+        if (!_isInitialVisualSourceCurrent(
+          generation,
+          session,
+          controller,
+          videoController,
+          sourceGeneration,
+        )) {
+          finish(false);
+          return;
+        }
+        final rect = videoController.rect.value;
+        final textureId = videoController.id.value;
+        final width = videoController.player.state.width;
+        final height = videoController.player.state.height;
+        final usable =
+            textureId != null &&
+            rect != null &&
+            !rect.isEmpty &&
+            rect.isFinite &&
+            width > 0 &&
+            height > 0;
+        if (!usable) {
+          previousRect = null;
+          previousTextureId = null;
+          previousWidth = null;
+          previousHeight = null;
+          stableFrames = 0;
+          return;
+        }
+        if (previousRect != null &&
+            previousTextureId == textureId &&
+            previousWidth == width &&
+            previousHeight == height &&
+            _rectNearlyEqual(previousRect!, rect)) {
+          stableFrames++;
+        } else {
+          stableFrames = 1;
+        }
+        previousRect = rect;
+        previousTextureId = textureId;
+        previousWidth = width;
+        previousHeight = height;
+        if (stableFrames < stableFrameCount) {
+          return;
+        }
+        if (!_isInitialVisualSourceCurrent(
+          generation,
+          session,
+          controller,
+          videoController,
+          sourceGeneration,
+        )) {
+          finish(false);
+          return;
+        }
+        finish(true);
+      } finally {
+        checkInFlight = false;
+      }
+    }
+
+    void scheduleCheck() {
+      unawaited(checkSurface());
+    }
+
+    videoController.rect.addListener(scheduleCheck);
+    videoController.id.addListener(scheduleCheck);
+    final sizeSubscription = videoController.player.stream.size.listen(
+      (_) => scheduleCheck(),
     );
-    await Future<void>.delayed(Duration.zero);
-    return settled;
+    final timeout = Timer(
+      _initialVideoSurfaceWaitTimeout,
+      () => finish(false),
+    );
+    // Some platforms do not emit a Rect/size notification after a reused
+    // controller is reopened. Keep a low-frequency probe during the bounded
+    // handoff instead of waiting forever for a missing event.
+    final probeTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) => scheduleCheck(),
+    );
+    scheduleCheck();
+    try {
+      return await result.future;
+    } finally {
+      stopped = true;
+      timeout.cancel();
+      probeTimer.cancel();
+      videoController.id.removeListener(scheduleCheck);
+      videoController.rect.removeListener(scheduleCheck);
+      await sizeSubscription.cancel();
+    }
   }
+
+  Future<bool> _waitForCurrentPlaybackAdvance({
+    required int generation,
+    required VideoDetailSession? session,
+    required PlPlayerController controller,
+    required VideoController videoController,
+    required int sourceGeneration,
+    int minimumAdvanceEvents = 1,
+  }) async {
+    final player = controller.videoPlayerController;
+    if (player == null) {
+      return false;
+    }
+    final result = Completer<bool>();
+    var stopped = false;
+    final baselinePosition = player.state.position;
+    var latestPosition = baselinePosition;
+    var advanceEvents = 0;
+
+    void finish(bool value) {
+      if (!result.isCompleted) {
+        result.complete(value);
+      }
+    }
+
+    void check() {
+      if (stopped || result.isCompleted) {
+        return;
+      }
+      if (!_isInitialVisualSourceCurrent(
+        generation,
+        session,
+        controller,
+        videoController,
+        sourceGeneration,
+      )) {
+        finish(false);
+        return;
+      }
+      final state = player.state;
+      if (state.playing &&
+          !state.buffering &&
+          advanceEvents >= minimumAdvanceEvents) {
+        finish(true);
+      }
+    }
+
+    void onPosition(Duration position) {
+      if (position != latestPosition) {
+        latestPosition = position;
+        if (position != baselinePosition) {
+          advanceEvents++;
+        }
+      }
+      check();
+    }
+
+    final subscriptions = <StreamSubscription<dynamic>>[
+      player.stream.position.listen(onPosition),
+      player.stream.playing.listen((_) => check()),
+      player.stream.buffering.listen((_) => check()),
+    ];
+    final timeout = Timer(
+      _initialVideoSurfaceWaitTimeout,
+      () => finish(false),
+    );
+    check();
+    try {
+      return await result.future;
+    } finally {
+      stopped = true;
+      timeout.cancel();
+      for (final subscription in subscriptions) {
+        await subscription.cancel();
+      }
+    }
+  }
+
+  Future<bool> _waitForFullscreenLayout({
+    required int generation,
+    required VideoDetailSession? session,
+    required PlPlayerController controller,
+    required VideoController videoController,
+    required int sourceGeneration,
+    required int previousMetricsGeneration,
+    required Size previousViewportSize,
+    required Rect? previousPlayerRect,
+  }) async {
+    final result = Completer<bool>();
+    var stopped = false;
+    var checkInFlight = false;
+    var layoutTransitionObserved = false;
+    var stableFrames = 0;
+    Size? lastViewportSize;
+    Rect? lastPlayerRect;
+
+    void finish(bool value) {
+      if (!result.isCompleted) {
+        result.complete(value);
+      }
+    }
+
+    Future<void> checkLayout() async {
+      if (stopped || result.isCompleted || checkInFlight) {
+        return;
+      }
+      checkInFlight = true;
+      try {
+        await WidgetsBinding.instance.endOfFrame;
+        if (stopped || result.isCompleted) {
+          return;
+        }
+        if (!mounted) {
+          finish(false);
+          return;
+        }
+        if (!_isInitialVisualSourceCurrent(
+          generation,
+          session,
+          controller,
+          videoController,
+          sourceGeneration,
+        )) {
+          finish(false);
+          return;
+        }
+        final viewportSize = MediaQuery.sizeOf(context);
+        final currentPlayerRect = _playerRect();
+        final metricsChanged =
+            _viewMetricsGeneration != previousMetricsGeneration;
+        final viewportChanged = viewportSize != previousViewportSize;
+        final playerRectChanged =
+            previousPlayerRect != null &&
+            currentPlayerRect != null &&
+            !_rectNearlyEqual(previousPlayerRect, currentPlayerRect);
+        layoutTransitionObserved =
+            layoutTransitionObserved ||
+            videoDetailFullscreenTransitionObserved(
+              requireGeometryChange: PlatformUtils.isMobile,
+              fullScreenActive: controller.isFullScreen.value,
+              metricsChanged: metricsChanged,
+              viewportChanged: viewportChanged,
+              playerRectChanged: playerRectChanged,
+            );
+        if (!layoutTransitionObserved ||
+            currentPlayerRect == null ||
+            currentPlayerRect.isEmpty ||
+            !currentPlayerRect.isFinite) {
+          stableFrames = 0;
+          return;
+        }
+        if (lastViewportSize == viewportSize &&
+            lastPlayerRect != null &&
+            _rectNearlyEqual(lastPlayerRect!, currentPlayerRect)) {
+          stableFrames++;
+        } else {
+          stableFrames = 1;
+        }
+        lastViewportSize = viewportSize;
+        lastPlayerRect = currentPlayerRect;
+        if (stableFrames >= 3) {
+          finish(true);
+        }
+      } finally {
+        checkInFlight = false;
+      }
+    }
+
+    final timeout = Timer(
+      _initialVideoSurfaceWaitTimeout,
+      () => finish(false),
+    );
+    final probeTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) => unawaited(checkLayout()),
+    );
+    unawaited(checkLayout());
+    try {
+      return await result.future;
+    } finally {
+      stopped = true;
+      timeout.cancel();
+      probeTimer.cancel();
+    }
+  }
+
+  Future<bool> _waitForInitialFirstFrameSignal(Future<void> signal) async {
+    try {
+      await signal.timeout(_initialFirstFrameSignalWait);
+      return true;
+    } on TimeoutException {
+      // The route-level hard timeout will eventually expose the player's own
+      // loading/error state if the platform never emits this signal.
+    } catch (_) {
+      // Keep the cover on an errored signal; exposing a possibly blank surface
+      // is worse than allowing the route's bounded fallback to take over.
+    }
+    return false;
+  }
+
+  bool _rectNearlyEqual(Rect first, Rect second) =>
+      (first.left - second.left).abs() < 0.5 &&
+      (first.top - second.top).abs() < 0.5 &&
+      (first.right - second.right).abs() < 0.5 &&
+      (first.bottom - second.bottom).abs() < 0.5;
 
   bool _isInitialPlayerStartCurrent(int generation) =>
       mounted && generation == _initialVisualReadyGeneration;
@@ -1106,10 +1593,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     VideoDetailSession? session,
     PlPlayerController controller,
     Object videoController,
+    int sourceGeneration,
   ) =>
       _canReportInitialVisual(generation, session) &&
       identical(videoDetailController.plPlayerController, controller) &&
       identical(controller.videoController, videoController) &&
+      controller.activeSourceGeneration == sourceGeneration &&
       controller.isSourceOwnerActive(videoDetailController);
 
   void _bindPlayerListeners() {
@@ -3031,6 +3520,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         getPlaceHolder: () => Center(child: Image.asset(Assets.loading)),
       ),
     );
+    final backProgress = _videoBackProgress;
+    final playerController = videoDetailController.plPlayerController;
+    final skipReturnMediaCover =
+        backProgress == null ||
+        playerController.isPipMode ||
+        playerController.isDesktopPip ||
+        PipOverlayService.isInPipMode ||
+        LivePipOverlayService.isInPipMode;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -3191,6 +3688,24 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             ),
           ),
         ),
+        if (backProgress != null && !skipReturnMediaCover)
+          Positioned.fill(
+            child: Obx(() {
+              final liveCover = videoDetailController.cover.value;
+              final argumentCover = _videoArgs['cover'];
+              final cover = liveCover.isNotEmpty
+                  ? liveCover
+                  : argumentCover is String && argumentCover.isNotEmpty
+                  ? argumentCover
+                  : null;
+              return _VideoDetailReturnMediaCover(
+                backProgress: backProgress,
+                cover: cover,
+                width: width,
+                height: height,
+              );
+            }),
+          ),
       ],
     );
   }
@@ -3750,6 +4265,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   @override
   void didChangeMetrics() {
+    _viewMetricsGeneration++;
     if (!_fullScreenExitSettling || _fullScreenExitAwaitingStateChange) {
       return;
     }
@@ -4066,6 +4582,49 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           ugcIntroController: ugcIntroController,
         );
       },
+    );
+  }
+}
+
+class _VideoDetailReturnMediaCover extends StatelessWidget {
+  const _VideoDetailReturnMediaCover({
+    required this.backProgress,
+    required this.cover,
+    required this.width,
+    required this.height,
+  });
+
+  final VideoDetailBackProgress backProgress;
+  final String? cover;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final source = cover;
+    if (source == null || source.isEmpty) {
+      return const SizedBox.expand();
+    }
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: backProgress,
+        child: NetworkImgLayer(
+          key: ValueKey(('video-detail-return-cover', source)),
+          src: source,
+          width: width,
+          height: height,
+          clip: false,
+          fit: BoxFit.cover,
+          fadeInDuration: Duration.zero,
+          fadeOutDuration: Duration.zero,
+        ),
+        builder: (context, child) => Opacity(
+          opacity: videoDetailReturnMediaCoverOpacity(
+            backProgress.value.exitProgress,
+          ),
+          child: child,
+        ),
+      ),
     );
   }
 }

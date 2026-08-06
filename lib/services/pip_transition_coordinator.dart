@@ -1,8 +1,9 @@
 import 'dart:async';
+import 'dart:math' show min;
 
 import 'package:flutter/animation.dart' show Curve, Curves;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/rendering.dart' show Offset, Rect;
+import 'package:flutter/rendering.dart' show Offset, Rect, Size;
 import 'package:flutter/scheduler.dart';
 
 /// In-app PiP lifecycle states.
@@ -14,6 +15,30 @@ class PipWindowMemory {
 
   static Offset? position;
   static double scale = 1.0;
+
+  static double clampScaleToViewport({
+    required double scale,
+    required Size viewport,
+    required Size unscaledWindowSize,
+  }) {
+    if (viewport.isEmpty || unscaledWindowSize.isEmpty) {
+      return scale;
+    }
+
+    const minimumLongEdge = 140.0;
+    const viewportFill = 0.95;
+    final minimumScale = minimumLongEdge / unscaledWindowSize.longestSide;
+    final maximumScale =
+        viewportFill *
+        min(
+          viewport.width / unscaledWindowSize.width,
+          viewport.height / unscaledWindowSize.height,
+        );
+
+    // Fitting the viewport takes priority in unusually small windows.
+    final effectiveMinimum = min(minimumScale, maximumScale);
+    return scale.clamp(effectiveMinimum, maximumScale).toDouble();
+  }
 }
 
 /// Coordinates PiP shrink and restore animations without owning a player.

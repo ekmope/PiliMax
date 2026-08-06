@@ -183,6 +183,7 @@ Widget _contextMenuBuilder(
       ),
     );
   }
+  addOpenOrSearchSelectionMenuItem(state, items, selectedText);
   return AdaptiveTextSelectionToolbar.buttonItems(
     buttonItems: items
       ..add(

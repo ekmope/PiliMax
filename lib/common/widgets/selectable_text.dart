@@ -1,6 +1,45 @@
+import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
+import 'package:get/get.dart';
+
+final _selectionSchemeRegex = RegExp(
+  r'^[a-zA-Z][a-zA-Z0-9+.-]*://\S+$',
+);
+
+void addOpenOrSearchSelectionMenuItem(
+  SelectableRegionState state,
+  List<ContextMenuButtonItem> items,
+  String? selectedText, {
+  int index = 4,
+}) {
+  final text = selectedText?.trim();
+  if (text == null || text.isEmpty) return;
+
+  final isScheme = _selectionSchemeRegex.hasMatch(text);
+  final insertIndex = index.clamp(0, items.length).toInt();
+  items.insert(
+    insertIndex,
+    ContextMenuButtonItem(
+      label: isScheme ? '打开' : '站内搜索',
+      onPressed: () {
+        state.hideToolbar();
+        if (isScheme) {
+          PageUtils.handleWebview(text);
+          return;
+        }
+
+        final parameters = {'keyword': text};
+        if (Get.routing.route is PageRoute) {
+          Get.toNamed('/searchResult', parameters: parameters);
+        } else {
+          Get.offNamed('/searchResult', parameters: parameters);
+        }
+      },
+    ),
+  );
+}
 
 typedef SelectionTextContextMenuBuilder =
     Widget Function(
@@ -37,8 +76,15 @@ class SelectionText extends StatefulWidget {
     SelectableRegionState selectableRegionState,
     String? selectedText,
   ) {
-    return AdaptiveTextSelectionToolbar.selectableRegion(
-      selectableRegionState: selectableRegionState,
+    final items = selectableRegionState.contextMenuButtonItems;
+    addOpenOrSearchSelectionMenuItem(
+      selectableRegionState,
+      items,
+      selectedText,
+    );
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      buttonItems: items,
+      anchors: selectableRegionState.contextMenuAnchors,
     );
   }
 

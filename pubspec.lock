@@ -207,7 +207,7 @@ packages:
     description:
       path: cached_network_image
       ref: develop
-      resolved-ref: "6ad91e9bf71254803e222b7d254751576f2f6d7b"
+      resolved-ref: "93bfc88496bda6984e565ac834985cb493ee1436"
       url: "https://github.com/My-Responsitories/flutter_cached_network_image_ce.git"
     source: git
     version: "4.6.4"
@@ -215,8 +215,8 @@ packages:
     dependency: transitive
     description:
       path: cached_network_image_platform_interface
-      ref: "6ad91e9bf71254803e222b7d254751576f2f6d7b"
-      resolved-ref: "6ad91e9bf71254803e222b7d254751576f2f6d7b"
+      ref: "93bfc88496bda6984e565ac834985cb493ee1436"
+      resolved-ref: "93bfc88496bda6984e565ac834985cb493ee1436"
       url: "https://github.com/My-Responsitories/flutter_cached_network_image_ce.git"
     source: git
     version: "5.2.0"

@@ -1356,6 +1356,7 @@ class ReplyItemGrpc extends StatelessWidget {
         ),
       );
     }
+    addOpenOrSearchSelectionMenuItem(state, items, selectedText);
     return AdaptiveTextSelectionToolbar.buttonItems(
       buttonItems: items,
       anchors: state.contextMenuAnchors,

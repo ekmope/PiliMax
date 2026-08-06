@@ -3,6 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('initial player handoff', () {
+    test('detail reveal only waits for the mounted layout', () {
+      expect(videoDetailEntryCanReveal(detailLayoutReady: true), isTrue);
+    });
+
+    test('detail reveal never exposes an unpainted layout', () {
+      expect(videoDetailEntryCanReveal(detailLayoutReady: false), isFalse);
+    });
+
     test('releases when the current player visual and layout are ready', () {
       expect(
         videoDetailPlayerHandoffCanRelease(
@@ -14,18 +22,7 @@ void main() {
       );
     });
 
-    test('soft timeout reveals the layout without releasing media', () {
-      expect(
-        videoDetailPlayerHandoffCanReveal(
-          playerVisualReady: false,
-          handoffTimedOut: true,
-          detailLayoutReady: true,
-        ),
-        isTrue,
-      );
-    });
-
-    test('soft timeout alone never releases the media cover', () {
+    test('layout readiness alone never releases the media cover', () {
       expect(
         videoDetailPlayerHandoffCanRelease(
           playerVisualReady: false,
@@ -57,15 +54,45 @@ void main() {
         isFalse,
       );
     });
+  });
 
-    test('waits while neither a visual nor timeout is available', () {
+  group('initial fullscreen handoff', () {
+    test('desktop fullscreen state can confirm an unchanged viewport', () {
       expect(
-        videoDetailPlayerHandoffCanReveal(
-          playerVisualReady: false,
-          handoffTimedOut: false,
-          detailLayoutReady: true,
+        videoDetailFullscreenTransitionObserved(
+          requireGeometryChange: false,
+          fullScreenActive: true,
+          metricsChanged: false,
+          viewportChanged: false,
+          playerRectChanged: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('mobile fullscreen still requires a geometry signal', () {
+      expect(
+        videoDetailFullscreenTransitionObserved(
+          requireGeometryChange: true,
+          fullScreenActive: true,
+          metricsChanged: false,
+          viewportChanged: false,
+          playerRectChanged: false,
         ),
         isFalse,
+      );
+    });
+
+    test('a player rect change confirms fullscreen on every platform', () {
+      expect(
+        videoDetailFullscreenTransitionObserved(
+          requireGeometryChange: true,
+          fullScreenActive: false,
+          metricsChanged: false,
+          viewportChanged: false,
+          playerRectChanged: true,
+        ),
+        isTrue,
       );
     });
   });

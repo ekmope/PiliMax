@@ -37,9 +37,8 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   static const _orientationTransitionDuration =
       videoDetailProfileTransitionDuration;
   static const _playerHandoffFadeDuration = Duration(milliseconds: 100);
-  // Reveal the detail after the soft timeout, but keep its media cover until
-  // the surface is ready or the hard timeout prevents a permanent overlay.
-  static const _playerHandoffTimeout = Duration(seconds: 3);
+  // The detail page reveals independently. This timeout only prevents a
+  // missing platform frame signal from leaving the media cover permanently.
   static const _playerHandoffForceReleaseTimeout = Duration(seconds: 6);
 
   late final Map<dynamic, dynamic> _arguments = VideoDetailArgs.normalize(
@@ -54,7 +53,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   VideoDetailSession? _session;
   Timer? _fallbackTimer;
   Timer? _orientationSettleTimer;
-  Timer? _playerHandoffTimer;
   Timer? _playerHandoffForceReleaseTimer;
   final GlobalKey _entryMediaLayerKey = GlobalKey();
   late final VideoDetailPrepareForExit _prepareForExitCallback;
@@ -76,7 +74,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   bool _playerHandoffCoverOpaque = true;
   bool _initialDetailLayoutReady = false;
   bool _initialPlayerVisualReady = false;
-  bool _playerHandoffTimedOut = false;
   bool _playerHandoffForceRelease = false;
   bool _preparedExitUsesPlayerHandoff = false;
   bool _pendingPresentationReady = false;
@@ -191,29 +188,14 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (!_hasVideoTransition || _needsImmediatePipTakeover) {
       return true;
     }
-    if (_shouldHoldCoverForPlayer) {
-      return videoDetailPlayerHandoffCanReveal(
-        playerVisualReady: _initialPlayerVisualReady,
-        handoffTimedOut: _playerHandoffTimedOut,
-        detailLayoutReady: _initialDetailLayoutReady,
-      );
-    }
-    return _initialDetailLayoutReady;
+    return videoDetailEntryCanReveal(
+      detailLayoutReady: _initialDetailLayoutReady,
+    );
   }
 
   void _armPlayerHandoffTimeout() {
-    _playerHandoffTimer?.cancel();
     _playerHandoffForceReleaseTimer?.cancel();
     final generation = ++_playerHandoffGeneration;
-    _playerHandoffTimer = Timer(_playerHandoffTimeout, () {
-      if (!mounted || generation != _playerHandoffGeneration) {
-        return;
-      }
-      _playerHandoffTimer = null;
-      _playerHandoffTimedOut = true;
-      _scheduleDetailReveal();
-      _tryReleasePlayerHandoffCover();
-    });
     _playerHandoffForceReleaseTimer = Timer(
       _playerHandoffForceReleaseTimeout,
       () {
@@ -221,7 +203,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           return;
         }
         _playerHandoffForceReleaseTimer = null;
-        _playerHandoffTimedOut = true;
         _playerHandoffForceRelease = true;
         _scheduleDetailReveal();
         _tryReleasePlayerHandoffCover();
@@ -232,8 +213,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   void _cancelPlayerHandoffTimeout() {
     _playerHandoffGeneration++;
-    _playerHandoffTimer?.cancel();
-    _playerHandoffTimer = null;
     _playerHandoffForceReleaseTimer?.cancel();
     _playerHandoffForceReleaseTimer = null;
   }
@@ -636,7 +615,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     _session = session;
     _initialDetailLayoutReady = false;
     _initialPlayerVisualReady = false;
-    _playerHandoffTimedOut = false;
     _playerHandoffForceRelease = false;
     unawaited(RouteRestoreService.saveVideoRoute(_arguments));
     _arguments[videoDetailSessionKey] = session;
@@ -898,7 +876,6 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _showStaticEntryCover = false;
       _showPlayerHandoffCover = holdCoverForPlayer;
       _playerHandoffCoverOpaque = true;
-      _playerHandoffTimedOut = false;
       _playerHandoffForceRelease = false;
     });
     if (holdCoverForPlayer) {

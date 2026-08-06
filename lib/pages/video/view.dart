@@ -1200,15 +1200,20 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       )) {
         return;
       }
-      if (!await _waitForCurrentPlaybackAdvance(
-        generation: generation,
-        session: session,
-        controller: currentController,
-        videoController: postFullscreenVideoController,
-        sourceGeneration: sourceGeneration,
-        minimumAdvanceEvents: Platform.isAndroid ? 2 : 1,
-      )) {
-        return;
+      // Mobile fullscreen can recreate or rebind its output surface during
+      // rotation. Desktop native outputs keep the same source/texture and are
+      // fully covered by the stable-layout and stable-surface gates.
+      if (PlatformUtils.isMobile) {
+        if (!await _waitForCurrentPlaybackAdvance(
+          generation: generation,
+          session: session,
+          controller: currentController,
+          videoController: postFullscreenVideoController,
+          sourceGeneration: sourceGeneration,
+          minimumAdvanceEvents: Platform.isAndroid ? 2 : 1,
+        )) {
+          return;
+        }
       }
       if (!await _waitForStableInitialVideoSurface(
         generation: generation,
@@ -1456,7 +1461,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     final result = Completer<bool>();
     var stopped = false;
     var checkInFlight = false;
-    var layoutChanged = false;
+    var layoutTransitionObserved = false;
     var stableFrames = 0;
     Size? lastViewportSize;
     Rect? lastPlayerRect;
@@ -1500,12 +1505,16 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             previousPlayerRect != null &&
             currentPlayerRect != null &&
             !_rectNearlyEqual(previousPlayerRect, currentPlayerRect);
-        layoutChanged =
-            layoutChanged ||
-            metricsChanged ||
-            viewportChanged ||
-            playerRectChanged;
-        if (!layoutChanged ||
+        layoutTransitionObserved =
+            layoutTransitionObserved ||
+            videoDetailFullscreenTransitionObserved(
+              requireGeometryChange: PlatformUtils.isMobile,
+              fullScreenActive: controller.isFullScreen.value,
+              metricsChanged: metricsChanged,
+              viewportChanged: viewportChanged,
+              playerRectChanged: playerRectChanged,
+            );
+        if (!layoutTransitionObserved ||
             currentPlayerRect == null ||
             currentPlayerRect.isEmpty ||
             !currentPlayerRect.isFinite) {

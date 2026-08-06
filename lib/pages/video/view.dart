@@ -172,6 +172,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   final List<Worker> _predictiveBackWorkers = <Worker>[];
   final Set<TabController> _pendingTabControllerDisposals = <TabController>{};
   static const Duration _fullScreenExitSettleTimeout = Duration(seconds: 2);
+  // A newly-created VideoController has a real native first-frame signal.
+  // Keep waiting for it for the same bounded interval as the surface probe;
+  // geometry alone can be valid before Android has uploaded a texture frame.
+  static const Duration _initialFirstFrameSignalWait = Duration(seconds: 5);
+  static const Duration _initialVideoSurfaceWaitTimeout = Duration(seconds: 5);
   final VideoDetailFullScreenExitSettleTracker _fullScreenExitSettleTracker =
       VideoDetailFullScreenExitSettleTracker();
   bool _layoutReadyForRoutePop = false;
@@ -1049,6 +1054,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     final session = widget.session;
     final initialController = videoDetailController.plPlayerController;
     final initialVideoController = initialController.videoController;
+    final initialSourceGeneration = initialController.activeSourceGeneration;
+    final initialPlaybackPosition =
+        initialController.videoPlayerController?.state.position;
     final initialFirstFrameWasAlreadyRendered =
         callback != null && session != null && initialVideoController != null
         ? await _futureAlreadySettled(
@@ -1079,19 +1087,43 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
     final currentController = videoDetailController.plPlayerController;
     final currentVideoController = currentController.videoController;
+    final sourceGeneration = currentController.activeSourceGeneration;
     if (currentVideoController == null ||
+        sourceGeneration == null ||
         !currentController.isSourceOwnerActive(videoDetailController)) {
       return;
     }
+    var validatedVideoController = currentVideoController;
 
     // This media-kit Future is one-shot per VideoController. A reused
     // controller may already have a completed Future from an earlier source,
-    // so use the source-owner and stable-Rect gates below for that case.
-    if (!identical(currentVideoController, initialVideoController) ||
-        !initialFirstFrameWasAlreadyRendered) {
-      try {
-        await currentVideoController.waitUntilFirstFrameRendered;
-      } catch (_) {
+    // so use the source generation and stable-surface gates below as well.
+    final reusedVideoController =
+        identical(currentVideoController, initialVideoController) &&
+        initialFirstFrameWasAlreadyRendered;
+    var firstFrameSignalReady = initialFirstFrameWasAlreadyRendered;
+    if (!reusedVideoController) {
+      firstFrameSignalReady = await _waitForInitialFirstFrameSignal(
+        currentVideoController.waitUntilFirstFrameRendered,
+      );
+      // Do not infer a rendered frame from metadata/geometry for a fresh
+      // surface. The route-level hard timeout remains the final fallback.
+      if (!firstFrameSignalReady) {
+        return;
+      }
+    } else if (sourceGeneration != initialSourceGeneration) {
+      // A reused VideoController has a one-shot frame Future. Confirm that
+      // this source, rather than the previous one, has begun playback before
+      // accepting its stable texture as the handoff surface.
+      if (!await _waitForReusedSourcePlayback(
+        generation: generation,
+        session: session,
+        controller: currentController,
+        videoController: currentVideoController,
+        sourceGeneration: sourceGeneration,
+        previousSourceGeneration: initialSourceGeneration,
+        initialPosition: initialPlaybackPosition ?? Duration.zero,
+      )) {
         return;
       }
     }
@@ -1100,18 +1132,20 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       session,
       currentController,
       currentVideoController,
+      sourceGeneration,
     )) {
       return;
     }
 
     // A completed media-kit Future only says that a frame can be scheduled.
-    // Keep the cover until the current texture has a non-empty, stable Rect
+    // Keep the cover until the texture ID, decoded size and Rect are stable
     // for two consecutive Flutter frames.
     if (!await _waitForStableInitialVideoSurface(
       generation: generation,
       session: session,
       controller: currentController,
       videoController: currentVideoController,
+      sourceGeneration: sourceGeneration,
     )) {
       return;
     }
@@ -1133,6 +1167,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             session,
             currentController,
             postFullscreenVideoController,
+            sourceGeneration,
           )) {
         return;
       }
@@ -1140,20 +1175,37 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         postFullscreenVideoController,
         currentVideoController,
       )) {
-        try {
-          await postFullscreenVideoController.waitUntilFirstFrameRendered;
-        } catch (_) {
+        firstFrameSignalReady = await _waitForInitialFirstFrameSignal(
+          postFullscreenVideoController.waitUntilFirstFrameRendered,
+        );
+        if (!firstFrameSignalReady) {
           return;
         }
       }
+      // A fullscreen request can reuse the same texture while the native
+      // surface is being reconfigured. Give that reconfiguration a few
+      // Flutter frames before accepting a stable handoff.
+      await _waitForSurfaceSettleFrames(generation, session, currentController);
       if (!await _waitForStableInitialVideoSurface(
         generation: generation,
         session: session,
         controller: currentController,
         videoController: postFullscreenVideoController,
+        sourceGeneration: sourceGeneration,
+        stableFrameCount: 3,
       )) {
         return;
       }
+      validatedVideoController = postFullscreenVideoController;
+    }
+    if (!_isInitialVisualSourceCurrent(
+      generation,
+      session,
+      currentController,
+      validatedVideoController,
+      sourceGeneration,
+    )) {
+      return;
     }
     _initialVisualReadyReported = true;
     callback(session!);
@@ -1164,33 +1216,226 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     required VideoDetailSession? session,
     required PlPlayerController controller,
     required VideoController videoController,
+    required int sourceGeneration,
+    int stableFrameCount = 2,
   }) async {
+    final result = Completer<bool>();
+    var stopped = false;
+    var checkInFlight = false;
     Rect? previousRect;
+    int? previousTextureId;
+    int? previousWidth;
+    int? previousHeight;
     var stableFrames = 0;
-    for (var attempt = 0; attempt < 6 && stableFrames < 2; attempt++) {
-      await WidgetsBinding.instance.endOfFrame;
+
+    void finish(bool value) {
+      if (!result.isCompleted) {
+        result.complete(value);
+      }
+    }
+
+    Future<void> checkSurface() async {
+      if (stopped || result.isCompleted || checkInFlight) {
+        return;
+      }
+      checkInFlight = true;
+      try {
+        await WidgetsBinding.instance.endOfFrame;
+        if (stopped || result.isCompleted) {
+          return;
+        }
+        if (!_isInitialVisualSourceCurrent(
+          generation,
+          session,
+          controller,
+          videoController,
+          sourceGeneration,
+        )) {
+          finish(false);
+          return;
+        }
+        final rect = videoController.rect.value;
+        final textureId = videoController.id.value;
+        final width = videoController.player.state.width;
+        final height = videoController.player.state.height;
+        final usable =
+            textureId != null &&
+            rect != null &&
+            !rect.isEmpty &&
+            rect.isFinite &&
+            width > 0 &&
+            height > 0;
+        if (!usable) {
+          previousRect = null;
+          previousTextureId = null;
+          previousWidth = null;
+          previousHeight = null;
+          stableFrames = 0;
+          return;
+        }
+        if (previousRect != null &&
+            previousTextureId == textureId &&
+            previousWidth == width &&
+            previousHeight == height &&
+            _rectNearlyEqual(previousRect!, rect)) {
+          stableFrames++;
+        } else {
+          stableFrames = 1;
+        }
+        previousRect = rect;
+        previousTextureId = textureId;
+        previousWidth = width;
+        previousHeight = height;
+        if (stableFrames < stableFrameCount) {
+          return;
+        }
+        if (!_isInitialVisualSourceCurrent(
+          generation,
+          session,
+          controller,
+          videoController,
+          sourceGeneration,
+        )) {
+          finish(false);
+          return;
+        }
+        finish(true);
+      } finally {
+        checkInFlight = false;
+      }
+    }
+
+    void scheduleCheck() {
+      unawaited(checkSurface());
+    }
+
+    videoController.rect.addListener(scheduleCheck);
+    videoController.id.addListener(scheduleCheck);
+    final sizeSubscription = videoController.player.stream.size.listen(
+      (_) => scheduleCheck(),
+    );
+    final timeout = Timer(
+      _initialVideoSurfaceWaitTimeout,
+      () => finish(false),
+    );
+    // Some platforms do not emit a Rect/size notification after a reused
+    // controller is reopened. Keep a low-frequency probe during the bounded
+    // handoff instead of waiting forever for a missing event.
+    final probeTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) => scheduleCheck(),
+    );
+    scheduleCheck();
+    try {
+      return await result.future;
+    } finally {
+      stopped = true;
+      timeout.cancel();
+      probeTimer.cancel();
+      videoController.id.removeListener(scheduleCheck);
+      videoController.rect.removeListener(scheduleCheck);
+      await sizeSubscription.cancel();
+    }
+  }
+
+  Future<bool> _waitForReusedSourcePlayback({
+    required int generation,
+    required VideoDetailSession? session,
+    required PlPlayerController controller,
+    required VideoController videoController,
+    required int sourceGeneration,
+    required int? previousSourceGeneration,
+    required Duration initialPosition,
+  }) async {
+    final player = controller.videoPlayerController;
+    if (player == null) {
+      return false;
+    }
+    final result = Completer<bool>();
+    var stopped = false;
+
+    void finish(bool value) {
+      if (!result.isCompleted) {
+        result.complete(value);
+      }
+    }
+
+    void check(Duration position) {
+      if (stopped || result.isCompleted) {
+        return;
+      }
       if (!_isInitialVisualSourceCurrent(
         generation,
         session,
         controller,
         videoController,
+        sourceGeneration,
       )) {
-        return false;
+        finish(false);
+        return;
       }
-      final rect = videoController.rect.value;
-      if (rect == null || rect.isEmpty || !rect.isFinite) {
-        previousRect = null;
-        stableFrames = 0;
-        continue;
+      if (controller.activeSourceGeneration == null ||
+          controller.activeSourceGeneration == previousSourceGeneration) {
+        return;
       }
-      if (previousRect != null && _rectNearlyEqual(previousRect, rect)) {
-        stableFrames++;
-      } else {
-        previousRect = rect;
-        stableFrames = 1;
+      final state = player.state;
+      final playbackAdvanced =
+          position != initialPosition ||
+          state.position != initialPosition ||
+          state.buffer > Duration.zero;
+      if (state.playing && !state.buffering && playbackAdvanced) {
+        finish(true);
       }
     }
-    return stableFrames >= 2;
+
+    final subscriptions = <StreamSubscription<dynamic>>[
+      player.stream.position.listen(check),
+      player.stream.playing.listen((_) => check(player.state.position)),
+      player.stream.buffering.listen((_) => check(player.state.position)),
+      player.stream.buffer.listen((_) => check(player.state.position)),
+    ];
+    final timeout = Timer(
+      _initialVideoSurfaceWaitTimeout,
+      () => finish(false),
+    );
+    check(player.state.position);
+    try {
+      return await result.future;
+    } finally {
+      stopped = true;
+      timeout.cancel();
+      for (final subscription in subscriptions) {
+        await subscription.cancel();
+      }
+    }
+  }
+
+  Future<bool> _waitForInitialFirstFrameSignal(Future<void> signal) async {
+    try {
+      await signal.timeout(_initialFirstFrameSignalWait);
+      return true;
+    } on TimeoutException {
+      // The route-level hard timeout will eventually expose the player's own
+      // loading/error state if the platform never emits this signal.
+    } catch (_) {
+      // Keep the cover on an errored signal; exposing a possibly blank surface
+      // is worse than allowing the route's bounded fallback to take over.
+    }
+    return false;
+  }
+
+  Future<void> _waitForSurfaceSettleFrames(
+    int generation,
+    VideoDetailSession? session,
+    PlPlayerController controller,
+  ) async {
+    for (var i = 0; i < 3; i++) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!_canReportInitialVisual(generation, session) ||
+          !identical(videoDetailController.plPlayerController, controller)) {
+        return;
+      }
+    }
   }
 
   bool _rectNearlyEqual(Rect first, Rect second) =>
@@ -1228,10 +1473,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     VideoDetailSession? session,
     PlPlayerController controller,
     Object videoController,
+    int sourceGeneration,
   ) =>
       _canReportInitialVisual(generation, session) &&
       identical(videoDetailController.plPlayerController, controller) &&
       identical(controller.videoController, videoController) &&
+      controller.activeSourceGeneration == sourceGeneration &&
       controller.isSourceOwnerActive(videoDetailController);
 
   void _bindPlayerListeners() {

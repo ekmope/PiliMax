@@ -37,9 +37,10 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   static const _orientationTransitionDuration =
       videoDetailProfileTransitionDuration;
   static const _playerHandoffFadeDuration = Duration(milliseconds: 100);
-  // Keep the entry surface opaque while a slow source is opening. This is an
-  // exceptional fallback; normal entry waits for the actual first frame.
+  // Reveal the detail after the soft timeout, but keep its media cover until
+  // the surface is ready or the hard timeout prevents a permanent overlay.
   static const _playerHandoffTimeout = Duration(seconds: 3);
+  static const _playerHandoffForceReleaseTimeout = Duration(seconds: 6);
 
   late final Map<dynamic, dynamic> _arguments = VideoDetailArgs.normalize(
     Get.arguments,
@@ -54,6 +55,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   Timer? _fallbackTimer;
   Timer? _orientationSettleTimer;
   Timer? _playerHandoffTimer;
+  Timer? _playerHandoffForceReleaseTimer;
   final GlobalKey _entryMediaLayerKey = GlobalKey();
   late final VideoDetailPrepareForExit _prepareForExitCallback;
   late final VoidCallback _cancelPreparedExitCallback;
@@ -75,6 +77,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   bool _initialDetailLayoutReady = false;
   bool _initialPlayerVisualReady = false;
   bool _playerHandoffTimedOut = false;
+  bool _playerHandoffForceRelease = false;
   bool _preparedExitUsesPlayerHandoff = false;
   bool _pendingPresentationReady = false;
   bool _isResolving = false;
@@ -178,19 +181,29 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       // painted detail frame is still gated separately below.
       Pref.autoPlayEnable;
 
+  bool get _playerHandoffCanRelease => videoDetailPlayerHandoffCanRelease(
+    playerVisualReady: _initialPlayerVisualReady,
+    forceRelease: _playerHandoffForceRelease,
+    detailLayoutReady: _initialDetailLayoutReady,
+  );
+
   bool get _entryVisualReady {
     if (!_hasVideoTransition || _needsImmediatePipTakeover) {
       return true;
     }
     if (_shouldHoldCoverForPlayer) {
-      return (_initialPlayerVisualReady || _playerHandoffTimedOut) &&
-          _initialDetailLayoutReady;
+      return videoDetailPlayerHandoffCanReveal(
+        playerVisualReady: _initialPlayerVisualReady,
+        handoffTimedOut: _playerHandoffTimedOut,
+        detailLayoutReady: _initialDetailLayoutReady,
+      );
     }
     return _initialDetailLayoutReady;
   }
 
   void _armPlayerHandoffTimeout() {
     _playerHandoffTimer?.cancel();
+    _playerHandoffForceReleaseTimer?.cancel();
     final generation = ++_playerHandoffGeneration;
     _playerHandoffTimer = Timer(_playerHandoffTimeout, () {
       if (!mounted || generation != _playerHandoffGeneration) {
@@ -201,6 +214,19 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _scheduleDetailReveal();
       _tryReleasePlayerHandoffCover();
     });
+    _playerHandoffForceReleaseTimer = Timer(
+      _playerHandoffForceReleaseTimeout,
+      () {
+        if (!mounted || generation != _playerHandoffGeneration) {
+          return;
+        }
+        _playerHandoffForceReleaseTimer = null;
+        _playerHandoffTimedOut = true;
+        _playerHandoffForceRelease = true;
+        _scheduleDetailReveal();
+        _tryReleasePlayerHandoffCover();
+      },
+    );
     _tryReleasePlayerHandoffCover();
   }
 
@@ -208,6 +234,8 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     _playerHandoffGeneration++;
     _playerHandoffTimer?.cancel();
     _playerHandoffTimer = null;
+    _playerHandoffForceReleaseTimer?.cancel();
+    _playerHandoffForceReleaseTimer = null;
   }
 
   void _abortEntryOverlay() {
@@ -257,8 +285,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         !_playerHandoffCoverOpaque ||
         _entryExitInProgress ||
         !_revealingDetail ||
-        !_initialPlayerVisualReady ||
-        !_initialDetailLayoutReady) {
+        !_playerHandoffCanRelease) {
       return;
     }
     _cancelPlayerHandoffTimeout();
@@ -269,16 +296,14 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (!mounted || _entryExitInProgress) {
       return;
     }
-    // A timeout allows the detail content to become usable, but it must not
-    // expose a player surface that has not produced a current frame.
     final releasePlayerCover =
-        _showPlayerHandoffCover &&
-        _initialPlayerVisualReady &&
-        _initialDetailLayoutReady;
+        _showPlayerHandoffCover && _playerHandoffCanRelease;
     if (!_showEntryLayer && !releasePlayerCover) {
       return;
     }
-    _cancelPlayerHandoffTimeout();
+    if (releasePlayerCover) {
+      _cancelPlayerHandoffTimeout();
+    }
     setState(() {
       // The skeleton and player cover change ownership in one frame. The
       // player is already drawable here, so no transparent route background
@@ -612,6 +637,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     _initialDetailLayoutReady = false;
     _initialPlayerVisualReady = false;
     _playerHandoffTimedOut = false;
+    _playerHandoffForceRelease = false;
     unawaited(RouteRestoreService.saveVideoRoute(_arguments));
     _arguments[videoDetailSessionKey] = session;
     (_arguments[videoTransitionTokenKey] as VideoTransitionToken?)
@@ -873,6 +899,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _showPlayerHandoffCover = holdCoverForPlayer;
       _playerHandoffCoverOpaque = true;
       _playerHandoffTimedOut = false;
+      _playerHandoffForceRelease = false;
     });
     if (holdCoverForPlayer) {
       _armPlayerHandoffTimeout();

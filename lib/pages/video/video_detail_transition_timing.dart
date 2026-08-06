@@ -38,6 +38,18 @@ const videoDetailMediaHandoffStart = 0.94;
 const videoDetailReturnMediaCoverStart = 0.70;
 const videoDetailReturnMediaCoverEnd = 0.95;
 
+bool videoDetailPlayerHandoffCanReveal({
+  required bool playerVisualReady,
+  required bool handoffTimedOut,
+  required bool detailLayoutReady,
+}) => detailLayoutReady && (playerVisualReady || handoffTimedOut);
+
+bool videoDetailPlayerHandoffCanRelease({
+  required bool playerVisualReady,
+  required bool forceRelease,
+  required bool detailLayoutReady,
+}) => detailLayoutReady && (playerVisualReady || forceRelease);
+
 double videoDetailReturnMediaCoverOpacity(double exitProgress) {
   final normalized =
       ((exitProgress - videoDetailReturnMediaCoverStart) /

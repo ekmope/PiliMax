@@ -99,15 +99,22 @@ typedef VideoDetailInitialVisualReady =
       VideoDetailSession session,
     );
 
+typedef VideoDetailInitialLayoutReady =
+    void Function(
+      VideoDetailSession session,
+    );
+
 class VideoDetailPageV extends StatefulWidget {
   const VideoDetailPageV({
     super.key,
     this.session,
     this.onInitialVisualReady,
+    this.onInitialLayoutReady,
   });
 
   final VideoDetailSession? session;
   final VideoDetailInitialVisualReady? onInitialVisualReady;
+  final VideoDetailInitialLayoutReady? onInitialLayoutReady;
 
   @override
   State<VideoDetailPageV> createState() => _VideoDetailPageVState();
@@ -175,6 +182,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   bool _initialVideoSourceReady = false;
   bool _initialPlayerStarted = false;
   bool _allowPlayerMount = false;
+  bool _initialLayoutReadyScheduled = false;
+  bool _initialLayoutReadyReported = false;
   bool _initialVisualReadyReported = false;
   int _initialVisualReadyGeneration = 0;
   // 页面可见性切换时递增，阻止旧的播放器恢复任务回写已离开的页面。
@@ -988,6 +997,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     } else {
       _allowPlayerMount = true;
     }
+    _scheduleInitialLayoutReady();
     if (!videoDetailController.autoPlay ||
         _initialPlayerStarted ||
         !_initialVideoSourceReady) {
@@ -999,6 +1009,33 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     unawaited(
       _startInitialPlayerAndReportVisual(++_initialVisualReadyGeneration),
     );
+  }
+
+  void _scheduleInitialLayoutReady() {
+    final session = widget.session;
+    if (_initialLayoutReadyScheduled ||
+        widget.onInitialLayoutReady == null ||
+        session == null) {
+      return;
+    }
+    _initialLayoutReadyScheduled = true;
+    unawaited(_reportInitialLayoutReady(session));
+  }
+
+  Future<void> _reportInitialLayoutReady(VideoDetailSession session) async {
+    // _allowPlayerMount may have changed the layout in the preceding setState.
+    // Wait an additional frame so the route never releases its cover against a
+    // still-empty detail subtree.
+    await WidgetsBinding.instance.endOfFrame;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted ||
+        _initialLayoutReadyReported ||
+        !identical(widget.session, session) ||
+        !session.matchesLaunchContent) {
+      return;
+    }
+    _initialLayoutReadyReported = true;
+    widget.onInitialLayoutReady!(session);
   }
 
   Future<void> _startInitialPlayerAndReportVisual(int generation) async {
@@ -1017,7 +1054,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
 
     if (videoDetailController.isFileSource) {
-      await videoDetailController.queryVideoUrl(autoFullScreenFlag: true);
+      await videoDetailController.queryVideoUrl(autoFullScreenFlag: false);
     } else {
       if (videoDetailController.videoUrl == null ||
           videoDetailController.audioUrl == null) {
@@ -1025,7 +1062,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       }
       await videoDetailController.playerInit(
         autoplay: true,
-        autoFullScreenFlag: true,
+        // Orientation/window changes are performed after the first frame,
+        // while the route's opaque handoff cover is still active.
+        autoFullScreenFlag: false,
       );
     }
 
@@ -1072,6 +1111,41 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       currentVideoController,
     )) {
       return;
+    }
+    if (currentController.autoEnterFullScreen &&
+        !currentController.isFullScreen.value) {
+      try {
+        await currentController.triggerFullScreen(
+          status: true,
+          isManualFS: false,
+        );
+      } catch (_) {
+        // A platform may reject a late orientation request. The player frame
+        // is still a valid handoff surface, so continue without fullscreen.
+      }
+      await WidgetsBinding.instance.endOfFrame;
+      await WidgetsBinding.instance.endOfFrame;
+      final postFullscreenVideoController = currentController.videoController;
+      if (postFullscreenVideoController == null ||
+          !_isInitialVisualSourceCurrent(
+            generation,
+            session,
+            currentController,
+            postFullscreenVideoController,
+          )) {
+        return;
+      }
+      if (!identical(
+        postFullscreenVideoController,
+        currentVideoController,
+      )) {
+        try {
+          await postFullscreenVideoController.waitUntilFirstFrameRendered;
+        } catch (_) {
+          return;
+        }
+        await WidgetsBinding.instance.endOfFrame;
+      }
     }
     _initialVisualReadyReported = true;
     callback(session!);

@@ -37,7 +37,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   static const _orientationTransitionDuration =
       videoDetailProfileTransitionDuration;
   static const _playerHandoffFadeDuration = Duration(milliseconds: 100);
-  static const _playerHandoffTimeout = Duration(milliseconds: 800);
+  // Keep the entry surface opaque while a slow source is opening. This is an
+  // exceptional fallback; normal entry waits for the actual first frame.
+  static const _playerHandoffTimeout = Duration(seconds: 3);
 
   late final Map<dynamic, dynamic> _arguments = VideoDetailArgs.normalize(
     Get.arguments,
@@ -69,6 +71,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   bool _showStaticEntryCover = false;
   bool _showPlayerHandoffCover = false;
   bool _playerHandoffCoverOpaque = true;
+  bool _initialDetailLayoutReady = false;
   bool _initialPlayerVisualReady = false;
   bool _playerHandoffTimedOut = false;
   bool _preparedExitUsesPlayerHandoff = false;
@@ -163,14 +166,27 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   void _onDetailRevealStatus(AnimationStatus status) {
     if (status == AnimationStatus.completed) {
-      if (mounted && _showEntryLayer) {
-        setState(() => _showEntryLayer = false);
-      }
+      _completeDetailReveal();
     }
   }
 
   bool get _shouldHoldCoverForPlayer =>
-      _hasVideoTransition && !_needsImmediatePipTakeover;
+      _hasVideoTransition &&
+      !_needsImmediatePipTakeover &&
+      // Manual-playback pages have no player frame to wait for. Their first
+      // painted detail frame is still gated separately below.
+      Pref.autoPlayEnable;
+
+  bool get _entryVisualReady {
+    if (!_hasVideoTransition || _needsImmediatePipTakeover) {
+      return true;
+    }
+    if (_shouldHoldCoverForPlayer) {
+      return (_initialPlayerVisualReady || _playerHandoffTimedOut) &&
+          _initialDetailLayoutReady;
+    }
+    return _initialDetailLayoutReady;
+  }
 
   void _armPlayerHandoffTimeout() {
     _playerHandoffTimer?.cancel();
@@ -181,6 +197,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       }
       _playerHandoffTimer = null;
       _playerHandoffTimedOut = true;
+      _scheduleDetailReveal();
       _tryReleasePlayerHandoffCover();
     });
     _tryReleasePlayerHandoffCover();
@@ -207,7 +224,30 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       return;
     }
     _initialPlayerVisualReady = true;
-    _tryReleasePlayerHandoffCover();
+    _scheduleDetailReveal();
+  }
+
+  void _handleInitialDetailLayoutReady(VideoDetailSession session) {
+    if (!mounted ||
+        !identical(session, _session) ||
+        !session.matchesLaunchContent) {
+      return;
+    }
+    _initialDetailLayoutReady = true;
+    _scheduleDetailReveal();
+  }
+
+  void _scheduleDetailReveal() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      if (_showDetail && _showEntryLayer) {
+        _beginDetailReveal();
+      } else {
+        _tryReleasePlayerHandoffCover();
+      }
+    });
   }
 
   void _tryReleasePlayerHandoffCover() {
@@ -215,11 +255,32 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         !_showPlayerHandoffCover ||
         !_playerHandoffCoverOpaque ||
         _entryExitInProgress ||
-        (!_initialPlayerVisualReady && !_playerHandoffTimedOut)) {
+        !_revealingDetail ||
+        !_entryVisualReady) {
       return;
     }
     _cancelPlayerHandoffTimeout();
     setState(() => _playerHandoffCoverOpaque = false);
+  }
+
+  void _completeDetailReveal() {
+    if (!mounted || _entryExitInProgress) {
+      return;
+    }
+    final releasePlayerCover = _showPlayerHandoffCover && _entryVisualReady;
+    if (!_showEntryLayer && !releasePlayerCover) {
+      return;
+    }
+    _cancelPlayerHandoffTimeout();
+    setState(() {
+      // The skeleton and player cover change ownership in one frame. The
+      // player is already drawable here, so no transparent route background
+      // can appear between the two layers.
+      _showEntryLayer = false;
+      if (releasePlayerCover) {
+        _playerHandoffCoverOpaque = false;
+      }
+    });
   }
 
   void _handlePlayerHandoffFadeEnd() {
@@ -541,6 +602,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   void _startSession() {
     final session = VideoDetailSession.start(_arguments);
     _session = session;
+    _initialDetailLayoutReady = false;
+    _initialPlayerVisualReady = false;
+    _playerHandoffTimedOut = false;
     unawaited(RouteRestoreService.saveVideoRoute(_arguments));
     _arguments[videoDetailSessionKey] = session;
     (_arguments[videoTransitionTokenKey] as VideoTransitionToken?)
@@ -817,6 +881,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         _pendingEntryVariant != null ||
         _pendingContentProfile != null ||
         _orientationSettling ||
+        !_entryVisualReady ||
         _revealingDetail) {
       return;
     }
@@ -837,7 +902,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
               entryOverlay.didCompleteReveal &&
               !_entryExitInProgress &&
               _showEntryLayer) {
-            setState(() => _showEntryLayer = false);
+            _completeDetailReveal();
           }
         }),
       );
@@ -880,6 +945,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   Widget _entryCoverLayer(
     BuildContext context, {
     required bool enableHero,
+    bool animateGeometry = true,
   }) {
     final playerRect = _entryLayout(context).playerRect;
     final cover = _entryCover;
@@ -898,7 +964,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       fit: StackFit.expand,
       children: [
         AnimatedPositioned(
-          duration: _orientationTransitionDuration,
+          duration: animateGeometry
+              ? _orientationTransitionDuration
+              : Duration.zero,
           curve: Curves.easeInOutCubic,
           left: playerRect.left,
           top: playerRect.top,
@@ -922,7 +990,12 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     duration: _entryExitInProgress ? Duration.zero : _playerHandoffFadeDuration,
     curve: Curves.easeOut,
     onEnd: _handlePlayerHandoffFadeEnd,
-    child: _entryCoverLayer(context, enableHero: false),
+    child: _entryCoverLayer(
+      context,
+      enableHero: false,
+      // Orientation/fullscreen changes happen under this opaque surface.
+      animateGeometry: false,
+    ),
   );
 
   Widget _entryShell(BuildContext context) {
@@ -1086,6 +1159,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     return Stack(
       fit: StackFit.expand,
       children: [
+        // Keep a deterministic opaque base while the live detail subtree and
+        // the entry layers hand ownership to one another.
+        ColoredBox(color: colorScheme.surface),
         IgnorePointer(
           ignoring: hideDetail,
           child: Opacity(
@@ -1093,6 +1169,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
             child: VideoDetailPageV(
               session: _session,
               onInitialVisualReady: _handleInitialPlayerVisualReady,
+              onInitialLayoutReady: _handleInitialDetailLayoutReady,
             ),
           ),
         ),

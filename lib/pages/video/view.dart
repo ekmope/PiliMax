@@ -48,9 +48,11 @@ import 'package:PiliMax/pages/video/related/view.dart';
 import 'package:PiliMax/pages/video/reply/controller.dart';
 import 'package:PiliMax/pages/video/reply/view.dart';
 import 'package:PiliMax/pages/video/video_detail_args.dart';
+import 'package:PiliMax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pages/video/video_detail_exit_snapshot.dart';
 import 'package:PiliMax/pages/video/video_detail_fullscreen_exit_settle.dart';
 import 'package:PiliMax/pages/video/video_detail_session.dart';
+import 'package:PiliMax/pages/video/video_detail_transition_timing.dart';
 import 'package:PiliMax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/pages/video/view_point/view.dart';
 import 'package:PiliMax/pages/video/widgets/header_control.dart';
@@ -92,6 +94,7 @@ import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
 typedef VideoDetailInitialVisualReady =
@@ -125,6 +128,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   final Map _videoArgs = VideoDetailArgs.normalize(Get.arguments);
   late final String heroTag = _resolveControllerTag();
   late final bool _fromPip = _videoArgs['fromPip'] ?? false;
+
+  VideoDetailBackProgress? get _videoBackProgress =>
+      _videoArgs[videoDetailBackProgressKey] as VideoDetailBackProgress?;
 
   String _resolveControllerTag() {
     final requestedTag = _videoArgs['heroTag'] as String;
@@ -1078,19 +1084,16 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       return;
     }
 
-    // This media-kit Future is one-shot per VideoController. A completed
-    // Future on a reused controller belongs to an earlier source, so leave the
-    // entry cover to the route's bounded timeout instead of reporting it as
-    // the new video's first frame.
-    if (identical(currentVideoController, initialVideoController) &&
-        initialFirstFrameWasAlreadyRendered) {
-      return;
-    }
-
-    try {
-      await currentVideoController.waitUntilFirstFrameRendered;
-    } catch (_) {
-      return;
+    // This media-kit Future is one-shot per VideoController. A reused
+    // controller may already have a completed Future from an earlier source,
+    // so use the source-owner and stable-Rect gates below for that case.
+    if (!identical(currentVideoController, initialVideoController) ||
+        !initialFirstFrameWasAlreadyRendered) {
+      try {
+        await currentVideoController.waitUntilFirstFrameRendered;
+      } catch (_) {
+        return;
+      }
     }
     if (!_isInitialVisualSourceCurrent(
       generation,
@@ -1101,14 +1104,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       return;
     }
 
-    // The texture may become ready before the Obx/player subtree has painted.
-    // Keep the cover through that first Flutter frame as well.
-    await WidgetsBinding.instance.endOfFrame;
-    if (!_isInitialVisualSourceCurrent(
-      generation,
-      session,
-      currentController,
-      currentVideoController,
+    // A completed media-kit Future only says that a frame can be scheduled.
+    // Keep the cover until the current texture has a non-empty, stable Rect
+    // for two consecutive Flutter frames.
+    if (!await _waitForStableInitialVideoSurface(
+      generation: generation,
+      session: session,
+      controller: currentController,
+      videoController: currentVideoController,
     )) {
       return;
     }
@@ -1123,8 +1126,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         // A platform may reject a late orientation request. The player frame
         // is still a valid handoff surface, so continue without fullscreen.
       }
-      await WidgetsBinding.instance.endOfFrame;
-      await WidgetsBinding.instance.endOfFrame;
       final postFullscreenVideoController = currentController.videoController;
       if (postFullscreenVideoController == null ||
           !_isInitialVisualSourceCurrent(
@@ -1144,12 +1145,59 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         } catch (_) {
           return;
         }
-        await WidgetsBinding.instance.endOfFrame;
+      }
+      if (!await _waitForStableInitialVideoSurface(
+        generation: generation,
+        session: session,
+        controller: currentController,
+        videoController: postFullscreenVideoController,
+      )) {
+        return;
       }
     }
     _initialVisualReadyReported = true;
     callback(session!);
   }
+
+  Future<bool> _waitForStableInitialVideoSurface({
+    required int generation,
+    required VideoDetailSession? session,
+    required PlPlayerController controller,
+    required VideoController videoController,
+  }) async {
+    Rect? previousRect;
+    var stableFrames = 0;
+    for (var attempt = 0; attempt < 6 && stableFrames < 2; attempt++) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!_isInitialVisualSourceCurrent(
+        generation,
+        session,
+        controller,
+        videoController,
+      )) {
+        return false;
+      }
+      final rect = videoController.rect.value;
+      if (rect == null || rect.isEmpty || !rect.isFinite) {
+        previousRect = null;
+        stableFrames = 0;
+        continue;
+      }
+      if (previousRect != null && _rectNearlyEqual(previousRect, rect)) {
+        stableFrames++;
+      } else {
+        previousRect = rect;
+        stableFrames = 1;
+      }
+    }
+    return stableFrames >= 2;
+  }
+
+  bool _rectNearlyEqual(Rect first, Rect second) =>
+      (first.left - second.left).abs() < 0.5 &&
+      (first.top - second.top).abs() < 0.5 &&
+      (first.right - second.right).abs() < 0.5 &&
+      (first.bottom - second.bottom).abs() < 0.5;
 
   Future<bool> _futureAlreadySettled(Future<void> future) async {
     var settled = false;
@@ -3105,6 +3153,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         getPlaceHolder: () => Center(child: Image.asset(Assets.loading)),
       ),
     );
+    final backProgress = _videoBackProgress;
+    final playerController = videoDetailController.plPlayerController;
+    final skipReturnMediaCover =
+        backProgress == null ||
+        playerController.isPipMode ||
+        playerController.isDesktopPip ||
+        PipOverlayService.isInPipMode ||
+        LivePipOverlayService.isInPipMode;
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -3265,6 +3321,24 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             ),
           ),
         ),
+        if (backProgress != null && !skipReturnMediaCover)
+          Positioned.fill(
+            child: Obx(() {
+              final liveCover = videoDetailController.cover.value;
+              final argumentCover = _videoArgs['cover'];
+              final cover = liveCover.isNotEmpty
+                  ? liveCover
+                  : argumentCover is String && argumentCover.isNotEmpty
+                  ? argumentCover
+                  : null;
+              return _VideoDetailReturnMediaCover(
+                backProgress: backProgress,
+                cover: cover,
+                width: width,
+                height: height,
+              );
+            }),
+          ),
       ],
     );
   }
@@ -4140,6 +4214,49 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           ugcIntroController: ugcIntroController,
         );
       },
+    );
+  }
+}
+
+class _VideoDetailReturnMediaCover extends StatelessWidget {
+  const _VideoDetailReturnMediaCover({
+    required this.backProgress,
+    required this.cover,
+    required this.width,
+    required this.height,
+  });
+
+  final VideoDetailBackProgress backProgress;
+  final String? cover;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final source = cover;
+    if (source == null || source.isEmpty) {
+      return const SizedBox.expand();
+    }
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: backProgress,
+        child: NetworkImgLayer(
+          key: ValueKey(('video-detail-return-cover', source)),
+          src: source,
+          width: width,
+          height: height,
+          clip: false,
+          fit: BoxFit.cover,
+          fadeInDuration: Duration.zero,
+          fadeOutDuration: Duration.zero,
+        ),
+        builder: (context, child) => Opacity(
+          opacity: videoDetailReturnMediaCoverOpacity(
+            backProgress.value.exitProgress,
+          ),
+          child: child,
+        ),
+      ),
     );
   }
 }

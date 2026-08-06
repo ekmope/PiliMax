@@ -54,6 +54,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   Timer? _fallbackTimer;
   Timer? _orientationSettleTimer;
   Timer? _playerHandoffTimer;
+  final GlobalKey _entryMediaLayerKey = GlobalKey();
   late final VideoDetailPrepareForExit _prepareForExitCallback;
   late final VoidCallback _cancelPreparedExitCallback;
   bool? _pendingEntryOrientation;
@@ -256,7 +257,8 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         !_playerHandoffCoverOpaque ||
         _entryExitInProgress ||
         !_revealingDetail ||
-        !_entryVisualReady) {
+        !_initialPlayerVisualReady ||
+        !_initialDetailLayoutReady) {
       return;
     }
     _cancelPlayerHandoffTimeout();
@@ -267,7 +269,12 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (!mounted || _entryExitInProgress) {
       return;
     }
-    final releasePlayerCover = _showPlayerHandoffCover && _entryVisualReady;
+    // A timeout allows the detail content to become usable, but it must not
+    // expose a player surface that has not produced a current frame.
+    final releasePlayerCover =
+        _showPlayerHandoffCover &&
+        _initialPlayerVisualReady &&
+        _initialDetailLayoutReady;
     if (!_showEntryLayer && !releasePlayerCover) {
       return;
     }
@@ -952,6 +959,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     final coverLayer = cover == null
         ? const ColoredBox(color: Colors.black)
         : NetworkImgLayer(
+            key: ValueKey(('video-entry-cover', cover)),
             src: cover,
             width: playerRect.width,
             height: playerRect.height,
@@ -975,6 +983,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           child: HeroMode(
             enabled: enableHero,
             child: VideoDetailHero.target(
+              key: const ValueKey('video-entry-media-hero'),
               tag: _heroTag,
               backProgress: _backProgress,
               child: coverLayer,
@@ -985,35 +994,44 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     );
   }
 
-  Widget _playerHandoffCoverLayer(BuildContext context) => AnimatedOpacity(
-    opacity: _playerHandoffCoverOpaque ? 1 : 0,
-    duration: _entryExitInProgress ? Duration.zero : _playerHandoffFadeDuration,
-    curve: Curves.easeOut,
-    onEnd: _handlePlayerHandoffFadeEnd,
-    child: _entryCoverLayer(
-      context,
-      enableHero: false,
-      // Orientation/fullscreen changes happen under this opaque surface.
-      animateGeometry: false,
-    ),
-  );
+  Widget _entryMediaHandoffLayer(
+    BuildContext context, {
+    required bool showHeroTarget,
+    required bool showPlayerHandoffCover,
+  }) {
+    final opacity = showPlayerHandoffCover
+        ? (_playerHandoffCoverOpaque ? 1.0 : 0.0)
+        : 1.0;
+    return AnimatedOpacity(
+      key: _entryMediaLayerKey,
+      opacity: opacity,
+      duration: _entryExitInProgress
+          ? Duration.zero
+          : _playerHandoffFadeDuration,
+      curve: Curves.easeOut,
+      onEnd: _handlePlayerHandoffFadeEnd,
+      child: _entryCoverLayer(
+        context,
+        enableHero: showHeroTarget,
+        // Keep the same media surface alive while the player settles. The
+        // cover owns geometry during that period, so a window/orientation
+        // change cannot expose an intermediate black texture.
+        animateGeometry: !showPlayerHandoffCover,
+      ),
+    );
+  }
 
   Widget _entryShell(BuildContext context) {
     final entryLayout = _entryLayout(context);
     return VideoDetailHeroShell.revealing(
-      key: ValueKey((
-        entryLayout.pageLayout,
-        _entryIsVertical,
-        _skeletonVariant,
-        !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasSeasonPanel,
-        !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasPagesPanel,
-        _entryContentProfile.tabCount,
-        _entryContentProfile.actionCount,
-        _entryContentProfile.hasEpisodePanel,
-      )),
+      // Keep one shell alive through orientation/profile resolution. Replacing
+      // the keyed subtree during the handoff causes the landscape skeleton to
+      // jump even when the shared media Rect is unchanged.
+      key: const ValueKey('video-detail-entry-shell'),
       progress: _revealingDetail ? _detailRevealController.value : 0,
       isVertical: _entryIsVertical,
       isPortrait: entryLayout.isPortrait,
+      playerBottomOverride: entryLayout.playerRect.bottom,
       variant: _skeletonVariant,
       title: _entryTitle,
       expandedIntro: Pref.alwaysExpandIntroPanel,
@@ -1029,12 +1047,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     );
   }
 
-  Widget _animatedEntryShell(BuildContext context) => AnimatedSwitcher(
-    duration: _orientationTransitionDuration,
-    switchInCurve: Curves.easeOutCubic,
-    switchOutCurve: Curves.easeInCubic,
-    child: _entryShell(context),
-  );
+  Widget _animatedEntryShell(BuildContext context) => _entryShell(context);
 
   Widget _errorOverlay(BuildContext context, Object error) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -1144,12 +1157,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
                 showStaticEntryCover ||
                 showPlayerHandoffCover)
               IgnorePointer(
-                child: showPlayerHandoffCover
-                    ? _playerHandoffCoverLayer(context)
-                    : _entryCoverLayer(
-                        context,
-                        enableHero: showHeroTarget,
-                      ),
+                child: _entryMediaHandoffLayer(
+                  context,
+                  showHeroTarget: showHeroTarget,
+                  showPlayerHandoffCover: showPlayerHandoffCover,
+                ),
               ),
           ],
         ),
@@ -1185,12 +1197,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         if (showHeroTarget || showStaticEntryCover || showPlayerHandoffCover)
           Positioned.fill(
             child: IgnorePointer(
-              child: showPlayerHandoffCover
-                  ? _playerHandoffCoverLayer(context)
-                  : _entryCoverLayer(
-                      context,
-                      enableHero: showHeroTarget,
-                    ),
+              child: _entryMediaHandoffLayer(
+                context,
+                showHeroTarget: showHeroTarget,
+                showPlayerHandoffCover: showPlayerHandoffCover,
+              ),
             ),
           ),
       ],

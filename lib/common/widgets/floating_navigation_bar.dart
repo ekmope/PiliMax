@@ -315,11 +315,16 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
   void _animateTo(double index, {double velocity = 0}) {
     // The indicator keeps a continuous position so taps and drags share one
     // spring instead of restarting separate per-destination animations.
-    final currentIndex = _dragIndex ?? _animatedIndex;
+    final dragIndex = _dragIndex;
+    final currentIndex = dragIndex ?? _animatedIndex;
     _selectionController.stop();
     _fromIndex = currentIndex;
     _targetIndex = index;
-    _dragIndex = null;
+    if (dragIndex != null) {
+      // AnimatedBuilder only repaints the indicator. Rebuild the NavigationBar
+      // as well so a cancelled drag cannot leave its selected icon behind.
+      setState(() => _dragIndex = null);
+    }
 
     if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
       _selectionController.value = 1;

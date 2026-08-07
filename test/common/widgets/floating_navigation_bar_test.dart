@@ -43,18 +43,151 @@ void main() {
 
   testWidgets('tap and horizontal drag select destinations', (tester) async {
     var selected = 0;
-    await tester.pumpWidget(host(onSelected: (value) => selected = value));
+    final selections = <int>[];
+    await tester.pumpWidget(
+      host(
+        onSelected: (value) {
+          selected = value;
+          selections.add(value);
+        },
+      ),
+    );
 
     await tester.tap(find.text('Mine'));
     await tester.pumpAndSettle();
     expect(selected, 2);
 
-    await tester.drag(
-      find.byType(FloatingNavigationBar),
-      const Offset(-80, 0),
+    final mineCenter = tester.getCenter(find.text('Mine'));
+    final gesture = await tester.startGesture(mineCenter);
+    await gesture.moveBy(const Offset(-80, 0));
+    await tester.pump();
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      1,
     );
+    await gesture.up();
     await tester.pumpAndSettle();
     expect(selected, 1);
+    expect(selections, [2, 1]);
+  });
+
+  testWidgets('tapping the current destination still dispatches', (
+    tester,
+  ) async {
+    final selections = <int>[];
+    await tester.pumpWidget(
+      host(onSelected: selections.add),
+    );
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+
+    expect(selections, [0]);
+  });
+
+  testWidgets('vertical drags cancel without changing destination', (
+    tester,
+  ) async {
+    var selected = -1;
+    await tester.pumpWidget(host(onSelected: (value) => selected = value));
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Mine')),
+    );
+    await gesture.moveBy(const Offset(2, -64));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(selected, -1);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      0,
+    );
+  });
+
+  testWidgets('tapping a disabled destination is a no-op', (tester) async {
+    var selected = -1;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: Scaffold(
+          body: const SizedBox.expand(),
+          bottomNavigationBar: FloatingNavigationBar(
+            liquidGlass: true,
+            destinations: const [
+              FloatingNavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                label: 'Home',
+              ),
+              FloatingNavigationDestination(
+                icon: Icon(Icons.bolt_outlined),
+                label: 'Dynamic',
+                enabled: false,
+              ),
+              FloatingNavigationDestination(
+                icon: Icon(Icons.person_outline),
+                label: 'Mine',
+              ),
+            ],
+            onDestinationSelected: (value) => selected = value,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Dynamic'));
+    await tester.pumpAndSettle();
+
+    expect(selected, -1);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      0,
+    );
+  });
+
+  testWidgets('semantic selection callbacks do not lock later selections', (
+    tester,
+  ) async {
+    final selections = <int>[];
+    await tester.pumpWidget(host(onSelected: selections.add));
+
+    final navigationBar = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
+    navigationBar.onDestinationSelected!(0);
+    await tester.pump();
+    navigationBar.onDestinationSelected!(1);
+    await tester.pump();
+
+    expect(selections, [0, 1]);
+  });
+
+  testWidgets('press moves and enlarges the glass lens before release', (
+    tester,
+  ) async {
+    var selected = -1;
+    await tester.pumpWidget(host(onSelected: (value) => selected = value));
+
+    final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
+    final idleWidth = tester.getSize(indicator).width;
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Mine')),
+    );
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(selected, -1);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      2,
+    );
+    expect(tester.getSize(indicator).width, greaterThan(idleWidth));
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(selected, 2);
   });
 }
 

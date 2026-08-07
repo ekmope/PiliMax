@@ -1,16 +1,22 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
 
 const double _kNavigationHeight = 64.0;
 const double _kIndicatorWidth = 86.0;
 const double _kIndicatorPadding = 4.0;
-const Duration _kLiquidSelectionDuration = Duration(milliseconds: 240);
+const Duration _kLiquidPressDuration = Duration(milliseconds: 130);
 final ui.ImageFilter _kLiquidGlassBlur = ui.ImageFilter.blur(
   sigmaX: 20,
   sigmaY: 20,
+  tileMode: ui.TileMode.clamp,
+);
+final ui.ImageFilter _kLiquidLensBlur = ui.ImageFilter.blur(
+  sigmaX: 9,
+  sigmaY: 9,
   tileMode: ui.TileMode.clamp,
 );
 const BorderRadius _kBorderRadius = BorderRadius.all(
@@ -271,14 +277,24 @@ class _LiquidGlassNavigationBar extends StatefulWidget {
 }
 
 class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _selectionController;
+  late final AnimationController _pressController;
+  late final Listenable _indicatorListenable;
   late double _fromIndex;
   late double _targetIndex;
   double? _dragIndex;
   double _dragStartIndex = 0;
-  double _dragStartX = 0;
   double _itemExtent = _kIndicatorWidth;
+  bool _isPressed = false;
+  bool _interactionCommitted = false;
+  int? _activePointer;
+  int? _pendingPointerUp;
+  Offset _pointerDownPosition = Offset.zero;
+  Offset _lastPointerPosition = Offset.zero;
+  Duration _lastPointerTime = Duration.zero;
+  bool _gestureDirectionLocked = false;
+  bool _isVerticalGesture = false;
 
   double get _animatedIndex =>
       _fromIndex + (_targetIndex - _fromIndex) * _selectionController.value;
@@ -289,6 +305,15 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     _fromIndex = widget.selectedIndex.toDouble();
     _targetIndex = _fromIndex;
     _selectionController = AnimationController(vsync: this, value: 1);
+    _pressController = AnimationController(
+      vsync: this,
+      duration: _kLiquidPressDuration,
+      reverseDuration: const Duration(milliseconds: 180),
+    );
+    _indicatorListenable = Listenable.merge([
+      _selectionController,
+      _pressController,
+    ]);
   }
 
   @override
@@ -309,6 +334,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
   @override
   void dispose() {
     _selectionController.dispose();
+    _pressController.dispose();
     super.dispose();
   }
 
@@ -320,13 +346,27 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     _selectionController.stop();
     _fromIndex = currentIndex;
     _targetIndex = index;
-    if (dragIndex != null) {
-      // AnimatedBuilder only repaints the indicator. Rebuild the NavigationBar
-      // as well so a cancelled drag cannot leave its selected icon behind.
-      setState(() => _dragIndex = null);
+    final disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final clearPressState = dragIndex != null || _isPressed;
+    if (clearPressState) {
+      if (disableAnimations) {
+        _pressController.value = 0;
+      } else {
+        _pressController.reverse();
+      }
+      if (mounted) {
+        // AnimatedBuilder only repaints the indicator. Rebuild the navigation
+        // destinations as well so a released press cannot leave its selected
+        // icon behind.
+        setState(() {
+          _dragIndex = null;
+          _isPressed = false;
+        });
+      }
     }
 
-    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+    if (disableAnimations) {
       _selectionController.value = 1;
       return;
     }
@@ -348,50 +388,155 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
   }
 
   void _handleDestinationSelected(int index) {
+    if (_interactionCommitted) return;
+    _interactionCommitted = true;
     _animateTo(index.toDouble());
     widget.onDestinationSelected?.call(index);
+    if (_activePointer == null && _pendingPointerUp == null) {
+      _scheduleInteractionReset();
+    }
   }
 
-  void _handleDragStart(DragStartDetails details) {
-    _selectionController.stop();
-    _dragStartIndex = _animatedIndex;
-    _dragStartX = details.localPosition.dx;
-    setState(() => _dragIndex = _dragStartIndex);
+  void _scheduleInteractionReset() {
+    Future<void>.microtask(() {
+      if (mounted && _activePointer == null) {
+        _interactionCommitted = false;
+      }
+    });
   }
 
-  void _handleDragUpdate(DragUpdateDetails details) {
+  double _indexForX(double x) {
     final maxIndex = (widget.destinations.length - 1).toDouble();
-    final dragIndex =
-        _dragStartIndex +
-        (details.localPosition.dx - _dragStartX) / _itemExtent;
-    setState(
-      () => _dragIndex = dragIndex.clamp(0.0, maxIndex).toDouble(),
-    );
+    return ((x - _kIndicatorPadding) / _itemExtent - 0.5)
+        .clamp(0.0, maxIndex)
+        .toDouble();
   }
 
-  void _handleDragEnd(DragEndDetails details) {
-    final dragIndex = _dragIndex;
-    if (dragIndex == null) return;
+  void _handlePointerDown(PointerDownEvent event) {
+    if (_activePointer != null) return;
 
-    final velocity = details.velocity.pixelsPerSecond.dx / _itemExtent;
-    final maxIndex = widget.destinations.length - 1;
-    final nearestIndex = (dragIndex + velocity * 0.08).round().clamp(
-      0,
-      maxIndex,
-    );
-    final targetIndex = _nearestEnabledIndex(nearestIndex);
-    if (targetIndex == null) {
+    _selectionController.stop();
+    final index = _indexForX(event.localPosition.dx);
+    _activePointer = event.pointer;
+    _pendingPointerUp = null;
+    _pointerDownPosition = event.localPosition;
+    _lastPointerPosition = event.localPosition;
+    _lastPointerTime = event.timeStamp;
+    _gestureDirectionLocked = false;
+    _isVerticalGesture = false;
+    _dragStartIndex = index;
+    _interactionCommitted = false;
+    setState(() {
+      // The lens jumps under the finger on pointer-down, before a long-press
+      // or horizontal-drag recognizer reaches its slop threshold.
+      _dragIndex = index;
+      _isPressed = true;
+    });
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+      _pressController.value = 1;
+    } else {
+      _pressController.forward();
+    }
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (event.pointer != _activePointer) return;
+
+    final delta = event.localPosition - _pointerDownPosition;
+    if (!_gestureDirectionLocked && delta.distance > kTouchSlop) {
+      _gestureDirectionLocked = true;
+      _isVerticalGesture = delta.dy.abs() > delta.dx.abs();
+      if (_isVerticalGesture) {
+        _animateTo(widget.selectedIndex.toDouble());
+        return;
+      }
+    }
+    if (_isVerticalGesture) return;
+
+    final dragIndex = _indexForX(event.localPosition.dx);
+    _lastPointerPosition = event.localPosition;
+    _lastPointerTime = event.timeStamp;
+    if ((_dragIndex == null || (_dragIndex! - dragIndex).abs() > 0.001) &&
+        mounted) {
+      setState(() => _dragIndex = dragIndex);
+    }
+  }
+
+  double _pointerVelocity(PointerUpEvent event) {
+    final elapsedMicros = (event.timeStamp - _lastPointerTime).inMicroseconds;
+    if (elapsedMicros <= 0) return 0;
+    return (event.localPosition.dx - _lastPointerPosition.dx) /
+        elapsedMicros *
+        1000000 /
+        _itemExtent;
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    if (event.pointer != _activePointer) return;
+
+    final dragIndex = _dragIndex ?? _indexForX(event.localPosition.dx);
+    final velocity = _pointerVelocity(event);
+    _activePointer = null;
+    _pendingPointerUp = event.pointer;
+
+    // Let NavigationBar's tap recognizer win the arena first. A raw pointer
+    // up arrives before onDestinationSelected; deferring this fallback keeps
+    // same-tab taps and semantic activations from being swallowed.
+    Future<void>.microtask(() {
+      if (!mounted || _pendingPointerUp != event.pointer) return;
+      _pendingPointerUp = null;
+      if (_interactionCommitted) {
+        _scheduleInteractionReset();
+        return;
+      }
+
+      _interactionCommitted = true;
+      if (_isVerticalGesture) {
+        if (_dragIndex != null || _isPressed) {
+          _animateTo(widget.selectedIndex.toDouble());
+        }
+        _scheduleInteractionReset();
+        return;
+      }
+
+      // A disabled destination should remain a no-op when it was tapped.
+      // Nearest-enabled snapping is reserved for an actual horizontal drag.
+      if (!_gestureDirectionLocked) {
+        _animateTo(widget.selectedIndex.toDouble());
+        _scheduleInteractionReset();
+        return;
+      }
+
+      final maxIndex = widget.destinations.length - 1;
+      final nearestIndex = (dragIndex + velocity * 0.08).round().clamp(
+        0,
+        maxIndex,
+      );
+      final targetIndex = _nearestEnabledIndex(nearestIndex);
+      if (targetIndex == null) {
+        _animateTo(widget.selectedIndex.toDouble());
+        _scheduleInteractionReset();
+        return;
+      }
+      _animateTo(targetIndex.toDouble(), velocity: velocity);
+      if (targetIndex != widget.selectedIndex) {
+        widget.onDestinationSelected?.call(targetIndex);
+      }
+      _scheduleInteractionReset();
+    });
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    if (event.pointer != _activePointer) return;
+
+    final interactionCommitted = _interactionCommitted;
+    _activePointer = null;
+    _pendingPointerUp = null;
+    if (!interactionCommitted) {
+      _interactionCommitted = true;
       _animateTo(widget.selectedIndex.toDouble());
-      return;
     }
-    _animateTo(targetIndex.toDouble(), velocity: velocity);
-    if (targetIndex != widget.selectedIndex) {
-      widget.onDestinationSelected?.call(targetIndex);
-    }
-  }
-
-  void _handleDragCancel() {
-    _animateTo(widget.selectedIndex.toDouble());
+    _scheduleInteractionReset();
   }
 
   bool _destinationEnabled(int index) {
@@ -442,7 +587,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         navigationBarTheme.surfaceTintColor ??
         colorScheme.surfaceTint;
     final defaultGlassColor = colorScheme.surfaceContainer.withValues(
-      alpha: isDark ? 0.52 : 0.46,
+      alpha: isDark ? 0.38 : 0.34,
     );
     final glassColor =
         widget.backgroundColor ??
@@ -451,7 +596,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           defaultGlassColor,
         );
     final borderColor = Colors.white.withValues(
-      alpha: isDark ? 0.18 : 0.46,
+      alpha: isDark ? 0.28 : 0.46,
     );
     final effectiveShadowColor =
         widget.shadowColor ??
@@ -475,7 +620,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
       states,
     ) {
       if (states.contains(WidgetState.pressed)) {
-        return colorScheme.onSurface.withValues(alpha: 0.05);
+        return Colors.transparent;
       }
       return sourceOverlayColor?.resolve(states);
     });
@@ -504,144 +649,234 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                   ),
                 ],
               ),
-              child: ClipPath(
-                clipper: const ShapeBorderClipper(shape: _kNavigationShape),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Clip the filter to the pill so only the bar's backdrop
-                    // is sampled and the rest of the page stays untouched.
-                    BackdropFilter(
-                      filter: _kLiquidGlassBlur,
-                      child: ColoredBox(color: glassColor),
+              child: Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.none,
+                children: [
+                  ClipPath(
+                    clipper: const ShapeBorderClipper(
+                      shape: _kNavigationShape,
                     ),
-                    IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: ShapeDecoration(
-                          color: Colors.transparent,
-                          shape: RoundedSuperellipseBorder(
-                            side: BorderSide(color: borderColor),
-                            borderRadius: _kBorderRadius,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Clip the filter to the pill so only the bar's
+                        // backdrop is sampled and the rest of the page stays
+                        // untouched.
+                        BackdropFilter(
+                          filter: _kLiquidGlassBlur,
+                          child: ColoredBox(color: glassColor),
+                        ),
+                        AnimatedBuilder(
+                          animation: _pressController,
+                          builder: (context, child) {
+                            final pressProgress = Curves.easeOutCubic.transform(
+                              _pressController.value,
+                            );
+                            return ColoredBox(
+                              color: Colors.white.withValues(
+                                alpha: (isDark ? 0.07 : 0.04) * pressProgress,
+                              ),
+                              child: child,
+                            );
+                          },
+                          child: const SizedBox.expand(),
+                        ),
+                        IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: ShapeDecoration(
+                              color: Colors.transparent,
+                              shape: RoundedSuperellipseBorder(
+                                side: BorderSide(color: borderColor),
+                                borderRadius: _kBorderRadius,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                    AnimatedBuilder(
-                      animation: _selectionController,
-                      builder: (context, _) {
-                        final dragIndex = _dragIndex;
-                        final indicatorIndex = dragIndex ?? _animatedIndex;
-                        final travel = dragIndex != null
-                            ? (indicatorIndex - _dragStartIndex).abs()
-                            : (_targetIndex - _fromIndex).abs();
-                        final stretchProgress = dragIndex != null
-                            ? math.min(1.0, travel)
-                            : math.sin(math.pi * _selectionController.value);
-                        final baseWidth =
-                            widget.labelBehavior ==
-                                NavigationDestinationLabelBehavior.alwaysHide
-                            ? math.max(48.0, math.min(60.0, _itemExtent - 12))
-                            : math.max(56.0, math.min(72.0, _itemExtent - 8));
-                        final indicatorWidth =
-                            baseWidth +
-                            math.min(18.0, travel * 12) * stretchProgress;
-                        final centerX =
-                            _kIndicatorPadding +
-                            _itemExtent * (indicatorIndex + 0.5);
+                  ),
+                  AnimatedBuilder(
+                    animation: _indicatorListenable,
+                    builder: (context, _) {
+                      final dragIndex = _dragIndex;
+                      final indicatorIndex = dragIndex ?? _animatedIndex;
+                      final pressProgress = Curves.easeOutCubic.transform(
+                        _pressController.value,
+                      );
+                      final travel = dragIndex != null
+                          ? (indicatorIndex - _dragStartIndex).abs()
+                          : (_targetIndex - _fromIndex).abs();
+                      final stretchProgress = dragIndex != null
+                          ? math.min(1.0, travel)
+                          : math.sin(math.pi * _selectionController.value);
+                      final baseWidth =
+                          widget.labelBehavior ==
+                              NavigationDestinationLabelBehavior.alwaysHide
+                          ? math.max(48.0, math.min(60.0, _itemExtent - 12))
+                          : math.max(56.0, math.min(78.0, _itemExtent - 4));
+                      final indicatorWidth =
+                          baseWidth +
+                          math.min(18.0, travel * 12) * stretchProgress +
+                          26 * pressProgress;
+                      final indicatorHeight =
+                          _kNavigationHeight - 12 + 8 * pressProgress;
+                      final centerX =
+                          _kIndicatorPadding +
+                          _itemExtent * (indicatorIndex + 0.5);
+                      final unclampedLeft = centerX - indicatorWidth / 2;
+                      final left = unclampedLeft.clamp(
+                        _kIndicatorPadding,
+                        barWidth - _kIndicatorPadding - indicatorWidth,
+                      );
 
-                        return Positioned(
-                          left: centerX - indicatorWidth / 2,
-                          top: 6,
-                          width: indicatorWidth,
-                          height: _kNavigationHeight - 12,
-                          child: ClipPath(
-                            clipper: ShapeBorderClipper(
-                              shape: effectiveIndicatorShape,
-                            ),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                DecoratedBox(
-                                  decoration: ShapeDecoration(
-                                    color: effectiveIndicatorColor,
-                                    shape: effectiveIndicatorShape,
-                                  ),
-                                ),
-                                Align(
-                                  alignment: Alignment.topCenter,
-                                  child: FractionallySizedBox(
-                                    widthFactor: 0.68,
-                                    child: ColoredBox(
-                                      color: Colors.white.withValues(
-                                        alpha: isDark ? 0.16 : 0.42,
-                                      ),
-                                      child: const SizedBox(height: 1),
+                      return Positioned(
+                        key: const ValueKey('liquidGlassIndicator'),
+                        left: left,
+                        top: (_kNavigationHeight - indicatorHeight) / 2,
+                        width: indicatorWidth,
+                        height: indicatorHeight,
+                        child: ClipPath(
+                          clipper: ShapeBorderClipper(
+                            shape: effectiveIndicatorShape,
+                          ),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (pressProgress > 0.001)
+                                BackdropFilter(
+                                  filter: _kLiquidLensBlur,
+                                  child: ColoredBox(
+                                    color: Colors.white.withValues(
+                                      alpha: isDark ? 0.08 : 0.14,
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              DecoratedBox(
+                                decoration: ShapeDecoration(
+                                  color: effectiveIndicatorColor.withValues(
+                                    alpha:
+                                        effectiveIndicatorColor.a *
+                                        (1 - pressProgress * 0.28),
+                                  ),
+                                  shape: effectiveIndicatorShape,
+                                ),
+                              ),
+                              CustomPaint(
+                                painter: _LiquidIndicatorBorderPainter(
+                                  shape: effectiveIndicatorShape,
+                                  color: Colors.white.withValues(
+                                    alpha:
+                                        (isDark ? 0.22 : 0.42) +
+                                        pressProgress * 0.22,
+                                  ),
+                                  width: 1 + pressProgress * 0.5,
+                                ),
+                              ),
+                              Align(
+                                alignment: Alignment.topCenter,
+                                child: FractionallySizedBox(
+                                  widthFactor: 0.68,
+                                  child: ColoredBox(
+                                    color: Colors.white.withValues(
+                                      alpha: isDark ? 0.16 : 0.42,
+                                    ),
+                                    child: const SizedBox(height: 1),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        );
-                      },
-                    ),
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onHorizontalDragStart: _handleDragStart,
-                      onHorizontalDragUpdate: _handleDragUpdate,
-                      onHorizontalDragEnd: _handleDragEnd,
-                      onHorizontalDragCancel: _handleDragCancel,
-                      child: Padding(
-                        padding: const EdgeInsets.all(_kIndicatorPadding),
-                        child: MediaQuery.removePadding(
-                          context: context,
-                          removeLeft: true,
-                          removeTop: true,
-                          removeRight: true,
-                          removeBottom: true,
-                          child: NavigationBar(
-                            animationDuration: _dragIndex == null
-                                ? (widget.animationDuration >
-                                          _kLiquidSelectionDuration
-                                      ? _kLiquidSelectionDuration
-                                      : widget.animationDuration)
-                                : Duration.zero,
-                            selectedIndex: _dragIndex == null
-                                ? widget.selectedIndex
-                                : _dragIndex!
-                                      .round()
-                                      .clamp(
-                                        0,
-                                        widget.destinations.length - 1,
-                                      )
-                                      .toInt(),
-                            destinations: widget.destinations,
-                            onDestinationSelected: _handleDestinationSelected,
-                            backgroundColor: Colors.transparent,
-                            elevation: 0,
-                            shadowColor: Colors.transparent,
-                            surfaceTintColor: Colors.transparent,
-                            indicatorColor: Colors.transparent,
-                            height: _kNavigationHeight - 2 * _kIndicatorPadding,
-                            labelBehavior: widget.labelBehavior,
-                            overlayColor: effectiveOverlayColor,
-                            labelTextStyle: widget.labelTextStyle,
-                            labelPadding:
-                                widget.labelPadding ??
-                                navigationBarTheme.labelPadding ??
-                                const EdgeInsets.only(top: 2),
-                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: _handlePointerDown,
+                    onPointerMove: _handlePointerMove,
+                    onPointerUp: _handlePointerUp,
+                    onPointerCancel: _handlePointerCancel,
+                    child: Padding(
+                      padding: const EdgeInsets.all(_kIndicatorPadding),
+                      child: MediaQuery.removePadding(
+                        context: context,
+                        removeLeft: true,
+                        removeTop: true,
+                        removeRight: true,
+                        removeBottom: true,
+                        child: NavigationBar(
+                          // The glass lens owns selection motion. Keeping
+                          // NavigationBar's icon transition instantaneous
+                          // prevents a second animation from competing with
+                          // the lens during a press or drag.
+                          animationDuration: Duration.zero,
+                          selectedIndex: _dragIndex == null
+                              ? widget.selectedIndex
+                              : _dragIndex!
+                                    .round()
+                                    .clamp(
+                                      0,
+                                      widget.destinations.length - 1,
+                                    )
+                                    .toInt(),
+                          destinations: widget.destinations,
+                          onDestinationSelected: _handleDestinationSelected,
+                          backgroundColor: Colors.transparent,
+                          elevation: 0,
+                          shadowColor: Colors.transparent,
+                          surfaceTintColor: Colors.transparent,
+                          indicatorColor: Colors.transparent,
+                          height: _kNavigationHeight - 2 * _kIndicatorPadding,
+                          labelBehavior: widget.labelBehavior,
+                          overlayColor: effectiveOverlayColor,
+                          labelTextStyle: widget.labelTextStyle,
+                          labelPadding:
+                              widget.labelPadding ??
+                              navigationBarTheme.labelPadding ??
+                              const EdgeInsets.only(top: 2),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _LiquidIndicatorBorderPainter extends CustomPainter {
+  const _LiquidIndicatorBorderPainter({
+    required this.shape,
+    required this.color,
+    required this.width,
+  });
+
+  final ShapeBorder shape;
+  final Color color;
+  final double width;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = shape.getOuterPath((Offset.zero & size).deflate(width / 2));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = width,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_LiquidIndicatorBorderPainter oldDelegate) {
+    return oldDelegate.shape != shape ||
+        oldDelegate.color != color ||
+        oldDelegate.width != width;
   }
 }
 

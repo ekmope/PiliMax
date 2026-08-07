@@ -38,6 +38,7 @@ void main() {
     await tester.pumpWidget(host(onSelected: (_) {}));
 
     expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.byType(RawMagnifier), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
   });
 

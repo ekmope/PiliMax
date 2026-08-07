@@ -10,13 +10,8 @@ const double _kIndicatorWidth = 86.0;
 const double _kIndicatorPadding = 4.0;
 const Duration _kLiquidPressDuration = Duration(milliseconds: 130);
 final ui.ImageFilter _kLiquidGlassBlur = ui.ImageFilter.blur(
-  sigmaX: 20,
-  sigmaY: 20,
-  tileMode: ui.TileMode.clamp,
-);
-final ui.ImageFilter _kLiquidLensBlur = ui.ImageFilter.blur(
-  sigmaX: 9,
-  sigmaY: 9,
+  sigmaX: 12,
+  sigmaY: 12,
   tileMode: ui.TileMode.clamp,
 );
 const BorderRadius _kBorderRadius = BorderRadius.all(
@@ -587,7 +582,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         navigationBarTheme.surfaceTintColor ??
         colorScheme.surfaceTint;
     final defaultGlassColor = colorScheme.surfaceContainer.withValues(
-      alpha: isDark ? 0.38 : 0.34,
+      alpha: isDark ? 0.28 : 0.22,
     );
     final glassColor =
         widget.backgroundColor ??
@@ -596,7 +591,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           defaultGlassColor,
         );
     final borderColor = Colors.white.withValues(
-      alpha: isDark ? 0.28 : 0.46,
+      alpha: isDark ? 0.34 : 0.48,
     );
     final effectiveShadowColor =
         widget.shadowColor ??
@@ -665,7 +660,25 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                         // untouched.
                         BackdropFilter(
                           filter: _kLiquidGlassBlur,
-                          child: ColoredBox(color: glassColor),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: glassColor,
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white.withValues(
+                                    alpha: isDark ? 0.08 : 0.16,
+                                  ),
+                                  Colors.transparent,
+                                  Colors.black.withValues(
+                                    alpha: isDark ? 0.10 : 0.04,
+                                  ),
+                                ],
+                                stops: const [0.0, 0.44, 1.0],
+                              ),
+                            ),
+                          ),
                         ),
                         AnimatedBuilder(
                           animation: _pressController,
@@ -743,23 +756,43 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              if (pressProgress > 0.001)
-                                BackdropFilter(
-                                  filter: _kLiquidLensBlur,
-                                  child: ColoredBox(
-                                    color: Colors.white.withValues(
-                                      alpha: isDark ? 0.08 : 0.14,
-                                    ),
-                                  ),
+                              RawMagnifier(
+                                size: Size(indicatorWidth, indicatorHeight),
+                                magnificationScale:
+                                    1.015 + pressProgress * 0.085,
+                                decoration: MagnifierDecoration(
+                                  opacity:
+                                      (isDark ? 0.74 : 0.68) +
+                                      pressProgress * 0.14,
+                                  shape: effectiveIndicatorShape,
                                 ),
+                              ),
                               DecoratedBox(
                                 decoration: ShapeDecoration(
                                   color: effectiveIndicatorColor.withValues(
                                     alpha:
                                         effectiveIndicatorColor.a *
-                                        (1 - pressProgress * 0.28),
+                                        (0.68 - pressProgress * 0.16),
                                   ),
                                   shape: effectiveIndicatorShape,
+                                ),
+                              ),
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.white.withValues(
+                                        alpha: isDark ? 0.12 : 0.22,
+                                      ),
+                                      Colors.transparent,
+                                      Colors.black.withValues(
+                                        alpha: isDark ? 0.12 : 0.05,
+                                      ),
+                                    ],
+                                    stops: const [0.0, 0.48, 1.0],
+                                  ),
                                 ),
                               ),
                               CustomPaint(
@@ -767,8 +800,8 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                                   shape: effectiveIndicatorShape,
                                   color: Colors.white.withValues(
                                     alpha:
-                                        (isDark ? 0.22 : 0.42) +
-                                        pressProgress * 0.22,
+                                        (isDark ? 0.30 : 0.48) +
+                                        pressProgress * 0.20,
                                   ),
                                   width: 1 + pressProgress * 0.5,
                                 ),

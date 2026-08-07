@@ -84,6 +84,7 @@ void main() {
     'enableInAppPipToSystemPip': 'true',
     'slideDismissReplyPage': 'Platform.isIOS',
     'floatingNavBar': 'false',
+    'liquidGlassNavBar': 'false',
   };
   for (final entry in reviewedDefaults.entries) {
     final actual = _normalizedDefaultFor(prefSource, entry.key);

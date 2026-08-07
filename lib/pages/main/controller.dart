@@ -57,6 +57,7 @@ class MainController extends GetxController
 
   final enableMYBar = Pref.enableMYBar;
   final floatingNavBar = Pref.floatingNavBar;
+  late final liquidGlassNavBar = floatingNavBar && Pref.liquidGlassNavBar;
   final useSideBar = Pref.useSideBar;
   final mainTabBarView = Pref.mainTabBarView;
   late final optTabletNav = Pref.optTabletNav;

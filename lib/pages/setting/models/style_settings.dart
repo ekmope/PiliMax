@@ -180,6 +180,15 @@ List<SettingsModel> get styleSettings => [
     needReboot: true,
   ),
   SwitchModel(
+    title: '液态玻璃底栏',
+    subtitle: '为悬浮底栏启用实时磨砂和可拖动的液态选中效果',
+    leading: const Icon(Icons.blur_on_rounded),
+    setKey: SettingBoxKey.liquidGlassNavBar,
+    needReboot: true,
+    enabled: () => Pref.floatingNavBar,
+    enabledByKey: SettingBoxKey.floatingNavBar,
+  ),
+  SwitchModel(
     title: 'Navbar显示文字',
     subtitle: 'Navbar按钮是否显示文字标签',
     leading: const Icon(Icons.text_fields),

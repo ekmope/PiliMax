@@ -504,6 +504,7 @@ class _MainAppState extends PopScopeState<MainApp>
       if (_mainController.floatingNavBar) {
         bottomNav = Obx(
           () => FloatingNavigationBar(
+            liquidGlass: _mainController.liquidGlassNavBar,
             labelBehavior: _mainController.showNavBarLabel.value
                 ? NavigationDestinationLabelBehavior.alwaysShow
                 : NavigationDestinationLabelBehavior.alwaysHide,
@@ -775,7 +776,10 @@ class _MainAppState extends PopScopeState<MainApp>
   Widget userAndSearchVertical(ThemeData theme) {
     return Column(
       children: [
-        userAvatar(colorScheme: theme.colorScheme, mainController: _mainController),
+        userAvatar(
+          colorScheme: theme.colorScheme,
+          mainController: _mainController,
+        ),
         const SizedBox(height: 8),
         msgBadge(_mainController),
         IconButton(

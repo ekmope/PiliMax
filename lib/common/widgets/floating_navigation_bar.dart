@@ -7,6 +7,12 @@ import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
 const double _kNavigationHeight = 64.0;
 const double _kIndicatorWidth = 86.0;
 const double _kIndicatorPadding = 4.0;
+const Duration _kLiquidSelectionDuration = Duration(milliseconds: 240);
+final ui.ImageFilter _kLiquidGlassBlur = ui.ImageFilter.blur(
+  sigmaX: 20,
+  sigmaY: 20,
+  tileMode: ui.TileMode.clamp,
+);
 const BorderRadius _kBorderRadius = BorderRadius.all(
   Radius.circular(_kNavigationHeight / 2),
 );
@@ -364,10 +370,15 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
 
     final velocity = details.velocity.pixelsPerSecond.dx / _itemExtent;
     final maxIndex = widget.destinations.length - 1;
-    final targetIndex = (dragIndex + velocity * 0.08)
-        .round()
-        .clamp(0, maxIndex)
-        .toInt();
+    final nearestIndex = (dragIndex + velocity * 0.08).round().clamp(
+      0,
+      maxIndex,
+    );
+    final targetIndex = _nearestEnabledIndex(nearestIndex);
+    if (targetIndex == null) {
+      _animateTo(widget.selectedIndex.toDouble());
+      return;
+    }
     _animateTo(targetIndex.toDouble(), velocity: velocity);
     if (targetIndex != widget.selectedIndex) {
       widget.onDestinationSelected?.call(targetIndex);
@@ -376,6 +387,31 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
 
   void _handleDragCancel() {
     _animateTo(widget.selectedIndex.toDouble());
+  }
+
+  bool _destinationEnabled(int index) {
+    final destination = widget.destinations[index];
+    if (destination is FloatingNavigationDestination) {
+      return destination.enabled;
+    }
+    if (destination is NavigationDestination) {
+      return destination.enabled;
+    }
+    return true;
+  }
+
+  int? _nearestEnabledIndex(int index) {
+    final maxIndex = widget.destinations.length - 1;
+    final clampedIndex = index.clamp(0, maxIndex).toInt();
+    if (_destinationEnabled(clampedIndex)) return clampedIndex;
+
+    for (var distance = 1; distance <= maxIndex; distance++) {
+      final left = clampedIndex - distance;
+      if (left >= 0 && _destinationEnabled(left)) return left;
+      final right = clampedIndex + distance;
+      if (right <= maxIndex && _destinationEnabled(right)) return right;
+    }
+    return null;
   }
 
   @override
@@ -471,11 +507,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                     // Clip the filter to the pill so only the bar's backdrop
                     // is sampled and the rest of the page stays untouched.
                     BackdropFilter(
-                      filter: ui.ImageFilter.blur(
-                        sigmaX: 20,
-                        sigmaY: 20,
-                        tileMode: ui.TileMode.clamp,
-                      ),
+                      filter: _kLiquidGlassBlur,
                       child: ColoredBox(color: glassColor),
                     ),
                     IgnorePointer(
@@ -563,7 +595,12 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                           removeRight: true,
                           removeBottom: true,
                           child: NavigationBar(
-                            animationDuration: widget.animationDuration,
+                            animationDuration: _dragIndex == null
+                                ? (widget.animationDuration >
+                                          _kLiquidSelectionDuration
+                                      ? _kLiquidSelectionDuration
+                                      : widget.animationDuration)
+                                : Duration.zero,
                             selectedIndex: _dragIndex == null
                                 ? widget.selectedIndex
                                 : _dragIndex!

@@ -19,20 +19,15 @@ void main() {
   ];
 
   Widget host({
-    required ValueChanged<int> onSelected,
+    ValueChanged<int>? onSelected,
     int selectedIndex = 0,
   }) {
     return MaterialApp(
       theme: ThemeData(useMaterial3: true),
-      home: Scaffold(
-        body: const SizedBox.expand(),
-        bottomNavigationBar: FloatingNavigationBar(
-          liquidGlass: true,
-          selectedIndex: selectedIndex,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: destinations(),
-          onDestinationSelected: onSelected,
-        ),
+      home: _NavigationHost(
+        initialIndex: selectedIndex,
+        onSelected: onSelected,
+        destinations: destinations(),
       ),
     );
   }
@@ -51,14 +46,48 @@ void main() {
     await tester.pumpWidget(host(onSelected: (value) => selected = value));
 
     await tester.tap(find.text('Mine'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(selected, 2);
 
     await tester.drag(
       find.byType(FloatingNavigationBar),
-      const Offset(100, 0),
+      const Offset(-80, 0),
     );
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
     expect(selected, 1);
   });
+}
+
+class _NavigationHost extends StatefulWidget {
+  const _NavigationHost({
+    required this.destinations,
+    this.initialIndex = 0,
+    this.onSelected,
+  });
+
+  final List<Widget> destinations;
+  final int initialIndex;
+  final ValueChanged<int>? onSelected;
+
+  @override
+  State<_NavigationHost> createState() => _NavigationHostState();
+}
+
+class _NavigationHostState extends State<_NavigationHost> {
+  late int selectedIndex = widget.initialIndex;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: const SizedBox.expand(),
+    bottomNavigationBar: FloatingNavigationBar(
+      liquidGlass: true,
+      selectedIndex: selectedIndex,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      destinations: widget.destinations,
+      onDestinationSelected: (index) {
+        setState(() => selectedIndex = index);
+        widget.onSelected?.call(index);
+      },
+    ),
+  );
 }

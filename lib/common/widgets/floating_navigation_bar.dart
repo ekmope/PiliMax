@@ -305,6 +305,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
   bool _isVerticalGesture = false;
   double _dragDirection = 0;
   double _dragVelocity = 0;
+  double _dragOverscroll = 0;
   double _releaseVisualOffset = 0;
   double _releaseShellOffset = 0;
   double _releaseMotionIndex = 0;
@@ -318,6 +319,17 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
 
   double get _dragVelocityNorm =>
       (_dragVelocity / 4).clamp(-1.0, 1.0).toDouble();
+
+  bool get _isDraggingBeyondEdge =>
+      _gestureDirectionLocked &&
+      !_isVerticalGesture &&
+      _dragOverscroll.abs() > 0.001;
+
+  double get _activeDragVelocityNorm =>
+      _isDraggingBeyondEdge ? 0 : _dragVelocityNorm;
+
+  double get _dragEdgeOffset =>
+      _isDraggingBeyondEdge ? _resistedOverscroll(_dragOverscroll) : 0;
 
   double _visualMotionIndex(
     double indicatorIndex,
@@ -340,7 +352,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
       transitionProgress,
     );
     return _dragIndex != null
-        ? (motionIndex * 2.6 + _dragVelocityNorm * 3.2)
+        ? (motionIndex * 2.6 + _dragEdgeOffset + _activeDragVelocityNorm * 3.2)
               .clamp(-7.0, 7.0)
               .toDouble()
         : (motionIndex * 2.6 + _releaseShellOffset * _releaseProgress)
@@ -401,6 +413,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
       _fromIndex = _fromIndex.clamp(0.0, maxIndex).toDouble();
       _targetIndex = _targetIndex.clamp(0.0, maxIndex).toDouble();
       _dragIndex = _dragIndex?.clamp(0.0, maxIndex).toDouble();
+      _dragOverscroll = 0;
     }
     final selectedIndex = widget.selectedIndex.toDouble();
     if ((_targetIndex - selectedIndex).abs() > 0.001) {
@@ -420,10 +433,12 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     // spring instead of restarting separate per-destination animations.
     final dragIndex = _dragIndex;
     final currentIndex = dragIndex ?? _animatedIndex;
-    final dragVelocityNorm = _dragVelocityNorm;
+    final dragWasOverscrolling = _isDraggingBeyondEdge;
+    final dragVelocityNorm = _activeDragVelocityNorm;
     final dragMotionIndex = dragIndex == null
         ? 0.0
         : currentIndex - _dragStartIndex;
+    final dragEdgeOffset = dragIndex == null ? 0.0 : _dragEdgeOffset;
     _releaseVisualOffset = dragIndex == null
         ? 0
         : (dragMotionIndex * 2.6 + dragVelocityNorm * 4.0)
@@ -431,7 +446,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
               .toDouble();
     _releaseShellOffset = dragIndex == null
         ? 0
-        : (dragMotionIndex * 2.6 + dragVelocityNorm * 3.2)
+        : (dragMotionIndex * 2.6 + dragEdgeOffset + dragVelocityNorm * 3.2)
               .clamp(-7.0, 7.0)
               .toDouble();
     _releaseMotionIndex = dragMotionIndex;
@@ -461,6 +476,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           _dragIndex = null;
           _isPressed = false;
           _dragVelocity = 0;
+          _dragOverscroll = 0;
           _dragDirection = 0;
           _gestureDirectionLocked = false;
           _isVerticalGesture = false;
@@ -483,7 +499,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         ),
         0,
         1,
-        velocity.clamp(-3.0, 3.0).toDouble(),
+        (dragWasOverscrolling ? 0.0 : velocity).clamp(-3.0, 3.0).toDouble(),
         snapToEnd: true,
       ),
     );
@@ -514,6 +530,26 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         .toDouble();
   }
 
+  double _overscrollForX(double x) {
+    // Overscroll is measured against the shell edges, not item centers. This
+    // keeps ordinary taps on the first/last destination from shifting the bar.
+    const minX = 0.0;
+    final maxX =
+        _itemExtent * widget.destinations.length + 2 * _kIndicatorPadding;
+    if (x < minX) return x - minX;
+    if (x > maxX) return x - maxX;
+    return 0;
+  }
+
+  double _resistedOverscroll(double overscroll) {
+    if (overscroll.abs() <= 0.001) return 0;
+    const maximumOffset = 10.0;
+    const resistanceDistance = 24.0;
+    return overscroll.sign *
+        maximumOffset *
+        (1 - math.exp(-overscroll.abs() / resistanceDistance));
+  }
+
   void _handlePointerDown(PointerDownEvent event) {
     if (_activePointer != null) return;
 
@@ -529,6 +565,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     _dragStartIndex = index;
     _interactionCommitted = false;
     _dragVelocity = 0;
+    _dragOverscroll = _overscrollForX(event.localPosition.dx);
     _releaseVisualOffset = 0;
     _releaseShellOffset = 0;
     _releaseMotionIndex = 0;
@@ -564,6 +601,8 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     if (_isVerticalGesture) return;
 
     final dragIndex = _indexForX(event.localPosition.dx);
+    final overscroll = _overscrollForX(event.localPosition.dx);
+    final wasOverscrolling = _isDraggingBeyondEdge;
     final deltaX = event.localPosition.dx - _lastPointerPosition.dx;
     final dragDirection = deltaX.abs() > 0.1 ? deltaX.sign : _dragDirection;
     final elapsedMicros = (event.timeStamp - _lastPointerTime).inMicroseconds;
@@ -572,17 +611,24 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
               .clamp(-4.0, 4.0)
               .toDouble()
         : 0.0;
-    final smoothedVelocity =
-        (_dragVelocity * 0.62 + instantaneousVelocity * 0.38)
-            .clamp(-4.0, 4.0)
-            .toDouble();
+    final isOverscrolling = overscroll.abs() > 0.001;
+    final smoothedVelocity = isOverscrolling
+        ? 0.0
+        : (wasOverscrolling
+                  ? 0.0
+                  : (_dragVelocity * 0.62 + instantaneousVelocity * 0.38))
+              .clamp(-4.0, 4.0)
+              .toDouble();
     _lastPointerPosition = event.localPosition;
     _lastPointerTime = event.timeStamp;
-    if ((_dragIndex == null || (_dragIndex! - dragIndex).abs() > 0.001) &&
+    if ((_dragIndex == null ||
+            (_dragIndex! - dragIndex).abs() > 0.001 ||
+            (overscroll - _dragOverscroll).abs() > 0.02) &&
         mounted) {
       setState(() {
         _dragIndex = dragIndex;
         _dragDirection = dragDirection;
+        _dragOverscroll = overscroll;
         _dragVelocity = smoothedVelocity;
       });
     } else if (mounted &&
@@ -608,7 +654,12 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     if (event.pointer != _activePointer) return;
 
     final dragIndex = _dragIndex ?? _indexForX(event.localPosition.dx);
-    final velocity = _pointerVelocity(event);
+    final pointerOverscroll = _overscrollForX(event.localPosition.dx);
+    if ((pointerOverscroll - _dragOverscroll).abs() > 0.001) {
+      _dragOverscroll = pointerOverscroll;
+    }
+    final edgeDrag = _isDraggingBeyondEdge;
+    final velocity = edgeDrag ? 0.0 : _pointerVelocity(event);
     _activePointer = null;
     _pendingPointerUp = event.pointer;
 
@@ -767,6 +818,9 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         final dragProgress = dragIndex != null
             ? (_gestureDirectionLocked && !_isVerticalGesture ? 1.0 : 0.0)
             : _releaseDragProgress * releaseProgress;
+        final dragEdgeOffset = dragIndex != null ? _dragEdgeOffset : 0.0;
+        final edgeMotionIndex =
+            dragEdgeOffset / math.max(1.0, _itemExtent) * 0.35;
         final baseWidth =
             widget.labelBehavior ==
                 NavigationDestinationLabelBehavior.alwaysHide
@@ -786,10 +840,10 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           transitionProgress,
         );
         final opticalMotionIndex = dragIndex != null
-            ? motionIndex
+            ? motionIndex + edgeMotionIndex
             : motionIndex + _releaseMotionIndex * _releaseProgress;
         final velocityNorm = dragIndex != null
-            ? _dragVelocityNorm
+            ? _activeDragVelocityNorm
             : _releaseVelocityNorm * _releaseProgress;
         final visualOffset = dragIndex != null
             ? (motionIndex * 2.6 + velocityNorm * 4.0)
@@ -815,7 +869,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                 .clamp(-10.0, 10.0)
                 .toDouble();
         final signedDragOffset = dragIndex != null
-            ? motionIndex * _itemExtent
+            ? motionIndex * _itemExtent + dragEdgeOffset * 0.35
             : _releaseMotionIndex * _itemExtent * releaseProgress;
         final lensShape = _LiquidLensShape(
           baseShape: effectiveIndicatorShape,

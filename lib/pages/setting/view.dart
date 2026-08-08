@@ -55,7 +55,7 @@ class _SettingPageState extends State<SettingPage> {
     _SettingsModel(
       type: SettingType.dynamicsSetting,
       subtitle: '关键词过滤、屏蔽用户、带货动态屏蔽',
-      icon: Icon(Icons.dynamic_feed_outlined),
+      icon: Icon(Icons.auto_awesome_motion_outlined),
     ),
     _SettingsModel(
       type: SettingType.videoSetting,

@@ -197,6 +197,33 @@ void main() {
     expect(selected, 2);
   });
 
+  testWidgets('drag release keeps the lens and shell visually continuous', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(onSelected: (_) {}));
+
+    final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
+    final shell = find.byKey(const ValueKey('liquidGlassVisualShell'));
+    final mineCenter = tester.getCenter(find.text('Mine'));
+    final idleShellX = tester.getTopLeft(shell).dx;
+    final gesture = await tester.startGesture(mineCenter);
+    await gesture.moveBy(const Offset(-48, 0));
+    await tester.pump();
+
+    final draggedLensCenter = tester.getCenter(indicator).dx;
+    final draggedShellX = tester.getTopLeft(shell).dx;
+    expect((draggedShellX - idleShellX).abs(), greaterThan(0.1));
+
+    await gesture.up();
+    await tester.pump();
+
+    expect(
+      (tester.getCenter(indicator).dx - draggedLensCenter).abs(),
+      lessThan(1.5),
+    );
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('pressed lens can flow outside the floating bar', (tester) async {
     await tester.pumpWidget(host(onSelected: (_) {}));
 

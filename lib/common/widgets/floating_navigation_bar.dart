@@ -1273,9 +1273,11 @@ class _LiquidLensShape extends ShapeBorder {
     }
     return _buildLiquidLensPath(
       rect,
+      baseShape: baseShape,
       pressProgress: pressProgress,
       dragOffset: dragOffset,
       velocity: velocity,
+      textDirection: textDirection,
     );
   }
 
@@ -1289,9 +1291,11 @@ class _LiquidLensShape extends ShapeBorder {
     }
     return _buildLiquidLensPath(
       innerRect,
+      baseShape: baseShape,
       pressProgress: pressProgress,
       dragOffset: dragOffset,
       velocity: velocity,
+      textDirection: textDirection,
     );
   }
 
@@ -1315,84 +1319,94 @@ class _LiquidLensShape extends ShapeBorder {
 
 Path _buildLiquidLensPath(
   Rect rect, {
+  required ShapeBorder baseShape,
   required double pressProgress,
   required double dragOffset,
   required double velocity,
+  TextDirection? textDirection,
 }) {
   final bounds = rect.deflate(0.6);
   if (bounds.width <= 1 || bounds.height <= 1) {
     return Path()..addRect(rect);
   }
 
+  final basePath = baseShape.getOuterPath(
+    bounds,
+    textDirection: textDirection,
+  );
+  final metrics = basePath.computeMetrics(forceClosed: true).toList();
+  if (metrics.isEmpty) return basePath;
+  final metric = metrics.reduce(
+    (longest, current) => current.length > longest.length ? current : longest,
+  );
+  if (metric.length <= 0) return basePath;
+
   final motion =
-      (dragOffset / math.max(1.0, bounds.width * 0.42) + velocity * 0.32)
+      (dragOffset / math.max(1.0, bounds.width * 0.45) + velocity * 0.24)
           .clamp(-1.0, 1.0)
           .toDouble();
   final pressure = pressProgress.clamp(0.0, 1.0).toDouble();
-  final radius = math.min(bounds.height * 0.48, bounds.width * 0.24);
-  final sideBulge = 1.2 + pressure * 2.8 + motion.abs() * 2.8;
-  final leftBulge = motion < 0 ? sideBulge : sideBulge * 0.22;
-  final rightBulge = motion > 0 ? sideBulge : sideBulge * 0.22;
-  final topWave = -motion * (0.8 + pressure * 1.8);
-  final bottomWave = motion * (0.7 + pressure * 1.5);
-  final left = bounds.left;
-  final right = bounds.right;
-  final top = bounds.top;
-  final bottom = bounds.bottom;
-  final centerY = bounds.center.dy;
-  final height = bounds.height;
+  final center = bounds.center;
+  const sampleCount = 64;
+  final points = <Offset>[];
 
-  return Path()
-    ..moveTo(left + radius, top + topWave)
-    ..cubicTo(
-      left + radius * 0.24,
-      top - sideBulge * 0.15,
-      right - radius * 0.24,
-      top + topWave * 0.65,
-      right - radius,
-      top + topWave,
-    )
-    ..cubicTo(
-      right - radius * 0.24 + rightBulge,
-      top + height * 0.14,
-      right + rightBulge,
-      centerY - height * 0.18,
-      right + rightBulge * 0.62,
-      centerY,
-    )
-    ..cubicTo(
-      right + rightBulge,
-      centerY + height * 0.18,
-      right - radius * 0.24 + rightBulge,
-      bottom - height * 0.14,
-      right - radius,
-      bottom + bottomWave,
-    )
-    ..cubicTo(
-      right - radius * 0.24,
-      bottom + bottomWave * 0.65,
-      left + radius * 0.24,
-      bottom - bottomWave * 0.65,
-      left + radius,
-      bottom + bottomWave,
-    )
-    ..cubicTo(
-      left + radius * 0.24 - leftBulge,
-      bottom - height * 0.14,
-      left - leftBulge,
-      centerY + height * 0.18,
-      left - leftBulge * 0.62,
-      centerY,
-    )
-    ..cubicTo(
-      left - leftBulge,
-      centerY - height * 0.18,
-      left + radius * 0.24 - leftBulge,
-      top + height * 0.14,
-      left + radius,
-      top + topWave,
-    )
-    ..close();
+  for (var index = 0; index < sampleCount; index++) {
+    final distance = metric.length * index / sampleCount;
+    final tangent = metric.getTangentForOffset(distance);
+    if (tangent == null) continue;
+
+    final point = tangent.position;
+    var normal = Offset(-tangent.vector.dy, tangent.vector.dx);
+    final normalLength = normal.distance;
+    if (normalLength <= 0.0001) continue;
+    normal /= normalLength;
+    final radial = point - center;
+    if (normal.dx * radial.dx + normal.dy * radial.dy < 0) {
+      normal = -normal;
+    }
+
+    final signedExposure = normal.dx * motion;
+    final leadingWeight = _smoothStep(
+      ((signedExposure + 0.08) / 0.92).clamp(0.0, 1.0).toDouble(),
+    );
+    final trailingWeight = _smoothStep(
+      ((-signedExposure + 0.08) / 0.92).clamp(0.0, 1.0).toDouble(),
+    );
+    final dragStrength = motion.abs();
+    final pressSwell = pressure * 1.5;
+    final dragBulge =
+        dragStrength * (leadingWeight * 4.6 - trailingWeight * 1.2);
+    final displacement = (pressSwell + dragBulge).clamp(-1.6, 5.2).toDouble();
+    points.add(point + normal * displacement);
+  }
+
+  if (points.length < 4) return basePath;
+
+  final smoothPath = Path()..moveTo(points.first.dx, points.first.dy);
+  const tension = 0.82;
+  const controlScale = tension / 6.0;
+  for (var index = 0; index < points.length; index++) {
+    final previous = points[(index - 1 + points.length) % points.length];
+    final current = points[index];
+    final next = points[(index + 1) % points.length];
+    final nextNext = points[(index + 2) % points.length];
+    final firstControl = current + (next - previous) * controlScale;
+    final secondControl = next - (nextNext - current) * controlScale;
+    smoothPath.cubicTo(
+      firstControl.dx,
+      firstControl.dy,
+      secondControl.dx,
+      secondControl.dy,
+      next.dx,
+      next.dy,
+    );
+  }
+  return smoothPath..close();
+}
+
+double _smoothStep(double value) {
+  final t = value.clamp(0.0, 1.0).toDouble();
+  return t * t * (3.0 - 2.0 * t);
 }
 
 class _LiquidReflectionPainter extends CustomPainter {

@@ -6,15 +6,11 @@ import 'package:PiliMax/common/widgets/liquid_glass_quality.dart';
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
-import 'package:flutter/scheduler.dart' show SchedulerBinding;
 
 const double _kNavigationHeight = 64.0;
 const double _kIndicatorWidth = 86.0;
 const double _kIndicatorPadding = 4.0;
 const Duration _kLiquidPressDuration = Duration(milliseconds: 130);
-const Duration _kLiquidSlowFrameBudget = Duration(milliseconds: 24);
-const int _kLiquidTimingSampleLimit = 12;
-const int _kLiquidSlowFrameLimit = 3;
 final ui.ImageFilter _kLiquidReflectiveBlur = ui.ImageFilter.blur(
   sigmaX: 7,
   sigmaY: 7,
@@ -313,11 +309,9 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
   double _releaseShellOffset = 0;
   double _releaseMotionIndex = 0;
   double _releaseVelocityNorm = 0;
+  double _releaseTravel = 0;
+  double _releaseDragProgress = 0;
   late LiquidGlassQuality _resolvedQuality;
-  bool _runtimeFrosted = false;
-  int _timingSamples = 0;
-  int _slowTimingSamples = 0;
-  bool _timingsRegistered = false;
 
   double get _animatedIndex =>
       _fromIndex + (_targetIndex - _fromIndex) * _selectionController.value;
@@ -346,19 +340,18 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
       transitionProgress,
     );
     return _dragIndex != null
-        ? (motionIndex * 2.0 + _dragVelocityNorm * 2.4)
-              .clamp(-5.0, 5.0)
+        ? (motionIndex * 2.6 + _dragVelocityNorm * 3.2)
+              .clamp(-7.0, 7.0)
               .toDouble()
-        : (motionIndex * 2.0 + _releaseShellOffset * _releaseProgress)
-              .clamp(-5.0, 5.0)
+        : (motionIndex * 2.6 + _releaseShellOffset * _releaseProgress)
+              .clamp(-7.0, 7.0)
               .toDouble();
   }
 
   bool get _usesReflectiveQuality =>
       widget.liquidGlassQuality == LiquidGlassQuality.reflective ||
       (widget.liquidGlassQuality == LiquidGlassQuality.automatic &&
-          _resolvedQuality == LiquidGlassQuality.reflective &&
-          !_runtimeFrosted);
+          _resolvedQuality == LiquidGlassQuality.reflective);
 
   @override
   void initState() {
@@ -377,10 +370,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     ]);
     _resolvedQuality = _initialQuality;
     _resolveAutomaticQuality();
-    if (widget.liquidGlassQuality == LiquidGlassQuality.automatic) {
-      SchedulerBinding.instance.addTimingsCallback(_handleFrameTimings);
-      _timingsRegistered = true;
-    }
   }
 
   LiquidGlassQuality get _initialQuality =>
@@ -400,47 +389,12 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     );
   }
 
-  void _handleFrameTimings(List<ui.FrameTiming> timings) {
-    final isAnimatingLens =
-        _isPressed ||
-        _pressController.isAnimating ||
-        _selectionController.isAnimating;
-    if (!isAnimatingLens ||
-        _runtimeFrosted ||
-        _resolvedQuality != LiquidGlassQuality.reflective ||
-        widget.liquidGlassQuality != LiquidGlassQuality.automatic) {
-      return;
-    }
-    for (final timing in timings) {
-      if (_timingSamples >= _kLiquidTimingSampleLimit) break;
-      _timingSamples++;
-      if (timing.totalSpan > _kLiquidSlowFrameBudget) {
-        _slowTimingSamples++;
-      }
-    }
-    if (_timingSamples >= _kLiquidTimingSampleLimit &&
-        _slowTimingSamples >= _kLiquidSlowFrameLimit &&
-        mounted) {
-      setState(() => _runtimeFrosted = true);
-    }
-  }
-
   @override
   void didUpdateWidget(_LiquidGlassNavigationBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.liquidGlassQuality != widget.liquidGlassQuality) {
-      _runtimeFrosted = false;
       _resolvedQuality = _initialQuality;
       _resolveAutomaticQuality();
-      final shouldRegister =
-          widget.liquidGlassQuality == LiquidGlassQuality.automatic;
-      if (shouldRegister && !_timingsRegistered) {
-        SchedulerBinding.instance.addTimingsCallback(_handleFrameTimings);
-        _timingsRegistered = true;
-      } else if (!shouldRegister && _timingsRegistered) {
-        SchedulerBinding.instance.removeTimingsCallback(_handleFrameTimings);
-        _timingsRegistered = false;
-      }
     }
     if (oldWidget.destinations.length != widget.destinations.length) {
       final maxIndex = (widget.destinations.length - 1).toDouble();
@@ -456,9 +410,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
 
   @override
   void dispose() {
-    if (_timingsRegistered) {
-      SchedulerBinding.instance.removeTimingsCallback(_handleFrameTimings);
-    }
     _selectionController.dispose();
     _pressController.dispose();
     super.dispose();
@@ -475,16 +426,21 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         : currentIndex - _dragStartIndex;
     _releaseVisualOffset = dragIndex == null
         ? 0
-        : (dragMotionIndex * 2.4 + dragVelocityNorm * 3.6)
-              .clamp(-8.0, 8.0)
+        : (dragMotionIndex * 2.6 + dragVelocityNorm * 4.0)
+              .clamp(-9.0, 9.0)
               .toDouble();
     _releaseShellOffset = dragIndex == null
         ? 0
-        : (dragMotionIndex * 2.0 + dragVelocityNorm * 2.4)
-              .clamp(-5.0, 5.0)
+        : (dragMotionIndex * 2.6 + dragVelocityNorm * 3.2)
+              .clamp(-7.0, 7.0)
               .toDouble();
     _releaseMotionIndex = dragMotionIndex;
     _releaseVelocityNorm = dragIndex == null ? 0 : dragVelocityNorm;
+    _releaseTravel = dragIndex == null ? 0 : dragMotionIndex.abs();
+    _releaseDragProgress =
+        dragIndex != null && _gestureDirectionLocked && !_isVerticalGesture
+        ? 1.0
+        : 0.0;
     _selectionController.stop();
     _fromIndex = currentIndex;
     _targetIndex = index;
@@ -506,6 +462,8 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           _isPressed = false;
           _dragVelocity = 0;
           _dragDirection = 0;
+          _gestureDirectionLocked = false;
+          _isVerticalGesture = false;
         });
       }
     }
@@ -570,13 +528,13 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     _isVerticalGesture = false;
     _dragStartIndex = index;
     _interactionCommitted = false;
-    _timingSamples = 0;
-    _slowTimingSamples = 0;
     _dragVelocity = 0;
     _releaseVisualOffset = 0;
     _releaseShellOffset = 0;
     _releaseMotionIndex = 0;
     _releaseVelocityNorm = 0;
+    _releaseTravel = 0;
+    _releaseDragProgress = 0;
     setState(() {
       // The lens jumps under the finger on pointer-down, before a long-press
       // or horizontal-drag recognizer reaches its slop threshold.
@@ -799,25 +757,23 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         final pressProgress = Curves.easeOutCubic.transform(
           _pressController.value,
         );
+        final releaseProgress = _releaseProgress;
         final travel = dragIndex != null
             ? (indicatorIndex - _dragStartIndex).abs()
-            : (_targetIndex - _fromIndex).abs();
-        final stretchProgress = dragIndex != null
-            ? math.min(1.0, travel)
-            : math.sin(math.pi * _selectionController.value);
-        final dragProgress = _gestureDirectionLocked && !_isVerticalGesture
-            ? 1.0
-            : 0.0;
+            : _releaseTravel * releaseProgress;
+        final stretchAmount = dragIndex != null
+            ? math.min(22.0, travel * 14) * math.min(1.0, travel)
+            : math.min(22.0, _releaseTravel * 14) * releaseProgress;
+        final dragProgress = dragIndex != null
+            ? (_gestureDirectionLocked && !_isVerticalGesture ? 1.0 : 0.0)
+            : _releaseDragProgress * releaseProgress;
         final baseWidth =
             widget.labelBehavior ==
                 NavigationDestinationLabelBehavior.alwaysHide
             ? math.max(48.0, math.min(60.0, _itemExtent - 12))
             : math.max(56.0, math.min(78.0, _itemExtent - 4));
         final indicatorWidth =
-            baseWidth +
-            math.min(22.0, travel * 14) * stretchProgress +
-            24 * pressProgress +
-            8 * dragProgress;
+            baseWidth + stretchAmount + 24 * pressProgress + 8 * dragProgress;
         final indicatorHeight =
             _kNavigationHeight - 12 + 20 * pressProgress + 3 * dragProgress;
         final centerX =
@@ -836,11 +792,11 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
             ? _dragVelocityNorm
             : _releaseVelocityNorm * _releaseProgress;
         final visualOffset = dragIndex != null
-            ? (motionIndex * 2.4 + velocityNorm * 3.6)
-                  .clamp(-8.0, 8.0)
+            ? (motionIndex * 2.6 + velocityNorm * 4.0)
+                  .clamp(-9.0, 9.0)
                   .toDouble()
-            : (motionIndex * 2.4 + _releaseVisualOffset * _releaseProgress)
-                  .clamp(-8.0, 8.0)
+            : (motionIndex * 2.6 + _releaseVisualOffset * _releaseProgress)
+                  .clamp(-9.0, 9.0)
                   .toDouble();
         final left = centerX - indicatorWidth / 2 + visualOffset;
         final reflectionStrength =
@@ -852,12 +808,21 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
             pressProgress * 0.27 +
             opticalMotionIndex * 0.04 +
             velocityNorm * 0.09;
-        final reflectionPhase = ((rawReflectionPhase % 1.0) + 1.0) % 1.0;
+        final reflectionPhase = rawReflectionPhase;
         final refractionOffset =
             (opticalMotionIndex * 2.2 +
                     velocityNorm * (2.5 + pressProgress * 3))
-                .clamp(-8.0, 8.0)
+                .clamp(-10.0, 10.0)
                 .toDouble();
+        final signedDragOffset = dragIndex != null
+            ? motionIndex * _itemExtent
+            : _releaseMotionIndex * _itemExtent * releaseProgress;
+        final lensShape = _LiquidLensShape(
+          baseShape: effectiveIndicatorShape,
+          pressProgress: pressProgress,
+          dragOffset: signedDragOffset,
+          velocity: velocityNorm,
+        );
 
         return Positioned(
           key: const ValueKey('liquidGlassIndicator'),
@@ -867,18 +832,18 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           height: indicatorHeight,
           child: IgnorePointer(
             child: ClipPath(
-              clipper: ShapeBorderClipper(shape: effectiveIndicatorShape),
+              clipper: ShapeBorderClipper(shape: lensShape),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
                   if (reflective)
                     RawMagnifier(
                       size: Size(indicatorWidth, indicatorHeight),
-                      magnificationScale: 1.04 + pressProgress * 0.115,
+                      magnificationScale: 1.055 + pressProgress * 0.12,
                       focalPointOffset: Offset(-refractionOffset, 0),
                       decoration: MagnifierDecoration(
-                        opacity: (isDark ? 0.86 : 0.84) + pressProgress * 0.10,
-                        shape: effectiveIndicatorShape,
+                        opacity: (isDark ? 0.90 : 0.88) + pressProgress * 0.08,
+                        shape: lensShape,
                       ),
                     ),
                   DecoratedBox(
@@ -886,12 +851,12 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                       color: effectiveIndicatorColor.withValues(
                         alpha:
                             (effectiveIndicatorColor.a *
-                                        (reflective ? 0.36 : 0.48) -
-                                    pressProgress * 0.08)
+                                        (reflective ? 0.22 : 0.40) -
+                                    pressProgress * 0.05)
                                 .clamp(0.0, 1.0)
                                 .toDouble(),
                       ),
-                      shape: effectiveIndicatorShape,
+                      shape: lensShape,
                     ),
                   ),
                   DecoratedBox(
@@ -902,12 +867,12 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                         colors: [
                           Colors.white.withValues(
                             alpha: reflective
-                                ? (isDark ? 0.16 : 0.24)
-                                : (isDark ? 0.09 : 0.14),
+                                ? (isDark ? 0.10 : 0.16)
+                                : (isDark ? 0.07 : 0.11),
                           ),
                           Colors.transparent,
                           Colors.black.withValues(
-                            alpha: isDark ? 0.09 : 0.035,
+                            alpha: isDark ? 0.06 : 0.025,
                           ),
                         ],
                         stops: const [0.0, 0.48, 1.0],
@@ -916,7 +881,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                   ),
                   CustomPaint(
                     painter: _LiquidIndicatorBorderPainter(
-                      shape: effectiveIndicatorShape,
+                      shape: lensShape,
                       color: Colors.white.withValues(
                         alpha: (isDark ? 0.28 : 0.42) + pressProgress * 0.24,
                       ),
@@ -926,7 +891,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                   if (reflective)
                     CustomPaint(
                       painter: _LiquidReflectionPainter(
-                        shape: effectiveIndicatorShape,
+                        shape: lensShape,
                         phase: reflectionPhase,
                         velocity: velocityNorm,
                         pressProgress: pressProgress,
@@ -1283,6 +1248,153 @@ class _LiquidDestinationIcon extends StatelessWidget {
   }
 }
 
+class _LiquidLensShape extends ShapeBorder {
+  const _LiquidLensShape({
+    required this.baseShape,
+    required this.pressProgress,
+    required this.dragOffset,
+    required this.velocity,
+  });
+
+  final ShapeBorder baseShape;
+  final double pressProgress;
+  final double dragOffset;
+  final double velocity;
+
+  @override
+  EdgeInsetsGeometry get dimensions => baseShape.dimensions;
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
+    if (pressProgress <= 0.001 &&
+        dragOffset.abs() <= 0.001 &&
+        velocity.abs() <= 0.001) {
+      return baseShape.getOuterPath(rect, textDirection: textDirection);
+    }
+    return _buildLiquidLensPath(
+      rect,
+      pressProgress: pressProgress,
+      dragOffset: dragOffset,
+      velocity: velocity,
+    );
+  }
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) {
+    final innerRect = rect.deflate(1.0);
+    if (pressProgress <= 0.001 &&
+        dragOffset.abs() <= 0.001 &&
+        velocity.abs() <= 0.001) {
+      return baseShape.getInnerPath(innerRect, textDirection: textDirection);
+    }
+    return _buildLiquidLensPath(
+      innerRect,
+      pressProgress: pressProgress,
+      dragOffset: dragOffset,
+      velocity: velocity,
+    );
+  }
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    if (pressProgress <= 0.001 &&
+        dragOffset.abs() <= 0.001 &&
+        velocity.abs() <= 0.001) {
+      baseShape.paint(canvas, rect, textDirection: textDirection);
+    }
+  }
+
+  @override
+  ShapeBorder scale(double t) => _LiquidLensShape(
+    baseShape: baseShape.scale(t),
+    pressProgress: pressProgress * t,
+    dragOffset: dragOffset * t,
+    velocity: velocity * t,
+  );
+}
+
+Path _buildLiquidLensPath(
+  Rect rect, {
+  required double pressProgress,
+  required double dragOffset,
+  required double velocity,
+}) {
+  final bounds = rect.deflate(0.6);
+  if (bounds.width <= 1 || bounds.height <= 1) {
+    return Path()..addRect(rect);
+  }
+
+  final motion =
+      (dragOffset / math.max(1.0, bounds.width * 0.42) + velocity * 0.32)
+          .clamp(-1.0, 1.0)
+          .toDouble();
+  final pressure = pressProgress.clamp(0.0, 1.0).toDouble();
+  final radius = math.min(bounds.height * 0.48, bounds.width * 0.24);
+  final sideBulge = 1.2 + pressure * 2.8 + motion.abs() * 2.8;
+  final leftBulge = motion < 0 ? sideBulge : sideBulge * 0.22;
+  final rightBulge = motion > 0 ? sideBulge : sideBulge * 0.22;
+  final topWave = -motion * (0.8 + pressure * 1.8);
+  final bottomWave = motion * (0.7 + pressure * 1.5);
+  final left = bounds.left;
+  final right = bounds.right;
+  final top = bounds.top;
+  final bottom = bounds.bottom;
+  final centerY = bounds.center.dy;
+  final height = bounds.height;
+
+  return Path()
+    ..moveTo(left + radius, top + topWave)
+    ..cubicTo(
+      left + radius * 0.24,
+      top - sideBulge * 0.15,
+      right - radius * 0.24,
+      top + topWave * 0.65,
+      right - radius,
+      top + topWave,
+    )
+    ..cubicTo(
+      right - radius * 0.24 + rightBulge,
+      top + height * 0.14,
+      right + rightBulge,
+      centerY - height * 0.18,
+      right + rightBulge * 0.62,
+      centerY,
+    )
+    ..cubicTo(
+      right + rightBulge,
+      centerY + height * 0.18,
+      right - radius * 0.24 + rightBulge,
+      bottom - height * 0.14,
+      right - radius,
+      bottom + bottomWave,
+    )
+    ..cubicTo(
+      right - radius * 0.24,
+      bottom + bottomWave * 0.65,
+      left + radius * 0.24,
+      bottom - bottomWave * 0.65,
+      left + radius,
+      bottom + bottomWave,
+    )
+    ..cubicTo(
+      left + radius * 0.24 - leftBulge,
+      bottom - height * 0.14,
+      left - leftBulge,
+      centerY + height * 0.18,
+      left - leftBulge * 0.62,
+      centerY,
+    )
+    ..cubicTo(
+      left - leftBulge,
+      centerY - height * 0.18,
+      left + radius * 0.24 - leftBulge,
+      top + height * 0.14,
+      left + radius,
+      top + topWave,
+    )
+    ..close();
+}
+
 class _LiquidReflectionPainter extends CustomPainter {
   const _LiquidReflectionPainter({
     required this.shape,
@@ -1303,231 +1415,57 @@ class _LiquidReflectionPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final path = shape.getOuterPath(rect.deflate(0.6));
-    final energy = (progress * (0.84 + pressProgress * 0.24))
+    final path = shape.getOuterPath(rect.deflate(0.7));
+    final energy = (progress * (0.72 + pressProgress * 0.28))
         .clamp(0.0, 1.0)
         .toDouble();
-    final phaseUnit = ((phase % 1.0) + 1.0) % 1.0;
-    final phaseAngle = phaseUnit * math.pi * 2;
-    final motion = math.sin(phaseAngle) * 0.18 + velocity * 0.12;
-    final angle = (math.sin(phaseAngle + 0.8) * 0.14 + velocity * 0.42)
-        .clamp(-0.55, 0.55)
-        .toDouble();
-    final tone = isDark ? 0.78 : 1.0;
+    final phaseAngle = phase * math.pi * 2;
+    final tone = isDark ? 0.84 : 1.0;
+    final edgeColors = [
+      const Color(0xFF43E6FF).withValues(alpha: 0.34 * tone * energy),
+      const Color(0xFF6C9BFF).withValues(alpha: 0.28 * tone * energy),
+      Colors.white.withValues(alpha: 0.34 * tone * energy),
+      const Color(0xFFFFC65A).withValues(alpha: 0.30 * tone * energy),
+      const Color(0xFFFF71C8).withValues(alpha: 0.22 * tone * energy),
+      const Color(0xFF43E6FF).withValues(alpha: 0.34 * tone * energy),
+    ];
+    final rotation = GradientRotation(phaseAngle * 0.62 + velocity * 0.25);
 
     canvas
       ..save()
       ..clipPath(path);
 
-    void drawBand({
-      required double center,
-      required double width,
-      required double rotation,
-      required Gradient gradient,
-      double blur = 0,
-    }) {
-      canvas
-        ..save()
-        ..translate(size.width * center, size.height * 0.5)
-        ..rotate(rotation);
-      final paint = Paint()
-        ..shader = gradient.createShader(
-          Rect.fromCenter(
-            center: Offset.zero,
-            width: width,
-            height: size.height * 2.6,
-          ),
-        );
-      if (blur > 0) {
-        paint.maskFilter = MaskFilter.blur(BlurStyle.normal, blur);
-      }
-      canvas
-        ..drawRect(
-          Rect.fromCenter(
-            center: Offset.zero,
-            width: width,
-            height: size.height * 2.6,
-          ),
-          paint,
-        )
-        ..restore();
-    }
-
-    drawBand(
-      center: (0.28 + motion * 0.55).clamp(0.08, 0.92).toDouble(),
-      width: size.width * (0.44 + energy * 0.22),
-      rotation: angle,
-      blur: 2.2 + pressProgress * 1.4,
-      gradient: LinearGradient(
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-        colors: [
-          Colors.transparent,
-          const Color(0xFF63E8FF).withValues(alpha: 0.20 * tone * energy),
-          Colors.white.withValues(alpha: 0.42 * tone * energy),
-          const Color(0xFFFFE48A).withValues(alpha: 0.16 * tone * energy),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.30, 0.50, 0.69, 1.0],
-      ),
-    );
-    drawBand(
-      center: (0.70 - motion * 0.40).clamp(0.08, 0.92).toDouble(),
-      width: size.width * (0.16 + energy * 0.10),
-      rotation: angle * 0.68 + 0.08,
-      blur: 0.8,
-      gradient: LinearGradient(
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-        colors: [
-          Colors.transparent,
-          const Color(0xFF36DFFF).withValues(alpha: 0.30 * tone * energy),
-          Colors.white.withValues(alpha: 0.56 * tone * energy),
-          const Color(0xFFFFB85A).withValues(alpha: 0.22 * tone * energy),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.28, 0.50, 0.72, 1.0],
-      ),
-    );
-    drawBand(
-      center: (0.46 + motion * 0.30).clamp(0.12, 0.88).toDouble(),
-      width: size.width * (0.045 + energy * 0.035),
-      rotation: -angle * 0.42 - 0.12,
-      gradient: LinearGradient(
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-        colors: [
-          Colors.transparent,
-          Colors.white.withValues(alpha: 0.72 * tone * energy),
-          const Color(0xFFB7F8FF).withValues(alpha: 0.26 * tone * energy),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.48, 0.62, 1.0],
-      ),
-    );
-
-    void drawGlow({
-      required Offset center,
-      required double radius,
-      required Color color,
-    }) {
-      final glowRect = Rect.fromCircle(center: center, radius: radius);
-      canvas.drawCircle(
-        center,
-        radius,
-        Paint()
-          ..shader = RadialGradient(
-            colors: [
-              color.withValues(alpha: color.a * tone * energy),
-              color.withValues(alpha: color.a * tone * energy * 0.18),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 0.42, 1.0],
-          ).createShader(glowRect),
-      );
-    }
-
-    drawGlow(
-      center: Offset(
-        size.width * (0.46 + math.sin(phaseAngle) * 0.28),
-        size.height * (0.22 + math.cos(phaseAngle) * 0.08),
-      ),
-      radius: size.height * (0.42 + pressProgress * 0.12),
-      color: const Color(0xFF8CEBFF).withValues(alpha: 0.22),
-    );
-    drawGlow(
-      center: Offset(
-        size.width * (0.56 - math.cos(phaseAngle + 0.5) * 0.24),
-        size.height * (0.72 - math.sin(phaseAngle + 0.5) * 0.06),
-      ),
-      radius: size.height * (0.28 + pressProgress * 0.08),
-      color: const Color(0xFFFFD77A).withValues(alpha: 0.16),
-    );
-
-    void drawCaustic({
-      required double vertical,
-      required double wave,
-      required double phaseShift,
-      required double width,
-      required List<Color> colors,
-    }) {
-      final wavePhase = phaseAngle + phaseShift;
-      final caustic = Path()
-        ..moveTo(-size.width * 0.16, size.height * vertical)
-        ..cubicTo(
-          size.width * 0.16,
-          size.height * (vertical + math.sin(wavePhase) * wave),
-          size.width * 0.60,
-          size.height * (vertical - math.cos(wavePhase) * wave),
-          size.width * 1.16,
-          size.height * (vertical + math.sin(wavePhase + 1.1) * wave),
-        );
-      final causticPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeWidth = width
-        ..blendMode = BlendMode.screen
-        ..shader = LinearGradient(
-          colors: colors,
-          stops: const [0.0, 0.34, 0.56, 0.82, 1.0],
-        ).createShader(rect.inflate(size.width * 0.18))
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, width * 0.45);
-      canvas.drawPath(caustic, causticPaint);
-    }
-
-    drawCaustic(
-      vertical: 0.28 + math.sin(phaseAngle) * 0.05,
-      wave: 0.18 + pressProgress * 0.05,
-      phaseShift: 0.0,
-      width: size.height * (0.055 + pressProgress * 0.025),
-      colors: [
-        Colors.transparent,
-        const Color(0xFF50E8FF).withValues(alpha: 0.16 * tone * energy),
-        Colors.white.withValues(alpha: 0.42 * tone * energy),
-        const Color(0xFFFFD56D).withValues(alpha: 0.18 * tone * energy),
-        Colors.transparent,
-      ],
-    );
-    drawCaustic(
-      vertical: 0.72 - math.cos(phaseAngle) * 0.04,
-      wave: 0.13 + pressProgress * 0.04,
-      phaseShift: math.pi * 0.72,
-      width: size.height * (0.035 + pressProgress * 0.02),
-      colors: [
-        Colors.transparent,
-        const Color(0xFFFFC75B).withValues(alpha: 0.14 * tone * energy),
-        Colors.white.withValues(alpha: 0.34 * tone * energy),
-        const Color(0xFF4DE4FF).withValues(alpha: 0.20 * tone * energy),
-        Colors.transparent,
-      ],
-    );
+    final glowPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.6 + pressProgress * 2.2
+      ..strokeCap = StrokeCap.round
+      ..blendMode = BlendMode.screen
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2.8 + pressProgress)
+      ..shader = SweepGradient(
+        colors: edgeColors,
+        stops: const [0.0, 0.18, 0.38, 0.58, 0.78, 1.0],
+        transform: rotation,
+      ).createShader(rect.inflate(2.0));
+    canvas.drawPath(path, glowPaint);
 
     final rimPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.05 + energy * 1.15
+      ..strokeWidth = 1.0 + energy * 1.15 + pressProgress * 0.45
+      ..strokeCap = StrokeCap.round
       ..shader = SweepGradient(
-        colors: [
-          const Color(0xFF44DFFF).withValues(alpha: 0.56 * tone * energy),
-          Colors.white.withValues(alpha: 0.68 * tone * energy),
-          const Color(0xFFFFD56D).withValues(alpha: 0.48 * tone * energy),
-          const Color(0xFF72E9FF).withValues(alpha: 0.40 * tone * energy),
-          Colors.white.withValues(alpha: 0.62 * tone * energy),
-        ],
-        stops: const [0.0, 0.25, 0.52, 0.73, 1.0],
+        colors: edgeColors,
+        stops: const [0.0, 0.18, 0.38, 0.58, 0.78, 1.0],
+        transform: rotation,
       ).createShader(rect);
     canvas.drawPath(path, rimPaint);
 
-    final innerPath = shape.getOuterPath(rect.deflate(1.8));
+    final innerPath = shape.getOuterPath(rect.deflate(2.0));
+    final innerPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.65 + pressProgress * 0.45
+      ..color = Colors.white.withValues(alpha: (0.14 + energy * 0.20) * tone);
     canvas
-      ..drawPath(
-        innerPath,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.7 + pressProgress * 0.5
-          ..color = Colors.white.withValues(
-            alpha: (0.20 + energy * 0.24) * tone,
-          ),
-      )
+      ..drawPath(innerPath, innerPaint)
       ..restore();
   }
 

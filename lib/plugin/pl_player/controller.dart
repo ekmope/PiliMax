@@ -178,6 +178,18 @@ class PlPlayerController with BlockConfigMixin {
   late DataSource dataSource;
 
   Timer? _timer;
+  Timer? _liveStallTimer;
+  DateTime? _lastLiveActivityAt;
+  Duration? _lastLivePosition;
+  String? _lastLivePlaybackProbe;
+  bool _liveRecoveryInFlight = false;
+  int _liveMonitorEpoch = 0;
+  bool _livePlaybackRequested = false;
+  bool _livePausedForInterruption = false;
+  int _liveRecoveryFailureCount = 0;
+  DateTime? _nextLiveRecoveryAt;
+  Future<bool> Function()? _liveSourceRefreshCallback;
+  Object? _liveSourceRefreshOwner;
   // Cancelled by the source coordinator and by [_cancelSubForSeek].
   // ignore: cancel_subscriptions
   StreamSubscription? _subForSeek;
@@ -198,6 +210,20 @@ class PlPlayerController with BlockConfigMixin {
     return (playerStatus.isPlaying && _hasPlaybackProgress) ||
         (!isBuffering.value && _hasPlaybackProgress) ||
         (isBuffering.value && _hasUsableBuffer);
+  }
+
+  void bindLiveSourceRefresh(
+    Object owner,
+    Future<bool> Function() callback,
+  ) {
+    _liveSourceRefreshOwner = owner;
+    _liveSourceRefreshCallback = callback;
+  }
+
+  void unbindLiveSourceRefresh(Object owner) {
+    if (!identical(_liveSourceRefreshOwner, owner)) return;
+    _liveSourceRefreshOwner = null;
+    _liveSourceRefreshCallback = null;
   }
 
   bool isCurrentVideoSource({
@@ -1051,6 +1077,9 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _handleSourceInvalidated() {
+    _livePlaybackRequested = false;
+    _livePausedForInterruption = false;
+    _stopLiveStallMonitor();
     unawaited(WakelockPlus.disable());
     _sourceCoordinator.releaseSourceTimer(_timer, cancel: true);
     _timer = null;
@@ -1061,6 +1090,152 @@ class PlPlayerController with BlockConfigMixin {
     cancelLongPressTimer();
     _cancelSubForSeek();
     _dismissSourceScopedScreenshot();
+  }
+
+  void _startLiveStallMonitor(PlPlayerSourceLease<Player> lease) {
+    _stopLiveStallMonitor();
+    if (!isLive) return;
+    final epoch = _liveMonitorEpoch;
+    _lastLiveActivityAt = DateTime.now();
+    _lastLivePosition = lease.player.state.position;
+    _lastLivePlaybackProbe = _readLivePlaybackProbe(lease.player);
+    _liveStallTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(_checkLiveStall(lease, epoch)),
+    );
+  }
+
+  void _stopLiveStallMonitor() {
+    _liveMonitorEpoch++;
+    _liveStallTimer?.cancel();
+    _liveStallTimer = null;
+    _lastLiveActivityAt = null;
+    _lastLivePosition = null;
+    _lastLivePlaybackProbe = null;
+    _liveRecoveryInFlight = false;
+    _liveRecoveryFailureCount = 0;
+    _nextLiveRecoveryAt = null;
+  }
+
+  String? _readLivePlaybackProbe(Player player) {
+    try {
+      final values =
+          <String>[
+            player.getProperty('time-pos').trim(),
+            player.getProperty('audio-pts').trim(),
+          ].where((value) {
+            final lower = value.toLowerCase();
+            return value.isNotEmpty && lower != 'nan' && lower != 'none';
+          });
+      return values.isEmpty ? null : values.join('|');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _markLiveActivity(Player player, Duration position) {
+    if (!isLive || !identical(player, _videoPlayerController)) return;
+    if (_lastLivePosition == null || position != _lastLivePosition) {
+      _lastLivePosition = position;
+      _lastLiveActivityAt = DateTime.now();
+      _liveRecoveryFailureCount = 0;
+      _nextLiveRecoveryAt = null;
+    }
+  }
+
+  Future<void> _checkLiveStall(
+    PlPlayerSourceLease<Player> lease,
+    int epoch,
+  ) async {
+    if (!isLive ||
+        epoch != _liveMonitorEpoch ||
+        _liveRecoveryInFlight ||
+        _sourceCoordinator.processing ||
+        !lease.isCurrent(_videoPlayerController, requireActive: true)) {
+      return;
+    }
+
+    if (!_livePlaybackRequested ||
+        _livePausedForInterruption ||
+        (!visible && !continuePlayInBackground.value)) {
+      return;
+    }
+
+    final player = lease.player;
+    final probe = _readLivePlaybackProbe(player);
+    final position = player.state.position;
+    if ((probe != null && probe != _lastLivePlaybackProbe) ||
+        position != _lastLivePosition) {
+      _lastLivePlaybackProbe = probe;
+      _lastLivePosition = position;
+      _lastLiveActivityAt = DateTime.now();
+      _liveRecoveryFailureCount = 0;
+      _nextLiveRecoveryAt = null;
+      return;
+    }
+
+    final now = DateTime.now();
+    final nextRecovery = _nextLiveRecoveryAt;
+    if (nextRecovery != null && now.isBefore(nextRecovery)) {
+      return;
+    }
+
+    final lastActivity = _lastLiveActivityAt;
+    if (lastActivity == null ||
+        now.difference(lastActivity) < const Duration(seconds: 15)) {
+      return;
+    }
+
+    _liveRecoveryInFlight = true;
+    _lastLiveActivityAt = now;
+    isBuffering.value = true;
+    videoPlayerServiceHandler?.onStatusChange(
+      playerStatus.value,
+      true,
+      true,
+    );
+    var recovered = false;
+    try {
+      final refresh = _liveSourceRefreshCallback;
+      recovered = refresh != null
+          ? await refresh.call()
+          : await refreshPlayer(generation: lease.generation);
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('Live stall recovery failed: $error');
+        debugPrint(stackTrace.toString());
+      }
+    } finally {
+      if (epoch == _liveMonitorEpoch) {
+        if (recovered) {
+          _liveRecoveryFailureCount = 0;
+          _nextLiveRecoveryAt = null;
+          final generation = _activeSourceGeneration;
+          final currentPlayer = _videoPlayerController;
+          if (generation != null &&
+              currentPlayer != null &&
+              _sourceCoordinator.isActive(generation) &&
+              playerStatus.isPlaying &&
+              currentPlayer.state.playing) {
+            await audioSessionHandler?.setActive(true);
+          }
+        } else {
+          _liveRecoveryFailureCount = min(_liveRecoveryFailureCount + 1, 4);
+          _nextLiveRecoveryAt = DateTime.now().add(
+            Duration(seconds: min(60, 15 * _liveRecoveryFailureCount)),
+          );
+          if (lease.isCurrent(_videoPlayerController, requireActive: true)) {
+            isBuffering.value = false;
+            videoPlayerServiceHandler?.onStatusChange(
+              playerStatus.value,
+              false,
+              true,
+            );
+          }
+        }
+        _liveRecoveryInFlight = false;
+      }
+    }
   }
 
   Future<void> _pauseForSourceSwitch(
@@ -1176,7 +1351,10 @@ class PlPlayerController with BlockConfigMixin {
         player,
         configuration: VideoControllerConfiguration(
           enableHardwareAcceleration: hwdec != null,
-          androidAttachSurfaceAfterVideoParameters: false,
+          // Bind the Android SurfaceTexture only after video dimensions are
+          // known. Early binding can leave a solid-color frame during PiP
+          // resize when the texture still has its default 1x1 buffer.
+          androidAttachSurfaceAfterVideoParameters: true,
           hwdec: hwdec,
         ),
       );
@@ -1332,7 +1510,21 @@ class PlPlayerController with BlockConfigMixin {
         await ctr.open(media, play: true);
         return true;
       },
-      didOpen: _syncPlayerStateAfterOpen,
+      didOpen: (lease) {
+        _syncPlayerStateAfterOpen(lease);
+        if (!lease.isCurrent(_videoPlayerController, requireActive: true)) {
+          return;
+        }
+        isBuffering.value = false;
+        if (isLive && lease.player.state.playing) {
+          _livePlaybackRequested = true;
+          _livePausedForInterruption = false;
+          _startLiveStallMonitor(lease);
+        }
+        if (playerStatus.isPlaying && lease.player.state.playing) {
+          unawaited(audioSessionHandler?.setActive(true));
+        }
+      },
     );
   }
 
@@ -1387,6 +1579,10 @@ class PlPlayerController with BlockConfigMixin {
         if (!isCurrent()) return;
         WakelockPlus.toggle(enable: playing);
         if (playing) {
+          if (isLive) {
+            _livePlaybackRequested = true;
+            _livePausedForInterruption = false;
+          }
           if (_isAutoEnterPip) {
             if (_isCurrVideoPage || _isInInAppPip) {
               enterPip(autoEnter: true);
@@ -1395,9 +1591,26 @@ class PlPlayerController with BlockConfigMixin {
             }
           }
           playerStatus.value = .playing;
+          if (isLive) {
+            _startLiveStallMonitor(sourceLease);
+          }
         } else {
+          final pausedByLifecycle =
+              isLive && !visible && !continuePlayInBackground.value;
+          if (isLive && _livePlaybackRequested && !pausedByLifecycle) {
+            isBuffering.value = true;
+            playerStatus.value = .playing;
+            if (_liveStallTimer == null) {
+              _startLiveStallMonitor(sourceLease);
+            }
+          } else if (isLive) {
+            _livePlaybackRequested = false;
+            _stopLiveStallMonitor();
+            playerStatus.value = .paused;
+          } else {
+            playerStatus.value = .paused;
+          }
           _disableAutoEnterPip();
-          playerStatus.value = .paused;
         }
 
         videoPlayerServiceHandler?.onStatusChange(
@@ -1433,6 +1646,7 @@ class PlPlayerController with BlockConfigMixin {
       /// position
       stream.position.listen((Duration position) {
         if (!isCurrent()) return;
+        _markLiveActivity(player, position);
         final posInSeconds = position.inSeconds;
 
         if (posInSeconds != this.position.value) {
@@ -1590,7 +1804,12 @@ class PlPlayerController with BlockConfigMixin {
   }) async {
     var refreshed = false;
     try {
-      refreshed = await refreshPlayer(generation: lease.generation);
+      final refresh = isLive && !fromOpening
+          ? _liveSourceRefreshCallback
+          : null;
+      refreshed = refresh != null
+          ? await refresh.call()
+          : await refreshPlayer(generation: lease.generation);
     } finally {
       if (fromOpening && !refreshed) {
         await _failOpeningRetry(lease);
@@ -1791,6 +2010,10 @@ class PlPlayerController with BlockConfigMixin {
     if (!isCurrent()) return;
 
     controls = !hideControls || showControlsOnNextPlay;
+    if (isLive) {
+      _livePlaybackRequested = true;
+      _livePausedForInterruption = false;
+    }
     audioSessionHandler?.setActive(true);
 
     playerStatus.value = PlayerStatus.playing;
@@ -1811,7 +2034,15 @@ class PlPlayerController with BlockConfigMixin {
 
     // 主动暂停时让出音频焦点
     if (!isInterrupt) {
+      if (isLive) {
+        _livePlaybackRequested = false;
+        _livePausedForInterruption = false;
+        _stopLiveStallMonitor();
+      }
+      audioSessionHandler?.cancelInterruptedPlayback();
       audioSessionHandler?.setActive(false);
+    } else if (isLive) {
+      _livePausedForInterruption = true;
     }
   }
 
@@ -2394,7 +2625,10 @@ class PlPlayerController with BlockConfigMixin {
     }
 
     _playerCount = 0;
+    _livePlaybackRequested = false;
+    _livePausedForInterruption = false;
     _sourceCoordinator.dispose();
+    _stopLiveStallMonitor();
     if (removeSafeArea) {
       showSystemBar();
     }
@@ -2455,6 +2689,8 @@ class PlPlayerController with BlockConfigMixin {
       );
     }
     _activeVideoContextKey = null;
+    _liveSourceRefreshOwner = null;
+    _liveSourceRefreshCallback = null;
     _instance = null;
     videoPlayerServiceHandler?.clear();
   }
@@ -2480,7 +2716,7 @@ class PlPlayerController with BlockConfigMixin {
       unawaited(audioSessionHandler?.setActive(playerStatus.isPlaying));
     } else {
       videoPlayerServiceHandler?.forceClear();
-      unawaited(audioSessionHandler?.setActive(false));
+      unawaited(audioSessionHandler?.setActive(playerStatus.isPlaying));
     }
   }
 

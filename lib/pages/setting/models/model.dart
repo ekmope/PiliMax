@@ -58,9 +58,12 @@ class SplitModel extends SettingsModel {
     subtitle: effectiveSubtitle,
     setKey: switchModel.setKey,
     onChanged: switchModel.onChanged,
+    onChangeRequested: switchModel.onChangeRequested,
     needReboot: switchModel.needReboot,
     leading: normalModel.leading,
     onTap: switchModel.onTap,
+    enabled: switchModel.enabled,
+    enabledByKey: switchModel.enabledByKey,
     contentPadding: contentPadding,
     titleStyle: titleStyle,
     isSplit: true,
@@ -164,6 +167,8 @@ class SwitchModel extends SettingsModel {
   final SwitchChangeGuard? onChangeRequested;
   final bool needReboot;
   final void Function(BuildContext context)? onTap;
+  final bool Function()? enabled;
+  final String? enabledByKey;
 
   const SwitchModel({
     super.subtitle,
@@ -176,6 +181,8 @@ class SwitchModel extends SettingsModel {
     this.onChangeRequested,
     this.needReboot = false,
     this.onTap,
+    this.enabled,
+    this.enabledByKey,
   });
 
   const SwitchModel.split({
@@ -184,6 +191,8 @@ class SwitchModel extends SettingsModel {
     this.onChanged,
     this.onChangeRequested,
     this.onTap,
+    this.enabled,
+    this.enabledByKey,
   }) : title = null;
 
   @override
@@ -201,6 +210,8 @@ class SwitchModel extends SettingsModel {
     needReboot: needReboot,
     leading: leading,
     onTap: onTap,
+    enabled: enabled,
+    enabledByKey: enabledByKey,
     contentPadding: contentPadding,
     titleStyle: titleStyle,
   );

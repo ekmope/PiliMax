@@ -57,6 +57,7 @@ class MainController extends GetxController
 
   final enableMYBar = Pref.enableMYBar;
   final floatingNavBar = Pref.floatingNavBar;
+  late final liquidGlassNavBar = floatingNavBar && Pref.liquidGlassNavBar;
   final useSideBar = Pref.useSideBar;
   final mainTabBarView = Pref.mainTabBarView;
   late final optTabletNav = Pref.optTabletNav;
@@ -214,6 +215,14 @@ class MainController extends GetxController
     setDynCount();
   }
 
+  /// Marks the dynamics destination as viewed without starting a refresh.
+  /// Updating the check timestamp prevents a lifecycle callback from
+  /// immediately restoring a server-side count that was read before entry.
+  void markDynamicsViewed() {
+    _lastCheckDynamicAt = DateTime.now().millisecondsSinceEpoch;
+    clearDynCount();
+  }
+
   void checkUnreadDynamic() {
     if (!hasDyn ||
         !accountService.isLogin.value ||
@@ -340,6 +349,9 @@ class MainController extends GetxController
     if (index == -1) {
       return false;
     }
+    if (navigationBars[index] == NavigationBarType.dynamics) {
+      markDynamicsViewed();
+    }
     if (selectedIndex.value != index) {
       selectedIndex.value = index;
     }
@@ -351,6 +363,9 @@ class MainController extends GetxController
     feedBack();
 
     final currentNav = navigationBars[value];
+    if (currentNav == NavigationBarType.dynamics) {
+      markDynamicsViewed();
+    }
     if (value != selectedIndex.value) {
       selectedIndex.value = value;
       if (mainTabBarView) {

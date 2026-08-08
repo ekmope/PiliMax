@@ -270,6 +270,7 @@ class _LivePipWidgetState extends State<LivePipWidget>
   Timer? _hideTimer;
   bool _isClosing = false;
   bool _isRefreshing = false;
+  late final GlobalKey _videoContentKey = GlobalKey();
 
   @override
   void initState() {
@@ -514,6 +515,7 @@ class _LivePipWidgetState extends State<LivePipWidget>
             color: Colors.black,
             child: AbsorbPointer(
               child: PipMiniVideoContent(
+                key: _videoContentKey,
                 plPlayerController: widget.plPlayerController,
                 transition: _transition,
               ),
@@ -640,6 +642,7 @@ class _LivePipWidgetState extends State<LivePipWidget>
                               Positioned.fill(
                                 child: AbsorbPointer(
                                   child: PipMiniVideoContent(
+                                    key: _videoContentKey,
                                     plPlayerController:
                                         widget.plPlayerController,
                                     transition: _transition,

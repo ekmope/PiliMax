@@ -192,6 +192,11 @@ class LiveRoomController extends GetxController {
       roomId = args as int;
     }
 
+    plPlayerController.bindLiveSourceRefresh(
+      this,
+      () => queryLiveUrl(silent: true),
+    );
+
     scrollController = ScrollController()..addListener(listener);
     final account = Accounts.main;
     isLogin = account.isLogin;
@@ -304,7 +309,10 @@ class LiveRoomController extends GetxController {
     );
   }
 
-  Future<bool> queryLiveUrl({bool autoFullScreenFlag = false}) async {
+  Future<bool> queryLiveUrl({
+    bool autoFullScreenFlag = false,
+    bool silent = false,
+  }) async {
     currentQn ??= await ConnectivityUtils.isWiFi
         ? Pref.liveQuality
         : Pref.liveQualityCellular;
@@ -315,11 +323,13 @@ class LiveRoomController extends GetxController {
     );
     if (res case Success(:final response)) {
       if (response.liveStatus != 1) {
+        if (silent) return false;
         _showDialog('当前直播间未开播');
         return false;
       }
       final playurl = response.playurlInfo?.playurl;
       if (playurl == null) {
+        if (silent) return false;
         _showDialog('无法获取播放地址');
         return false;
       }
@@ -348,6 +358,7 @@ class LiveRoomController extends GetxController {
       isLoaded.value = true;
       return true;
     } else {
+      if (silent) return false;
       _showDialog(res.toString());
       return false;
     }
@@ -696,6 +707,7 @@ class LiveRoomController extends GetxController {
     cancelLiveTimer();
     // 濡傛灉鍦ㄥ皬绐楁ā寮忥紝涓嶆竻鐞嗚祫婧?
     if (!isInPipMode.value) {
+      plPlayerController.unbindLiveSourceRefresh(this);
       unawaited(audioSessionHandler?.setForceMixWithOthers(false));
       savedDanmaku?.clear();
       savedDanmaku = null;

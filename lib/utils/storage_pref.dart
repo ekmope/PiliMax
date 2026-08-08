@@ -140,6 +140,7 @@ abstract final class Pref {
         SettingBoxKey.expandIntroPanelH: () => expandIntroPanelH,
         SettingBoxKey.feedBackEnable: () => feedBackEnable,
         SettingBoxKey.floatingNavBar: () => floatingNavBar,
+        SettingBoxKey.liquidGlassNavBar: () => liquidGlassNavBar,
         SettingBoxKey.fullScreenGestureReverse: () => fullScreenGestureReverse,
         SettingBoxKey.hideBottomBar: () => hideBottomBar,
         SettingBoxKey.hideTopBar: () => hideTopBar,
@@ -1669,6 +1670,9 @@ abstract final class Pref {
 
   static bool get floatingNavBar =>
       _setting.get(SettingBoxKey.floatingNavBar, defaultValue: false);
+
+  static bool get liquidGlassNavBar =>
+      _setting.get(SettingBoxKey.liquidGlassNavBar, defaultValue: false);
 
   static bool get removeSafeArea =>
       _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);

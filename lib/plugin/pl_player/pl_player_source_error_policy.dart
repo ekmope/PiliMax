@@ -104,6 +104,11 @@ abstract final class PlPlayerSourceErrorPolicy {
           ? PlPlayerSourceErrorAction.retryLive
           : PlPlayerSourceErrorAction.retryVod;
     }
+    if (phase == PlPlayerSourceErrorPhase.active &&
+        context.isLive &&
+        isTransientNetworkError(event)) {
+      return PlPlayerSourceErrorAction.retryLive;
+    }
     if (phase == PlPlayerSourceErrorPhase.active && silenceRecoverable) {
       return PlPlayerSourceErrorAction.ignore;
     }

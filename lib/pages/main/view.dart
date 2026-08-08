@@ -514,8 +514,9 @@ class _MainAppState extends PopScopeState<MainApp>
                 .map(
                   (e) => FloatingNavigationDestination(
                     label: e.label,
-                    icon: _buildIcon(type: e),
-                    selectedIcon: _buildIcon(type: e, selected: true),
+                    icon: e.icon,
+                    selectedIcon: e.selectIcon,
+                    iconWrapper: e == .dynamics ? _buildDynamicBadge : null,
                   ),
                 )
                 .toList(),
@@ -758,20 +759,21 @@ class _MainAppState extends PopScopeState<MainApp>
 
   Widget _buildIcon({required NavigationBarType type, bool selected = false}) {
     final icon = selected ? type.selectIcon : type.icon;
-    return type == .dynamics
-        ? Obx(() {
-            final dynCount = _mainController.dynCount.value;
-            return Badge(
-              isLabelVisible: dynCount > 0,
-              label: _mainController.dynamicBadgeMode == .number
-                  ? Text(dynCount.toString())
-                  : null,
-              padding: const .symmetric(horizontal: 6),
-              child: icon,
-            );
-          })
-        : icon;
+    return type == .dynamics ? _buildDynamicBadge(icon) : icon;
   }
+
+  Widget _buildDynamicBadge(Widget icon) => Obx(() {
+    final dynCount = _mainController.dynCount.value;
+    return Badge(
+      isLabelVisible:
+          _mainController.dynamicBadgeMode != .hidden && dynCount > 0,
+      label: _mainController.dynamicBadgeMode == .number
+          ? Text(dynCount.toString())
+          : null,
+      padding: const .symmetric(horizontal: 6),
+      child: icon,
+    );
+  });
 
   Widget userAndSearchVertical(ThemeData theme) {
     return Column(

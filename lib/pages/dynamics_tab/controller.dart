@@ -45,7 +45,7 @@ class DynamicsTabController
   Future<void> _performRefresh() async {
     try {
       if (dynamicsType == .all) {
-        mainController.clearDynCount();
+        mainController.markDynamicsViewed();
       }
       offset = '';
       await super.onRefresh();

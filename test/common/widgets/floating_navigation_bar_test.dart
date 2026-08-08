@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/widgets/floating_navigation_bar.dart';
+import 'package:PiliMax/common/widgets/liquid_glass_quality.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -21,6 +22,7 @@ void main() {
   Widget host({
     ValueChanged<int>? onSelected,
     int selectedIndex = 0,
+    LiquidGlassQuality liquidGlassQuality = LiquidGlassQuality.reflective,
   }) {
     return MaterialApp(
       theme: ThemeData(useMaterial3: true),
@@ -28,6 +30,7 @@ void main() {
         initialIndex: selectedIndex,
         onSelected: onSelected,
         destinations: destinations(),
+        liquidGlassQuality: liquidGlassQuality,
       ),
     );
   }
@@ -62,9 +65,12 @@ void main() {
     final gesture = await tester.startGesture(mineCenter);
     await gesture.moveBy(const Offset(-80, 0));
     await tester.pump();
+
+    final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
+    expect(tester.getCenter(indicator).dx, lessThan(mineCenter.dx));
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      1,
+      2,
     );
     await gesture.up();
     await tester.pumpAndSettle();
@@ -182,13 +188,96 @@ void main() {
     expect(selected, -1);
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      2,
+      0,
     );
     expect(tester.getSize(indicator).width, greaterThan(idleWidth));
 
     await gesture.up();
     await tester.pumpAndSettle();
     expect(selected, 2);
+  });
+
+  testWidgets('pressed lens can flow outside the floating bar', (tester) async {
+    await tester.pumpWidget(host(onSelected: (_) {}));
+
+    final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
+    final navigationBar = find.byKey(
+      const ValueKey('liquidGlassNavigationBar'),
+    );
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Home')),
+    );
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(
+      tester.getTopLeft(indicator).dx,
+      lessThan(tester.getTopLeft(navigationBar).dx),
+    );
+
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('frosted quality skips the reflective magnifier', (tester) async {
+    await tester.pumpWidget(
+      host(
+        onSelected: (_) {},
+        liquidGlassQuality: LiquidGlassQuality.frosted,
+      ),
+    );
+
+    expect(find.byType(RawMagnifier), findsNothing);
+  });
+
+  testWidgets('icon wrappers stay outside the gradient mask', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: Scaffold(
+          body: const SizedBox.expand(),
+          bottomNavigationBar: FloatingNavigationBar(
+            liquidGlass: true,
+            liquidGlassQuality: LiquidGlassQuality.reflective,
+            destinations: [
+              const FloatingNavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                label: 'Home',
+              ),
+              FloatingNavigationDestination(
+                icon: const Icon(Icons.bolt_outlined),
+                label: 'Dynamic',
+                iconWrapper: (icon) => Badge(
+                  label: const Text('1'),
+                  child: icon,
+                ),
+              ),
+              const FloatingNavigationDestination(
+                icon: Icon(Icons.person_outline),
+                label: 'Mine',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(Badge), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ShaderMask),
+        matching: find.byType(Badge),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(Badge),
+        matching: find.byType(ShaderMask),
+      ),
+      findsOneWidget,
+    );
   });
 }
 
@@ -197,11 +286,13 @@ class _NavigationHost extends StatefulWidget {
     required this.destinations,
     this.initialIndex = 0,
     this.onSelected,
+    this.liquidGlassQuality = LiquidGlassQuality.reflective,
   });
 
   final List<Widget> destinations;
   final int initialIndex;
   final ValueChanged<int>? onSelected;
+  final LiquidGlassQuality liquidGlassQuality;
 
   @override
   State<_NavigationHost> createState() => _NavigationHostState();
@@ -215,6 +306,7 @@ class _NavigationHostState extends State<_NavigationHost> {
     body: const SizedBox.expand(),
     bottomNavigationBar: FloatingNavigationBar(
       liquidGlass: true,
+      liquidGlassQuality: widget.liquidGlassQuality,
       selectedIndex: selectedIndex,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       destinations: widget.destinations,

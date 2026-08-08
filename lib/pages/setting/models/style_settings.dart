@@ -181,7 +181,7 @@ List<SettingsModel> get styleSettings => [
   ),
   SwitchModel(
     title: '液态玻璃底栏',
-    subtitle: '为悬浮底栏启用实时磨砂和可拖动的液态选中效果',
+    subtitle: '为悬浮底栏启用实时液态效果',
     leading: const Icon(Icons.blur_on_rounded),
     setKey: SettingBoxKey.liquidGlassNavBar,
     needReboot: true,

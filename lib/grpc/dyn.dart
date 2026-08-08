@@ -1,11 +1,13 @@
 import 'package:PiliMax/grpc/bilibili/app/dynamic/v1.pb.dart'
-    show DynRedReq, TabOffset, DynRedReply;
+    show DynRedReq, DynRedReq_DynRedReqScene, TabOffset, DynRedReply;
 import 'package:PiliMax/grpc/bilibili/app/dynamic/v2.pb.dart'
     show OpusType, OpusDetailReq, OpusDetailResp;
 import 'package:PiliMax/grpc/grpc_req.dart';
 import 'package:PiliMax/grpc/url.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:fixnum/fixnum.dart';
+
+enum DynRedScene { initial, returnToTab1, periodicallyAwake, switchAccount }
 
 abstract final class DynGrpc {
   // static Future dynSpace({
@@ -24,10 +26,22 @@ abstract final class DynGrpc {
   //   );
   // }
 
-  static Future<int?> dynRed() async {
+  static Future<int?> dynRed({DynRedScene scene = DynRedScene.initial}) async {
+    final requestScene = switch (scene) {
+      DynRedScene.initial => DynRedReq_DynRedReqScene.RED_REQ_NONE,
+      DynRedScene.returnToTab1 =>
+        DynRedReq_DynRedReqScene.RED_REQ_RETURN_TO_TAB_1,
+      DynRedScene.periodicallyAwake =>
+        DynRedReq_DynRedReqScene.RED_REQ_PERIODICALLY_AWAKE,
+      DynRedScene.switchAccount =>
+        DynRedReq_DynRedReqScene.RED_REQ_SWITCH_ACCOUNT,
+    };
     final res = await GrpcReq.request(
       GrpcUrl.dynRed,
-      DynRedReq(tabOffset: [TabOffset(tab: 1)]),
+      DynRedReq(
+        tabOffset: [TabOffset(tab: 1)],
+        reqScene: requestScene,
+      ),
       DynRedReply.fromBuffer,
     );
     return res.dataOrNull?.dynRedItem.count.toInt();

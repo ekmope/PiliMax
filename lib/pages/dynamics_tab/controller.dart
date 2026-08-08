@@ -44,11 +44,11 @@ class DynamicsTabController
 
   Future<void> _performRefresh() async {
     try {
-      if (dynamicsType == .all) {
-        mainController.markDynamicsViewed();
-      }
       offset = '';
       await super.onRefresh();
+      if (dynamicsType == .all) {
+        await mainController.syncDynamicsViewed();
+      }
     } finally {
       await _drainPendingRefresh();
     }

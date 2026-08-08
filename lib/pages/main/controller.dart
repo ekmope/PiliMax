@@ -108,7 +108,11 @@ class MainController extends GetxController
         if (checkDynamic) {
           _lastCheckDynamicAt = DateTime.now().millisecondsSinceEpoch;
         }
-        getUnreadDynamic();
+        final initialDynScene =
+            navigationBars[selectedIndex.value] == NavigationBarType.dynamics
+            ? DynRedScene.returnToTab1
+            : DynRedScene.initial;
+        unawaited(getUnreadDynamic(scene: initialDynScene));
       }
     }
 
@@ -193,16 +197,26 @@ class MainController extends GetxController
     }
   }
 
-  void getUnreadDynamic() {
+  Future<bool> getUnreadDynamic({
+    DynRedScene scene = DynRedScene.initial,
+  }) async {
     if (!accountService.isLogin.value || !hasDyn) {
-      return;
+      return false;
     }
-    final requestEpoch = _dynCountEpoch;
-    DynGrpc.dynRed().then((res) {
-      if (res != null && requestEpoch == _dynCountEpoch) {
+    final requestEpoch = ++_dynCountEpoch;
+    try {
+      final res = await DynGrpc.dynRed(scene: scene);
+      if (res != null &&
+          requestEpoch == _dynCountEpoch &&
+          accountService.isLogin.value) {
         setDynCount(res);
+        return true;
       }
-    });
+    } catch (_) {
+      // Keep the last server-confirmed count while offline or on transport
+      // failure; a failed check must not manufacture a local read state.
+    }
+    return false;
   }
 
   void setDynCount([int count = 0]) {
@@ -210,17 +224,17 @@ class MainController extends GetxController
     dynCount.value = count;
   }
 
-  void clearDynCount() {
+  void resetDynCountForSignedOut() {
     _dynCountEpoch++;
     setDynCount();
   }
 
-  /// Marks the dynamics destination as viewed without starting a refresh.
-  /// Updating the check timestamp prevents a lifecycle callback from
-  /// immediately restoring a server-side count that was read before entry.
-  void markDynamicsViewed() {
-    _lastCheckDynamicAt = DateTime.now().millisecondsSinceEpoch;
-    clearDynCount();
+  /// Reports entry into Dynamics to the server and applies its returned count.
+  /// The local badge is never cleared independently of that response.
+  Future<void> syncDynamicsViewed() async {
+    if (await getUnreadDynamic(scene: DynRedScene.returnToTab1)) {
+      _lastCheckDynamicAt = DateTime.now().millisecondsSinceEpoch;
+    }
   }
 
   void checkUnreadDynamic() {
@@ -233,7 +247,9 @@ class MainController extends GetxController
     int now = DateTime.now().millisecondsSinceEpoch;
     if (now - _lastCheckDynamicAt >= dynamicPeriod) {
       _lastCheckDynamicAt = now;
-      getUnreadDynamic();
+      unawaited(
+        getUnreadDynamic(scene: DynRedScene.periodicallyAwake),
+      );
     }
   }
 
@@ -350,7 +366,7 @@ class MainController extends GetxController
       return false;
     }
     if (navigationBars[index] == NavigationBarType.dynamics) {
-      markDynamicsViewed();
+      unawaited(syncDynamicsViewed());
     }
     if (selectedIndex.value != index) {
       selectedIndex.value = index;
@@ -363,8 +379,9 @@ class MainController extends GetxController
     feedBack();
 
     final currentNav = navigationBars[value];
-    if (currentNav == NavigationBarType.dynamics) {
-      markDynamicsViewed();
+    if (currentNav == NavigationBarType.dynamics &&
+        value != selectedIndex.value) {
+      unawaited(syncDynamicsViewed());
     }
     if (value != selectedIndex.value) {
       selectedIndex.value = value;
@@ -450,9 +467,9 @@ class MainController extends GetxController
   @override
   void onChangeAccount(bool isLogin) {
     if (isLogin) {
-      getUnreadDynamic();
+      unawaited(getUnreadDynamic(scene: DynRedScene.switchAccount));
     } else {
-      clearDynCount();
+      resetDynCountForSignedOut();
     }
   }
 }

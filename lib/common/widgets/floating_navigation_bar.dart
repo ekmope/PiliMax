@@ -10,6 +10,11 @@ import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
 const double _kNavigationHeight = 64.0;
 const double _kIndicatorWidth = 86.0;
 const double _kIndicatorPadding = 4.0;
+const double _kDragShellMotionFactor = 0.9;
+const double _kDragShellVelocityFactor = 0.8;
+const double _kDragShellMaxOffset = 3.0;
+const double _kDragOpticalMotionFactor = 0.9;
+const double _kDragOpticalVelocityFactor = 1.2;
 const Duration _kLiquidPressDuration = Duration(milliseconds: 130);
 final ui.ImageFilter _kLiquidReflectiveBlur = ui.ImageFilter.blur(
   sigmaX: 7,
@@ -317,8 +322,10 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
   double get _animatedIndex =>
       _fromIndex + (_targetIndex - _fromIndex) * _selectionController.value;
 
-  double get _dragVelocityNorm =>
-      (_dragVelocity / 4).clamp(-1.0, 1.0).toDouble();
+  double get _dragVelocityNorm {
+    final normalized = (_dragVelocity / 8).clamp(-0.45, 0.45).toDouble();
+    return normalized.abs() < 0.06 ? 0 : normalized;
+  }
 
   bool get _isDraggingBeyondEdge =>
       _gestureDirectionLocked &&
@@ -352,10 +359,16 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
       transitionProgress,
     );
     return _dragIndex != null
-        ? (motionIndex * 2.6 + _dragEdgeOffset + _activeDragVelocityNorm * 3.2)
-              .clamp(-7.0, 7.0)
+        ? (motionIndex * _kDragShellMotionFactor +
+                  _dragEdgeOffset +
+                  _activeDragVelocityNorm * _kDragShellVelocityFactor)
+              .clamp(
+                _isDraggingBeyondEdge ? -7.0 : -_kDragShellMaxOffset,
+                _isDraggingBeyondEdge ? 7.0 : _kDragShellMaxOffset,
+              )
               .toDouble()
-        : (motionIndex * 2.6 + _releaseShellOffset * _releaseProgress)
+        : (motionIndex * _kDragShellMotionFactor +
+                  _releaseShellOffset * _releaseProgress)
               .clamp(-7.0, 7.0)
               .toDouble();
   }
@@ -441,12 +454,15 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     final dragEdgeOffset = dragIndex == null ? 0.0 : _dragEdgeOffset;
     _releaseVisualOffset = dragIndex == null
         ? 0
-        : (dragMotionIndex * 2.6 + dragVelocityNorm * 4.0)
-              .clamp(-9.0, 9.0)
+        : (dragMotionIndex * _kDragOpticalMotionFactor +
+                  dragVelocityNorm * _kDragOpticalVelocityFactor)
+              .clamp(-4.0, 4.0)
               .toDouble();
     _releaseShellOffset = dragIndex == null
         ? 0
-        : (dragMotionIndex * 2.6 + dragEdgeOffset + dragVelocityNorm * 3.2)
+        : (dragMotionIndex * _kDragShellMotionFactor +
+                  dragEdgeOffset +
+                  dragVelocityNorm * _kDragShellVelocityFactor)
               .clamp(-7.0, 7.0)
               .toDouble();
     _releaseMotionIndex = dragMotionIndex;
@@ -608,7 +624,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     final elapsedMicros = (event.timeStamp - _lastPointerTime).inMicroseconds;
     final instantaneousVelocity = elapsedMicros > 0
         ? (deltaX / elapsedMicros * 1000000 / _itemExtent)
-              .clamp(-4.0, 4.0)
+              .clamp(-3.0, 3.0)
               .toDouble()
         : 0.0;
     final isOverscrolling = overscroll.abs() > 0.001;
@@ -616,8 +632,8 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         ? 0.0
         : (wasOverscrolling
                   ? 0.0
-                  : (_dragVelocity * 0.62 + instantaneousVelocity * 0.38))
-              .clamp(-4.0, 4.0)
+                  : (_dragVelocity * 0.82 + instantaneousVelocity * 0.18))
+              .clamp(-3.0, 3.0)
               .toDouble();
     _lastPointerPosition = event.localPosition;
     _lastPointerTime = event.timeStamp;
@@ -818,9 +834,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         final dragProgress = dragIndex != null
             ? (_gestureDirectionLocked && !_isVerticalGesture ? 1.0 : 0.0)
             : _releaseDragProgress * releaseProgress;
-        final dragEdgeOffset = dragIndex != null ? _dragEdgeOffset : 0.0;
-        final edgeMotionIndex =
-            dragEdgeOffset / math.max(1.0, _itemExtent) * 0.35;
         final baseWidth =
             widget.labelBehavior ==
                 NavigationDestinationLabelBehavior.alwaysHide
@@ -840,17 +853,19 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           transitionProgress,
         );
         final opticalMotionIndex = dragIndex != null
-            ? motionIndex + edgeMotionIndex
+            ? motionIndex
             : motionIndex + _releaseMotionIndex * _releaseProgress;
         final velocityNorm = dragIndex != null
             ? _activeDragVelocityNorm
             : _releaseVelocityNorm * _releaseProgress;
         final visualOffset = dragIndex != null
-            ? (motionIndex * 2.6 + velocityNorm * 4.0)
-                  .clamp(-9.0, 9.0)
+            ? (motionIndex * _kDragOpticalMotionFactor +
+                      velocityNorm * _kDragOpticalVelocityFactor)
+                  .clamp(-4.0, 4.0)
                   .toDouble()
-            : (motionIndex * 2.6 + _releaseVisualOffset * _releaseProgress)
-                  .clamp(-9.0, 9.0)
+            : (motionIndex * _kDragOpticalMotionFactor +
+                      _releaseVisualOffset * _releaseProgress)
+                  .clamp(-4.0, 4.0)
                   .toDouble();
         final left = centerX - indicatorWidth / 2 + visualOffset;
         final reflectionStrength =
@@ -861,15 +876,15 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
             indicatorIndex * 0.43 +
             pressProgress * 0.27 +
             opticalMotionIndex * 0.04 +
-            velocityNorm * 0.09;
+            velocityNorm * 0.03;
         final reflectionPhase = rawReflectionPhase;
         final refractionOffset =
             (opticalMotionIndex * 2.2 +
-                    velocityNorm * (2.5 + pressProgress * 3))
+                    velocityNorm * (0.8 + pressProgress * 1.2))
                 .clamp(-10.0, 10.0)
                 .toDouble();
         final signedDragOffset = dragIndex != null
-            ? motionIndex * _itemExtent + dragEdgeOffset * 0.35
+            ? motionIndex * _itemExtent
             : _releaseMotionIndex * _itemExtent * releaseProgress;
         final lensShape = _LiquidLensShape(
           baseShape: effectiveIndicatorShape,
@@ -1296,8 +1311,17 @@ class _LiquidDestinationIcon extends StatelessWidget {
         ],
       ),
     );
+    final iconBoxSize = math.max(
+      inactiveTheme.size ?? 24.0,
+      activeTheme.size ?? 24.0,
+    );
     return ExcludeSemantics(
-      child: iconWrapper?.call(transitionIcon) ?? transitionIcon,
+      child: SizedBox.square(
+        dimension: iconBoxSize,
+        child: Center(
+          child: iconWrapper?.call(transitionIcon) ?? transitionIcon,
+        ),
+      ),
     );
   }
 }

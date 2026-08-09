@@ -1,5 +1,6 @@
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
+import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
@@ -17,6 +18,8 @@ import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:get/get.dart';
+
+enum _FollowMenuAction { blackList }
 
 class FollowPage extends StatefulWidget {
   const FollowPage({super.key});
@@ -95,12 +98,13 @@ class _FollowPageState extends State<FollowPage> {
               icon: const Icon(Icons.search_outlined),
               tooltip: '搜索',
             ),
-            PopupMenuButton(
+            StaticPopupMenuButton<_FollowMenuAction>(
               icon: const Icon(Icons.more_vert),
+              onSelected: (_) => Get.toNamed('/blackListPage'),
               itemBuilder: (context) => [
-                PopupMenuItem(
-                  onTap: () => Get.toNamed('/blackListPage'),
-                  child: const Row(
+                const PopupMenuItem(
+                  value: _FollowMenuAction.blackList,
+                  child: Row(
                     spacing: 10,
                     mainAxisSize: .min,
                     children: [

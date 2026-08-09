@@ -25,6 +25,8 @@ class FollowItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.of(context);
+    final name = item.uname ?? '';
+    final avatar = item.face ?? '';
     Widget? followBtn;
     if (isOwner) {
       final isFollow = item.attribute != -1;
@@ -69,8 +71,8 @@ class FollowItem extends StatelessWidget {
             onSelect!.call(
               UserModel(
                 mid: item.mid,
-                name: item.uname!,
-                avatar: item.face!,
+                name: name,
+                avatar: avatar,
                 selected: true,
               ),
             );
@@ -96,7 +98,7 @@ class FollowItem extends StatelessWidget {
                   crossAxisAlignment: .start,
                   children: [
                     Text(
-                      item.uname!,
+                      name,
                       maxLines: 1,
                       overflow: .ellipsis,
                       style: const TextStyle(fontSize: 14),

@@ -35,16 +35,23 @@ Future<T?> showStaticPositionMenu<T>({
       !overlay.hasSize) {
     return Future<T?>.value();
   }
-  final position = RelativeRect.fromRect(
-    Rect.fromPoints(
-      button.localToGlobal(Offset.zero, ancestor: overlay),
-      button.localToGlobal(
-        button.size.bottomRight(Offset.zero),
-        ancestor: overlay,
+  final RelativeRect position;
+  try {
+    position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
       ),
-    ),
-    Offset.zero & overlay.size,
-  );
+      Offset.zero & overlay.size,
+    );
+  } on StateError {
+    // The anchor can lose its layout during a route or inset transition.
+    // Abort this menu attempt instead of propagating RenderBox layout errors.
+    return Future<T?>.value();
+  }
   return showMenu<T>(
     context: context,
     position: position,

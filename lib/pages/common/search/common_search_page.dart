@@ -16,6 +16,13 @@ abstract class CommonSearchPageState<S extends StatefulWidget, R, T>
 
   List<Widget>? get multiSelectActions => null;
 
+  /// Optional slivers rendered above the committed search results.
+  ///
+  /// Search pages that support live suggestions can provide a bounded,
+  /// independently managed result list without changing the normal search
+  /// result lifecycle.
+  List<Widget>? get searchSuggestions => null;
+
   @override
   Widget build(BuildContext context) {
     if (controller case final MultiSelectBase multiCtr) {
@@ -42,6 +49,7 @@ abstract class CommonSearchPageState<S extends StatefulWidget, R, T>
         physics: const AlwaysScrollableScrollPhysics(),
         controller: controller.scrollController,
         slivers: [
+          ...?searchSuggestions,
           ViewSliverSafeArea(
             sliver: Obx(() => _buildBody(controller.loadingState.value)),
           ),

@@ -366,6 +366,7 @@ abstract final class PageUtils {
               cid: cid,
               cover: cover,
               dimension: res!.dimension,
+              title: archive.title,
               heroTag: heroTag,
             );
           }
@@ -463,6 +464,7 @@ abstract final class PageUtils {
             cid: cid,
             cover: cover,
             dimension: res!.dimension,
+            title: ugcSeason.title,
             heroTag: heroTag,
           );
         }
@@ -1018,6 +1020,9 @@ abstract final class PageUtils {
     if (cid == null) {
       throw const VideoLaunchException('视频资源加载失败');
     }
+    if (args['title'] == null && result?.title != null) {
+      args['title'] = result!.title;
+    }
     _setVideoIdentity(args, aid: aid as int?, bvid: bvid as String?);
     args['cid'] = cid;
     args['videoType'] = VideoType.ugc;
@@ -1153,6 +1158,9 @@ abstract final class PageUtils {
       ..['videoType'] = videoType
       ..['seasonId'] = seasonId
       ..['epId'] = epId;
+    if (args['title'] == null && episode.title != null) {
+      args['title'] = episode.title;
+    }
     if (episode.cover != null) {
       args['cover'] = episode.cover;
     }

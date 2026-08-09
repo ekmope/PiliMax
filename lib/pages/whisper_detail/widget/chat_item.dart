@@ -464,6 +464,7 @@ class ChatItem extends StatelessWidget {
             bvid: bvid,
             cid: null,
             cover: content['cover_url'],
+            title: content['field1'] is String ? content['field1'] : null,
             heroTag: heroTag,
           );
           return;
@@ -517,6 +518,7 @@ class ChatItem extends StatelessWidget {
                     bvid: bvid,
                     cid: null,
                     cover: content['cover'],
+                    title: content['title'],
                     heroTag: heroTag,
                   );
                 },
@@ -653,6 +655,7 @@ class ChatItem extends StatelessWidget {
             bvid: bvid,
             cid: null,
             cover: content['thumb'],
+            title: content['title'],
             heroTag: heroTag,
           );
         };

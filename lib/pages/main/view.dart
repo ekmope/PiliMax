@@ -764,14 +764,24 @@ class _MainAppState extends PopScopeState<MainApp>
 
   Widget _buildDynamicBadge(Widget icon) => Obx(() {
     final dynCount = _mainController.dynCount.value;
-    return Badge(
-      isLabelVisible:
-          _mainController.dynamicBadgeMode != .hidden && dynCount > 0,
-      label: _mainController.dynamicBadgeMode == .number
-          ? Text(dynCount.toString())
-          : null,
-      padding: const .symmetric(horizontal: 6),
-      child: icon,
+    return Builder(
+      builder: (context) {
+        final iconSize = IconTheme.of(context).size ?? 24.0;
+        return SizedBox.square(
+          dimension: iconSize,
+          child: Center(
+            child: Badge(
+              isLabelVisible:
+                  _mainController.dynamicBadgeMode != .hidden && dynCount > 0,
+              label: _mainController.dynamicBadgeMode == .number
+                  ? Text(dynCount.toString())
+                  : null,
+              padding: const .symmetric(horizontal: 6),
+              child: icon,
+            ),
+          ),
+        );
+      },
     );
   });
 

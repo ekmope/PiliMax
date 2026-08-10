@@ -10,7 +10,6 @@ import 'package:PiliMax/common/widgets/dialog/export_import.dart';
 import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/pages/mine/controller.dart';
-import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/services/local_diagnostics.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/utils/accounts.dart';
@@ -86,67 +85,92 @@ class _AboutPageState extends State<AboutPage> {
     }
   }
 
-  Future<void> _showAutoClearCachePeriodDialog() async {
-    final res = await showDialog<int>(
-      context: context,
-      builder: (context) => SelectDialog<int>(
-        title: '自动清理周期',
-        value: Pref.autoClearCachePeriod,
-        values: CacheAutoClearPeriod.allowedDays
-            .map((days) => (days, '每 $days 天'))
-            .toList(growable: false),
-      ),
+  Future<void> _showAutoClearCacheSettingsDialog() async {
+    var selectedPeriod = Pref.autoClearCachePeriod;
+    final currentMaxCacheMb = Pref.maxCacheSize / (1024 * 1024);
+    final maxCacheController = TextEditingController(
+      text: currentMaxCacheMb % 1 == 0
+          ? currentMaxCacheMb.toInt().toString()
+          : currentMaxCacheMb.toStringAsFixed(2),
     );
-    if (res != null) {
-      await GStorage.setting.put(SettingBoxKey.autoClearCachePeriod, res);
-      if (mounted) {
-        setState(() {});
-      }
-    }
-  }
+    num? pendingMaxCacheMb;
 
-  void _showMaxCacheSizeDialog() {
-    String valueStr = '';
-    showDialog(
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('最大缓存大小'),
-        content: TextField(
-          autofocus: true,
-          onChanged: (value) => valueStr = value,
-          keyboardType: TextInputType.number,
-          inputFormatters: FilteringText.decimal,
-          decoration: const InputDecoration(suffixText: 'MB'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: Get.back,
-            child: Text(
-              '取消',
-              style: TextStyle(color: ColorScheme.of(context).outline),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('自动清理缓存设置'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                // ignore: deprecated_member_use
+                value: selectedPeriod,
+                decoration: const InputDecoration(labelText: '自动清理周期'),
+                items: CacheAutoClearPeriod.allowedDays
+                    .map(
+                      (days) => DropdownMenuItem<int>(
+                        value: days,
+                        child: Text('每 $days 天'),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => selectedPeriod = value);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: maxCacheController,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                inputFormatters: FilteringText.decimal,
+                decoration: const InputDecoration(
+                  labelText: '网络图片缓存上限',
+                  suffixText: 'MB',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                '取消',
+                style: TextStyle(color: ColorScheme.of(context).outline),
+              ),
             ),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                final val = num.parse(valueStr);
-                Get.back();
-                await GStorage.setting.put(
-                  SettingBoxKey.maxCacheSize,
-                  val * 1024 * 1024,
-                );
-                if (mounted) {
-                  setState(() {});
+            TextButton(
+              onPressed: () {
+                final value = num.tryParse(maxCacheController.text.trim());
+                if (value == null || !value.isFinite || value <= 0) {
+                  SmartDialog.showToast('请输入大于 0 的有效缓存大小');
+                  return;
                 }
-              } catch (e) {
-                SmartDialog.showToast(e.toString());
-              }
-            },
-            child: const Text('确定'),
-          ),
-        ],
+                pendingMaxCacheMb = value;
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('确定'),
+            ),
+          ],
+        ),
       ),
     );
+    maxCacheController.dispose();
+
+    if (confirmed != true || pendingMaxCacheMb == null) return;
+    await GStorage.setting.putAll({
+      SettingBoxKey.autoClearCachePeriod: selectedPeriod,
+      SettingBoxKey.maxCacheSize: pendingMaxCacheMb! * 1024 * 1024,
+    });
+    if (mounted) {
+      setState(() {});
+      SmartDialog.showToast('缓存设置已保存，最大缓存上限将在重启应用后完全生效');
+    }
   }
 
   void _showDialog() => showDialog(
@@ -339,30 +363,19 @@ Commit Hash: ${BuildConfig.commitHash}''',
           ),
           ListTile(
             onTap: () => _setAutoClearCache(!Pref.autoClearCache),
+            onLongPress: _showAutoClearCacheSettingsDialog,
+            onSecondaryTap: PlatformUtils.isMobile
+                ? null
+                : _showAutoClearCacheSettingsDialog,
             leading: const Icon(Icons.auto_delete_outlined),
             title: const Text('自动清理缓存'),
-            subtitle: Text('启动后按周期静默清理图片及网络请求缓存', style: subTitleStyle),
+            subtitle: Text(
+              '开启后自动清理缓存；长按可更改自动清理周期和最大缓存大小',
+              style: subTitleStyle,
+            ),
             trailing: Switch(
               value: Pref.autoClearCache,
               onChanged: _setAutoClearCache,
-            ),
-          ),
-          ListTile(
-            onTap: _showAutoClearCachePeriodDialog,
-            leading: const Icon(Icons.event_repeat_outlined),
-            title: const Text('自动清理周期'),
-            subtitle: Text(
-              '当前：每 ${Pref.autoClearCachePeriod} 天',
-              style: subTitleStyle,
-            ),
-          ),
-          ListTile(
-            onTap: _showMaxCacheSizeDialog,
-            leading: const Icon(Icons.storage_outlined),
-            title: const Text('最大缓存大小'),
-            subtitle: Text(
-              '当前最大缓存大小: 「${CacheManager.formatSize(Pref.maxCacheSize)}」',
-              style: subTitleStyle,
             ),
           ),
           ListTile(

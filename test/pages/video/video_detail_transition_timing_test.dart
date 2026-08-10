@@ -54,6 +54,37 @@ void main() {
         isFalse,
       );
     });
+
+    test('desktop surfaces use playback progress for a fresh controller', () {
+      // Desktop media-kit surfaces may not complete the first-frame Future.
+      expect(
+        videoDetailInitialSurfaceUsesPlaybackProgress(
+          isDesktop: true,
+          reusesVideoController: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('mobile fresh surfaces still wait for the first-frame signal', () {
+      expect(
+        videoDetailInitialSurfaceUsesPlaybackProgress(
+          isDesktop: false,
+          reusesVideoController: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('reused controllers use playback progress on every platform', () {
+      expect(
+        videoDetailInitialSurfaceUsesPlaybackProgress(
+          isDesktop: false,
+          reusesVideoController: true,
+        ),
+        isTrue,
+      );
+    });
   });
 
   group('initial fullscreen handoff', () {

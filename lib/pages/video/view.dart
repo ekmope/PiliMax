@@ -1086,6 +1086,13 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         !currentController.isSourceOwnerActive(videoDetailController)) {
       return;
     }
+    if (PlatformUtils.isDesktop && !currentController.controlsLock.value) {
+      // The route's handoff cover is non-interactive and may remain briefly
+      // above the player while the native surface settles. Keep the desktop
+      // controls ready before that cover fades so hit targets and visuals do
+      // not diverge.
+      currentController.controls = true;
+    }
     var validatedVideoController = currentVideoController;
 
     // media-kit's first-frame Future is one-shot per VideoController. Identity
@@ -1094,7 +1101,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     final reusedForNewSource =
         identical(currentVideoController, initialVideoController) &&
         sourceGeneration != initialSourceGeneration;
-    if (reusedForNewSource) {
+    final usesPlaybackProgress = videoDetailInitialSurfaceUsesPlaybackProgress(
+      isDesktop: PlatformUtils.isDesktop,
+      reusesVideoController: reusedForNewSource,
+    );
+    if (usesPlaybackProgress) {
       if (!await _waitForCurrentPlaybackAdvance(
         generation: generation,
         session: session,
@@ -1181,11 +1192,28 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         postFullscreenVideoController,
         currentVideoController,
       )) {
-        final firstFrameSignalReady = await _waitForInitialFirstFrameSignal(
-          postFullscreenVideoController.waitUntilFirstFrameRendered,
-        );
-        if (!firstFrameSignalReady) {
-          return;
+        final usesPlaybackProgress =
+            videoDetailInitialSurfaceUsesPlaybackProgress(
+              isDesktop: PlatformUtils.isDesktop,
+              reusesVideoController: false,
+            );
+        if (usesPlaybackProgress) {
+          if (!await _waitForCurrentPlaybackAdvance(
+            generation: generation,
+            session: session,
+            controller: currentController,
+            videoController: postFullscreenVideoController,
+            sourceGeneration: sourceGeneration,
+          )) {
+            return;
+          }
+        } else {
+          final firstFrameSignalReady = await _waitForInitialFirstFrameSignal(
+            postFullscreenVideoController.waitUntilFirstFrameRendered,
+          );
+          if (!firstFrameSignalReady) {
+            return;
+          }
         }
       }
       if (!await _waitForFullscreenLayout(
@@ -1235,6 +1263,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       sourceGeneration,
     )) {
       return;
+    }
+    // The route's temporary media cover is intentionally non-interactive.
+    // Reveal desktop controls with the verified player surface so its visual
+    // state cannot lag behind its already-clickable hit targets.
+    if (PlatformUtils.isDesktop && !currentController.controlsLock.value) {
+      currentController.controls = true;
     }
     _initialVisualReadyReported = true;
     callback(session!);

@@ -182,10 +182,16 @@ class PlPlayerController with BlockConfigMixin {
   DateTime? _lastLiveActivityAt;
   Duration? _lastLivePosition;
   String? _lastLivePlaybackProbe;
+  String? _lastLiveAudioProbe;
+  bool? _liveSourceOnlyAudio;
+  bool? _liveMonitorOnlyAudio;
+  DateTime? _liveCacheUnderrunSince;
+  DateTime? _liveAudioProbeUnavailableSince;
   bool _liveRecoveryInFlight = false;
   int _liveMonitorEpoch = 0;
   bool _livePlaybackRequested = false;
   bool _livePausedForInterruption = false;
+  bool _livePausedForLifecycle = false;
   int _liveRecoveryFailureCount = 0;
   DateTime? _nextLiveRecoveryAt;
   Future<bool> Function()? _liveSourceRefreshCallback;
@@ -224,6 +230,40 @@ class PlPlayerController with BlockConfigMixin {
     if (!identical(_liveSourceRefreshOwner, owner)) return;
     _liveSourceRefreshOwner = null;
     _liveSourceRefreshCallback = null;
+  }
+
+  /// Rebuilds the native live player without disposing this shared controller.
+  /// A live audio/video mode switch can leave mpv's audio pipeline wedged even
+  /// after the same media is reopened, so a fresh native instance is required.
+  Future<void> recreateLivePlayer() async {
+    if (!isLive || _sourceCoordinator.isDisposed) return;
+
+    final player = _videoPlayerController;
+    _livePlaybackRequested = false;
+    _livePausedForInterruption = false;
+    _livePausedForLifecycle = false;
+    _stopLiveStallMonitor();
+
+    if (player != null) {
+      try {
+        await player.pause();
+      } catch (_) {}
+    }
+    try {
+      await audioSessionHandler?.setActive(false);
+    } catch (_) {}
+
+    _sourceCoordinator.invalidate();
+    _videoPlayerController = null;
+    _videoController = null;
+    if (player != null) {
+      try {
+        await player.dispose();
+      } catch (_) {}
+    }
+    playerStatus.value = PlayerStatus.paused;
+    isBuffering.value = true;
+    unawaited(WakelockPlus.disable());
   }
 
   bool isCurrentVideoSource({
@@ -581,8 +621,12 @@ class PlPlayerController with BlockConfigMixin {
   static PlayCallback? _playCallBack;
 
   static Future<void>? playIfExists() {
-    if (_instance != null && !(_instance!.playerStatus.isPlaying)) {
-      return _instance!.play();
+    final controller = _instance;
+    if (controller != null) {
+      final nativePlaying = controller.videoPlayerController?.state.playing;
+      if (!controller.playerStatus.isPlaying || nativePlaying != true) {
+        return controller.play();
+      }
     }
 
     return _playCallBack?.call();
@@ -597,8 +641,9 @@ class PlPlayerController with BlockConfigMixin {
     bool notify = true,
     bool isInterrupt = false,
   }) async {
-    if (_instance?.playerStatus.isPlaying ?? false) {
-      await _instance?.pause(notify: notify, isInterrupt: isInterrupt);
+    final controller = _instance;
+    if (controller != null && controller.hasPlaybackIntent) {
+      await controller.pause(notify: notify, isInterrupt: isInterrupt);
     }
   }
 
@@ -623,6 +668,31 @@ class PlPlayerController with BlockConfigMixin {
   Box video = GStorage.video;
 
   bool visible = true;
+
+  /// Whether playback should continue when a native pause event is observed.
+  /// This includes a live source whose native player has lost output while
+  /// the user still expects it to recover.
+  bool get hasPlaybackIntent =>
+      playerStatus.isPlaying ||
+      (isLive && _livePlaybackRequested && !_livePausedForLifecycle);
+
+  /// Records an automatic lifecycle pause without clearing the user's live
+  /// playback intent. The view layer calls this immediately before pausing
+  /// the native player so the asynchronous `playing` event is classified
+  /// correctly.
+  void markLifecyclePause() {
+    if (isLive && hasPlaybackIntent) {
+      _livePausedForLifecycle = true;
+    }
+  }
+
+  /// Clears the lifecycle pause marker before the view layer resumes native
+  /// playback after returning to the foreground.
+  void markLifecycleResume() {
+    if (isLive) {
+      _livePausedForLifecycle = false;
+    }
+  }
 
   DeviceOrientation? _orientation;
   late final checkIsAutoRotate = Platform.isAndroid && mode != .gravity;
@@ -933,6 +1003,7 @@ class PlPlayerController with BlockConfigMixin {
     this.height = height;
     this.dataSource = dataSource;
     _autoPlay = autoplay;
+    final sourceOnlyPlayAudio = onlyPlayAudio.value;
     // 初始化视频倍速
     // _playbackSpeed.value = speed;
     // 初始化数据加载状态
@@ -980,7 +1051,7 @@ class PlPlayerController with BlockConfigMixin {
       primarySource: primarySource,
       isFileSource: dataSource is FileSource,
       isLive: isLive,
-      onlyPlayAudio: onlyPlayAudio.value,
+      onlyPlayAudio: sourceOnlyPlayAudio,
     );
     final openingErrors = PlPlayerOpeningErrorAccumulator();
 
@@ -1022,6 +1093,9 @@ class PlPlayerController with BlockConfigMixin {
         // Close the synchronous handoff between the open-stage check and the
         // coordinator's active-source commit.
         ensureOpeningSucceeded();
+        if (isLive) {
+          _liveSourceOnlyAudio = sourceOnlyPlayAudio;
+        }
         _syncPlayerStateAfterOpen(lease);
         updateDuration(duration ?? player.state.duration);
         position.value = buffered.value = seekTo?.inSeconds ?? 0;
@@ -1057,7 +1131,10 @@ class PlPlayerController with BlockConfigMixin {
         }
       },
       initialize: (lease) async {
-        await _initializePlayer(lease);
+        await _initializePlayer(
+          lease,
+          onlyPlayAudioForSource: sourceOnlyPlayAudio,
+        );
         if (lease.isCurrent(_videoPlayerController, requireActive: true) &&
             isSourceOwnerActive(sourceOwner)) {
           onInit?.call();
@@ -1079,6 +1156,8 @@ class PlPlayerController with BlockConfigMixin {
   void _handleSourceInvalidated() {
     _livePlaybackRequested = false;
     _livePausedForInterruption = false;
+    _livePausedForLifecycle = false;
+    _liveSourceOnlyAudio = null;
     _stopLiveStallMonitor();
     unawaited(WakelockPlus.disable());
     _sourceCoordinator.releaseSourceTimer(_timer, cancel: true);
@@ -1099,6 +1178,12 @@ class PlPlayerController with BlockConfigMixin {
     _lastLiveActivityAt = DateTime.now();
     _lastLivePosition = lease.player.state.position;
     _lastLivePlaybackProbe = _readLivePlaybackProbe(lease.player);
+    _lastLiveAudioProbe = _readLiveAudioProbe(lease.player);
+    _liveMonitorOnlyAudio = _liveSourceOnlyAudio ?? onlyPlayAudio.value;
+    _liveCacheUnderrunSince = null;
+    _liveAudioProbeUnavailableSince = _lastLiveAudioProbe == null
+        ? DateTime.now()
+        : null;
     _liveStallTimer = Timer.periodic(
       const Duration(seconds: 5),
       (_) => unawaited(_checkLiveStall(lease, epoch)),
@@ -1112,6 +1197,10 @@ class PlPlayerController with BlockConfigMixin {
     _lastLiveActivityAt = null;
     _lastLivePosition = null;
     _lastLivePlaybackProbe = null;
+    _lastLiveAudioProbe = null;
+    _liveMonitorOnlyAudio = null;
+    _liveCacheUnderrunSince = null;
+    _liveAudioProbeUnavailableSince = null;
     _liveRecoveryInFlight = false;
     _liveRecoveryFailureCount = 0;
     _nextLiveRecoveryAt = null;
@@ -1133,8 +1222,43 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
+  String? _readLiveAudioProbe(Player player) {
+    try {
+      final value = player.getProperty('audio-pts').trim();
+      final lower = value.toLowerCase();
+      if (value.isEmpty || lower == 'nan' || lower == 'none') return null;
+      return value;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _readLiveCacheUnderrun(Player player) {
+    try {
+      final pausedForCache = player
+          .getProperty('paused-for-cache')
+          .trim()
+          .toLowerCase();
+      if (pausedForCache == 'yes' ||
+          pausedForCache == 'true' ||
+          pausedForCache == '1') {
+        return true;
+      }
+      // mpv reports cache-buffering-state=0 during normal playback. Treat
+      // only its explicit paused-for-cache state as cache exhaustion; PTS
+      // and the real player state provide the separate stall signal.
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void _markLiveActivity(Player player, Duration position) {
     if (!isLive || !identical(player, _videoPlayerController)) return;
+    // The media clock can continue to advance after Android audio output has
+    // stopped. Audio-only live playback is therefore monitored via audio PTS
+    // in [_checkLiveStall], rather than via the video position stream.
+    if (onlyPlayAudio.value) return;
     if (_lastLivePosition == null || position != _lastLivePosition) {
       _lastLivePosition = position;
       _lastLiveActivityAt = DateTime.now();
@@ -1157,16 +1281,49 @@ class PlPlayerController with BlockConfigMixin {
 
     if (!_livePlaybackRequested ||
         _livePausedForInterruption ||
+        _livePausedForLifecycle ||
         (!visible && !continuePlayInBackground.value)) {
+      return;
+    }
+
+    final monitorOnlyAudio = _liveMonitorOnlyAudio;
+    if (monitorOnlyAudio == null || monitorOnlyAudio != onlyPlayAudio.value) {
+      _stopLiveStallMonitor();
       return;
     }
 
     final player = lease.player;
     final probe = _readLivePlaybackProbe(player);
+    final audioProbe = _readLiveAudioProbe(player);
     final position = player.state.position;
-    if ((probe != null && probe != _lastLivePlaybackProbe) ||
-        position != _lastLivePosition) {
+    final audioProgressed =
+        audioProbe != null && audioProbe != _lastLiveAudioProbe;
+    final mediaProgressed =
+        (probe != null && probe != _lastLivePlaybackProbe) ||
+        position != _lastLivePosition;
+    final hasReliableAudioProbe = audioProbe != null;
+    final now = DateTime.now();
+    final cacheUnderrun = _readLiveCacheUnderrun(player);
+    if (cacheUnderrun) {
+      _liveCacheUnderrunSince ??= now;
+    } else {
+      _liveCacheUnderrunSince = null;
+    }
+    final cacheSince = _liveCacheUnderrunSince;
+    final cacheStalled =
+        cacheSince != null &&
+        now.difference(cacheSince) >= const Duration(seconds: 10);
+    if (monitorOnlyAudio) {
+      if (hasReliableAudioProbe) {
+        _liveAudioProbeUnavailableSince = null;
+      } else {
+        _liveAudioProbeUnavailableSince ??= now;
+      }
+    }
+    final progressed = monitorOnlyAudio ? audioProgressed : mediaProgressed;
+    if (progressed && !cacheStalled && player.state.playing) {
       _lastLivePlaybackProbe = probe;
+      _lastLiveAudioProbe = audioProbe;
       _lastLivePosition = position;
       _lastLiveActivityAt = DateTime.now();
       _liveRecoveryFailureCount = 0;
@@ -1174,7 +1331,20 @@ class PlPlayerController with BlockConfigMixin {
       return;
     }
 
-    final now = DateTime.now();
+    // Do not refresh a healthy audio-only stream merely because an mpv
+    // property is unavailable. Keep a bounded fallback so a platform build
+    // without audio-pts support can still recover from a genuine native stall.
+    if (monitorOnlyAudio &&
+        !cacheStalled &&
+        !hasReliableAudioProbe &&
+        player.state.playing) {
+      final unavailableSince = _liveAudioProbeUnavailableSince;
+      if (unavailableSince == null ||
+          now.difference(unavailableSince) < const Duration(seconds: 60)) {
+        return;
+      }
+    }
+
     final nextRecovery = _nextLiveRecoveryAt;
     if (nextRecovery != null && now.isBefore(nextRecovery)) {
       return;
@@ -1247,7 +1417,9 @@ class PlPlayerController with BlockConfigMixin {
 
     await player.pause();
     unawaited(WakelockPlus.disable());
-    unawaited(audioSessionHandler?.setActive(false));
+    try {
+      await audioSessionHandler?.setActive(false);
+    } catch (_) {}
     if (!lease.isCurrent(_videoPlayerController)) return;
 
     playerStatus.value = PlayerStatus.paused;
@@ -1501,13 +1673,38 @@ class PlPlayerController with BlockConfigMixin {
     if (dataSource is FileSource) {
       return Future<bool>.value(false);
     }
+    if (isLive) {
+      final refresh = _liveSourceRefreshCallback;
+      if (refresh != null) {
+        return refresh();
+      }
+    }
     return _sourceCoordinator.refresh(
       generation: generation,
       open: (lease) async {
         final ctr = lease.player;
         if (ctr.current.isEmpty) return false;
-        final media = ctr.current.last.copyWith(start: ctr.state.position);
-        await ctr.open(media, play: true);
+        final media = isLive
+            ? ctr.current.last
+            : ctr.current.last.copyWith(start: ctr.state.position);
+        if (isLive &&
+            _livePlaybackRequested &&
+            !_livePausedForInterruption &&
+            !_livePausedForLifecycle) {
+          try {
+            await audioSessionHandler?.setActive(true);
+          } catch (_) {}
+        }
+        await ctr.open(media, play: false);
+        if (!lease.isCurrent(_videoPlayerController, requireActive: true)) {
+          return false;
+        }
+        if (!isLive ||
+            (_livePlaybackRequested &&
+                !_livePausedForInterruption &&
+                !_livePausedForLifecycle)) {
+          await ctr.play();
+        }
         return true;
       },
       didOpen: (lease) {
@@ -1521,7 +1718,11 @@ class PlPlayerController with BlockConfigMixin {
           _livePausedForInterruption = false;
           _startLiveStallMonitor(lease);
         }
-        if (playerStatus.isPlaying && lease.player.state.playing) {
+        if (isLive &&
+            _livePlaybackRequested &&
+            !_livePausedForInterruption &&
+            !_livePausedForLifecycle &&
+            lease.player.state.playing) {
           unawaited(audioSessionHandler?.setActive(true));
         }
       },
@@ -1529,9 +1730,36 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   // 开始播放
-  Future<void> _initializePlayer(
+  Future<void> _applyLiveAudioTrack(
     PlPlayerSourceLease<Player> sourceLease,
+    bool onlyAudio,
   ) async {
+    final player = sourceLease.player;
+    for (var attempt = 0; attempt < 20; attempt++) {
+      if (!sourceLease.isCurrent(_videoPlayerController, requireActive: true)) {
+        return;
+      }
+      final videoTracks = player.state.tracks.video;
+      final hasRealVideoTrack = videoTracks.any(
+        (track) => track.id != 'auto' && track.id != 'no',
+      );
+      if (hasRealVideoTrack || attempt == 19) {
+        if (onlyAudio && !hasRealVideoTrack) {
+          return;
+        }
+        await player.setVideoTrack(
+          onlyAudio ? VideoTrack.no() : VideoTrack.auto(),
+        );
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+  }
+
+  Future<void> _initializePlayer(
+    PlPlayerSourceLease<Player> sourceLease, {
+    bool? onlyPlayAudioForSource,
+  }) async {
     final player = sourceLease.player;
     bool isCurrent() =>
         _instance != null &&
@@ -1548,11 +1776,18 @@ class PlPlayerController with BlockConfigMixin {
       }
     }
     _initVideoFit();
-    await applyOnlyPlayAudioTrack();
+    if (isLive) {
+      await _applyLiveAudioTrack(
+        sourceLease,
+        onlyPlayAudioForSource ?? onlyPlayAudio.value,
+      );
+    } else {
+      await applyOnlyPlayAudioTrack();
+    }
     if (!isCurrent()) return;
     // 自动播放
     if (_autoPlay) {
-      playIfExists();
+      await playIfExists();
     }
   }
 
@@ -1582,6 +1817,7 @@ class PlPlayerController with BlockConfigMixin {
           if (isLive) {
             _livePlaybackRequested = true;
             _livePausedForInterruption = false;
+            _livePausedForLifecycle = false;
           }
           if (_isAutoEnterPip) {
             if (_isCurrVideoPage || _isInInAppPip) {
@@ -1595,18 +1831,30 @@ class PlPlayerController with BlockConfigMixin {
             _startLiveStallMonitor(sourceLease);
           }
         } else {
-          final pausedByLifecycle =
-              isLive && !visible && !continuePlayInBackground.value;
-          if (isLive && _livePlaybackRequested && !pausedByLifecycle) {
-            isBuffering.value = true;
-            playerStatus.value = .playing;
-            if (_liveStallTimer == null) {
-              _startLiveStallMonitor(sourceLease);
+          if (isLive) {
+            final pausedByLifecycle =
+                !visible && !continuePlayInBackground.value;
+            if (pausedByLifecycle && _livePlaybackRequested) {
+              _livePausedForLifecycle = true;
             }
-          } else if (isLive) {
-            _livePlaybackRequested = false;
-            _stopLiveStallMonitor();
-            playerStatus.value = .paused;
+            final expectedPause =
+                !_livePlaybackRequested ||
+                _livePausedForInterruption ||
+                _livePausedForLifecycle;
+            if (expectedPause) {
+              isBuffering.value = false;
+              _stopLiveStallMonitor();
+              playerStatus.value = .paused;
+            } else {
+              // Native output stopped while the user still expects a live
+              // stream. Keep the intent for recovery, but expose the actual
+              // paused state instead of reporting a false playing status.
+              isBuffering.value = true;
+              playerStatus.value = .paused;
+              if (_liveStallTimer == null) {
+                _startLiveStallMonitor(sourceLease);
+              }
+            }
           } else {
             playerStatus.value = .paused;
           }
@@ -2006,17 +2254,28 @@ class PlPlayerController with BlockConfigMixin {
       if (!isCurrent()) return;
     }
 
-    await player.play();
-    if (!isCurrent()) return;
-
-    controls = !hideControls || showControlsOnNextPlay;
     if (isLive) {
       _livePlaybackRequested = true;
       _livePausedForInterruption = false;
+      _livePausedForLifecycle = false;
+      // Acquire audio focus before starting the native live player. On
+      // Android this avoids opening a race where mpv reports playing before
+      // audio output is allowed to resume in the background.
+      try {
+        await audioSessionHandler?.setActive(true);
+      } catch (_) {}
     }
-    audioSessionHandler?.setActive(true);
+    if (!isCurrent()) return;
+    await player.play();
+    if (!isCurrent()) return;
 
-    playerStatus.value = PlayerStatus.playing;
+    if (!isLive) {
+      unawaited(audioSessionHandler?.setActive(true));
+    }
+    controls = !hideControls || showControlsOnNextPlay;
+    if (!isLive || player.state.playing) {
+      playerStatus.value = PlayerStatus.playing;
+    }
     // screenManager.setOverlays(false);
   }
 
@@ -2027,6 +2286,25 @@ class PlPlayerController with BlockConfigMixin {
     final lease = _sourceCoordinator.currentLease(player);
     if (lease == null) return;
 
+    // Set intent flags before awaiting the native pause. media_kit emits its
+    // `playing=false` event asynchronously and must not be mistaken for an
+    // unexpected live stall while an interruption or user pause is pending.
+    if (isLive) {
+      if (isInterrupt) {
+        _livePausedForInterruption = true;
+      } else {
+        _livePlaybackRequested = false;
+        _livePausedForInterruption = false;
+        _livePausedForLifecycle = false;
+        _stopLiveStallMonitor();
+      }
+    }
+    if (!isInterrupt) {
+      // Cancel an outstanding focus-resume request before awaiting native
+      // pause, so an interruption end event cannot restart a user pause.
+      audioSessionHandler?.cancelInterruptedPlayback();
+    }
+
     await player.pause();
     unawaited(WakelockPlus.disable());
     if (!lease.isCurrent(_videoPlayerController)) return;
@@ -2034,15 +2312,7 @@ class PlPlayerController with BlockConfigMixin {
 
     // 主动暂停时让出音频焦点
     if (!isInterrupt) {
-      if (isLive) {
-        _livePlaybackRequested = false;
-        _livePausedForInterruption = false;
-        _stopLiveStallMonitor();
-      }
-      audioSessionHandler?.cancelInterruptedPlayback();
       audioSessionHandler?.setActive(false);
-    } else if (isLive) {
-      _livePausedForInterruption = true;
     }
   }
 
@@ -2627,6 +2897,7 @@ class PlPlayerController with BlockConfigMixin {
     _playerCount = 0;
     _livePlaybackRequested = false;
     _livePausedForInterruption = false;
+    _livePausedForLifecycle = false;
     _sourceCoordinator.dispose();
     _stopLiveStallMonitor();
     if (removeSafeArea) {
@@ -2713,15 +2984,26 @@ class PlPlayerController with BlockConfigMixin {
       setBackgroundPlay(true);
       onEnable?.call();
       syncBackgroundMediaSession();
-      unawaited(audioSessionHandler?.setActive(playerStatus.isPlaying));
+      unawaited(audioSessionHandler?.setActive(hasPlaybackIntent));
     } else {
       videoPlayerServiceHandler?.forceClear();
-      unawaited(audioSessionHandler?.setActive(playerStatus.isPlaying));
+      unawaited(audioSessionHandler?.setActive(hasPlaybackIntent));
     }
   }
 
   Future<void>? applyOnlyPlayAudioTrack() {
-    return videoPlayerController?.setVideoTrack(
+    final player = videoPlayerController;
+    if (player == null) return null;
+    final hasSelectableVideoTrack = player.state.tracks.video.any(
+      (track) => track.id != 'auto' && track.id != 'no',
+    );
+    if (isLive && onlyPlayAudio.value && !hasSelectableVideoTrack) {
+      // Some live audio-only URLs expose no video track at all. Avoid issuing
+      // a synthetic `video=no` command against such sources; it can race the
+      // Android demuxer and leave the audio output in a stopped state.
+      return null;
+    }
+    return player.setVideoTrack(
       onlyPlayAudio.value ? VideoTrack.no() : VideoTrack.auto(),
     );
   }

@@ -169,7 +169,7 @@ class _LogsPageState extends State<LogsPage> {
               ),
               PopupMenuItem(
                 onTap: exportLogs,
-                child: const Text('导出日志（.log）'),
+                child: const Text('导出错误日志（当前页）'),
               ),
               PopupMenuItem(
                 onTap: () =>

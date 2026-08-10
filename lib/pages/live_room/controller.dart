@@ -135,6 +135,9 @@ class LiveRoomController extends GetxController {
   bool? isPlaying;
   late bool isFullScreen = false;
 
+  Future<void> _liveTransitionQueue = Future<void>.value();
+  int _liveRequestEpoch = 0;
+
   final superChatType = Pref.superChatType;
   late final showSuperChat = superChatType != SuperChatType.disable;
   final superChatTimeType = Pref.superChatTimeType;
@@ -220,7 +223,7 @@ class LiveRoomController extends GetxController {
     }
   }
 
-  Future<void>? playerInit({
+  Future<bool>? playerInit({
     bool autoplay = true,
     bool autoFullScreenFlag = false,
   }) {
@@ -240,17 +243,15 @@ class LiveRoomController extends GetxController {
     // 纭繚鎾斁鍣ㄥ浜庣洿鎾ā寮?
     plPlayerController.isLive = true;
 
-    return plPlayerController
-        .setDataSource(
-          NetworkSource(videoSource: videoUrl!, audioSource: null),
-          sourceOwner: this,
-          isLive: true,
-          autoplay: autoplay,
-          isVertical: isPortrait.value,
-          autoFullScreenFlag: autoFullScreenFlag,
-          roomId: roomId,
-        )
-        .then<void>((_) {});
+    return plPlayerController.setDataSource(
+      NetworkSource(videoSource: videoUrl!, audioSource: null),
+      sourceOwner: this,
+      isLive: true,
+      autoplay: autoplay,
+      isVertical: isPortrait.value,
+      autoFullScreenFlag: autoFullScreenFlag,
+      roomId: roomId,
+    );
   }
 
   Future<void> toggleOnlyPlayAudio() {
@@ -261,37 +262,59 @@ class LiveRoomController extends GetxController {
       plPlayerController.continuePlayInBackground.value &&
       plPlayerController.onlyPlayAudio.value;
 
-  void _syncBackgroundAudioMixMode() {
-    unawaited(
-      audioSessionHandler?.setForceMixWithOthers(
-        _shouldMixWithOthersForBackgroundAudio,
-        active: plPlayerController.playerStatus.value.isPlaying,
-      ),
+  Future<void> _syncBackgroundAudioMixMode() async {
+    await audioSessionHandler?.setForceMixWithOthers(
+      _shouldMixWithOthersForBackgroundAudio,
+      active: plPlayerController.hasPlaybackIntent,
     );
   }
 
   void toggleBackgroundPlay() {
     plPlayerController.setContinuePlayInBackground();
-    _syncBackgroundAudioMixMode();
+    unawaited(_syncBackgroundAudioMixMode());
   }
 
-  Future<void> setOnlyPlayAudio(bool value) async {
-    if (plPlayerController.onlyPlayAudio.value == value) {
-      _syncBackgroundAudioMixMode();
-      return;
+  Future<T> _enqueueLiveTransition<T>(Future<T> Function() operation) {
+    final run = _liveTransitionQueue.then<T>(
+      (_) => operation(),
+      onError: (Object _, StackTrace _) => operation(),
+    );
+    _liveTransitionQueue = run.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return run;
+  }
+
+  bool _isLiveRequestCurrent(int epoch, bool onlyAudio) =>
+      !isClosed &&
+      epoch == _liveRequestEpoch &&
+      plPlayerController.onlyPlayAudio.value == onlyAudio;
+
+  Future<void> setOnlyPlayAudio(bool value) {
+    final previousValue = plPlayerController.onlyPlayAudio.value;
+    if (previousValue == value) {
+      unawaited(_syncBackgroundAudioMixMode());
+      return Future<void>.value();
     }
-    final prevOnlyPlayAudio = plPlayerController.onlyPlayAudio.value;
+    final requestEpoch = ++_liveRequestEpoch;
     plPlayerController.onlyPlayAudio.value = value;
-    final success = await queryLiveUrl();
-    if (!success) {
-      plPlayerController.onlyPlayAudio.value = prevOnlyPlayAudio;
-      await plPlayerController.applyOnlyPlayAudioTrack();
-      _syncBackgroundAudioMixMode();
-      return;
-    }
-    await plPlayerController.applyOnlyPlayAudioTrack();
-    _syncBackgroundAudioMixMode();
-    _syncAudioServiceState();
+    return _enqueueLiveTransition(() async {
+      final success = await _queryLiveUrl(
+        requestedOnlyAudio: value,
+        requestEpoch: requestEpoch,
+      );
+      if (!success &&
+          requestEpoch == _liveRequestEpoch &&
+          plPlayerController.onlyPlayAudio.value == value) {
+        plPlayerController.onlyPlayAudio.value = previousValue;
+      }
+      if (requestEpoch != _liveRequestEpoch) return;
+      await _syncBackgroundAudioMixMode();
+      if (success) {
+        _syncAudioServiceState();
+      }
+    });
   }
 
   void _syncAudioServiceState() {
@@ -312,16 +335,40 @@ class LiveRoomController extends GetxController {
   Future<bool> queryLiveUrl({
     bool autoFullScreenFlag = false,
     bool silent = false,
+  }) {
+    final requestedOnlyAudio = plPlayerController.onlyPlayAudio.value;
+    final requestEpoch = ++_liveRequestEpoch;
+    return _enqueueLiveTransition(
+      () => _queryLiveUrl(
+        autoFullScreenFlag: autoFullScreenFlag,
+        silent: silent,
+        requestedOnlyAudio: requestedOnlyAudio,
+        requestEpoch: requestEpoch,
+      ),
+    );
+  }
+
+  Future<bool> _queryLiveUrl({
+    bool autoFullScreenFlag = false,
+    bool silent = false,
+    required bool requestedOnlyAudio,
+    required int requestEpoch,
   }) async {
+    if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
+      return false;
+    }
     currentQn ??= await ConnectivityUtils.isWiFi
         ? Pref.liveQuality
         : Pref.liveQualityCellular;
     final res = await LiveHttp.liveRoomInfo(
       roomId: roomId,
       qn: currentQn,
-      onlyAudio: plPlayerController.onlyPlayAudio.value,
+      onlyAudio: requestedOnlyAudio,
     );
     if (res case Success(:final response)) {
+      if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
+        return false;
+      }
       if (response.liveStatus != 1) {
         if (silent) return false;
         _showDialog('当前直播间未开播');
@@ -349,14 +396,29 @@ class LiveRoomController extends GetxController {
       } else {
         _initStreamIndex();
       }
-      await initLiveUrl(
+      if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
+        return false;
+      }
+      if (plPlayerController.videoPlayerController != null) {
+        isLoaded.value = false;
+        await plPlayerController.recreateLivePlayer();
+        if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
+          return false;
+        }
+      }
+      final initialized = await _initLiveUrl(
         streamIndex: streamIndex,
         formatIndex: formatIndex,
         codecIndex: codecIndex,
         liveUrlIndex: liveUrlIndex,
+        requestedOnlyAudio: requestedOnlyAudio,
+        requestEpoch: requestEpoch,
+        autoFullScreenFlag: autoFullScreenFlag,
       );
-      isLoaded.value = true;
-      return true;
+      if (initialized) {
+        isLoaded.value = true;
+      }
+      return initialized;
     } else {
       if (silent) return false;
       _showDialog(res.toString());
@@ -371,6 +433,10 @@ class LiveRoomController extends GetxController {
   int liveUrlIndex = 0;
 
   void _initStreamIndex() {
+    streamIndex = 0;
+    formatIndex = 0;
+    codecIndex = 0;
+    liveUrlIndex = 0;
     final pref = Pref.liveStream;
     if (pref != null) {
       try {
@@ -397,12 +463,51 @@ class LiveRoomController extends GetxController {
     }
   }
 
-  Future<void>? initLiveUrl({
+  Future<bool> initLiveUrl({
     int streamIndex = 0,
     int formatIndex = 0,
     int codecIndex = 0,
     int liveUrlIndex = 0,
   }) {
+    final requestedOnlyAudio = plPlayerController.onlyPlayAudio.value;
+    final requestEpoch = ++_liveRequestEpoch;
+    return _enqueueLiveTransition(
+      () async {
+        if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
+          return false;
+        }
+        if (plPlayerController.videoPlayerController != null) {
+          isLoaded.value = false;
+          await plPlayerController.recreateLivePlayer();
+        }
+        final initialized = await _initLiveUrl(
+          streamIndex: streamIndex,
+          formatIndex: formatIndex,
+          codecIndex: codecIndex,
+          liveUrlIndex: liveUrlIndex,
+          requestedOnlyAudio: requestedOnlyAudio,
+          requestEpoch: requestEpoch,
+        );
+        if (initialized) {
+          isLoaded.value = true;
+        }
+        return initialized;
+      },
+    );
+  }
+
+  Future<bool> _initLiveUrl({
+    int streamIndex = 0,
+    int formatIndex = 0,
+    int codecIndex = 0,
+    int liveUrlIndex = 0,
+    required bool requestedOnlyAudio,
+    required int requestEpoch,
+    bool autoFullScreenFlag = false,
+  }) async {
+    if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
+      return false;
+    }
     this.streamIndex = streamIndex;
     this.formatIndex = formatIndex;
     this.codecIndex = codecIndex;
@@ -425,7 +530,16 @@ class LiveRoomController extends GetxController {
     currentQnDesc.value =
         LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
     videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
-    return playerInit()?.whenComplete(_startSizeSub);
+    final initialized =
+        await playerInit(
+          autoFullScreenFlag: autoFullScreenFlag,
+        ) ??
+        false;
+    if (initialized) {
+      _startSizeSub();
+    }
+    return initialized &&
+        _isLiveRequestCurrent(requestEpoch, requestedOnlyAudio);
   }
 
   // 直播投屏时，优先选择 HLS 协议的播放地址，且不使用 AV1 编码

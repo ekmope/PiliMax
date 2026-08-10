@@ -1,7 +1,7 @@
+import 'dart:async' show unawaited;
 import 'dart:io';
 
 import 'package:PiliMax/plugin/pl_player/controller.dart';
-import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:audio_session/audio_session.dart';
 
@@ -58,9 +58,10 @@ class AudioSessionHandler {
   Future<void> reconfigure({bool? active}) async {
     await _enqueue(() async {
       await _initialized;
+      final controller = PlPlayerController.instance;
       final shouldActivate =
           active ??
-          (PlPlayerController.getPlayerStatusIfExists()?.isPlaying ?? false);
+          (controller?.hasPlaybackIntent ?? false);
       await session.setActive(false);
       await _configureSession();
       if (shouldActivate) {
@@ -92,9 +93,10 @@ class AudioSessionHandler {
         return;
       }
       _forceMixWithOthers = value;
+      final controller = PlPlayerController.instance;
       final shouldActivate =
           active ??
-          (PlPlayerController.getPlayerStatusIfExists()?.isPlaying ?? false);
+          (controller?.hasPlaybackIntent ?? false);
       await session.setActive(false);
       await _configureSession();
       if (shouldActivate) {
@@ -108,41 +110,40 @@ class AudioSessionHandler {
     await _configureSession();
 
     session.interruptionEventStream.listen((event) {
-      final playerStatus = PlPlayerController.getPlayerStatusIfExists();
-      // final player = PlPlayerController.getInstance();
+      final player = PlPlayerController.instance;
       if (event.begin) {
-        if (playerStatus != PlayerStatus.playing) return;
-        // if (!player.playerStatus.playing) return;
+        if (player == null || !player.hasPlaybackIntent) return;
         switch (event.type) {
           case AudioInterruptionType.duck:
-            PlPlayerController.instance?.handleDuck(true);
+            player.handleDuck(true);
             break;
           case AudioInterruptionType.pause:
             // 接收到其他 App 播放音频的通知，如果允许了同时播放，就无视
             // Android 仍使用独占 media AudioFocus，不能忽略焦点丢失，
             // 否则播放器会保持 playing 但实际没有音频输出。
             if (Platform.isIOS && mixWithOthers) return;
-            PlPlayerController.pauseIfExists(isInterrupt: true);
-            // player.pause(isInterrupt: true);
             _playInterrupted = true;
+            unawaited(PlPlayerController.pauseIfExists(isInterrupt: true));
             break;
           case AudioInterruptionType.unknown:
-            PlPlayerController.pauseIfExists(isInterrupt: true);
-            // player.pause(isInterrupt: true);
             _playInterrupted = true;
+            unawaited(PlPlayerController.pauseIfExists(isInterrupt: true));
             break;
         }
       } else {
         switch (event.type) {
           case AudioInterruptionType.duck:
-            PlPlayerController.instance?.handleDuck(false);
+            player?.handleDuck(false);
             break;
           case AudioInterruptionType.pause:
-            if (_playInterrupted) PlPlayerController.playIfExists();
-            //player.play();
+            if (_playInterrupted) {
+              unawaited(PlPlayerController.playIfExists());
+            }
             break;
           case AudioInterruptionType.unknown:
-            if (_playInterrupted) PlPlayerController.playIfExists();
+            if (_playInterrupted) {
+              unawaited(PlPlayerController.playIfExists());
+            }
             break;
         }
         _playInterrupted = false;

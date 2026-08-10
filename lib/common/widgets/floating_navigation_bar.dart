@@ -1035,6 +1035,9 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
       if (states.contains(WidgetState.pressed)) {
         return Colors.transparent;
       }
+      if (states.contains(WidgetState.hovered)) {
+        return Colors.transparent;
+      }
       return sourceOverlayColor?.resolve(states);
     });
     final disableAnimations =
@@ -1291,11 +1294,11 @@ class _LiquidDestinationIcon extends StatelessWidget {
       progress,
     ).copyWith(color: color);
 
-    Widget layer(Widget child, double opacity) => Opacity(
-      opacity: opacity,
-      child: IconTheme(data: iconTheme, child: child),
-    );
-
+    // Outlined and filled custom glyphs do not share the same optical
+    // baseline. Crossfading both layers therefore makes the glyph appear to
+    // move vertically while the liquid indicator is dragged. Keep one stable
+    // geometry during interpolation and switch to the selected glyph only at
+    // the settled endpoint.
     final transitionIcon = ShaderMask(
       blendMode: BlendMode.srcIn,
       shaderCallback: (bounds) => LinearGradient(
@@ -1303,12 +1306,9 @@ class _LiquidDestinationIcon extends StatelessWidget {
         end: Alignment.bottomCenter,
         colors: [highlightColor, color],
       ).createShader(bounds),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          layer(icon, 1 - progress),
-          layer(selectedIcon ?? icon, progress),
-        ],
+      child: IconTheme(
+        data: iconTheme,
+        child: progress >= 0.999 ? (selectedIcon ?? icon) : icon,
       ),
     );
     final iconBoxSize = math.max(

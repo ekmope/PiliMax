@@ -49,6 +49,16 @@ bool videoDetailPlayerHandoffCanRelease({
   required bool detailLayoutReady,
 }) => detailLayoutReady && (playerVisualReady || forceRelease);
 
+/// A newly-created desktop video surface can already be advancing while
+/// media-kit's Flutter first-frame Future remains pending beneath the route's
+/// temporary cover. Reused controllers also cannot use that one-shot Future
+/// for a new source. Both cases validate through playback progress followed by
+/// the stable-surface gate.
+bool videoDetailInitialSurfaceUsesPlaybackProgress({
+  required bool isDesktop,
+  required bool reusesVideoController,
+}) => isDesktop || reusesVideoController;
+
 /// Desktop fullscreen APIs can keep the same Flutter viewport and player
 /// rectangle. Mobile rotation still requires an observed geometry change so a
 /// pre-rotation surface is never accepted as the settled target.

@@ -2,7 +2,9 @@ import 'package:PiliMax/pages/setting/pages/crash_report.dart';
 import 'package:PiliMax/services/crash/crash_report.dart';
 import 'package:PiliMax/services/crash/crash_report_store.dart';
 import 'package:PiliMax/services/crash/crash_reporter.dart';
+import 'package:PiliMax/utils/log_file_export.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 class CrashReportHistoryPage extends StatefulWidget {
   const CrashReportHistoryPage({super.key});
@@ -31,6 +33,12 @@ class _CrashReportHistoryPageState extends State<CrashReportHistoryPage> {
       appBar: AppBar(
         title: const Text('异常报告历史'),
         actions: [
+          if (_reports.isNotEmpty)
+            IconButton(
+              tooltip: '导出异常报告历史',
+              onPressed: _exportAll,
+              icon: const Icon(Icons.file_download_outlined),
+            ),
           if (_reports.isNotEmpty)
             IconButton(
               tooltip: '清空异常报告历史',
@@ -76,6 +84,29 @@ class _CrashReportHistoryPageState extends State<CrashReportHistoryPage> {
               },
             ),
     );
+  }
+
+  Future<void> _exportAll() async {
+    final content = _reports
+        .asMap()
+        .entries
+        .map(
+          (entry) =>
+              '===== 报告 ${entry.key + 1} =====\n${entry.value.toClipboardText()}',
+        )
+        .join('\n\n');
+    try {
+      final shared = await LogFileExport.share(
+        content: content,
+        filePrefix: 'pilimax_crash_report_history',
+        subject: 'PiliMax 异常报告历史',
+      );
+      if (!shared) {
+        SmartDialog.showToast('暂无异常报告历史');
+      }
+    } catch (_) {
+      SmartDialog.showToast('导出异常报告历史失败，请稍后重试');
+    }
   }
 
   Future<void> _clearAll() async {

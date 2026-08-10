@@ -371,12 +371,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       late final player = plPlayerController.videoPlayerController;
       if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
         if (player != null && player.state.playing) {
+          plPlayerController.markLifecyclePause();
           _pauseDueToPauseUponEnteringBackgroundMode = true;
           player.pause();
         }
       } else {
         if (_pauseDueToPauseUponEnteringBackgroundMode) {
           _pauseDueToPauseUponEnteringBackgroundMode = false;
+          plPlayerController.markLifecycleResume();
           player?.play();
         }
       }
@@ -1532,8 +1534,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           size: 20,
           color: Colors.white,
         ),
-        onLongPress: (Platform.isAndroid || kDebugMode) &&
-                !plPlayerController.isLive
+        onLongPress:
+            (Platform.isAndroid || kDebugMode) && !plPlayerController.isLive
             ? screenshotWebp
             : null,
         onTap: plPlayerController.takeScreenshot,

@@ -30,6 +30,9 @@ class FollowSearchController
     _suggestionTimer?.cancel();
     final requestId = ++_suggestionRequestId;
     final query = editController.text.trim();
+    // Suggestions are a preview, so never leave a previous committed search
+    // result visible while the user edits a new query.
+    loadingState.value = const Success(null);
     if (query.isEmpty) {
       suggestions.clear();
       return;

@@ -59,6 +59,9 @@ class _FollowSearchPageState
     }),
   ];
 
+  @override
+  bool get isShowingSearchSuggestions => controller.suggestions.isNotEmpty;
+
   ValueChanged<UserModel>? get _onSelect {
     if (widget.mid != null && widget.isFromSelect) {
       return (userModel) => Get.back(result: userModel);

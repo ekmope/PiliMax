@@ -23,6 +23,13 @@ abstract class CommonSearchPageState<S extends StatefulWidget, R, T>
   /// result lifecycle.
   List<Widget>? get searchSuggestions => null;
 
+  /// Hides committed results while a live suggestion list is visible.
+  ///
+  /// The default keeps existing search pages unchanged. Pages that render
+  /// suggestions independently can override this getter so the empty-state
+  /// sliver cannot remain underneath the suggestion list.
+  bool get isShowingSearchSuggestions => false;
+
   @override
   Widget build(BuildContext context) {
     if (controller case final MultiSelectBase multiCtr) {
@@ -51,7 +58,11 @@ abstract class CommonSearchPageState<S extends StatefulWidget, R, T>
         slivers: [
           ...?searchSuggestions,
           ViewSliverSafeArea(
-            sliver: Obx(() => _buildBody(controller.loadingState.value)),
+            sliver: Obx(
+              () => isShowingSearchSuggestions
+                  ? const SliverToBoxAdapter(child: SizedBox.shrink())
+                  : _buildBody(controller.loadingState.value),
+            ),
           ),
         ],
       ),

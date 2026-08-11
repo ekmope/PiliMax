@@ -21,6 +21,7 @@ import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/pages/audio/audio_page_route.dart';
 import 'package:PiliMax/pages/audio/controller.dart';
 import 'package:PiliMax/pages/audio/volume_button.dart';
+import 'package:PiliMax/pages/live_room/controller.dart';
 import 'package:PiliMax/pages/setting/models/play_settings.dart'
     show showPlayerVolumeDialog;
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/action_item.dart';
@@ -141,7 +142,11 @@ class _AudioPageState extends State<AudioPage> {
       );
     }
     if (LivePipOverlayService.isInPipMode) {
+      final savedLive =
+          LivePipOverlayService.getSavedController<LiveRoomController>();
+      LivePipOverlayService.cleanupSavedController();
       LivePipOverlayService.stopLivePip(callOnClose: false);
+      savedLive?.plPlayerController.pause();
     }
   }
 

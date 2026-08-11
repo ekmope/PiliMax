@@ -27,6 +27,7 @@ import 'package:PiliMax/models_new/video/video_detail/ugc_season.dart';
 import 'package:PiliMax/models_new/video/video_tag/data.dart';
 import 'package:PiliMax/pages/ai_chat/controller.dart';
 import 'package:PiliMax/pages/ai_chat/view.dart';
+import 'package:PiliMax/pages/live_room/controller.dart';
 import 'package:PiliMax/pages/common/common_intro_controller.dart';
 import 'package:PiliMax/pages/danmaku/view.dart';
 import 'package:PiliMax/pages/episode_panel/view.dart';
@@ -134,6 +135,21 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   String _resolveControllerTag() {
     final requestedTag = _videoArgs['heroTag'] as String;
+    final targetContextKey = PipOverlayService.contextKeyFromArgs(_videoArgs);
+    if (_videoArgs['fromPip'] != true &&
+        targetContextKey != null &&
+        targetContextKey == PipOverlayService.savedVideoContextKey &&
+        PipOverlayService.isInPipMode) {
+      final savedController =
+          PipOverlayService.getSavedController<VideoDetailController>();
+      if (savedController != null) {
+        try {
+          _videoArgs['fromPip'] = true;
+          _videoArgs['heroTag'] = savedController.heroTag;
+        } catch (_) {}
+        return savedController.heroTag;
+      }
+    }
     if (_videoArgs['fromPip'] == true ||
         !_isControllerTagOccupied(requestedTag)) {
       return requestedTag;
@@ -593,7 +609,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
     // 如果有直播间 PiP 在运行，关闭它（采用非销毁式，避免干扰视频播放器单例）
     if (LivePipOverlayService.isInPipMode && !_fromPip) {
+      final savedLive =
+          LivePipOverlayService.getSavedController<LiveRoomController>();
+      LivePipOverlayService.cleanupSavedController();
       LivePipOverlayService.stopLivePip(callOnClose: false);
+      savedLive?.plPlayerController.pause();
     }
 
     PlPlayerController.setPlayCallBack(playCallBack);

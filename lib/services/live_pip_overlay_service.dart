@@ -7,6 +7,7 @@ import 'package:PiliMax/pages/live_room/controller.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/services/pip_transition_coordinator.dart';
+import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:flutter/foundation.dart';
@@ -76,6 +77,18 @@ class LivePipOverlayService {
   static bool get isInPipMode => _isInPipMode;
 
   static T? getSavedController<T>() => _savedController as T?;
+
+  /// Cleans up a live controller that will not be reused by the next route.
+  /// The controller can outlive its route while its live PiP overlay owns it.
+  static void cleanupSavedController() {
+    final saved = _savedController;
+    if (saved is! LiveRoomController) return;
+    saved
+      ..closeLiveMsg()
+      ..cancelLiveTimer()
+      ..cancelLikeTimer();
+    videoPlayerServiceHandler?.onVideoDetailDispose(saved.heroTag);
+  }
 
   static void startLivePip({
     required BuildContext context,
@@ -482,9 +495,33 @@ class _LivePipWidgetState extends State<LivePipWidget>
       nextScale = _clampScale(1.0, screenSize);
     }
 
+    // Keep the nearest horizontal/vertical edge anchored while changing the
+    // scale. A plain clamp after changing _scale makes right/bottom windows
+    // appear to drift because their far edge is no longer preserved.
+    _clampPositionInScreen(screenSize);
+    final oldLeft = _left ?? 0.0;
+    final oldTop = _top ?? 0.0;
+    final oldWidth = _width;
+    final oldHeight = _height;
+    final distLeft = oldLeft;
+    final distRight = screenSize.width - oldLeft - oldWidth;
+    final distTop = oldTop;
+    final distBottom = screenSize.height - oldTop - oldHeight;
+
     setState(() {
       _scale = nextScale;
-      _clampPositionInScreen(screenSize);
+      final newLeft = distLeft <= distRight
+          ? oldLeft
+          : screenSize.width - distRight - _width;
+      final newTop = distTop <= distBottom
+          ? oldTop
+          : screenSize.height - distBottom - _height;
+      _left = newLeft
+          .clamp(0.0, max(0.0, screenSize.width - _width))
+          .toDouble();
+      _top = newTop
+          .clamp(0.0, max(0.0, screenSize.height - _height))
+          .toDouble();
     });
     _rememberWindow();
     _startHideTimer();
@@ -556,7 +593,11 @@ class _LivePipWidgetState extends State<LivePipWidget>
               phase == PipPhase.entering || phase == PipPhase.restoring;
           final interactive = phase == PipPhase.active && !_isClosing;
 
-          return Positioned(
+          return AnimatedPositioned(
+            duration: inTransition || _instantResize
+                ? Duration.zero
+                : const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
             left: rect.left,
             top: rect.top,
             child: IgnorePointer(

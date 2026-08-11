@@ -168,6 +168,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         _pipRestoreInFlight = true;
         _scheduleLivePipRestoreAttach();
       } else {
+        LivePipOverlayService.cleanupSavedController();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           LivePipOverlayService.stopLivePip(callOnClose: false);
         });
@@ -694,6 +695,10 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       return;
     }
     _liveRoomController.isInPipMode.value = false;
+    _liveRoomController
+      ..closeLiveMsg()
+      ..cancelLiveTimer()
+      ..cancelLikeTimer();
     videoPlayerServiceHandler?.onVideoDetailDispose(heroTag);
     if (Platform.isAndroid && !plPlayerController.setSystemBrightness) {
       ScreenBrightnessPlatform.instance.resetApplicationScreenBrightness();

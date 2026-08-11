@@ -321,7 +321,8 @@ class DetailItem extends StatelessWidget {
                                       ),
                                       child: PBadge(
                                         isStack: false,
-                                        text: progress >=
+                                        text:
+                                            progress >=
                                                 entry.totalTimeMilli - 400
                                             ? '已看完'
                                             : '${DurationUtils.formatDuration(

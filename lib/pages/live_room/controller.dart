@@ -211,6 +211,7 @@ class LiveRoomController extends GetxController {
     if (isReturningFromPip) {
       isPortrait.value = plPlayerController.isVertical;
       isLoaded.value = true;
+      unawaited(queryLiveUrl());
     } else {
       queryLiveUrl(autoFullScreenFlag: true);
     }
@@ -391,15 +392,13 @@ class LiveRoomController extends GetxController {
       }
       isPortrait.value = response.isPortrait ?? false;
       stream = playurl.stream;
-      if (isReturningFromPip) {
-        isReturningFromPip = false;
-      } else {
-        _initStreamIndex();
-      }
+      _initStreamIndex();
       if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
         return false;
       }
-      if (plPlayerController.videoPlayerController != null) {
+      final returningFromPip = isReturningFromPip;
+      if (!returningFromPip &&
+          plPlayerController.videoPlayerController != null) {
         isLoaded.value = false;
         await plPlayerController.recreateLivePlayer();
         if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
@@ -415,6 +414,9 @@ class LiveRoomController extends GetxController {
         requestEpoch: requestEpoch,
         autoFullScreenFlag: autoFullScreenFlag,
       );
+      if (returningFromPip && requestEpoch == _liveRequestEpoch) {
+        isReturningFromPip = false;
+      }
       if (initialized) {
         isLoaded.value = true;
       }
@@ -426,13 +428,15 @@ class LiveRoomController extends GetxController {
     }
   }
 
-  late List<Stream> stream;
+  List<Stream>? stream;
   int streamIndex = 0;
   int formatIndex = 0;
   int codecIndex = 0;
   int liveUrlIndex = 0;
 
   void _initStreamIndex() {
+    final streams = stream;
+    if (streams == null) return;
     streamIndex = 0;
     formatIndex = 0;
     codecIndex = 0;
@@ -443,7 +447,7 @@ class LiveRoomController extends GetxController {
         final String protocolName = pref[0];
         final String formatName = pref[1];
         final String codecName = pref[2];
-        for (var (i, s) in stream.indexed) {
+        for (var (i, s) in streams.indexed) {
           if (s.protocolName == protocolName) {
             streamIndex = i;
             for (var (j, f) in s.format.indexed) {
@@ -513,7 +517,9 @@ class LiveRoomController extends GetxController {
     this.codecIndex = codecIndex;
     this.liveUrlIndex = liveUrlIndex;
 
-    final CodecItem item = stream
+    final streams = stream;
+    if (streams == null) return false;
+    final CodecItem item = streams
         .getOrFirst(streamIndex)
         .format
         .getOrFirst(formatIndex)
@@ -530,11 +536,14 @@ class LiveRoomController extends GetxController {
     currentQnDesc.value =
         LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
     videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
-    final initialized =
-        await playerInit(
-          autoFullScreenFlag: autoFullScreenFlag,
-        ) ??
-        false;
+    final canReusePipPlayer =
+        isReturningFromPip && plPlayerController.videoPlayerController != null;
+    if (isReturningFromPip && !canReusePipPlayer) {
+      isReturningFromPip = false;
+    }
+    final initialized = canReusePipPlayer
+        ? true
+        : await playerInit(autoFullScreenFlag: autoFullScreenFlag) ?? false;
     if (initialized) {
       _startSizeSub();
     }
@@ -545,13 +554,15 @@ class LiveRoomController extends GetxController {
   // 直播投屏时，优先选择 HLS 协议的播放地址，且不使用 AV1 编码
   // 实测发现http_stream协议在投屏时会报版权问题，导致无法播放，HLS协议则没有这个问题
   String? _preferredCastUrl() {
+    final streams = stream;
+    if (streams == null) return null;
     final currentCastUrl = _currentCastUrl();
     if (currentCastUrl != null) {
       return currentCastUrl;
     }
 
     final candidates = <({String url, int score})>[];
-    for (final streamItem in stream) {
+    for (final streamItem in streams) {
       final protocolName = streamItem.protocolName?.toLowerCase() ?? '';
       for (final formatItem in streamItem.format) {
         final formatName = formatItem.formatName?.toLowerCase() ?? '';
@@ -600,7 +611,9 @@ class LiveRoomController extends GetxController {
   }
 
   String? _currentCastUrl() {
-    final streamItem = stream.getOrFirst(streamIndex);
+    final streams = stream;
+    if (streams == null) return null;
+    final streamItem = streams.getOrFirst(streamIndex);
     final formatItem = streamItem.format.getOrFirst(formatIndex);
     final codecItem = formatItem.codec.getOrFirst(codecIndex);
     final url = VideoUtils.getLiveCdnUrl(codecItem, index: liveUrlIndex);

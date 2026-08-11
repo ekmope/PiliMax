@@ -2624,7 +2624,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         return const SizedBox.shrink();
       }
       return Positioned.fill(
-        bottom: -2,
+        bottom: -1,
         child: VideoDetailExitCaptureBoundary(
           key: _transitionHeaderForegroundKey,
           child: _routeFadeTransition(

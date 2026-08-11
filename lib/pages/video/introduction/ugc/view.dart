@@ -860,8 +860,8 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                     if (introController.staffRelations['status'] == true &&
                         introController.staffRelations['${item.mid}'] == null) {
                       return Material(
-                        type: .transparency,
-                        shape: const CircleBorder(),
+                        type: .circle,
+                        color: colorScheme.secondaryContainer,
                         child: InkWell(
                           customBorder: const CircleBorder(),
                           onTap: () => RequestUtils.actionRelationMod(
@@ -872,12 +872,8 @@ class _UgcIntroPanelState extends State<UgcIntroPanel> {
                                 introController.staffRelations['${item.mid}'] =
                                     true,
                           ),
-                          child: Ink(
+                          child: Padding(
                             padding: const .all(2),
-                            decoration: BoxDecoration(
-                              color: colorScheme.secondaryContainer,
-                              shape: .circle,
-                            ),
                             child: Icon(
                               MdiIcons.plus,
                               size: 16,

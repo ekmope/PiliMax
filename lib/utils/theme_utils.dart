@@ -106,11 +106,14 @@ abstract final class ThemeUtils {
             : null,
         shadowColor: Colors.transparent,
       ),
-      progressIndicatorTheme: ProgressIndicatorThemeData(
-        // ignore: deprecated_member_use
-        year2023: false,
-        refreshBackgroundColor: colorScheme.onSecondary,
-      ),
+      progressIndicatorTheme: isDark
+          ? ProgressIndicatorThemeData(
+              // ignore: deprecated_member_use
+              year2023: false,
+              refreshBackgroundColor: colorScheme.onInverseSurface,
+            )
+          // ignore: deprecated_member_use
+          : const ProgressIndicatorThemeData(year2023: false),
       dialogTheme: DialogThemeData(
         titleTextStyle: TextStyle(
           fontSize: 18,
@@ -150,6 +153,11 @@ abstract final class ThemeUtils {
             WidgetState.selected: Icon(Icons.done),
             WidgetState.any: null,
           },
+        ),
+      ),
+      filledButtonTheme: const FilledButtonThemeData(
+        style: ButtonStyle(
+          shadowColor: WidgetStatePropertyAll(Colors.transparent),
         ),
       ),
       pageTransitionsTheme: PageTransitionsTheme(

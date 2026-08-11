@@ -355,43 +355,62 @@ abstract final class RequestUtils {
             SmartDialog.showToast('动态检查通过');
             return;
           }
-          final theme = ThemeUtils.theme;
-          final actions = [
-            TextButton(
-              onPressed: () {
-                Get.back();
-                Utils.copyText('https://www.bilibili.com/opus/$id');
-                Get.toNamed(
-                  '/webview',
-                  parameters: {
-                    'url':
-                        'https://www.bilibili.com/h5/comment/appeal?${ThemeUtils.themeUrl(theme.isDark)}',
-                  },
-                );
-              },
-              child: const Text('申诉'),
-            ),
-            if (!isManual)
-              TextButton(
-                onPressed: Get.back,
-                child: Text(
-                  '关闭',
-                  style: TextStyle(color: theme.colorScheme.outline),
-                ),
-              ),
-          ];
           showDialog(
             context: Get.context!,
             barrierDismissible: isManual,
-            builder: (context) => AlertDialog(
-              title: const Text('动态检查结果'),
-              content: SingleChildScrollView(
-                child: SelectionText(
-                  '你的动态被shadow ban（仅自己可见）！${dynText != null ? ' \n\n动态内容: $dynText' : ''}',
+            builder: (context) {
+              final colorScheme = ColorScheme.of(context);
+              final actions = <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Get.back();
+                    Utils.copyText('https://www.bilibili.com/opus/$id');
+                    Get.toNamed(
+                      '/webview',
+                      parameters: {
+                        'url':
+                            'https://www.bilibili.com/h5/comment/appeal?${ThemeUtils.themeUrl(colorScheme.isDark)}',
+                      },
+                    );
+                  },
+                  child: const Text('申诉'),
                 ),
-              ),
-              actions: actions.isEmpty ? null : actions,
-            ),
+                if (!isManual)
+                  TextButton(
+                    onPressed: Get.back,
+                    child: Text(
+                      '关闭',
+                      style: TextStyle(color: colorScheme.outline),
+                    ),
+                  ),
+              ];
+              return AlertDialog(
+                title: Text.rich(
+                  TextSpan(
+                    children: [
+                      WidgetSpan(
+                        alignment: .middle,
+                        child: Icon(
+                          size: 22,
+                          color: colorScheme.error,
+                          Icons.highlight_off_outlined,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' 动态检查结果',
+                        style: TextStyle(color: colorScheme.error),
+                      ),
+                    ],
+                  ),
+                ),
+                content: SingleChildScrollView(
+                  child: SelectionText(
+                    '你的动态被shadow ban（仅自己可见）！${dynText != null ? ' \n\n动态内容: $dynText' : ''}',
+                  ),
+                ),
+                actions: actions.isEmpty ? null : actions,
+              );
+            },
           );
         }
       } catch (e) {

@@ -191,50 +191,73 @@ abstract final class ReplyUtils {
       return;
     }
 
-    final theme = ThemeUtils.theme;
-    final actions = <Widget>[
-      if (_canAppeal(result.status))
-        TextButton(
-          onPressed: () {
-            Get.back();
-            final uri = switch (request.type) {
-              1 => IdUtils.av2bv(request.oid),
-              17 => 'https://www.bilibili.com/opus/${request.oid}',
-              _ => sourceId,
-            };
-            if (uri.isNotEmpty) {
-              Utils.copyText(uri);
-            }
-            Get.toNamed(
-              '/webview',
-              parameters: {
-                'url':
-                    'https://www.bilibili.com/h5/comment/appeal?${ThemeUtils.themeUrl(theme.isDark)}',
-              },
-            );
-          },
-          child: const Text('申诉'),
-        ),
-      TextButton(
-        onPressed: Get.back,
-        child: Text(
-          '关闭',
-          style: TextStyle(color: theme.colorScheme.outline),
-        ),
-      ),
-    ];
-
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('评论检查结果'),
-        content: SingleChildScrollView(
-          child: SelectionText(
-            '${result.detail}\n\n你的评论：${request.message}',
+      builder: (context) {
+        final colorScheme = ColorScheme.of(context);
+        final color = result.isProblem
+            ? colorScheme.error
+            : colorScheme.primary;
+        final actions = <Widget>[
+          if (_canAppeal(result.status))
+            TextButton(
+              onPressed: () {
+                Get.back();
+                final uri = switch (request.type) {
+                  1 => IdUtils.av2bv(request.oid),
+                  17 => 'https://www.bilibili.com/opus/${request.oid}',
+                  _ => sourceId,
+                };
+                if (uri.isNotEmpty) {
+                  Utils.copyText(uri);
+                }
+                Get.toNamed(
+                  '/webview',
+                  parameters: {
+                    'url':
+                        'https://www.bilibili.com/h5/comment/appeal?${ThemeUtils.themeUrl(colorScheme.isDark)}',
+                  },
+                );
+              },
+              child: const Text('申诉'),
+            ),
+          TextButton(
+            onPressed: Get.back,
+            child: Text(
+              '关闭',
+              style: TextStyle(color: colorScheme.outline),
+            ),
           ),
-        ),
-        actions: actions,
-      ),
+        ];
+        return AlertDialog(
+          title: Text.rich(
+            TextSpan(
+              children: [
+                WidgetSpan(
+                  alignment: .middle,
+                  child: Icon(
+                    size: 22,
+                    color: color,
+                    result.isProblem
+                        ? Icons.highlight_off_outlined
+                        : Icons.check_circle_outline_rounded,
+                  ),
+                ),
+                TextSpan(
+                  text: ' 评论检查结果',
+                  style: TextStyle(color: color),
+                ),
+              ],
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: SelectionText(
+              '${result.detail}\n\n你的评论：${request.message}',
+            ),
+          ),
+          actions: actions,
+        );
+      },
     );
   }
 

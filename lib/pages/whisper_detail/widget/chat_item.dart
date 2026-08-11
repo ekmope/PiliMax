@@ -93,7 +93,7 @@ class ChatItem extends StatelessWidget {
     late final ThemeData theme = Theme.of(context);
     late final Color textColor = isOwner
         ? theme.colorScheme.onSecondaryContainer
-        : theme.colorScheme.onSurfaceVariant;
+        : theme.colorScheme.onSurface;
     late final dynamic content = jsonDecode(item.content);
 
     Widget child = messageContent(

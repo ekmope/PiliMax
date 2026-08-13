@@ -73,9 +73,12 @@ dart run tool/pilimax/check_fork_drift.dart
 
 **已拆入 `lib/pilimax/forks/`（原路径恢复上游原文）：**
 
-- `lib/pages/dynamics_mention/view.dart`；为让恢复版完整可编译，同步恢复了它依赖的上游组件 `simple_scaffold.dart`、`view_insets_safe_area.dart`、`slotted_layout_helper.dart`（死代码，仅作合并锚点）
-- `lib/common/widgets/flutter/vertical_tabs.dart`
-- `lib/scripts/selectable_region.patch`（`patch.ps1` 中的引用已改指 fork 路径）
+- `lib/pages/dynamics_mention/view.dart`（已同步移植上游 "opt ui" 的主题色改动）；为让恢复版完整可编译，同步恢复了它依赖的上游组件 `simple_scaffold.dart`、`view_insets_safe_area.dart`、`slotted_layout_helper.dart`（死代码，仅作合并锚点）
+- `lib/common/widgets/flutter/vertical_tabs.dart`（本分支版本未定义 `TabBar`，无需移植上游 `hide TabBar` 改动）
+
+**直接采用上游 3.47.0 版本（不 fork）：**
+
+- `lib/scripts/selectable_region.patch`：本分支原有改动是相对旧 Flutter 的简化，上游 3.47 已自行维护该补丁，故放弃本地 fork、直接使用上游版本，`patch.ps1` 改指原路径。
 
 **保持原地修改（不能拆）：**
 
@@ -87,3 +90,5 @@ dart run tool/pilimax/check_fork_drift.dart
 - `lib/common/widgets/flutter/text_field/editable_text.dart`
 - `lib/common/widgets/flutter/text_field/text_selection.dart`
 - `lib/scripts/scrollable_gesture.patch`
+
+以上分流已于 2026-08-13 完成与上游 `c9871e9a8`（Flutter 3.47.0）的实际合并：modify/delete 均以 `git rm` 保留删除；`pubspec.lock` 取上游 3.47 基线，由 GitHub 构建时的隐式 `pub get` 补齐本分支私有依赖。

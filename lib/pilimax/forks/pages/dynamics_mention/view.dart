@@ -243,7 +243,7 @@ class _DynMentionPanelState
                   return SliverMainAxisGroup(
                     slivers: [
                       SliverPinnedHeader(
-                        backgroundColor: theme.colorScheme.surface,
+                        backgroundColor: theme.bottomSheetTheme.backgroundColor,
                         child: Padding(
                           padding: const .symmetric(
                             horizontal: 16,

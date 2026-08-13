@@ -8,10 +8,8 @@ $BottomSheetAndroidPatch = "lib/scripts/bottom_sheet_android.patch"
 $BottomSheetIOSFlutterPatch = "lib/scripts/bottom_sheet_ios_flutter.patch"
 $BottomSheetIOSPiliMaxPatch = "lib/scripts/bottom_sheet_ios_pilimax.patch"
 
-# Flutter issue #185052: restore the text-selection toolbar after a short scroll.
-$TextSelectionMenuFix = "beb2ad17004a1b118ff2bd09f55cee23198f6652";
-
-# Upstream issue #1662
+# https://github.com/bggRGjQaUbCoE/PiliPlus/issues/1662
+# handle bottom scroll event
 $ScrollViewPatch = "lib/scripts/scroll_view.patch"
 
 # Upstream issue #2106
@@ -32,7 +30,7 @@ $PopupMenuPatch = "lib/scripts/popup_menu.patch"
 
 $FABPatch = "lib/scripts/fab.patch"
 
-$SelectableRegionSelectionPatch = "lib/pilimax/forks/lib/scripts/selectable_region.patch"
+$SelectableRegionSelectionPatch = "lib/scripts/selectable_region.patch"
 
 $ScrollPositionPatch = "lib/scripts/scroll_position.patch"
 
@@ -66,7 +64,7 @@ if ($platform.ToLower() -eq "ios") {
 }
 Set-Location $env:FLUTTER_ROOT
 
-$picks   = @($TextSelectionMenuFix)
+$picks   = @()
 $reverts = @()
 $patches = @($ModalBarrierPatch, $TextSelectionPatch, $MouseCursorPatch,
             $ImageAnimPatch, $LayoutBuilderPatch, $NavigationDrawerPatch,

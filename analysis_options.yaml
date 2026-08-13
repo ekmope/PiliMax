@@ -24,6 +24,8 @@ analyzer:
     - linux/**
     - macos/**
     - windows/**
+    - web/**
+    - build/**
     # - lib/common/widgets/flutter/**
 
 formatter:

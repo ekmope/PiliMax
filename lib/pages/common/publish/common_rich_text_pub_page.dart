@@ -15,7 +15,7 @@ import 'package:PiliMax/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliMax/models_new/emote/emote.dart' as e;
 import 'package:PiliMax/models_new/live/live_emote/emoticon.dart';
 import 'package:PiliMax/pages/common/publish/common_publish_page.dart';
-import 'package:PiliMax/pages/dynamics_mention/view.dart';
+import 'package:PiliMax/pilimax/forks/pages/dynamics_mention/view.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/extension/file_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';

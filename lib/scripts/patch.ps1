@@ -32,7 +32,7 @@ $PopupMenuPatch = "lib/scripts/popup_menu.patch"
 
 $FABPatch = "lib/scripts/fab.patch"
 
-$SelectableRegionSelectionPatch = "lib/scripts/selectable_region.patch"
+$SelectableRegionSelectionPatch = "lib/pilimax/forks/lib/scripts/selectable_region.patch"
 
 $ScrollPositionPatch = "lib/scripts/scroll_position.patch"
 

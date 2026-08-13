@@ -16,6 +16,9 @@ analyzer:
   exclude:
     - lib/grpc/bilibili/**
     - lib/utils/android/bindings.g.dart
+    # Restored upstream page kept as a merge anchor; it targets the
+    # patched Flutter SDK applied by lib/scripts/patch.ps1 at build time.
+    - lib/pages/dynamics_mention/view.dart
     - android/**
     - ios/**
     - linux/**

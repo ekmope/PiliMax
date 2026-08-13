@@ -66,3 +66,24 @@ dart run tool/pilimax/check_fork_drift.dart
 - `lib/pages/video/view.dart`、`lib/pages/video/controller.dart`、`lib/pages/video/widgets/header_control.dart`
 - `lib/plugin/pl_player/controller.dart`、`lib/plugin/pl_player/view/view.dart`
 - `lib/utils/storage_pref.dart`、`lib/utils/page_utils.dart`、`lib/pages/live_room/*`
+
+## 合并冲突分流（2026-08-13）
+
+上游推进到 Flutter 3.47.0 时与本分支产生 8 处冲突，按如下方式分流：
+
+**已拆入 `lib/pilimax/forks/`（原路径恢复上游原文）：**
+
+- `lib/pages/dynamics_mention/view.dart`；为让恢复版完整可编译，同步恢复了它依赖的上游组件 `simple_scaffold.dart`、`view_insets_safe_area.dart`、`slotted_layout_helper.dart`（死代码，仅作合并锚点）
+- `lib/common/widgets/flutter/vertical_tabs.dart`
+- `lib/scripts/selectable_region.patch`（`patch.ps1` 中的引用已改指 fork 路径）
+
+**保持原地修改（不能拆）：**
+
+- `lib/scripts/patch.ps1`：CI 构建入口脚本
+- `pubspec.lock`：锁文件，需随 pubspec 原地解析
+
+**保持删除（我方 fork-reduction 方向，无自有内容可拆；上游每次改动时用 `git rm` 解决 modify/delete）：**
+
+- `lib/common/widgets/flutter/text_field/editable_text.dart`
+- `lib/common/widgets/flutter/text_field/text_selection.dart`
+- `lib/scripts/scrollable_gesture.patch`

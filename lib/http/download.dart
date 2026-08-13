@@ -1,5 +1,5 @@
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/http/download_source.dart';
+import 'package:PiliMax/pilimax/http/download_source.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/models/common/video/video_quality.dart';
@@ -8,7 +8,7 @@ import 'package:PiliMax/models/video/play/url.dart';
 import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/models_new/download/bili_download_media_file_info.dart';
 import 'package:PiliMax/models_new/sponsor_block/segment_item.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/video_utils.dart';
 import 'package:collection/collection.dart';

@@ -1,4 +1,4 @@
-import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
+import 'package:PiliMax/pilimax/common/widgets/loading_widget/button_loading.dart';
 import 'package:flutter/material.dart';
 
 Widget iconButton({

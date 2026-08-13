@@ -12,7 +12,7 @@ import 'package:PiliMax/pages/setting/widgets/popup_item.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/theme_utils.dart';

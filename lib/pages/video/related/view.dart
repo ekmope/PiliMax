@@ -1,8 +1,8 @@
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliMax/common/widgets/video_card/video_card_h.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/video_card/video_card_h.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/model_hot_video_item.dart';
-import 'package:PiliMax/pages/video/related/controller.dart';
+import 'package:PiliMax/pilimax/forks/pages/video/related/controller.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:flutter/material.dart';

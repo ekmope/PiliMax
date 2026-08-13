@@ -1,5 +1,5 @@
 import 'package:PiliMax/common/style.dart';
-import 'package:PiliMax/pages/video/video_page_transitions_builder.dart';
+import 'package:PiliMax/pilimax/pages/video/video_page_transitions_builder.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/cupertino.dart' show CupertinoThemeData;

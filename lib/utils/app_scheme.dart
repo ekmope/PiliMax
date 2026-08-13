@@ -17,7 +17,7 @@ import 'package:PiliMax/pages/live/view.dart';
 import 'package:PiliMax/pages/rank/view.dart';
 import 'package:PiliMax/pages/subscription_detail/view.dart';
 import 'package:PiliMax/pages/video/reply_reply/view.dart';
-import 'package:PiliMax/utils/external_uri_parser.dart';
+import 'package:PiliMax/pilimax/utils/external_uri_parser.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/request_utils.dart';

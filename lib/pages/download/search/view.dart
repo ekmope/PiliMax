@@ -1,5 +1,5 @@
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliMax/models_new/download/download_collection.dart';
+import 'package:PiliMax/pilimax/models_new/download/download_collection.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/pages/common/search/common_search_page.dart';

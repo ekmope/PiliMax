@@ -9,7 +9,7 @@ import 'package:PiliMax/models/user/danmaku_block.dart';
 import 'package:PiliMax/models/user/danmaku_rule.dart';
 import 'package:PiliMax/pages/danmaku_block/controller.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';

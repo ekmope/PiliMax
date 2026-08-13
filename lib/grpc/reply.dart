@@ -4,9 +4,9 @@ import 'package:PiliMax/grpc/bilibili/pagination.pb.dart';
 import 'package:PiliMax/grpc/grpc_req.dart';
 import 'package:PiliMax/grpc/url.dart';
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/utils/filter_pattern_compiler.dart';
+import 'package:PiliMax/pilimax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:PiliMax/utils/user_whitelist.dart';
+import 'package:PiliMax/pilimax/utils/user_whitelist.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:fixnum/fixnum.dart';
 

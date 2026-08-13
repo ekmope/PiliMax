@@ -1,7 +1,7 @@
-import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/plus_one_icon.dart';
+import 'package:PiliMax/pilimax/common/widgets/plus_one_icon.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:PiliMax/http/live.dart';

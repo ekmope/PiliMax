@@ -4,7 +4,7 @@ import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_floating_header.dart';
-import 'package:PiliMax/common/widgets/video_card/video_card_h.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/video_card/video_card_h.dart';
 import 'package:PiliMax/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';

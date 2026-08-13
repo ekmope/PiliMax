@@ -8,7 +8,7 @@ import 'package:PiliMax/models_new/pgc/pgc_index_condition/sort.dart';
 import 'package:PiliMax/models_new/pgc/pgc_index_condition/value.dart';
 import 'package:PiliMax/models_new/pgc/pgc_index_result/list.dart';
 import 'package:PiliMax/pages/pgc_index/controller.dart';
-import 'package:PiliMax/pages/pgc_index/widgets/pgc_card_v_pgc_index.dart';
+import 'package:PiliMax/pilimax/forks/pages/pgc_index/widgets/pgc_card_v_pgc_index.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:flutter/material.dart';

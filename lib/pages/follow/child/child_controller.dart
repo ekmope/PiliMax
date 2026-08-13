@@ -7,7 +7,7 @@ import 'package:PiliMax/models_new/follow/data.dart';
 import 'package:PiliMax/models_new/follow/list.dart';
 import 'package:PiliMax/pages/common/common_list_controller.dart';
 import 'package:PiliMax/pages/follow/controller.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:get/get.dart';

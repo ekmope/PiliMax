@@ -1,7 +1,7 @@
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/pilimax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/sub/sub/list.dart';
 import 'package:PiliMax/models_new/sub/sub_detail/media.dart';

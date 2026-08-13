@@ -1,5 +1,5 @@
 import 'package:PiliMax/models/model_video.dart';
-import 'package:PiliMax/utils/filter_pattern_compiler.dart';
+import 'package:PiliMax/pilimax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';

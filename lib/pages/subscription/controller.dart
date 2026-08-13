@@ -4,7 +4,7 @@ import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models_new/sub/sub/data.dart';
 import 'package:PiliMax/models_new/sub/sub/list.dart';
 import 'package:PiliMax/pages/common/common_list_controller.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

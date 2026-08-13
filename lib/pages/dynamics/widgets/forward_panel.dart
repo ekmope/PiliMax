@@ -1,7 +1,7 @@
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/widgets/dyn_content.dart';
-import 'package:PiliMax/pages/dynamics/widgets/dynamic_video_hero_tag.dart';
+import 'package:PiliMax/pilimax/pages/dynamics/widgets/dynamic_video_hero_tag.dart';
 import 'package:PiliMax/pages/dynamics/widgets/module_panel.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';

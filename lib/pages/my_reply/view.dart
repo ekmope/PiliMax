@@ -9,7 +9,7 @@ import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/reply_utils.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:PiliMax/utils/waterfall.dart';

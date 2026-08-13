@@ -3,11 +3,11 @@ import 'dart:io' show Platform;
 
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
-import 'package:PiliMax/common/widgets/selectable_text.dart';
-import 'package:PiliMax/services/comment_antifraud/comment_antifraud_result.dart';
-import 'package:PiliMax/services/comment_antifraud/comment_antifraud_service.dart';
-import 'package:PiliMax/services/comment_antifraud/reply_http_comment_antifraud_gateway.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/common/widgets/selectable_text.dart';
+import 'package:PiliMax/pilimax/services/comment_antifraud/comment_antifraud_result.dart';
+import 'package:PiliMax/pilimax/services/comment_antifraud/comment_antifraud_service.dart';
+import 'package:PiliMax/pilimax/services/comment_antifraud/reply_http_comment_antifraud_gateway.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';

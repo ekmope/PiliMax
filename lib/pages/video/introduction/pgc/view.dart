@@ -15,7 +15,7 @@ import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/widgets/pgc_panel.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/action_item.dart';
-import 'package:PiliMax/pages/video/video_layout_metrics.dart';
+import 'package:PiliMax/pilimax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';

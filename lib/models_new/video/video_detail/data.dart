@@ -7,7 +7,7 @@ import 'package:PiliMax/models_new/video/video_detail/rights.dart';
 import 'package:PiliMax/models_new/video/video_detail/staff.dart';
 import 'package:PiliMax/models_new/video/video_detail/stat.dart';
 import 'package:PiliMax/models_new/video/video_detail/ugc_season.dart';
-import 'package:PiliMax/models/common/list_order.dart';
+import 'package:PiliMax/pilimax/models/common/list_order.dart';
 import 'package:PiliMax/utils/parse_string.dart';
 
 class VideoDetailData {

@@ -10,7 +10,7 @@ import 'package:PiliMax/pages/download/controller.dart';
 import 'package:PiliMax/pages/download/detail/widgets/item.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:flutter/material.dart'
     hide SliverGridDelegateWithMaxCrossAxisExtent;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

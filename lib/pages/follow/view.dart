@@ -1,6 +1,6 @@
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';

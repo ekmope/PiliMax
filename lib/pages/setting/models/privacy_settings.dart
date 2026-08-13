@@ -2,7 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/api_type.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:flutter/material.dart';

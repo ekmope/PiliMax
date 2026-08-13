@@ -9,7 +9,7 @@ import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/models/model_avatar.dart';
 import 'package:PiliMax/models_new/article/article_view/data.dart';
 import 'package:PiliMax/pages/common/dyn/common_dyn_controller.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';

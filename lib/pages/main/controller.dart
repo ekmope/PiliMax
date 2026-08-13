@@ -14,7 +14,7 @@ import 'package:PiliMax/services/account_service.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/update.dart';

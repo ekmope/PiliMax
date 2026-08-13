@@ -1,10 +1,10 @@
 import 'dart:io' show Directory, File;
 
-import 'package:PiliMax/services/crash/crash_context.dart';
-import 'package:PiliMax/services/crash/crash_reporter.dart';
-import 'package:PiliMax/utils/app_temporary_files.dart';
-import 'package:PiliMax/utils/cache_policy.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/services/crash/crash_context.dart';
+import 'package:PiliMax/pilimax/services/crash/crash_reporter.dart';
+import 'package:PiliMax/pilimax/utils/app_temporary_files.dart';
+import 'package:PiliMax/pilimax/utils/cache_policy.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';

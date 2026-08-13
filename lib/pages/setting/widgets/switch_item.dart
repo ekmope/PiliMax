@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart' hide ListTile;

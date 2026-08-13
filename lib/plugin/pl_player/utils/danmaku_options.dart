@@ -1,8 +1,8 @@
 import 'package:PiliMax/utils/extension/box_ext.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:PiliMax/models/common/danmaku/danmaku_font_sync_mode.dart';
+import 'package:PiliMax/pilimax/models/common/danmaku/danmaku_font_sync_mode.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 
 abstract final class DanmakuOptions {

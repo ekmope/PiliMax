@@ -5,7 +5,7 @@ import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
-import 'package:PiliMax/pages/video/video_layout_metrics.dart';
+import 'package:PiliMax/pilimax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';

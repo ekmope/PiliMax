@@ -1,6 +1,6 @@
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/http/api.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/fav_order_type.dart';
 import 'package:PiliMax/models_new/fav/fav_article/data.dart';
@@ -13,7 +13,7 @@ import 'package:PiliMax/models_new/fav/fav_topic/data.dart';
 import 'package:PiliMax/models_new/space/space_cheese/data.dart';
 import 'package:PiliMax/models_new/space/space_fav/data.dart';
 import 'package:PiliMax/models_new/sub/sub_detail/data.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/app_sign.dart';
 import 'package:dio/dio.dart';
 

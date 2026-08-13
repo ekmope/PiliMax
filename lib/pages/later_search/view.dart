@@ -2,7 +2,7 @@ import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models_new/later/data.dart';
 import 'package:PiliMax/models_new/later/list.dart';
 import 'package:PiliMax/pages/common/search/common_search_page.dart';
-import 'package:PiliMax/pages/later/widgets/video_card_h_later.dart';
+import 'package:PiliMax/pilimax/forks/pages/later/widgets/video_card_h_later.dart';
 import 'package:PiliMax/pages/later_search/controller.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/page_utils.dart';

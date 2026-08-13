@@ -5,7 +5,7 @@ import 'package:PiliMax/models_new/history/data.dart';
 import 'package:PiliMax/models_new/history/list.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/pages/common/search/common_search_controller.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:flutter/widgets.dart' show Text;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

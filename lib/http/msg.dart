@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/constants.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/msg/im_user_infos/datum.dart';
 import 'package:PiliMax/models_new/msg/msg_at/data.dart';
@@ -15,9 +15,9 @@ import 'package:PiliMax/models_new/msg/session_ss/data.dart';
 import 'package:PiliMax/models_new/msgfeed_unread/data.dart';
 import 'package:PiliMax/models_new/single_unread/data.dart';
 import 'package:PiliMax/models_new/upload_bfs/data.dart';
-import 'package:PiliMax/utils/accounts.dart';
-import 'package:PiliMax/utils/upload_image_validator.dart';
-import 'package:PiliMax/utils/wbi_sign.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
+import 'package:PiliMax/pilimax/utils/upload_image_validator.dart';
+import 'package:PiliMax/pilimax/forks/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class MsgHttp {

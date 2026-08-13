@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:PiliMax/build_config.dart';
 import 'package:PiliMax/common/constants.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/sponsor_block_api.dart';
 import 'package:PiliMax/models/common/sponsor_block/post_segment_model.dart';

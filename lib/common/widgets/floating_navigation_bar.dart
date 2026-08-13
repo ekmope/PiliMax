@@ -1,41 +1,23 @@
-import 'dart:async' show unawaited;
-import 'dart:math' as math;
-import 'dart:ui' as ui;
+// Copyright 2014 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
 
-import 'package:PiliMax/common/widgets/liquid_glass_quality.dart';
-import 'package:flutter/gestures.dart' show kTouchSlop;
+import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
 
-const double _kNavigationHeight = 64.0;
-const double _kIndicatorWidth = 86.0;
-const double _kIndicatorPadding = 4.0;
-const double _kDragShellMotionFactor = 0.9;
-const double _kDragShellVelocityFactor = 0.8;
-const double _kDragShellMaxOffset = 3.0;
-const double _kDragOpticalMotionFactor = 0.9;
-const double _kDragOpticalVelocityFactor = 1.2;
-const Duration _kLiquidPressDuration = Duration(milliseconds: 130);
-final ui.ImageFilter _kLiquidReflectiveBlur = ui.ImageFilter.blur(
-  sigmaX: 7,
-  sigmaY: 7,
-  tileMode: ui.TileMode.clamp,
-);
-final ui.ImageFilter _kLiquidFrostedBlur = ui.ImageFilter.blur(
-  sigmaX: 9,
-  sigmaY: 9,
-  tileMode: ui.TileMode.clamp,
-);
-const BorderRadius _kBorderRadius = BorderRadius.all(
-  Radius.circular(_kNavigationHeight / 2),
-);
-const ShapeBorder _kNavigationShape = RoundedSuperellipseBorder(
+const double _kMaxLabelTextScaleFactor = 1.3;
+
+const _kNavigationHeight = 64.0;
+const _kIndicatorHeight = _kNavigationHeight - 2 * _kIndicatorPaddingInt;
+const _kIndicatorWidth = 86.0;
+const _kIndicatorPaddingInt = 4.0;
+const _kIndicatorPadding = EdgeInsets.all(_kIndicatorPaddingInt);
+const _kBorderRadius = BorderRadius.all(.circular(_kNavigationHeight / 2));
+const _kNavigationShape = RoundedSuperellipseBorder(
   borderRadius: _kBorderRadius,
 );
-const Color _indicatorDark = Color(0x15FFFFFF);
-const Color _indicatorLight = Color(0x10000000);
 
-/// A compact, floating shell around Flutter's public [NavigationBar].
+/// ref [NavigationBar]
 class FloatingNavigationBar extends StatelessWidget {
   // ignore: prefer_const_constructors_in_immutables
   FloatingNavigationBar({
@@ -55,13 +37,8 @@ class FloatingNavigationBar extends StatelessWidget {
     this.labelTextStyle,
     this.labelPadding,
     this.bottomPadding = 8.0,
-    this.liquidGlass = false,
-    this.liquidGlassQuality = LiquidGlassQuality.automatic,
   }) : assert(destinations.length >= 2),
-       assert(0 <= selectedIndex && selectedIndex < destinations.length),
-       assert(!animationDuration.isNegative),
-       assert(elevation == null || elevation >= 0),
-       assert(bottomPadding >= 0);
+       assert(0 <= selectedIndex && selectedIndex < destinations.length);
 
   final Duration animationDuration;
   final int selectedIndex;
@@ -78,166 +55,79 @@ class FloatingNavigationBar extends StatelessWidget {
   final WidgetStateProperty<TextStyle?>? labelTextStyle;
   final EdgeInsetsGeometry? labelPadding;
   final double bottomPadding;
-  final bool liquidGlass;
-  final LiquidGlassQuality liquidGlassQuality;
+
+  VoidCallback _handleTap(int index) {
+    return onDestinationSelected != null
+        ? () => onDestinationSelected!(index)
+        : () {};
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (liquidGlass) {
-      return _LiquidGlassNavigationBar(
-        animationDuration: animationDuration,
-        selectedIndex: selectedIndex,
-        destinations: destinations,
-        onDestinationSelected: onDestinationSelected,
-        backgroundColor: backgroundColor,
-        elevation: elevation,
-        shadowColor: shadowColor,
-        surfaceTintColor: surfaceTintColor,
-        indicatorColor: indicatorColor,
-        indicatorShape: indicatorShape,
-        labelBehavior: labelBehavior,
-        overlayColor: overlayColor,
-        labelTextStyle: labelTextStyle,
-        labelPadding: labelPadding,
-        bottomPadding: bottomPadding,
-        liquidGlassQuality: liquidGlassQuality,
-      );
-    }
+    final defaults = _NavigationBarDefaultsM3(context);
 
-    final theme = Theme.of(context);
     final navigationBarTheme = NavigationBarTheme.of(context);
-    final viewPadding = MediaQuery.viewPaddingOf(context);
-    final isDark = theme.colorScheme.brightness == Brightness.dark;
-    final preferredWidth = destinations.length * _kIndicatorWidth;
-    final availableWidth = math.max(
-      0.0,
-      MediaQuery.sizeOf(context).width - viewPadding.horizontal,
-    );
-    final barWidth = math.min(preferredWidth, availableWidth);
-    final indicatorWidth = barWidth < preferredWidth
-        ? math.max(0.0, barWidth - 2 * _kIndicatorPadding) / destinations.length
-        : _kIndicatorWidth;
+    final effectiveLabelBehavior =
+        labelBehavior ??
+        navigationBarTheme.labelBehavior ??
+        defaults.labelBehavior!;
 
-    final effectiveElevation = elevation ?? navigationBarTheme.elevation ?? 3.0;
-    final effectiveIndicatorColor =
-        indicatorColor ??
-        navigationBarTheme.indicatorColor ??
-        (isDark ? _indicatorDark : _indicatorLight);
-    final effectiveIndicatorShape =
-        indicatorShape ??
-        navigationBarTheme.indicatorShape ??
-        _kNavigationShape;
-    final sourceOverlayColor = overlayColor ?? navigationBarTheme.overlayColor;
-    final effectiveOverlayColor = WidgetStateProperty.resolveWith<Color?>((
-      states,
-    ) {
-      if (states.contains(WidgetState.pressed)) {
-        return Colors.transparent;
-      }
-      return sourceOverlayColor?.resolve(states);
-    });
+    final padding = MediaQuery.viewPaddingOf(context);
 
-    return UnconstrainedBox(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          viewPadding.left,
-          0,
-          viewPadding.right,
-          bottomPadding + viewPadding.bottom,
-        ),
-        child: SizedBox(
-          key: const ValueKey('liquidGlassNavigationBar'),
-          height: _kNavigationHeight,
-          width: barWidth,
-          child: Material(
-            color:
-                backgroundColor ??
-                navigationBarTheme.backgroundColor ??
-                theme.colorScheme.surfaceContainer,
-            elevation: effectiveElevation,
-            shadowColor:
-                shadowColor ??
-                navigationBarTheme.shadowColor ??
-                Colors.transparent,
-            surfaceTintColor:
-                surfaceTintColor ??
-                navigationBarTheme.surfaceTintColor ??
-                Colors.transparent,
+    return Padding(
+      padding: .fromLTRB(
+        padding.left,
+        0,
+        padding.right,
+        bottomPadding + padding.bottom,
+      ),
+      child: SizedBox(
+        height: _kNavigationHeight,
+        width: destinations.length * _kIndicatorWidth,
+        child: DecoratedBox(
+          decoration: ShapeDecoration(
+            color: ElevationOverlay.applySurfaceTint(
+              backgroundColor ??
+                  navigationBarTheme.backgroundColor ??
+                  defaults.backgroundColor!,
+              surfaceTintColor ??
+                  navigationBarTheme.surfaceTintColor ??
+                  defaults.surfaceTintColor,
+              elevation ?? navigationBarTheme.elevation ?? defaults.elevation!,
+            ),
             shape: RoundedSuperellipseBorder(
-              side: BorderSide(
-                color: isDark
-                    ? const Color(0x08FFFFFF)
-                    : const Color(0x08000000),
-              ),
+              side: defaults.borderSide,
               borderRadius: _kBorderRadius,
             ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(_kIndicatorPadding),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var index = 0; index < destinations.length; index++)
-                        Expanded(
-                          child: OverflowBox(
-                            minWidth: indicatorWidth,
-                            maxWidth: indicatorWidth,
-                            child: AnimatedOpacity(
-                              opacity: index == selectedIndex ? 1 : 0,
-                              duration: const Duration(milliseconds: 100),
-                              child: AnimatedScale(
-                                scale: index == selectedIndex ? 1 : 0.5,
-                                duration: animationDuration,
-                                curve: Curves.easeInOutCubicEmphasized,
-                                child: DecoratedBox(
-                                  decoration: ShapeDecoration(
-                                    color: effectiveIndicatorColor,
-                                    shape: effectiveIndicatorShape,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(_kIndicatorPadding),
-                  child: MediaQuery.removePadding(
-                    context: context,
-                    removeLeft: true,
-                    removeTop: true,
-                    removeRight: true,
-                    removeBottom: true,
-                    child: NavigationBar(
-                      animationDuration: animationDuration,
-                      selectedIndex: selectedIndex,
-                      destinations: destinations,
-                      onDestinationSelected: onDestinationSelected,
-                      backgroundColor: Colors.transparent,
-                      elevation: 0,
-                      shadowColor: Colors.transparent,
-                      surfaceTintColor: Colors.transparent,
-                      indicatorColor: Colors.transparent,
-                      height: _kNavigationHeight - 2 * _kIndicatorPadding,
-                      labelBehavior: labelBehavior,
-                      // The floating bar already paints the complete destination
-                      // indicator behind both the icon and label. Keep the
-                      // framework's hover/focus feedback, but suppress its
-                      // icon-only pressed splash so there is only one effect.
-                      overlayColor: effectiveOverlayColor,
-                      labelTextStyle: labelTextStyle,
-                      labelPadding:
-                          labelPadding ??
-                          navigationBarTheme.labelPadding ??
-                          const EdgeInsets.only(top: 2),
+          ),
+          child: Padding(
+            padding: _kIndicatorPadding,
+            child: Row(
+              crossAxisAlignment: .stretch,
+              children: <Widget>[
+                for (int i = 0; i < destinations.length; i++)
+                  Expanded(
+                    child: _SelectableAnimatedBuilder(
+                      duration: animationDuration,
+                      isSelected: i == selectedIndex,
+                      builder: (context, animation) {
+                        return _NavigationDestinationInfo(
+                          index: i,
+                          selectedIndex: selectedIndex,
+                          totalNumberOfDestinations: destinations.length,
+                          selectedAnimation: animation,
+                          labelBehavior: effectiveLabelBehavior,
+                          indicatorColor: indicatorColor,
+                          indicatorShape: indicatorShape,
+                          overlayColor: overlayColor,
+                          onTap: _handleTap(i),
+                          labelTextStyle: labelTextStyle,
+                          labelPadding: labelPadding,
+                          child: destinations[i],
+                        );
+                      },
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -247,1362 +137,6 @@ class FloatingNavigationBar extends StatelessWidget {
   }
 }
 
-class _LiquidGlassNavigationBar extends StatefulWidget {
-  const _LiquidGlassNavigationBar({
-    required this.animationDuration,
-    required this.selectedIndex,
-    required this.destinations,
-    required this.onDestinationSelected,
-    required this.backgroundColor,
-    required this.elevation,
-    required this.shadowColor,
-    required this.surfaceTintColor,
-    required this.indicatorColor,
-    required this.indicatorShape,
-    required this.labelBehavior,
-    required this.overlayColor,
-    required this.labelTextStyle,
-    required this.labelPadding,
-    required this.bottomPadding,
-    required this.liquidGlassQuality,
-  });
-
-  final Duration animationDuration;
-  final int selectedIndex;
-  final List<Widget> destinations;
-  final ValueChanged<int>? onDestinationSelected;
-  final Color? backgroundColor;
-  final double? elevation;
-  final Color? shadowColor;
-  final Color? surfaceTintColor;
-  final ShapeBorder? indicatorShape;
-  final Color? indicatorColor;
-  final NavigationDestinationLabelBehavior? labelBehavior;
-  final WidgetStateProperty<Color?>? overlayColor;
-  final WidgetStateProperty<TextStyle?>? labelTextStyle;
-  final EdgeInsetsGeometry? labelPadding;
-  final double bottomPadding;
-  final LiquidGlassQuality liquidGlassQuality;
-
-  @override
-  State<_LiquidGlassNavigationBar> createState() =>
-      _LiquidGlassNavigationBarState();
-}
-
-class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
-    with TickerProviderStateMixin {
-  late final AnimationController _selectionController;
-  late final AnimationController _pressController;
-  late final Listenable _indicatorListenable;
-  late double _fromIndex;
-  late double _targetIndex;
-  double? _dragIndex;
-  double _dragStartIndex = 0;
-  double _itemExtent = _kIndicatorWidth;
-  bool _isPressed = false;
-  bool _interactionCommitted = false;
-  int? _activePointer;
-  int? _pendingPointerUp;
-  Offset _pointerDownPosition = Offset.zero;
-  Offset _lastPointerPosition = Offset.zero;
-  Duration _lastPointerTime = Duration.zero;
-  bool _gestureDirectionLocked = false;
-  bool _isVerticalGesture = false;
-  double _dragDirection = 0;
-  double _dragVelocity = 0;
-  double _dragOverscroll = 0;
-  double _releaseVisualOffset = 0;
-  double _releaseShellOffset = 0;
-  double _releaseMotionIndex = 0;
-  double _releaseVelocityNorm = 0;
-  double _releaseTravel = 0;
-  double _releaseDragProgress = 0;
-  late LiquidGlassQuality _resolvedQuality;
-
-  double get _animatedIndex =>
-      _fromIndex + (_targetIndex - _fromIndex) * _selectionController.value;
-
-  double get _dragVelocityNorm {
-    final normalized = (_dragVelocity / 8).clamp(-0.45, 0.45).toDouble();
-    return normalized.abs() < 0.06 ? 0 : normalized;
-  }
-
-  bool get _isDraggingBeyondEdge =>
-      _gestureDirectionLocked &&
-      !_isVerticalGesture &&
-      _dragOverscroll.abs() > 0.001;
-
-  double get _activeDragVelocityNorm =>
-      _isDraggingBeyondEdge ? 0 : _dragVelocityNorm;
-
-  double get _dragEdgeOffset =>
-      _isDraggingBeyondEdge ? _resistedOverscroll(_dragOverscroll) : 0;
-
-  double _visualMotionIndex(
-    double indicatorIndex,
-    double transitionProgress,
-  ) {
-    if (_dragIndex != null) {
-      return indicatorIndex - _dragStartIndex;
-    }
-    return (_targetIndex - _fromIndex) * transitionProgress;
-  }
-
-  double get _releaseProgress =>
-      (1 - _selectionController.value).clamp(0.0, 1.0).toDouble();
-
-  double get _visualBarOffset {
-    final indicatorIndex = _dragIndex ?? _animatedIndex;
-    final transitionProgress = math.sin(math.pi * _selectionController.value);
-    final motionIndex = _visualMotionIndex(
-      indicatorIndex,
-      transitionProgress,
-    );
-    return _dragIndex != null
-        ? (motionIndex * _kDragShellMotionFactor +
-                  _dragEdgeOffset +
-                  _activeDragVelocityNorm * _kDragShellVelocityFactor)
-              .clamp(
-                _isDraggingBeyondEdge ? -7.0 : -_kDragShellMaxOffset,
-                _isDraggingBeyondEdge ? 7.0 : _kDragShellMaxOffset,
-              )
-              .toDouble()
-        : (motionIndex * _kDragShellMotionFactor +
-                  _releaseShellOffset * _releaseProgress)
-              .clamp(-7.0, 7.0)
-              .toDouble();
-  }
-
-  bool get _usesReflectiveQuality =>
-      widget.liquidGlassQuality == LiquidGlassQuality.reflective ||
-      (widget.liquidGlassQuality == LiquidGlassQuality.automatic &&
-          _resolvedQuality == LiquidGlassQuality.reflective);
-
-  @override
-  void initState() {
-    super.initState();
-    _fromIndex = widget.selectedIndex.toDouble();
-    _targetIndex = _fromIndex;
-    _selectionController = AnimationController(vsync: this, value: 1);
-    _pressController = AnimationController(
-      vsync: this,
-      duration: _kLiquidPressDuration,
-      reverseDuration: const Duration(milliseconds: 180),
-    );
-    _indicatorListenable = Listenable.merge([
-      _selectionController,
-      _pressController,
-    ]);
-    _resolvedQuality = _initialQuality;
-    _resolveAutomaticQuality();
-  }
-
-  LiquidGlassQuality get _initialQuality =>
-      widget.liquidGlassQuality == LiquidGlassQuality.automatic
-      ? LiquidGlassQualityResolver.immediateDefault
-      : widget.liquidGlassQuality;
-
-  void _resolveAutomaticQuality() {
-    if (widget.liquidGlassQuality != LiquidGlassQuality.automatic) return;
-    unawaited(
-      LiquidGlassQualityResolver.resolve().then((quality) {
-        if (mounted &&
-            widget.liquidGlassQuality == LiquidGlassQuality.automatic) {
-          setState(() => _resolvedQuality = quality);
-        }
-      }),
-    );
-  }
-
-  @override
-  void didUpdateWidget(_LiquidGlassNavigationBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.liquidGlassQuality != widget.liquidGlassQuality) {
-      _resolvedQuality = _initialQuality;
-      _resolveAutomaticQuality();
-    }
-    if (oldWidget.destinations.length != widget.destinations.length) {
-      final maxIndex = (widget.destinations.length - 1).toDouble();
-      _fromIndex = _fromIndex.clamp(0.0, maxIndex).toDouble();
-      _targetIndex = _targetIndex.clamp(0.0, maxIndex).toDouble();
-      _dragIndex = _dragIndex?.clamp(0.0, maxIndex).toDouble();
-      _dragOverscroll = 0;
-    }
-    final selectedIndex = widget.selectedIndex.toDouble();
-    if ((_targetIndex - selectedIndex).abs() > 0.001) {
-      _animateTo(selectedIndex);
-    }
-  }
-
-  @override
-  void dispose() {
-    _selectionController.dispose();
-    _pressController.dispose();
-    super.dispose();
-  }
-
-  void _animateTo(double index, {double velocity = 0}) {
-    // The indicator keeps a continuous position so taps and drags share one
-    // spring instead of restarting separate per-destination animations.
-    final dragIndex = _dragIndex;
-    final currentIndex = dragIndex ?? _animatedIndex;
-    final dragWasOverscrolling = _isDraggingBeyondEdge;
-    final dragVelocityNorm = _activeDragVelocityNorm;
-    final dragMotionIndex = dragIndex == null
-        ? 0.0
-        : currentIndex - _dragStartIndex;
-    final dragEdgeOffset = dragIndex == null ? 0.0 : _dragEdgeOffset;
-    _releaseVisualOffset = dragIndex == null
-        ? 0
-        : (dragMotionIndex * _kDragOpticalMotionFactor +
-                  dragVelocityNorm * _kDragOpticalVelocityFactor)
-              .clamp(-4.0, 4.0)
-              .toDouble();
-    _releaseShellOffset = dragIndex == null
-        ? 0
-        : (dragMotionIndex * _kDragShellMotionFactor +
-                  dragEdgeOffset +
-                  dragVelocityNorm * _kDragShellVelocityFactor)
-              .clamp(-7.0, 7.0)
-              .toDouble();
-    _releaseMotionIndex = dragMotionIndex;
-    _releaseVelocityNorm = dragIndex == null ? 0 : dragVelocityNorm;
-    _releaseTravel = dragIndex == null ? 0 : dragMotionIndex.abs();
-    _releaseDragProgress =
-        dragIndex != null && _gestureDirectionLocked && !_isVerticalGesture
-        ? 1.0
-        : 0.0;
-    _selectionController.stop();
-    _fromIndex = currentIndex;
-    _targetIndex = index;
-    final disableAnimations =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final clearPressState = dragIndex != null || _isPressed;
-    if (clearPressState) {
-      if (disableAnimations) {
-        _pressController.value = 0;
-      } else {
-        _pressController.reverse();
-      }
-      if (mounted) {
-        // AnimatedBuilder only repaints the indicator. Rebuild the navigation
-        // destinations as well so a released press cannot leave its selected
-        // icon behind.
-        setState(() {
-          _dragIndex = null;
-          _isPressed = false;
-          _dragVelocity = 0;
-          _dragOverscroll = 0;
-          _dragDirection = 0;
-          _gestureDirectionLocked = false;
-          _isVerticalGesture = false;
-        });
-      }
-    }
-
-    if (disableAnimations) {
-      _selectionController.value = 1;
-      return;
-    }
-
-    _selectionController.value = 0;
-    _selectionController.animateWith(
-      SpringSimulation(
-        SpringDescription.withDampingRatio(
-          ratio: 0.82,
-          stiffness: 420,
-          mass: 1,
-        ),
-        0,
-        1,
-        (dragWasOverscrolling ? 0.0 : velocity).clamp(-3.0, 3.0).toDouble(),
-        snapToEnd: true,
-      ),
-    );
-  }
-
-  void _handleDestinationSelected(int index) {
-    if (_interactionCommitted) return;
-    _interactionCommitted = true;
-    _animateTo(index.toDouble());
-    widget.onDestinationSelected?.call(index);
-    if (_activePointer == null && _pendingPointerUp == null) {
-      _scheduleInteractionReset();
-    }
-  }
-
-  void _scheduleInteractionReset() {
-    Future<void>.microtask(() {
-      if (mounted && _activePointer == null) {
-        _interactionCommitted = false;
-      }
-    });
-  }
-
-  double _indexForX(double x) {
-    final maxIndex = (widget.destinations.length - 1).toDouble();
-    return ((x - _kIndicatorPadding) / _itemExtent - 0.5)
-        .clamp(0.0, maxIndex)
-        .toDouble();
-  }
-
-  double _overscrollForX(double x) {
-    // Overscroll is measured against the shell edges, not item centers. This
-    // keeps ordinary taps on the first/last destination from shifting the bar.
-    const minX = 0.0;
-    final maxX =
-        _itemExtent * widget.destinations.length + 2 * _kIndicatorPadding;
-    if (x < minX) return x - minX;
-    if (x > maxX) return x - maxX;
-    return 0;
-  }
-
-  double _resistedOverscroll(double overscroll) {
-    if (overscroll.abs() <= 0.001) return 0;
-    const maximumOffset = 10.0;
-    const resistanceDistance = 24.0;
-    return overscroll.sign *
-        maximumOffset *
-        (1 - math.exp(-overscroll.abs() / resistanceDistance));
-  }
-
-  void _handlePointerDown(PointerDownEvent event) {
-    if (_activePointer != null) return;
-
-    _selectionController.stop();
-    final index = _indexForX(event.localPosition.dx);
-    _activePointer = event.pointer;
-    _pendingPointerUp = null;
-    _pointerDownPosition = event.localPosition;
-    _lastPointerPosition = event.localPosition;
-    _lastPointerTime = event.timeStamp;
-    _gestureDirectionLocked = false;
-    _isVerticalGesture = false;
-    _dragStartIndex = index;
-    _interactionCommitted = false;
-    _dragVelocity = 0;
-    _dragOverscroll = _overscrollForX(event.localPosition.dx);
-    _releaseVisualOffset = 0;
-    _releaseShellOffset = 0;
-    _releaseMotionIndex = 0;
-    _releaseVelocityNorm = 0;
-    _releaseTravel = 0;
-    _releaseDragProgress = 0;
-    setState(() {
-      // The lens jumps under the finger on pointer-down, before a long-press
-      // or horizontal-drag recognizer reaches its slop threshold.
-      _dragIndex = index;
-      _isPressed = true;
-      _dragDirection = 0;
-    });
-    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
-      _pressController.value = 1;
-    } else {
-      _pressController.forward();
-    }
-  }
-
-  void _handlePointerMove(PointerMoveEvent event) {
-    if (event.pointer != _activePointer) return;
-
-    final delta = event.localPosition - _pointerDownPosition;
-    if (!_gestureDirectionLocked && delta.distance > kTouchSlop) {
-      _gestureDirectionLocked = true;
-      _isVerticalGesture = delta.dy.abs() > delta.dx.abs();
-      if (_isVerticalGesture) {
-        _animateTo(widget.selectedIndex.toDouble());
-        return;
-      }
-    }
-    if (_isVerticalGesture) return;
-
-    final dragIndex = _indexForX(event.localPosition.dx);
-    final overscroll = _overscrollForX(event.localPosition.dx);
-    final wasOverscrolling = _isDraggingBeyondEdge;
-    final deltaX = event.localPosition.dx - _lastPointerPosition.dx;
-    final dragDirection = deltaX.abs() > 0.1 ? deltaX.sign : _dragDirection;
-    final elapsedMicros = (event.timeStamp - _lastPointerTime).inMicroseconds;
-    final instantaneousVelocity = elapsedMicros > 0
-        ? (deltaX / elapsedMicros * 1000000 / _itemExtent)
-              .clamp(-3.0, 3.0)
-              .toDouble()
-        : 0.0;
-    final isOverscrolling = overscroll.abs() > 0.001;
-    final smoothedVelocity = isOverscrolling
-        ? 0.0
-        : (wasOverscrolling
-                  ? 0.0
-                  : (_dragVelocity * 0.82 + instantaneousVelocity * 0.18))
-              .clamp(-3.0, 3.0)
-              .toDouble();
-    _lastPointerPosition = event.localPosition;
-    _lastPointerTime = event.timeStamp;
-    if ((_dragIndex == null ||
-            (_dragIndex! - dragIndex).abs() > 0.001 ||
-            (overscroll - _dragOverscroll).abs() > 0.02) &&
-        mounted) {
-      setState(() {
-        _dragIndex = dragIndex;
-        _dragDirection = dragDirection;
-        _dragOverscroll = overscroll;
-        _dragVelocity = smoothedVelocity;
-      });
-    } else if (mounted &&
-        (dragDirection != _dragDirection ||
-            (smoothedVelocity - _dragVelocity).abs() > 0.02)) {
-      setState(() {
-        _dragDirection = dragDirection;
-        _dragVelocity = smoothedVelocity;
-      });
-    }
-  }
-
-  double _pointerVelocity(PointerUpEvent event) {
-    final elapsedMicros = (event.timeStamp - _lastPointerTime).inMicroseconds;
-    if (elapsedMicros <= 0) return 0;
-    return (event.localPosition.dx - _lastPointerPosition.dx) /
-        elapsedMicros *
-        1000000 /
-        _itemExtent;
-  }
-
-  void _handlePointerUp(PointerUpEvent event) {
-    if (event.pointer != _activePointer) return;
-
-    final dragIndex = _dragIndex ?? _indexForX(event.localPosition.dx);
-    final pointerOverscroll = _overscrollForX(event.localPosition.dx);
-    if ((pointerOverscroll - _dragOverscroll).abs() > 0.001) {
-      _dragOverscroll = pointerOverscroll;
-    }
-    final edgeDrag = _isDraggingBeyondEdge;
-    final velocity = edgeDrag ? 0.0 : _pointerVelocity(event);
-    _activePointer = null;
-    _pendingPointerUp = event.pointer;
-
-    // Let NavigationBar's tap recognizer win the arena first. A raw pointer
-    // up arrives before onDestinationSelected; deferring this fallback keeps
-    // same-tab taps and semantic activations from being swallowed.
-    Future<void>.microtask(() {
-      if (!mounted || _pendingPointerUp != event.pointer) return;
-      _pendingPointerUp = null;
-      if (_interactionCommitted) {
-        _scheduleInteractionReset();
-        return;
-      }
-
-      _interactionCommitted = true;
-      if (_isVerticalGesture) {
-        if (_dragIndex != null || _isPressed) {
-          _animateTo(widget.selectedIndex.toDouble());
-        }
-        _scheduleInteractionReset();
-        return;
-      }
-
-      // A disabled destination should remain a no-op when it was tapped.
-      // Nearest-enabled snapping is reserved for an actual horizontal drag.
-      if (!_gestureDirectionLocked) {
-        _animateTo(widget.selectedIndex.toDouble());
-        _scheduleInteractionReset();
-        return;
-      }
-
-      final maxIndex = widget.destinations.length - 1;
-      final nearestIndex = (dragIndex + velocity * 0.08).round().clamp(
-        0,
-        maxIndex,
-      );
-      final targetIndex = _nearestEnabledIndex(nearestIndex);
-      if (targetIndex == null) {
-        _animateTo(widget.selectedIndex.toDouble());
-        _scheduleInteractionReset();
-        return;
-      }
-      _animateTo(targetIndex.toDouble(), velocity: velocity);
-      if (targetIndex != widget.selectedIndex) {
-        widget.onDestinationSelected?.call(targetIndex);
-      }
-      _scheduleInteractionReset();
-    });
-  }
-
-  void _handlePointerCancel(PointerCancelEvent event) {
-    if (event.pointer != _activePointer) return;
-
-    final interactionCommitted = _interactionCommitted;
-    _activePointer = null;
-    _pendingPointerUp = null;
-    if (!interactionCommitted) {
-      _interactionCommitted = true;
-      _animateTo(widget.selectedIndex.toDouble());
-    }
-    _scheduleInteractionReset();
-  }
-
-  bool _destinationEnabled(int index) {
-    final destination = widget.destinations[index];
-    if (destination is FloatingNavigationDestination) {
-      return destination.enabled;
-    }
-    if (destination is NavigationDestination) {
-      return destination.enabled;
-    }
-    return true;
-  }
-
-  int? _nearestEnabledIndex(int index) {
-    final maxIndex = widget.destinations.length - 1;
-    final clampedIndex = index.clamp(0, maxIndex).toInt();
-    if (_destinationEnabled(clampedIndex)) return clampedIndex;
-
-    for (var distance = 1; distance <= maxIndex; distance++) {
-      final left = clampedIndex - distance;
-      if (left >= 0 && _destinationEnabled(left)) return left;
-      final right = clampedIndex + distance;
-      if (right <= maxIndex && _destinationEnabled(right)) return right;
-    }
-    return null;
-  }
-
-  List<Widget> _buildVisualDestinations({
-    required double indicatorIndex,
-    required ColorScheme colorScheme,
-    required NavigationBarThemeData navigationBarTheme,
-  }) {
-    final defaultIconTheme = navigationBarTheme.iconTheme;
-    final inactiveTheme =
-        defaultIconTheme?.resolve(const <WidgetState>{}) ??
-        IconThemeData(color: colorScheme.onSurfaceVariant, size: 24);
-    final activeTheme =
-        defaultIconTheme?.resolve(const <WidgetState>{WidgetState.selected}) ??
-        IconThemeData(color: colorScheme.onSecondaryContainer, size: 24);
-
-    return List<Widget>.generate(widget.destinations.length, (index) {
-      final destination = _LiquidDestinationData.fromWidget(
-        widget.destinations[index],
-      );
-      if (destination == null) return widget.destinations[index];
-
-      final rawProgress = (1 - (indicatorIndex - index).abs()).clamp(0.0, 1.0);
-      final selectionProgress = Curves.easeInOutCubic.transform(rawProgress);
-      final icon = _LiquidDestinationIcon(
-        icon: destination.icon,
-        selectedIcon: destination.selectedIcon,
-        iconWrapper: destination.iconWrapper,
-        selectionProgress: destination.enabled ? selectionProgress : 0,
-        inactiveTheme: inactiveTheme,
-        activeTheme: activeTheme,
-      );
-      return NavigationDestination(
-        icon: icon,
-        selectedIcon: _LiquidDestinationIcon(
-          icon: destination.icon,
-          selectedIcon: destination.selectedIcon,
-          iconWrapper: destination.iconWrapper,
-          selectionProgress: destination.enabled ? selectionProgress : 0,
-          inactiveTheme: inactiveTheme,
-          activeTheme: activeTheme,
-        ),
-        label: destination.label,
-        tooltip: destination.tooltip,
-        enabled: destination.enabled,
-      );
-    });
-  }
-
-  Widget _buildLiquidLens({
-    required bool reflective,
-    required bool isDark,
-    required Color effectiveIndicatorColor,
-    required ShapeBorder effectiveIndicatorShape,
-  }) {
-    return AnimatedBuilder(
-      animation: _indicatorListenable,
-      builder: (context, _) {
-        final dragIndex = _dragIndex;
-        final indicatorIndex = dragIndex ?? _animatedIndex;
-        final pressProgress = Curves.easeOutCubic.transform(
-          _pressController.value,
-        );
-        final releaseProgress = _releaseProgress;
-        final travel = dragIndex != null
-            ? (indicatorIndex - _dragStartIndex).abs()
-            : _releaseTravel * releaseProgress;
-        final stretchAmount = dragIndex != null
-            ? math.min(22.0, travel * 14) * math.min(1.0, travel)
-            : math.min(22.0, _releaseTravel * 14) * releaseProgress;
-        final dragProgress = dragIndex != null
-            ? (_gestureDirectionLocked && !_isVerticalGesture ? 1.0 : 0.0)
-            : _releaseDragProgress * releaseProgress;
-        final baseWidth =
-            widget.labelBehavior ==
-                NavigationDestinationLabelBehavior.alwaysHide
-            ? math.max(48.0, math.min(60.0, _itemExtent - 12))
-            : math.max(56.0, math.min(78.0, _itemExtent - 4));
-        final indicatorWidth =
-            baseWidth + stretchAmount + 24 * pressProgress + 8 * dragProgress;
-        final indicatorHeight =
-            _kNavigationHeight - 12 + 20 * pressProgress + 3 * dragProgress;
-        final centerX =
-            _kIndicatorPadding + _itemExtent * (indicatorIndex + 0.5);
-        final transitionProgress = math.sin(
-          math.pi * _selectionController.value,
-        );
-        final motionIndex = _visualMotionIndex(
-          indicatorIndex,
-          transitionProgress,
-        );
-        final opticalMotionIndex = dragIndex != null
-            ? motionIndex
-            : motionIndex + _releaseMotionIndex * _releaseProgress;
-        final velocityNorm = dragIndex != null
-            ? _activeDragVelocityNorm
-            : _releaseVelocityNorm * _releaseProgress;
-        final visualOffset = dragIndex != null
-            ? (motionIndex * _kDragOpticalMotionFactor +
-                      velocityNorm * _kDragOpticalVelocityFactor)
-                  .clamp(-4.0, 4.0)
-                  .toDouble()
-            : (motionIndex * _kDragOpticalMotionFactor +
-                      _releaseVisualOffset * _releaseProgress)
-                  .clamp(-4.0, 4.0)
-                  .toDouble();
-        final left = centerX - indicatorWidth / 2 + visualOffset;
-        final reflectionStrength =
-            (0.22 + pressProgress * 0.58 + dragProgress * 0.16)
-                .clamp(0.0, 1.0)
-                .toDouble();
-        final rawReflectionPhase =
-            indicatorIndex * 0.43 +
-            pressProgress * 0.27 +
-            opticalMotionIndex * 0.04 +
-            velocityNorm * 0.03;
-        final reflectionPhase = rawReflectionPhase;
-        final refractionOffset =
-            (opticalMotionIndex * 2.2 +
-                    velocityNorm * (0.8 + pressProgress * 1.2))
-                .clamp(-10.0, 10.0)
-                .toDouble();
-        final signedDragOffset = dragIndex != null
-            ? motionIndex * _itemExtent
-            : _releaseMotionIndex * _itemExtent * releaseProgress;
-        final lensShape = _LiquidLensShape(
-          baseShape: effectiveIndicatorShape,
-          pressProgress: pressProgress,
-          dragOffset: signedDragOffset,
-          velocity: velocityNorm,
-        );
-
-        return Positioned(
-          key: const ValueKey('liquidGlassIndicator'),
-          left: left,
-          top: (_kNavigationHeight - indicatorHeight) / 2,
-          width: indicatorWidth,
-          height: indicatorHeight,
-          child: IgnorePointer(
-            child: ClipPath(
-              clipper: ShapeBorderClipper(shape: lensShape),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (reflective)
-                    RawMagnifier(
-                      size: Size(indicatorWidth, indicatorHeight),
-                      magnificationScale: 1.055 + pressProgress * 0.12,
-                      focalPointOffset: Offset(-refractionOffset, 0),
-                      decoration: MagnifierDecoration(
-                        opacity: (isDark ? 0.90 : 0.88) + pressProgress * 0.08,
-                        shape: lensShape,
-                      ),
-                    ),
-                  DecoratedBox(
-                    decoration: ShapeDecoration(
-                      color: effectiveIndicatorColor.withValues(
-                        alpha:
-                            (effectiveIndicatorColor.a *
-                                        (reflective ? 0.22 : 0.40) -
-                                    pressProgress * 0.05)
-                                .clamp(0.0, 1.0)
-                                .toDouble(),
-                      ),
-                      shape: lensShape,
-                    ),
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.white.withValues(
-                            alpha: reflective
-                                ? (isDark ? 0.10 : 0.16)
-                                : (isDark ? 0.07 : 0.11),
-                          ),
-                          Colors.transparent,
-                          Colors.black.withValues(
-                            alpha: isDark ? 0.06 : 0.025,
-                          ),
-                        ],
-                        stops: const [0.0, 0.48, 1.0],
-                      ),
-                    ),
-                  ),
-                  CustomPaint(
-                    painter: _LiquidIndicatorBorderPainter(
-                      shape: lensShape,
-                      color: Colors.white.withValues(
-                        alpha: (isDark ? 0.28 : 0.42) + pressProgress * 0.24,
-                      ),
-                      width: 1 + pressProgress * 0.5,
-                    ),
-                  ),
-                  if (reflective)
-                    CustomPaint(
-                      painter: _LiquidReflectionPainter(
-                        shape: lensShape,
-                        phase: reflectionPhase,
-                        velocity: velocityNorm,
-                        pressProgress: pressProgress,
-                        progress: reflectionStrength,
-                        isDark: isDark,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final navigationBarTheme = NavigationBarTheme.of(context);
-    final colorScheme = theme.colorScheme;
-    final viewPadding = MediaQuery.viewPaddingOf(context);
-    final isDark = colorScheme.brightness == Brightness.dark;
-    final preferredWidth = widget.destinations.length * _kIndicatorWidth;
-    final availableWidth = math.max(
-      0.0,
-      MediaQuery.sizeOf(context).width - viewPadding.horizontal,
-    );
-    final barWidth = math.min(preferredWidth, availableWidth);
-    _itemExtent = math.max(
-      1.0,
-      (barWidth - 2 * _kIndicatorPadding) / widget.destinations.length,
-    );
-
-    final tintColor =
-        widget.surfaceTintColor ??
-        navigationBarTheme.surfaceTintColor ??
-        colorScheme.surfaceTint;
-    final defaultGlassColor = colorScheme.surfaceContainer.withValues(
-      alpha: isDark ? 0.22 : 0.15,
-    );
-    final glassColor =
-        widget.backgroundColor ??
-        Color.alphaBlend(
-          tintColor.withValues(alpha: isDark ? 0.06 : 0.035),
-          defaultGlassColor,
-        );
-    final borderColor = Colors.white.withValues(
-      alpha: isDark ? 0.30 : 0.42,
-    );
-    final effectiveShadowColor =
-        widget.shadowColor ??
-        navigationBarTheme.shadowColor ??
-        Colors.black.withValues(alpha: isDark ? 0.34 : 0.18);
-    final effectiveElevation =
-        widget.elevation ?? navigationBarTheme.elevation ?? 3.0;
-    final effectiveIndicatorColor =
-        widget.indicatorColor ??
-        Color.alphaBlend(
-          colorScheme.primary.withValues(alpha: isDark ? 0.20 : 0.13),
-          Colors.white.withValues(alpha: isDark ? 0.10 : 0.26),
-        );
-    final effectiveIndicatorShape =
-        widget.indicatorShape ??
-        navigationBarTheme.indicatorShape ??
-        _kNavigationShape;
-    final sourceOverlayColor =
-        widget.overlayColor ?? navigationBarTheme.overlayColor;
-    final effectiveOverlayColor = WidgetStateProperty.resolveWith<Color?>((
-      states,
-    ) {
-      if (states.contains(WidgetState.pressed)) {
-        return Colors.transparent;
-      }
-      if (states.contains(WidgetState.hovered)) {
-        return Colors.transparent;
-      }
-      return sourceOverlayColor?.resolve(states);
-    });
-    final disableAnimations =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final reflective = _usesReflectiveQuality && !disableAnimations;
-
-    return UnconstrainedBox(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          viewPadding.left,
-          0,
-          viewPadding.right,
-          widget.bottomPadding + viewPadding.bottom,
-        ),
-        child: SizedBox(
-          key: const ValueKey('liquidGlassNavigationBar'),
-          height: _kNavigationHeight,
-          width: barWidth,
-          child: AnimatedBuilder(
-            animation: _indicatorListenable,
-            // The bar follows the liquid motion visually, while the fixed
-            // layout coordinates keep touch targets aligned with the page.
-            builder: (context, child) => Transform.translate(
-              offset: Offset(_visualBarOffset, 0),
-              transformHitTests: false,
-              child: child,
-            ),
-            child: RepaintBoundary(
-              key: const ValueKey('liquidGlassVisualShell'),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: _kBorderRadius,
-                  boxShadow: [
-                    BoxShadow(
-                      color: effectiveShadowColor,
-                      blurRadius: 20 + effectiveElevation * 2,
-                      spreadRadius: -6,
-                      offset: Offset(0, 5 + effectiveElevation),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  clipBehavior: Clip.none,
-                  children: [
-                    ClipPath(
-                      clipper: const ShapeBorderClipper(
-                        shape: _kNavigationShape,
-                      ),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          // Clip the filter to the pill so only the bar's
-                          // backdrop is sampled and the rest of the page stays
-                          // untouched.
-                          BackdropFilter(
-                            filter: reflective
-                                ? _kLiquidReflectiveBlur
-                                : _kLiquidFrostedBlur,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: glassColor,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white.withValues(
-                                      alpha: isDark ? 0.06 : 0.11,
-                                    ),
-                                    Colors.transparent,
-                                    Colors.black.withValues(
-                                      alpha: isDark ? 0.07 : 0.025,
-                                    ),
-                                  ],
-                                  stops: const [0.0, 0.44, 1.0],
-                                ),
-                              ),
-                            ),
-                          ),
-                          AnimatedBuilder(
-                            animation: _pressController,
-                            builder: (context, child) {
-                              final pressProgress = Curves.easeOutCubic
-                                  .transform(
-                                    _pressController.value,
-                                  );
-                              return ColoredBox(
-                                color: Colors.white.withValues(
-                                  alpha: (isDark ? 0.07 : 0.04) * pressProgress,
-                                ),
-                                child: child,
-                              );
-                            },
-                            child: const SizedBox.expand(),
-                          ),
-                          IgnorePointer(
-                            child: DecoratedBox(
-                              decoration: ShapeDecoration(
-                                color: Colors.transparent,
-                                shape: RoundedSuperellipseBorder(
-                                  side: BorderSide(color: borderColor),
-                                  borderRadius: _kBorderRadius,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Listener(
-                      behavior: HitTestBehavior.opaque,
-                      onPointerDown: _handlePointerDown,
-                      onPointerMove: _handlePointerMove,
-                      onPointerUp: _handlePointerUp,
-                      onPointerCancel: _handlePointerCancel,
-                      child: AnimatedBuilder(
-                        animation: _indicatorListenable,
-                        builder: (context, _) {
-                          final visualIndex = _dragIndex ?? _animatedIndex;
-                          return Padding(
-                            padding: const EdgeInsets.all(_kIndicatorPadding),
-                            child: MediaQuery.removePadding(
-                              context: context,
-                              removeLeft: true,
-                              removeTop: true,
-                              removeRight: true,
-                              removeBottom: true,
-                              child: NavigationBar(
-                                // NavigationBar keeps its committed semantic
-                                // selection. The icons below interpolate from
-                                // the continuous glass position instead of
-                                // switching at a rounded drag index.
-                                animationDuration: Duration.zero,
-                                selectedIndex: widget.selectedIndex,
-                                destinations: _buildVisualDestinations(
-                                  indicatorIndex: visualIndex,
-                                  colorScheme: colorScheme,
-                                  navigationBarTheme: navigationBarTheme,
-                                ),
-                                onDestinationSelected:
-                                    _handleDestinationSelected,
-                                backgroundColor: Colors.transparent,
-                                elevation: 0,
-                                shadowColor: Colors.transparent,
-                                surfaceTintColor: Colors.transparent,
-                                indicatorColor: Colors.transparent,
-                                height:
-                                    _kNavigationHeight - 2 * _kIndicatorPadding,
-                                labelBehavior: widget.labelBehavior,
-                                overlayColor: effectiveOverlayColor,
-                                labelTextStyle: widget.labelTextStyle,
-                                labelPadding:
-                                    widget.labelPadding ??
-                                    navigationBarTheme.labelPadding ??
-                                    const EdgeInsets.only(top: 2),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    _buildLiquidLens(
-                      reflective: reflective,
-                      isDark: isDark,
-                      effectiveIndicatorColor: effectiveIndicatorColor,
-                      effectiveIndicatorShape: effectiveIndicatorShape,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LiquidDestinationData {
-  const _LiquidDestinationData({
-    required this.icon,
-    required this.selectedIcon,
-    required this.label,
-    required this.tooltip,
-    required this.enabled,
-    required this.iconWrapper,
-  });
-
-  final Widget icon;
-  final Widget? selectedIcon;
-  final String label;
-  final String? tooltip;
-  final bool enabled;
-  final Widget Function(Widget icon)? iconWrapper;
-
-  static _LiquidDestinationData? fromWidget(Widget widget) {
-    if (widget is FloatingNavigationDestination) {
-      return _LiquidDestinationData(
-        icon: widget.icon,
-        selectedIcon: widget.selectedIcon,
-        label: widget.label,
-        tooltip: widget.tooltip,
-        enabled: widget.enabled,
-        iconWrapper: widget.iconWrapper,
-      );
-    }
-    if (widget is NavigationDestination) {
-      return _LiquidDestinationData(
-        icon: widget.icon,
-        selectedIcon: widget.selectedIcon,
-        label: widget.label,
-        tooltip: widget.tooltip,
-        enabled: widget.enabled,
-        iconWrapper: null,
-      );
-    }
-    return null;
-  }
-}
-
-class _LiquidDestinationIcon extends StatelessWidget {
-  const _LiquidDestinationIcon({
-    required this.icon,
-    required this.selectedIcon,
-    required this.iconWrapper,
-    required this.selectionProgress,
-    required this.inactiveTheme,
-    required this.activeTheme,
-  });
-
-  final Widget icon;
-  final Widget? selectedIcon;
-  final Widget Function(Widget icon)? iconWrapper;
-  final double selectionProgress;
-  final IconThemeData inactiveTheme;
-  final IconThemeData activeTheme;
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = selectionProgress.clamp(0.0, 1.0).toDouble();
-    final color = Color.lerp(
-      inactiveTheme.color ?? Colors.transparent,
-      activeTheme.color ?? Colors.transparent,
-      progress,
-    )!;
-    final highlightColor = Color.lerp(
-      color,
-      Colors.white,
-      Theme.of(context).brightness == Brightness.dark ? 0.08 : 0.14,
-    )!;
-    final iconTheme = IconThemeData.lerp(
-      inactiveTheme,
-      activeTheme,
-      progress,
-    ).copyWith(color: color);
-
-    // Outlined and filled custom glyphs do not share the same optical
-    // baseline. Crossfading both layers therefore makes the glyph appear to
-    // move vertically while the liquid indicator is dragged. Keep one stable
-    // geometry during interpolation and switch to the selected glyph only at
-    // the settled endpoint.
-    final transitionIcon = ShaderMask(
-      blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [highlightColor, color],
-      ).createShader(bounds),
-      child: IconTheme(
-        data: iconTheme,
-        child: progress >= 0.999 ? (selectedIcon ?? icon) : icon,
-      ),
-    );
-    final iconBoxSize = math.max(
-      inactiveTheme.size ?? 24.0,
-      activeTheme.size ?? 24.0,
-    );
-    return ExcludeSemantics(
-      child: SizedBox.square(
-        dimension: iconBoxSize,
-        child: Center(
-          child: iconWrapper?.call(transitionIcon) ?? transitionIcon,
-        ),
-      ),
-    );
-  }
-}
-
-class _LiquidLensShape extends ShapeBorder {
-  const _LiquidLensShape({
-    required this.baseShape,
-    required this.pressProgress,
-    required this.dragOffset,
-    required this.velocity,
-  });
-
-  final ShapeBorder baseShape;
-  final double pressProgress;
-  final double dragOffset;
-  final double velocity;
-
-  @override
-  EdgeInsetsGeometry get dimensions => baseShape.dimensions;
-
-  @override
-  Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
-    if (pressProgress <= 0.001 &&
-        dragOffset.abs() <= 0.001 &&
-        velocity.abs() <= 0.001) {
-      return baseShape.getOuterPath(rect, textDirection: textDirection);
-    }
-    return _buildLiquidLensPath(
-      rect,
-      baseShape: baseShape,
-      pressProgress: pressProgress,
-      dragOffset: dragOffset,
-      velocity: velocity,
-      textDirection: textDirection,
-    );
-  }
-
-  @override
-  Path getInnerPath(Rect rect, {TextDirection? textDirection}) {
-    final innerRect = rect.deflate(1.0);
-    if (pressProgress <= 0.001 &&
-        dragOffset.abs() <= 0.001 &&
-        velocity.abs() <= 0.001) {
-      return baseShape.getInnerPath(innerRect, textDirection: textDirection);
-    }
-    return _buildLiquidLensPath(
-      innerRect,
-      baseShape: baseShape,
-      pressProgress: pressProgress,
-      dragOffset: dragOffset,
-      velocity: velocity,
-      textDirection: textDirection,
-    );
-  }
-
-  @override
-  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
-    if (pressProgress <= 0.001 &&
-        dragOffset.abs() <= 0.001 &&
-        velocity.abs() <= 0.001) {
-      baseShape.paint(canvas, rect, textDirection: textDirection);
-    }
-  }
-
-  @override
-  ShapeBorder scale(double t) => _LiquidLensShape(
-    baseShape: baseShape.scale(t),
-    pressProgress: pressProgress * t,
-    dragOffset: dragOffset * t,
-    velocity: velocity * t,
-  );
-}
-
-Path _buildLiquidLensPath(
-  Rect rect, {
-  required ShapeBorder baseShape,
-  required double pressProgress,
-  required double dragOffset,
-  required double velocity,
-  TextDirection? textDirection,
-}) {
-  final bounds = rect.deflate(0.6);
-  if (bounds.width <= 1 || bounds.height <= 1) {
-    return Path()..addRect(rect);
-  }
-
-  final basePath = baseShape.getOuterPath(
-    bounds,
-    textDirection: textDirection,
-  );
-  final metrics = basePath.computeMetrics(forceClosed: true).toList();
-  if (metrics.isEmpty) return basePath;
-  final metric = metrics.reduce(
-    (longest, current) => current.length > longest.length ? current : longest,
-  );
-  if (metric.length <= 0) return basePath;
-
-  final motion =
-      (dragOffset / math.max(1.0, bounds.width * 0.45) + velocity * 0.24)
-          .clamp(-1.0, 1.0)
-          .toDouble();
-  final pressure = pressProgress.clamp(0.0, 1.0).toDouble();
-  final center = bounds.center;
-  const sampleCount = 64;
-  final points = <Offset>[];
-
-  for (var index = 0; index < sampleCount; index++) {
-    final distance = metric.length * index / sampleCount;
-    final tangent = metric.getTangentForOffset(distance);
-    if (tangent == null) continue;
-
-    final point = tangent.position;
-    var normal = Offset(-tangent.vector.dy, tangent.vector.dx);
-    final normalLength = normal.distance;
-    if (normalLength <= 0.0001) continue;
-    normal /= normalLength;
-    final radial = point - center;
-    if (normal.dx * radial.dx + normal.dy * radial.dy < 0) {
-      normal = -normal;
-    }
-
-    final signedExposure = normal.dx * motion;
-    final leadingWeight = _smoothStep(
-      ((signedExposure + 0.08) / 0.92).clamp(0.0, 1.0).toDouble(),
-    );
-    final trailingWeight = _smoothStep(
-      ((-signedExposure + 0.08) / 0.92).clamp(0.0, 1.0).toDouble(),
-    );
-    final dragStrength = motion.abs();
-    final pressSwell = pressure * 1.5;
-    final dragBulge =
-        dragStrength * (leadingWeight * 4.6 - trailingWeight * 1.2);
-    final displacement = (pressSwell + dragBulge).clamp(-1.6, 5.2).toDouble();
-    points.add(point + normal * displacement);
-  }
-
-  if (points.length < 4) return basePath;
-
-  final smoothPath = Path()..moveTo(points.first.dx, points.first.dy);
-  const tension = 0.82;
-  const controlScale = tension / 6.0;
-  for (var index = 0; index < points.length; index++) {
-    final previous = points[(index - 1 + points.length) % points.length];
-    final current = points[index];
-    final next = points[(index + 1) % points.length];
-    final nextNext = points[(index + 2) % points.length];
-    final firstControl = current + (next - previous) * controlScale;
-    final secondControl = next - (nextNext - current) * controlScale;
-    smoothPath.cubicTo(
-      firstControl.dx,
-      firstControl.dy,
-      secondControl.dx,
-      secondControl.dy,
-      next.dx,
-      next.dy,
-    );
-  }
-  return smoothPath..close();
-}
-
-double _smoothStep(double value) {
-  final t = value.clamp(0.0, 1.0).toDouble();
-  return t * t * (3.0 - 2.0 * t);
-}
-
-class _LiquidReflectionPainter extends CustomPainter {
-  const _LiquidReflectionPainter({
-    required this.shape,
-    required this.phase,
-    required this.velocity,
-    required this.pressProgress,
-    required this.progress,
-    required this.isDark,
-  });
-
-  final ShapeBorder shape;
-  final double phase;
-  final double velocity;
-  final double pressProgress;
-  final double progress;
-  final bool isDark;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final path = shape.getOuterPath(rect.deflate(0.7));
-    final energy = (progress * (0.72 + pressProgress * 0.28))
-        .clamp(0.0, 1.0)
-        .toDouble();
-    final phaseAngle = phase * math.pi * 2;
-    final tone = isDark ? 0.84 : 1.0;
-    final edgeColors = [
-      const Color(0xFF43E6FF).withValues(alpha: 0.34 * tone * energy),
-      const Color(0xFF6C9BFF).withValues(alpha: 0.28 * tone * energy),
-      Colors.white.withValues(alpha: 0.34 * tone * energy),
-      const Color(0xFFFFC65A).withValues(alpha: 0.30 * tone * energy),
-      const Color(0xFFFF71C8).withValues(alpha: 0.22 * tone * energy),
-      const Color(0xFF43E6FF).withValues(alpha: 0.34 * tone * energy),
-    ];
-    final rotation = GradientRotation(phaseAngle * 0.62 + velocity * 0.25);
-
-    canvas
-      ..save()
-      ..clipPath(path);
-
-    final glowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.6 + pressProgress * 2.2
-      ..strokeCap = StrokeCap.round
-      ..blendMode = BlendMode.screen
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2.8 + pressProgress)
-      ..shader = SweepGradient(
-        colors: edgeColors,
-        stops: const [0.0, 0.18, 0.38, 0.58, 0.78, 1.0],
-        transform: rotation,
-      ).createShader(rect.inflate(2.0));
-    canvas.drawPath(path, glowPaint);
-
-    final rimPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0 + energy * 1.15 + pressProgress * 0.45
-      ..strokeCap = StrokeCap.round
-      ..shader = SweepGradient(
-        colors: edgeColors,
-        stops: const [0.0, 0.18, 0.38, 0.58, 0.78, 1.0],
-        transform: rotation,
-      ).createShader(rect);
-    canvas.drawPath(path, rimPaint);
-
-    final innerPath = shape.getOuterPath(rect.deflate(2.0));
-    final innerPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.65 + pressProgress * 0.45
-      ..color = Colors.white.withValues(alpha: (0.14 + energy * 0.20) * tone);
-    canvas
-      ..drawPath(innerPath, innerPaint)
-      ..restore();
-  }
-
-  @override
-  bool shouldRepaint(_LiquidReflectionPainter oldDelegate) =>
-      oldDelegate.shape != shape ||
-      oldDelegate.phase != phase ||
-      oldDelegate.velocity != velocity ||
-      oldDelegate.pressProgress != pressProgress ||
-      oldDelegate.progress != progress ||
-      oldDelegate.isDark != isDark;
-}
-
-class _LiquidIndicatorBorderPainter extends CustomPainter {
-  const _LiquidIndicatorBorderPainter({
-    required this.shape,
-    required this.color,
-    required this.width,
-  });
-
-  final ShapeBorder shape;
-  final Color color;
-  final double width;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = shape.getOuterPath((Offset.zero & size).deflate(width / 2));
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = width,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_LiquidIndicatorBorderPainter oldDelegate) {
-    return oldDelegate.shape != shape ||
-        oldDelegate.color != color ||
-        oldDelegate.width != width;
-  }
-}
-
-/// Compatibility wrapper for existing PiliMax call sites.
 class FloatingNavigationDestination extends StatelessWidget {
   const FloatingNavigationDestination({
     super.key,
@@ -1611,24 +145,629 @@ class FloatingNavigationDestination extends StatelessWidget {
     required this.label,
     this.tooltip,
     this.enabled = true,
-    this.iconWrapper,
   });
 
   final Widget icon;
+
   final Widget? selectedIcon;
+
   final String label;
+
   final String? tooltip;
+
   final bool enabled;
-  final Widget Function(Widget icon)? iconWrapper;
 
   @override
-  Widget build(BuildContext context) => NavigationDestination(
-    icon: iconWrapper?.call(icon) ?? icon,
-    selectedIcon: selectedIcon == null
-        ? null
-        : iconWrapper?.call(selectedIcon!) ?? selectedIcon,
-    label: label,
-    tooltip: tooltip,
-    enabled: enabled,
-  );
+  Widget build(BuildContext context) {
+    final info = _NavigationDestinationInfo.of(context);
+    const selectedState = <WidgetState>{WidgetState.selected};
+    const unselectedState = <WidgetState>{};
+    const disabledState = <WidgetState>{WidgetState.disabled};
+
+    final navigationBarTheme = NavigationBarTheme.of(context);
+    final defaults = _NavigationBarDefaultsM3(context);
+    final animation = info.selectedAnimation;
+
+    return Stack(
+      alignment: .center,
+      clipBehavior: .none,
+      children: [
+        NavigationIndicator(
+          animation: animation,
+          color:
+              info.indicatorColor ??
+              navigationBarTheme.indicatorColor ??
+              defaults.indicatorColor!,
+        ),
+        _NavigationDestinationBuilder(
+          label: label,
+          tooltip: tooltip,
+          enabled: enabled,
+          buildIcon: (context) {
+            final IconThemeData selectedIconTheme =
+                navigationBarTheme.iconTheme?.resolve(selectedState) ??
+                defaults.iconTheme!.resolve(selectedState)!;
+            final IconThemeData unselectedIconTheme =
+                navigationBarTheme.iconTheme?.resolve(unselectedState) ??
+                defaults.iconTheme!.resolve(unselectedState)!;
+            final IconThemeData disabledIconTheme =
+                navigationBarTheme.iconTheme?.resolve(disabledState) ??
+                defaults.iconTheme!.resolve(disabledState)!;
+
+            final Widget selectedIconWidget = IconTheme.merge(
+              data: enabled ? selectedIconTheme : disabledIconTheme,
+              child: selectedIcon ?? icon,
+            );
+            final Widget unselectedIconWidget = IconTheme.merge(
+              data: enabled ? unselectedIconTheme : disabledIconTheme,
+              child: icon,
+            );
+            return _StatusTransitionWidgetBuilder(
+              animation: animation,
+              builder: (context, child) {
+                return animation.isForwardOrCompleted
+                    ? selectedIconWidget
+                    : unselectedIconWidget;
+              },
+            );
+          },
+          buildLabel: (context) {
+            final TextStyle? effectiveSelectedLabelTextStyle =
+                info.labelTextStyle?.resolve(selectedState) ??
+                navigationBarTheme.labelTextStyle?.resolve(selectedState) ??
+                defaults.labelTextStyle!.resolve(selectedState);
+            final TextStyle? effectiveUnselectedLabelTextStyle =
+                info.labelTextStyle?.resolve(unselectedState) ??
+                navigationBarTheme.labelTextStyle?.resolve(unselectedState) ??
+                defaults.labelTextStyle!.resolve(unselectedState);
+            final TextStyle? effectiveDisabledLabelTextStyle =
+                info.labelTextStyle?.resolve(disabledState) ??
+                navigationBarTheme.labelTextStyle?.resolve(disabledState) ??
+                defaults.labelTextStyle!.resolve(disabledState);
+            final EdgeInsetsGeometry labelPadding =
+                info.labelPadding ??
+                navigationBarTheme.labelPadding ??
+                defaults.labelPadding!;
+
+            final textStyle = enabled
+                ? animation.isForwardOrCompleted
+                      ? effectiveSelectedLabelTextStyle
+                      : effectiveUnselectedLabelTextStyle
+                : effectiveDisabledLabelTextStyle;
+
+            return Padding(
+              padding: labelPadding,
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: _kMaxLabelTextScaleFactor,
+                child: Text(label, style: textStyle),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _NavigationDestinationBuilder extends StatefulWidget {
+  const _NavigationDestinationBuilder({
+    required this.buildIcon,
+    required this.buildLabel,
+    required this.label,
+    this.tooltip,
+    this.enabled = true,
+  });
+
+  final WidgetBuilder buildIcon;
+
+  final WidgetBuilder buildLabel;
+
+  final String label;
+
+  final String? tooltip;
+
+  final bool enabled;
+
+  @override
+  State<_NavigationDestinationBuilder> createState() =>
+      _NavigationDestinationBuilderState();
+}
+
+class _NavigationDestinationBuilderState
+    extends State<_NavigationDestinationBuilder> {
+  final GlobalKey iconKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final info = _NavigationDestinationInfo.of(context);
+
+    final child = GestureDetector(
+      behavior: .opaque,
+      onTap: widget.enabled ? info.onTap : null,
+      child: _NavigationBarDestinationLayout(
+        icon: widget.buildIcon(context),
+        iconKey: iconKey,
+        label: widget.buildLabel(context),
+      ),
+    );
+    if (info.labelBehavior == .alwaysShow) {
+      return child;
+    }
+    return _NavigationBarDestinationTooltip(
+      message: widget.tooltip ?? widget.label,
+      child: child,
+    );
+  }
+}
+
+class _NavigationDestinationInfo extends InheritedWidget {
+  const _NavigationDestinationInfo({
+    required this.index,
+    required this.selectedIndex,
+    required this.totalNumberOfDestinations,
+    required this.selectedAnimation,
+    required this.labelBehavior,
+    required this.indicatorColor,
+    required this.indicatorShape,
+    required this.overlayColor,
+    required this.onTap,
+    this.labelTextStyle,
+    this.labelPadding,
+    required super.child,
+  });
+
+  final int index;
+
+  final int selectedIndex;
+
+  final int totalNumberOfDestinations;
+
+  final Animation<double> selectedAnimation;
+
+  final NavigationDestinationLabelBehavior labelBehavior;
+
+  final Color? indicatorColor;
+
+  final ShapeBorder? indicatorShape;
+
+  final WidgetStateProperty<Color?>? overlayColor;
+
+  final VoidCallback onTap;
+
+  final WidgetStateProperty<TextStyle?>? labelTextStyle;
+
+  final EdgeInsetsGeometry? labelPadding;
+
+  static _NavigationDestinationInfo of(BuildContext context) {
+    final _NavigationDestinationInfo? result = context
+        .dependOnInheritedWidgetOfExactType<_NavigationDestinationInfo>();
+    assert(
+      result != null,
+      'Navigation destinations need a _NavigationDestinationInfo parent, '
+      'which is usually provided by NavigationBar.',
+    );
+    return result!;
+  }
+
+  @override
+  bool updateShouldNotify(_NavigationDestinationInfo oldWidget) {
+    return index != oldWidget.index ||
+        totalNumberOfDestinations != oldWidget.totalNumberOfDestinations ||
+        selectedAnimation != oldWidget.selectedAnimation ||
+        labelBehavior != oldWidget.labelBehavior ||
+        onTap != oldWidget.onTap;
+  }
+}
+
+class NavigationIndicator extends StatelessWidget {
+  const NavigationIndicator({
+    super.key,
+    required this.animation,
+    this.color,
+    this.width = _kIndicatorWidth,
+    this.height = _kIndicatorHeight,
+  });
+
+  final Animation<double> animation;
+
+  final Color? color;
+
+  final double width;
+
+  final double height;
+
+  static final _anim = Tween<double>(
+    begin: .5,
+    end: 1.0,
+  ).chain(CurveTween(curve: Curves.easeInOutCubicEmphasized));
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final double scale = animation.isDismissed
+            ? 0.0
+            : _anim.evaluate(animation);
+
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.diagonal3Values(scale, 1.0, 1.0),
+          child: child,
+        );
+      },
+
+      child: _StatusTransitionWidgetBuilder(
+        animation: animation,
+        builder: (context, child) {
+          return _SelectableAnimatedBuilder(
+            isSelected: animation.isForwardOrCompleted,
+            duration: const Duration(milliseconds: 100),
+            alwaysDoFullAnimation: true,
+            builder: (context, fadeAnimation) {
+              return FadeTransition(
+                opacity: fadeAnimation,
+                child: DecoratedBox(
+                  decoration: ShapeDecoration(
+                    shape: _kNavigationShape,
+                    color: color ?? Theme.of(context).colorScheme.secondary,
+                  ),
+                  child: const SizedBox(
+                    width: _kIndicatorWidth,
+                    height: _kIndicatorHeight,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _NavigationBarDestinationLayout extends StatelessWidget {
+  const _NavigationBarDestinationLayout({
+    required this.icon,
+    required this.iconKey,
+    required this.label,
+  });
+
+  final Widget icon;
+
+  final GlobalKey iconKey;
+
+  final Widget label;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DestinationLayoutAnimationBuilder(
+      builder: (context, animation) {
+        return CustomMultiChildLayout(
+          delegate: _NavigationDestinationLayoutDelegate(animation: animation),
+          children: <Widget>[
+            LayoutId(
+              id: _NavigationDestinationLayoutDelegate.iconId,
+              child: KeyedSubtree(key: iconKey, child: icon),
+            ),
+            LayoutId(
+              id: _NavigationDestinationLayoutDelegate.labelId,
+              child: FadeTransition(
+                alwaysIncludeSemantics: true,
+                opacity: animation,
+                child: label,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DestinationLayoutAnimationBuilder extends StatelessWidget {
+  const _DestinationLayoutAnimationBuilder({required this.builder});
+
+  final Widget Function(BuildContext, Animation<double>) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    final info = _NavigationDestinationInfo.of(context);
+    switch (info.labelBehavior) {
+      case NavigationDestinationLabelBehavior.alwaysShow:
+        return builder(context, kAlwaysCompleteAnimation);
+      case NavigationDestinationLabelBehavior.alwaysHide:
+        return builder(context, kAlwaysDismissedAnimation);
+      case NavigationDestinationLabelBehavior.onlyShowSelected:
+        return _CurvedAnimationBuilder(
+          animation: info.selectedAnimation,
+          curve: Curves.easeInOutCubicEmphasized,
+          reverseCurve: Curves.easeInOutCubicEmphasized.flipped,
+          builder: builder,
+        );
+    }
+  }
+}
+
+class _NavigationBarDestinationTooltip extends StatelessWidget {
+  const _NavigationBarDestinationTooltip({
+    required this.message,
+    required this.child,
+  });
+
+  final String message;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: message,
+      verticalOffset: 34,
+      excludeFromSemantics: true,
+      preferBelow: false,
+      child: child,
+    );
+  }
+}
+
+class _NavigationDestinationLayoutDelegate extends MultiChildLayoutDelegate {
+  _NavigationDestinationLayoutDelegate({required this.animation})
+    : super(relayout: animation);
+
+  final Animation<double> animation;
+
+  static const int iconId = 1;
+
+  static const int labelId = 2;
+
+  @override
+  void performLayout(Size size) {
+    double halfWidth(Size size) => size.width / 2;
+    double halfHeight(Size size) => size.height / 2;
+
+    final Size iconSize = layoutChild(iconId, BoxConstraints.loose(size));
+    final Size labelSize = layoutChild(labelId, BoxConstraints.loose(size));
+
+    final double yPositionOffset = Tween<double>(
+      begin: halfHeight(iconSize),
+
+      end: halfHeight(iconSize) + halfHeight(labelSize),
+    ).transform(animation.value);
+    final double iconYPosition = halfHeight(size) - yPositionOffset;
+
+    positionChild(
+      iconId,
+      Offset(
+        halfWidth(size) - halfWidth(iconSize),
+        iconYPosition,
+      ),
+    );
+
+    positionChild(
+      labelId,
+      Offset(
+        halfWidth(size) - halfWidth(labelSize),
+
+        iconYPosition + iconSize.height,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRelayout(_NavigationDestinationLayoutDelegate oldDelegate) {
+    return oldDelegate.animation != animation;
+  }
+}
+
+class _StatusTransitionWidgetBuilder extends StatusTransitionWidget {
+  const _StatusTransitionWidgetBuilder({
+    required super.animation,
+    required this.builder,
+    // ignore: unused_element_parameter
+    this.child,
+  });
+
+  final TransitionBuilder builder;
+
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) => builder(context, child);
+}
+
+class _SelectableAnimatedBuilder extends StatefulWidget {
+  const _SelectableAnimatedBuilder({
+    required this.isSelected,
+    this.duration = const Duration(milliseconds: 200),
+    this.alwaysDoFullAnimation = false,
+    required this.builder,
+  });
+
+  final bool isSelected;
+
+  final Duration duration;
+
+  final bool alwaysDoFullAnimation;
+
+  final Widget Function(BuildContext, Animation<double>) builder;
+
+  @override
+  _SelectableAnimatedBuilderState createState() =>
+      _SelectableAnimatedBuilderState();
+}
+
+class _SelectableAnimatedBuilderState extends State<_SelectableAnimatedBuilder>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this);
+    _controller.duration = widget.duration;
+    _controller.value = widget.isSelected ? 1.0 : 0.0;
+  }
+
+  @override
+  void didUpdateWidget(_SelectableAnimatedBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.duration != widget.duration) {
+      _controller.duration = widget.duration;
+    }
+    if (oldWidget.isSelected != widget.isSelected) {
+      if (widget.isSelected) {
+        _controller.forward(from: widget.alwaysDoFullAnimation ? 0 : null);
+      } else {
+        _controller.reverse(from: widget.alwaysDoFullAnimation ? 1 : null);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.builder(context, _controller);
+  }
+}
+
+class _CurvedAnimationBuilder extends StatefulWidget {
+  const _CurvedAnimationBuilder({
+    required this.animation,
+    required this.curve,
+    required this.reverseCurve,
+    required this.builder,
+  });
+
+  final Animation<double> animation;
+  final Curve curve;
+  final Curve reverseCurve;
+  final Widget Function(BuildContext, Animation<double>) builder;
+
+  @override
+  _CurvedAnimationBuilderState createState() => _CurvedAnimationBuilderState();
+}
+
+class _CurvedAnimationBuilderState extends State<_CurvedAnimationBuilder> {
+  late AnimationStatus _animationDirection;
+  AnimationStatus? _preservedDirection;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationDirection = widget.animation.status;
+    _updateStatus(widget.animation.status);
+    widget.animation.addStatusListener(_updateStatus);
+  }
+
+  @override
+  void dispose() {
+    widget.animation.removeStatusListener(_updateStatus);
+    super.dispose();
+  }
+
+  void _updateStatus(AnimationStatus status) {
+    if (_animationDirection != status) {
+      setState(() {
+        _animationDirection = status;
+      });
+    }
+    switch (status) {
+      case AnimationStatus.forward || AnimationStatus.reverse
+          when _preservedDirection != null:
+        break;
+      case AnimationStatus.forward || AnimationStatus.reverse:
+        setState(() {
+          _preservedDirection = status;
+        });
+      case AnimationStatus.completed || AnimationStatus.dismissed:
+        setState(() {
+          _preservedDirection = null;
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shouldUseForwardCurve =
+        (_preservedDirection ?? _animationDirection) != AnimationStatus.reverse;
+
+    final Animation<double> curvedAnimation = CurveTween(
+      curve: shouldUseForwardCurve ? widget.curve : widget.reverseCurve,
+    ).animate(widget.animation);
+
+    return widget.builder(context, curvedAnimation);
+  }
+}
+
+const _indicatorDark = Color(0x15FFFFFF);
+const _indicatorLight = Color(0x10000000);
+
+class _NavigationBarDefaultsM3 extends NavigationBarThemeData {
+  _NavigationBarDefaultsM3(this.context)
+    : super(
+        height: _kNavigationHeight,
+        elevation: 3.0,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      );
+
+  final BuildContext context;
+  late final _colors = Theme.of(context).colorScheme;
+  late final _textTheme = Theme.of(context).textTheme;
+
+  BorderSide get borderSide => _colors.isDark
+      ? const BorderSide(color: Color(0x08FFFFFF))
+      : const BorderSide(color: Color(0x08000000));
+
+  @override
+  Color? get backgroundColor => _colors.surfaceContainer;
+
+  @override
+  Color? get shadowColor => Colors.transparent;
+
+  @override
+  Color? get surfaceTintColor => Colors.transparent;
+
+  @override
+  WidgetStateProperty<IconThemeData?>? get iconTheme {
+    return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
+      return IconThemeData(
+        size: 24.0,
+        color: states.contains(WidgetState.disabled)
+            ? _colors.onSurfaceVariant.withValues(alpha: 0.38)
+            : states.contains(WidgetState.selected)
+            ? _colors.onSecondaryContainer
+            : _colors.onSurfaceVariant,
+      );
+    });
+  }
+
+  @override
+  Color? get indicatorColor =>
+      _colors.isDark ? _indicatorDark : _indicatorLight;
+
+  @override
+  ShapeBorder? get indicatorShape => const StadiumBorder();
+
+  @override
+  WidgetStateProperty<TextStyle?>? get labelTextStyle {
+    return WidgetStateProperty.resolveWith((Set<WidgetState> states) {
+      final TextStyle style = _textTheme.labelMedium!;
+      return style.apply(
+        color: states.contains(WidgetState.disabled)
+            ? _colors.onSurfaceVariant.withValues(alpha: 0.38)
+            : states.contains(WidgetState.selected)
+            ? _colors.onSurface
+            : _colors.onSurfaceVariant,
+      );
+    });
+  }
+
+  @override
+  EdgeInsetsGeometry? get labelPadding => const EdgeInsets.only(top: 2);
 }

@@ -1,8 +1,8 @@
 import 'package:PiliMax/http/api.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/danmaku/post.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:dio/dio.dart';
 
 abstract final class DanmakuHttp {

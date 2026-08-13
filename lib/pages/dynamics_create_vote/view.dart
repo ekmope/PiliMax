@@ -1,7 +1,7 @@
 import 'dart:io' show File;
 
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
-import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/time_picker.dart';
 import 'package:PiliMax/models/dynamics/vote_model.dart';

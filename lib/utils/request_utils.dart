@@ -4,7 +4,7 @@ import 'dart:math';
 
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:PiliMax/common/widgets/selectable_text.dart';
+import 'package:PiliMax/pilimax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/grpc/bilibili/im/type.pbenum.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
@@ -27,15 +27,15 @@ import 'package:PiliMax/pages/fav_detail/controller.dart'
     show BaseFavController;
 import 'package:PiliMax/pages/group_panel/view.dart';
 import 'package:PiliMax/pages/login/geetest/geetest_webview_dialog.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
-import 'package:PiliMax/utils/log_redactor.dart';
+import 'package:PiliMax/pilimax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/theme_utils.dart';

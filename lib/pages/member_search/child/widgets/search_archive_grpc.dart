@@ -1,12 +1,12 @@
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
-import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
-import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
-import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
+import 'package:PiliMax/pilimax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/pilimax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/grpc/bilibili/app/interfaces/v1.pb.dart' show Arc;
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models/common/badge_type.dart';

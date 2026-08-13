@@ -11,7 +11,7 @@ import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/models/dynamics/vote_model.dart';
 import 'package:PiliMax/models_new/followee_votes/vote.dart';
 import 'package:PiliMax/pages/dynamics/widgets/vote_decoration.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/num_utils.dart';

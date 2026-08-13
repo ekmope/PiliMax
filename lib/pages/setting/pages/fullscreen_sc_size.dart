@@ -7,7 +7,7 @@ import 'package:PiliMax/models_new/live/live_superchat/item.dart';
 import 'package:PiliMax/pages/live_room/superchat/superchat_card.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';

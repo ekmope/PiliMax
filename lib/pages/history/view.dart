@@ -1,6 +1,6 @@
 import 'package:PiliMax/common/widgets/appbar/appbar.dart';
-import 'package:PiliMax/common/widgets/flutter/page/tabs.dart';
-import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/pilimax/common/widgets/flutter/page/tabs.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';

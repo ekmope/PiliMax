@@ -2,7 +2,7 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/pilimax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/models_new/sub/sub/list.dart';
 import 'package:PiliMax/pages/subscription_detail/view.dart';
 import 'package:PiliMax/utils/platform_utils.dart';

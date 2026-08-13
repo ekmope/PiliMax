@@ -11,7 +11,7 @@ import 'package:PiliMax/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:PiliMax/pages/dynamics_mention/controller.dart';
 import 'package:PiliMax/pages/emote/controller.dart';
 import 'package:PiliMax/pages/emote/view.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/request_utils.dart';
 import 'package:flutter/material.dart' hide TextField;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

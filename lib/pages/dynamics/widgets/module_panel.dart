@@ -1,8 +1,8 @@
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/video_card/video_cover_hero.dart';
-import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/pilimax/common/widgets/video_card/video_cover_hero.dart';
+import 'package:PiliMax/pilimax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:PiliMax/models/dynamics/result.dart';

@@ -12,7 +12,7 @@ import 'package:PiliMax/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliMax/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/filtering_text.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/video_utils.dart';

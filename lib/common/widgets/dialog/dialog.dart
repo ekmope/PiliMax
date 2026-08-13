@@ -1,7 +1,7 @@
 import 'dart:async' show FutureOr;
 
 import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
-import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
+import 'package:PiliMax/pilimax/common/widgets/loading_widget/button_loading.dart';
 import 'package:flutter/material.dart' hide PopScope;
 import 'package:get/get.dart';
 

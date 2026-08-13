@@ -2,8 +2,6 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
-import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_index_result/list.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -15,19 +13,9 @@ class PgcCardVPgcIndex extends StatelessWidget {
   const PgcCardVPgcIndex({
     super.key,
     required this.item,
-    required this.index,
-    required this.heroScope,
   });
 
   final PgcIndexItem item;
-  final int index;
-  final String heroScope;
-
-  String get _heroTag => VideoHeroTag.forItem(
-    scope: heroScope,
-    item: item,
-    contentId: item.seasonId ?? item.cover ?? 'unknown',
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -35,96 +23,52 @@ class PgcCardVPgcIndex extends StatelessWidget {
       title: item.title,
       cover: item.cover,
     );
-    return VideoDetailTransitionSource(
-      tag: _heroTag,
-      layout: VideoTransitionSourceLayout.verticalCard,
-      child: Card(
-        shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
-        child: InkWell(
-          borderRadius: Style.mdRadius,
-          onTap: () => PageUtils.viewPgc(
-            seasonId: item.seasonId,
-            cover: item.cover,
-            title: item.title,
-            heroTag: _heroTag,
-          ),
-          onLongPress: onLongPress,
-          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              VideoDetailHero.source(
-                clipStaticChild: true,
-                flightChild: AspectRatio(
-                  aspectRatio: 0.75,
-                  child: LayoutBuilder(
-                    builder: (context, boxConstraints) {
-                      return NetworkImgLayer(
-                        clip: false,
+    return Card(
+      shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
+      child: InkWell(
+        borderRadius: Style.mdRadius,
+        onTap: () => PageUtils.viewPgc(seasonId: item.seasonId),
+        onLongPress: onLongPress,
+        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 0.75,
+              child: LayoutBuilder(
+                builder: (context, boxConstraints) {
+                  final double maxWidth = boxConstraints.maxWidth;
+                  final double maxHeight = boxConstraints.maxHeight;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      NetworkImgLayer(
                         src: item.cover,
-                        width: boxConstraints.maxWidth,
-                        height: boxConstraints.maxHeight,
-                        fadeInDuration: Duration.zero,
-                        fadeOutDuration: Duration.zero,
-                      );
-                    },
-                  ),
-                ),
-                flightOverlays: <VideoDetailHeroFlightOverlay>[
-                  VideoDetailHeroFlightOverlay(
-                    top: 6,
-                    right: 6,
-                    child: PBadge(isStack: false, text: item.badge),
-                  ),
-                  VideoDetailHeroFlightOverlay(
-                    bottom: 6,
-                    left: 6,
-                    child: PBadge(
-                      isStack: false,
-                      text: item.order,
-                      type: PBadgeType.gray,
-                    ),
-                  ),
-                ],
-                child: AspectRatio(
-                  aspectRatio: 0.75,
-                  child: LayoutBuilder(
-                    builder: (context, boxConstraints) {
-                      final double maxWidth = boxConstraints.maxWidth;
-                      final double maxHeight = boxConstraints.maxHeight;
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          NetworkImgLayer(
-                            clip: false,
-                            src: item.cover,
-                            width: maxWidth,
-                            height: maxHeight,
-                          ),
-                          PBadge(
-                            text: item.badge,
-                            top: 6,
-                            right: 6,
-                            bottom: null,
-                            left: null,
-                          ),
-                          PBadge(
-                            text: item.order,
-                            top: null,
-                            right: null,
-                            bottom: 6,
-                            left: 6,
-                            type: PBadgeType.gray,
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
+                        width: maxWidth,
+                        height: maxHeight,
+                      ),
+                      PBadge(
+                        text: item.badge,
+                        top: 6,
+                        right: 6,
+                        bottom: null,
+                        left: null,
+                      ),
+                      PBadge(
+                        text: item.order,
+                        top: null,
+                        right: null,
+                        bottom: 6,
+                        left: 6,
+                        type: PBadgeType.gray,
+                      ),
+                    ],
+                  );
+                },
               ),
-              content(context),
-            ],
-          ),
+            ),
+            content(context),
+          ],
         ),
       ),
     );
@@ -138,21 +82,14 @@ class PgcCardVPgcIndex extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            VideoDetailTransitionTitle(
-              text: item.title!,
+            Text(
+              item.title!,
               textAlign: TextAlign.start,
-              style: const TextStyle(letterSpacing: 0.3),
+              style: const TextStyle(
+                letterSpacing: 0.3,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              child: Text(
-                item.title!,
-                textAlign: TextAlign.start,
-                style: const TextStyle(
-                  letterSpacing: 0.3,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
             ),
             const SizedBox(height: 1),
             if (item.indexShow != null)

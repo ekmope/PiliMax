@@ -1,11 +1,11 @@
 import 'package:PiliMax/common/widgets/sliver/sliver_floating_header.dart';
-import 'package:PiliMax/common/widgets/video_card/video_card_h.dart';
-import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/video_card/video_card_h.dart';
+import 'package:PiliMax/pilimax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/common/search/video_search_type.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/pages/search_panel/video/controller.dart';
-import 'package:PiliMax/pages/search_panel/view.dart';
+import 'package:PiliMax/pilimax/forks/pages/search_panel/view.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';

@@ -5,7 +5,7 @@ import 'package:PiliMax/pages/common/multi_select/base.dart'
     show BaseMultiSelectMixin;
 import 'package:PiliMax/pages/common/search/common_search_controller.dart';
 import 'package:PiliMax/services/download/download_service.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:flutter/widgets.dart' show Text;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

@@ -1,5 +1,5 @@
 import 'package:PiliMax/common/widgets/custom_icon.dart';
-import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/http/video.dart';
@@ -11,8 +11,8 @@ import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/pages/video/ai_conclusion/view.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/services/download/download_service.dart';
-import 'package:PiliMax/utils/accounts.dart';
-import 'package:PiliMax/utils/download_dialog_utils.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
+import 'package:PiliMax/pilimax/utils/download_dialog_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';

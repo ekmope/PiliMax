@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/selectable_text.dart';
+import 'package:PiliMax/pilimax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/http/video.dart';

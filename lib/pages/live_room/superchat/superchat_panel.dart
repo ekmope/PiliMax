@@ -1,6 +1,6 @@
 import 'package:PiliMax/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
-import 'package:PiliMax/models/common/super_chat_time_type.dart';
+import 'package:PiliMax/pilimax/models/common/super_chat_time_type.dart';
 import 'package:PiliMax/models/common/super_chat_type.dart';
 import 'package:PiliMax/pages/live_room/controller.dart';
 import 'package:PiliMax/pages/live_room/superchat/superchat_card.dart';

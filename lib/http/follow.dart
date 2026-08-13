@@ -1,9 +1,9 @@
 import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/error_msg.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/follow/data.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:dio/dio.dart' show Options, Headers;
 
 abstract final class FollowHttp {

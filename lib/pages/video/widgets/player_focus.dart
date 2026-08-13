@@ -6,7 +6,7 @@ import 'package:PiliMax/pages/common/common_intro_controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'

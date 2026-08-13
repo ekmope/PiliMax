@@ -1,14 +1,14 @@
 import 'package:PiliMax/http/video.dart';
-import 'package:PiliMax/models/common/rcmd_mode.dart';
+import 'package:PiliMax/pilimax/models/common/rcmd_mode.dart';
 import 'package:PiliMax/pages/rcmd/controller.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/recommend_filter.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:PiliMax/utils/user_whitelist.dart';
+import 'package:PiliMax/pilimax/utils/user_whitelist.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

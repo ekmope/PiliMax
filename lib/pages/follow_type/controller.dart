@@ -2,7 +2,7 @@ import 'package:PiliMax/http/member.dart';
 import 'package:PiliMax/models_new/follow/data.dart';
 import 'package:PiliMax/models_new/follow/list.dart';
 import 'package:PiliMax/pages/common/common_list_controller.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:get/get.dart';
 
 abstract class FollowTypeController

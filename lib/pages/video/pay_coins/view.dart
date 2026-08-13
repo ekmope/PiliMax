@@ -11,7 +11,7 @@ import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/widget_ext.dart';
 import 'package:PiliMax/utils/global_data.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';

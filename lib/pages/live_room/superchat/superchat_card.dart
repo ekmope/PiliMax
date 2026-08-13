@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/selectable_text.dart';
+import 'package:PiliMax/pilimax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/models/common/image_type.dart';
-import 'package:PiliMax/models/common/super_chat_time_type.dart';
+import 'package:PiliMax/pilimax/models/common/super_chat_time_type.dart';
 import 'package:PiliMax/models_new/live/live_superchat/item.dart';
 import 'package:PiliMax/pages/member/widget/medal_widget.dart';
 import 'package:PiliMax/utils/app_scheme.dart';

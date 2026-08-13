@@ -1,9 +1,9 @@
 import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
-import 'package:PiliMax/models_new/download/download_collection.dart';
+import 'package:PiliMax/pilimax/models_new/download/download_collection.dart';
 import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/models_new/video/video_detail/stat_detail.dart';
 import 'package:PiliMax/pages/common/common_intro_controller.dart';
-import 'package:PiliMax/services/download/download_collection_service.dart';
+import 'package:PiliMax/pilimax/services/download/download_collection_service.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliMax/services/service_locator.dart';

@@ -6,7 +6,7 @@ import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/material.dart';

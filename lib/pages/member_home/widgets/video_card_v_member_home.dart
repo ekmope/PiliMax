@@ -2,13 +2,12 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
-import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
+import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/space/space_archive/item.dart';
+import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
-import 'package:PiliMax/utils/extension/dimension_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
@@ -17,44 +16,23 @@ import 'package:flutter/material.dart';
 // 视频卡片 - 垂直布局
 class VideoCardVMemberHome extends StatelessWidget {
   final SpaceArchiveItem videoItem;
-  final int index;
-  final String heroScope;
 
   const VideoCardVMemberHome({
     super.key,
     required this.videoItem,
-    required this.index,
-    required this.heroScope,
   });
 
-  String get _heroTag => VideoHeroTag.forItem(
-    scope: heroScope,
-    item: videoItem,
-    contentId:
-        videoItem.bvid ?? videoItem.param ?? videoItem.cover ?? 'unknown',
-  );
-
-  void onPushDetail() {
+  Future<void> onPushDetail() async {
     String? goto = videoItem.goto;
     switch (goto) {
       case 'bangumi':
-        PageUtils.viewPgc(
-          epId: videoItem.param,
-          heroTag: _heroTag,
-          cover: videoItem.cover,
-          title: videoItem.title,
-        );
+        PageUtils.viewPgc(epId: videoItem.param);
         break;
 
       case 'av':
         if (videoItem.isPgc == true) {
           if (videoItem.uri?.isNotEmpty == true) {
-            PageUtils.viewPgcFromUri(
-              videoItem.uri!,
-              heroTag: _heroTag,
-              cover: videoItem.cover,
-              title: videoItem.title,
-            );
+            PageUtils.viewPgcFromUri(videoItem.uri!);
           }
           return;
         }
@@ -66,14 +44,24 @@ class VideoCardVMemberHome extends StatelessWidget {
         }
 
         bvid ??= IdUtils.av2bv(int.parse(aid!));
-        PageUtils.toVideoPage(
-          bvid: bvid,
-          cid: videoItem.cid,
-          cover: videoItem.cover,
-          title: videoItem.title,
-          isVertical: videoItem.uri?.verticalFromUri,
-          heroTag: _heroTag,
-        );
+        int? cid = videoItem.cid;
+        Dimension? dimension;
+        if (cid == null) {
+          if (await SearchHttp.ab2cWithDimension(aid: aid, bvid: bvid)
+              case final res?) {
+            cid = res.cid;
+            dimension = res.dimension;
+          }
+        }
+        if (cid != null) {
+          PageUtils.toVideoPage(
+            bvid: bvid,
+            cid: cid,
+            cover: videoItem.cover,
+            title: videoItem.title,
+            dimension: dimension,
+          );
+        }
         break;
 
       default:
@@ -90,138 +78,71 @@ class VideoCardVMemberHome extends StatelessWidget {
       cover: videoItem.cover,
       aid: videoItem.param,
       bvid: videoItem.bvid,
-      pubdateText: videoItem.publishTimeText,
-      view: videoItem.stat.view,
-      danmaku: videoItem.stat.danmu,
-      ownerName: videoItem.owner.name,
     );
-    return VideoDetailTransitionSource(
-      tag: _heroTag,
-      layout: VideoTransitionSourceLayout.verticalCard,
-      child: Card(
-        shape: const RoundedRectangleBorder(borderRadius: Style.mdRadius),
-        clipBehavior: Clip.hardEdge,
-        child: InkWell(
-          onTap: onPushDetail,
-          onLongPress: onLongPress,
-          onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              VideoDetailHero.source(
-                flightChild: AspectRatio(
-                  aspectRatio: Style.aspectRatio,
-                  child: LayoutBuilder(
-                    builder: (context, boxConstraints) {
-                      return NetworkImgLayer(
-                        clip: false,
+    return Card(
+      child: InkWell(
+        onTap: onPushDetail,
+        onLongPress: onLongPress,
+        onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
+        borderRadius: const .all(.circular(12)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: Style.aspectRatio,
+              child: LayoutBuilder(
+                builder: (context, boxConstraints) {
+                  double maxWidth = boxConstraints.maxWidth;
+                  double maxHeight = boxConstraints.maxHeight;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      NetworkImgLayer(
                         src: videoItem.cover,
-                        width: boxConstraints.maxWidth,
-                        height: boxConstraints.maxHeight,
-                        fadeInDuration: Duration.zero,
-                        fadeOutDuration: Duration.zero,
-                      );
-                    },
-                  ),
-                ),
-                flightOverlays: <VideoDetailHeroFlightOverlay>[
-                  if (videoItem.badges?.isNotEmpty == true)
-                    VideoDetailHeroFlightOverlay(
-                      top: 6,
-                      right: 6,
-                      child: PBadge(
-                        isStack: false,
-                        text: videoItem.badges!
-                            .map((e) => e.text ?? '')
-                            .join('|'),
-                        type: videoItem.badges!.first.text == '充电专属'
-                            ? PBadgeType.error
-                            : PBadgeType.primary,
+                        width: maxWidth,
+                        height: maxHeight,
+                        borderRadius: const .vertical(top: .circular(12)),
                       ),
-                    )
-                  else if (videoItem.isCooperation == true)
-                    const VideoDetailHeroFlightOverlay(
-                      top: 6,
-                      right: 6,
-                      child: PBadge(isStack: false, text: '合作'),
-                    )
-                  else if (videoItem.isSteins == true)
-                    const VideoDetailHeroFlightOverlay(
-                      top: 6,
-                      right: 6,
-                      child: PBadge(isStack: false, text: '互动'),
-                    ),
-                  if (videoItem.duration > 0)
-                    VideoDetailHeroFlightOverlay(
-                      right: 7,
-                      bottom: 6,
-                      child: PBadge(
-                        isStack: false,
-                        size: PBadgeSize.small,
-                        type: PBadgeType.gray,
-                        text: DurationUtils.formatDuration(
-                          videoItem.duration,
-                        ),
-                      ),
-                    ),
-                ],
-                child: AspectRatio(
-                  aspectRatio: Style.aspectRatio,
-                  child: LayoutBuilder(
-                    builder: (context, boxConstraints) {
-                      double maxWidth = boxConstraints.maxWidth;
-                      double maxHeight = boxConstraints.maxHeight;
-                      return Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          NetworkImgLayer(
-                            clip: false,
-                            src: videoItem.cover,
-                            width: maxWidth,
-                            height: maxHeight,
+                      if (videoItem.duration > 0)
+                        PBadge(
+                          bottom: 6,
+                          right: 7,
+                          size: PBadgeSize.small,
+                          type: PBadgeType.gray,
+                          text: DurationUtils.formatDuration(
+                            videoItem.duration,
                           ),
-                          if (videoItem.duration > 0)
-                            PBadge(
-                              bottom: 6,
-                              right: 7,
-                              size: PBadgeSize.small,
-                              type: PBadgeType.gray,
-                              text: DurationUtils.formatDuration(
-                                videoItem.duration,
-                              ),
-                            ),
-                          if (videoItem.badges?.isNotEmpty == true)
-                            PBadge(
-                              text: videoItem.badges!
-                                  .map((e) => e.text ?? '')
-                                  .join('|'),
-                              top: 6,
-                              right: 6,
-                              type: videoItem.badges!.first.text == '充电专属'
-                                  ? PBadgeType.error
-                                  : PBadgeType.primary,
-                            )
-                          else if (videoItem.isCooperation == true)
-                            const PBadge(
-                              text: '合作',
-                              top: 6,
-                              right: 6,
-                            )
-                          else if (videoItem.isSteins == true)
-                            const PBadge(
-                              text: '互动',
-                              top: 6,
-                              right: 6,
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
+                        ),
+                      if (videoItem.badges?.isNotEmpty == true)
+                        PBadge(
+                          text: videoItem.badges!
+                              .map((e) => e.text ?? '')
+                              .join('|'),
+                          top: 6,
+                          right: 6,
+                          type: videoItem.badges!.first.text == '充电专属'
+                              ? PBadgeType.error
+                              : PBadgeType.primary,
+                        )
+                      else if (videoItem.isCooperation == true)
+                        const PBadge(
+                          text: '合作',
+                          top: 6,
+                          right: 6,
+                        )
+                      else if (videoItem.isSteins == true)
+                        const PBadge(
+                          text: '互动',
+                          top: 6,
+                          right: 6,
+                        ),
+                    ],
+                  );
+                },
               ),
-              content(context),
-            ],
-          ),
+            ),
+            content(context),
+          ],
         ),
       ),
     );
@@ -231,18 +152,12 @@ class VideoCardVMemberHome extends StatelessWidget {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(6, 5, 6, 5),
-        child: VideoDetailTransitionTitle(
-          text: videoItem.title,
-          style: const TextStyle(height: 1.38),
+        child: Text(
+          '${videoItem.title}\n',
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          child: Text(
-            '${videoItem.title}\n',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              height: 1.38,
-            ),
+          style: const TextStyle(
+            height: 1.38,
           ),
         ),
       ),

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:PiliMax/build_config.dart';
 import 'package:PiliMax/utils/json_file_handler.dart';
-import 'package:PiliMax/utils/log_redactor.dart';
+import 'package:PiliMax/pilimax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:catcher_2/catcher_2.dart';
 import 'package:catcher_2/utils/log_printer.dart';

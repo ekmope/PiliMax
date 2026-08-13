@@ -2,12 +2,12 @@ import 'dart:convert';
 
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/http/api.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/login/model.dart';
 import 'package:PiliMax/models_new/login_devices/data.dart';
-import 'package:PiliMax/utils/accounts.dart';
-import 'package:PiliMax/utils/accounts/account.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
 import 'package:PiliMax/utils/app_sign.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/login_utils.dart';

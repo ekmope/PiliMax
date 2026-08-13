@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'dart:typed_data' show Uint8List;
 
 import 'package:PiliMax/common/constants.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/extension/file_ext.dart';

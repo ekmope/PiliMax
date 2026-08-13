@@ -8,7 +8,7 @@ import 'package:PiliMax/grpc/im.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/msg.dart';
 import 'package:PiliMax/pages/common/common_list_controller.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:fixnum/fixnum.dart';

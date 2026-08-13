@@ -10,7 +10,7 @@ import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models_new/msg/im_user_infos/datum.dart';
 import 'package:PiliMax/models_new/msg/msg_dnd/uid_setting.dart';
 import 'package:PiliMax/models_new/msg/session_ss/data.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/widgets.dart' show Text;
 import 'package:get/get.dart';

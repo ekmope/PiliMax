@@ -7,7 +7,7 @@ import 'package:PiliMax/models/model_avatar.dart';
 import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models_new/live/live_feed_index/watched_show.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
-import 'package:PiliMax/utils/filter_pattern_compiler.dart';
+import 'package:PiliMax/pilimax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/parse_bool.dart';
 import 'package:PiliMax/utils/parse_int.dart';

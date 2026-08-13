@@ -2,8 +2,8 @@ import 'dart:convert' show JsonEncoder, base64;
 import 'dart:math' show Random;
 
 import 'package:PiliMax/common/constants.dart';
-import 'package:PiliMax/services/crash/crash_context.dart';
-import 'package:PiliMax/services/crash/crash_reporter.dart';
+import 'package:PiliMax/pilimax/services/crash/crash_context.dart';
+import 'package:PiliMax/pilimax/services/crash/crash_reporter.dart';
 import 'package:PiliMax/utils/storage_pref.dart' show Pref;
 import 'package:catcher_2/catcher_2.dart';
 import 'package:flutter/services.dart'

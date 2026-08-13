@@ -25,7 +25,7 @@ import 'package:PiliMax/utils/extension/widget_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:PiliMax/utils/upload_image_validator.dart';
+import 'package:PiliMax/pilimax/utils/upload_image_validator.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart' hide TextField;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

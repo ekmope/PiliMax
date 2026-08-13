@@ -1,11 +1,11 @@
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
-import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_header.dart';
-import 'package:PiliMax/common/widgets/video_card/video_card_h.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/video_card/video_card_h.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/enum_with_label.dart';
 import 'package:PiliMax/models/horizontal_video_model.dart';

@@ -1,6 +1,5 @@
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models/common/later_view_type.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
@@ -12,10 +11,8 @@ import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/pages/common/multi_select/multi_select_controller.dart';
 import 'package:PiliMax/pages/later/base_controller.dart';
 import 'package:PiliMax/utils/accounts.dart';
-import 'package:PiliMax/utils/download_dialog_utils.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliMax/utils/page_utils.dart';
-import 'package:PiliMax/services/download/download_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -26,68 +23,6 @@ mixin BaseLaterController
         CommonMultiSelectMixin<LaterItemModel>,
         DeleteItemMixin<LaterData, LaterItemModel> {
   ValueChanged<int>? updateCount;
-  final RxSet<Object> _promotingToTopKeys = <Object>{}.obs;
-
-  String? _validBvid(LaterItemModel item) {
-    final bvid = item.bvid?.trim();
-    return bvid == null || bvid.isEmpty ? null : bvid;
-  }
-
-  Object? _promoteKey(LaterItemModel item) => item.aid ?? _validBvid(item);
-
-  bool isPromotingToTop(LaterItemModel item) {
-    final key = _promoteKey(item);
-    return key != null && _promotingToTopKeys.contains(key);
-  }
-
-  Future<void> promoteToTop(int index, LaterItemModel item) async {
-    if (index <= 0) {
-      return;
-    }
-
-    final key = _promoteKey(item);
-    if (key == null) {
-      SmartDialog.showToast('缺少视频标识，无法置顶');
-      return;
-    }
-    if (_promotingToTopKeys.contains(key)) {
-      return;
-    }
-
-    _promotingToTopKeys.add(key);
-    try {
-      final res = await UserHttp.toViewLater(
-        aid: item.aid,
-        bvid: _validBvid(item),
-      );
-      if (!res.isSuccess) {
-        return;
-      }
-
-      final list = loadingState.value.dataOrNull;
-      if (list == null || list.length < 2) {
-        return;
-      }
-
-      var currentIndex = -1;
-      if (index >= 0 && index < list.length && identical(list[index], item)) {
-        currentIndex = index;
-      } else {
-        currentIndex = list.indexWhere(
-          (element) => identical(element, item) || _promoteKey(element) == key,
-        );
-      }
-      if (currentIndex > 0) {
-        final promoted = list.removeAt(currentIndex);
-        list.insert(0, promoted);
-        loadingState.refresh();
-      }
-    } catch (err) {
-      SmartDialog.showToast(err.toString());
-    } finally {
-      _promotingToTopKeys.remove(key);
-    }
-  }
 
   @override
   void onRemove() {
@@ -98,23 +33,24 @@ mixin BaseLaterController
       onConfirm: () async {
         final removeList = allChecked.toSet();
         SmartDialog.showLoading(msg: '请求中');
-        try {
-          final res = await UserHttp.toViewDel(
-            aids: removeList.map((item) => item.aid).join(','),
-          );
-          if (res.isSuccess) {
-            updateCount?.call(removeList.length);
-            afterDelete(removeList);
-          }
-        } finally {
-          SmartDialog.dismiss();
+        final res = await UserHttp.toViewDel(
+          aids: removeList.map((item) => item.aid).join(','),
+        );
+        if (res.isSuccess) {
+          updateCount?.call(removeList.length);
+          afterDelete(removeList);
         }
+        SmartDialog.dismiss();
       },
     );
   }
 
   // single
-  void toViewDel(BuildContext context, int index, int? aid) {
+  void toViewDel(
+    BuildContext context,
+    int index,
+    int? aid,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -131,17 +67,12 @@ mixin BaseLaterController
           TextButton(
             onPressed: () async {
               Get.back();
-              SmartDialog.showLoading(msg: '请求中');
-              try {
-                final res = await UserHttp.toViewDel(aids: aid.toString());
-                if (res.isSuccess) {
-                  loadingState
-                    ..value.data!.removeAt(index)
-                    ..refresh();
-                  updateCount?.call(1);
-                }
-              } finally {
-                SmartDialog.dismiss();
+              final res = await UserHttp.toViewDel(aids: aid.toString());
+              if (res.isSuccess) {
+                loadingState
+                  ..value.data!.removeAt(index)
+                  ..refresh();
+                updateCount?.call(1);
               }
             },
             child: const Text('确认移除'),
@@ -149,69 +80,6 @@ mixin BaseLaterController
         ],
       ),
     );
-  }
-
-  Future<void> batchDownloadSelected(BuildContext context) async {
-    final selected = allChecked.toList();
-    if (selected.isEmpty) {
-      SmartDialog.showToast('未选择条目');
-      return;
-    }
-
-    final quality = await DownloadDialogUtils.confirmDownloadQuality(context);
-    if (quality == null) {
-      return;
-    }
-
-    var added = 0;
-    var skipped = 0;
-    SmartDialog.showLoading(msg: '正在加入下载队列');
-    try {
-      final downloadService = Get.find<DownloadService>();
-      for (final item in selected) {
-        try {
-          final bvid = _validBvid(item);
-          final duration = item.duration;
-          if (bvid == null ||
-              duration == null ||
-              duration <= 0 ||
-              item.isPgc == true ||
-              item.isPugv == true) {
-            skipped++;
-            continue;
-          }
-
-          final cid =
-              item.cid ?? await SearchHttp.ab2c(aid: item.aid, bvid: bvid);
-          if (cid == null) {
-            skipped++;
-            continue;
-          }
-
-          await downloadService.downloadByIdentifiers(
-            cid: cid,
-            bvid: bvid,
-            totalTimeMilli: duration * 1000,
-            aid: item.aid,
-            title: item.title,
-            cover: item.pic,
-            ownerId: item.owner?.mid,
-            ownerName: item.owner?.name,
-            quality: quality,
-          );
-          added++;
-        } catch (_) {
-          skipped++;
-        }
-      }
-    } finally {
-      SmartDialog.dismiss();
-    }
-
-    SmartDialog.showToast(
-      '已加入 $added 个缓存任务${skipped > 0 ? '，跳过 $skipped 个' : ''}',
-    );
-    handleSelect(checked: false);
   }
 }
 
@@ -270,28 +138,19 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
       title: const Text('确认'),
       content: Text(content),
       onConfirm: () async {
-        SmartDialog.showLoading(msg: '请求中');
-        LoadingState<void>? result;
-        try {
-          final res = await UserHttp.toViewClear(cleanType);
-          if (res.isSuccess) {
-            onReload();
-            final restTypes = List<LaterViewType>.from(LaterViewType.values)
-              ..remove(laterViewType);
-            for (final item in restTypes) {
-              try {
-                Get.find<LaterController>(tag: item.type.toString()).onReload();
-              } catch (_) {}
-            }
+        final res = await UserHttp.toViewClear(cleanType);
+        if (res.isSuccess) {
+          onReload();
+          final restTypes = List<LaterViewType>.from(LaterViewType.values)
+            ..remove(laterViewType);
+          for (final item in restTypes) {
+            try {
+              Get.find<LaterController>(tag: item.type.toString()).onReload();
+            } catch (_) {}
           }
-          result = res;
-        } finally {
-          SmartDialog.dismiss();
-        }
-        if (result.isSuccess) {
           SmartDialog.showToast('已清空');
         } else {
-          await result.toast();
+          res.toast();
         }
       },
     );

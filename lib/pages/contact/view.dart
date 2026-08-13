@@ -3,7 +3,7 @@ import 'package:PiliMax/pages/fan/view.dart';
 import 'package:PiliMax/pages/follow/child/child_view.dart';
 import 'package:PiliMax/pages/follow_search/view.dart';
 import 'package:PiliMax/pages/share/view.dart' show UserModel;
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

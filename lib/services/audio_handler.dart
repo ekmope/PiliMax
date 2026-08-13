@@ -16,7 +16,7 @@ import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/models_new/video/video_detail/page.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
-import 'package:PiliMax/services/route_restore_service.dart';
+import 'package:PiliMax/pilimax/services/route_restore_service.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/android/bindings.g.dart';
 import 'package:PiliMax/utils/image_utils.dart';

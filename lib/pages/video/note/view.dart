@@ -8,7 +8,7 @@ import 'package:PiliMax/models_new/video/video_note_list/list.dart';
 import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
 import 'package:PiliMax/pages/video/note/controller.dart';
 import 'package:PiliMax/pages/webview/view.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';

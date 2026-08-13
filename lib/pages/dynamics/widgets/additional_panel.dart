@@ -1,7 +1,7 @@
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/selectable_text.dart';
+import 'package:PiliMax/pilimax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/dynamics/result.dart';

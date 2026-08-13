@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/utils/device_utils.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:webdav_client/webdav_client.dart' as webdav;

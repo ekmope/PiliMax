@@ -9,7 +9,7 @@ import 'package:PiliMax/models_new/space/space_archive/item.dart';
 import 'package:PiliMax/pages/common/fab_mixin.dart';
 import 'package:PiliMax/pages/member/controller.dart';
 import 'package:PiliMax/pages/member_video/controller.dart';
-import 'package:PiliMax/pages/member_video/widgets/video_card_h_member_video.dart';
+import 'package:PiliMax/pilimax/forks/pages/member_video/widgets/video_card_h_member_video.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';

@@ -1,4 +1,4 @@
-import 'package:PiliMax/models/common/list_order.dart';
+import 'package:PiliMax/pilimax/models/common/list_order.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart';
 
 class SectionItem {

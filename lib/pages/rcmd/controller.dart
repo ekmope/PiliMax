@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/video.dart';
-import 'package:PiliMax/models/common/rcmd_mode.dart';
+import 'package:PiliMax/pilimax/models/common/rcmd_mode.dart';
 import 'package:PiliMax/models/model_rec_video_item.dart';
 import 'package:PiliMax/pages/common/common_list_controller.dart';
 import 'package:PiliMax/services/logger.dart';

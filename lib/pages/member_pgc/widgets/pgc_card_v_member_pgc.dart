@@ -1,8 +1,8 @@
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
-import 'package:PiliMax/common/widgets/video_card/video_detail_hero.dart';
-import 'package:PiliMax/common/widgets/video_card/video_hero_tag.dart';
+import 'package:PiliMax/pilimax/common/widgets/video_card/video_detail_hero.dart';
+import 'package:PiliMax/pilimax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models_new/space/space_archive/item.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';

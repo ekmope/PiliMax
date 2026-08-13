@@ -13,7 +13,7 @@ import 'package:PiliMax/pages/member_coin_arc/view.dart';
 import 'package:PiliMax/pages/member_comic/widgets/item.dart';
 import 'package:PiliMax/pages/member_contribute/controller.dart';
 import 'package:PiliMax/pages/member_home/widgets/fav_item.dart';
-import 'package:PiliMax/pages/member_home/widgets/video_card_v_member_home.dart';
+import 'package:PiliMax/pilimax/forks/pages/member_home/widgets/video_card_v_member_home.dart';
 import 'package:PiliMax/pages/member_like_arc/view.dart';
 import 'package:PiliMax/pages/member_pgc/widgets/pgc_card_v_member_pgc.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';

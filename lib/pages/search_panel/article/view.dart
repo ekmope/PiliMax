@@ -2,7 +2,7 @@ import 'package:PiliMax/common/widgets/sliver/sliver_floating_header.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pages/search_panel/article/controller.dart';
 import 'package:PiliMax/pages/search_panel/article/widgets/item.dart';
-import 'package:PiliMax/pages/search_panel/view.dart';
+import 'package:PiliMax/pilimax/forks/pages/search_panel/view.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';

@@ -6,7 +6,7 @@ import 'package:PiliMax/models_new/dynamic/dyn_topic_feed/topic_card_list.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_topic_feed/topic_sort_by_conf.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_topic_top/top_details.dart';
 import 'package:PiliMax/pages/common/common_list_controller.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

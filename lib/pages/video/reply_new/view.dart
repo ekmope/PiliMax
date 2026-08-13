@@ -7,7 +7,7 @@ import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart'
     show RichTextType;
 import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';
-import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
+import 'package:PiliMax/pilimax/common/widgets/loading_widget/button_loading.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:PiliMax/common/widgets/view_safe_area.dart';

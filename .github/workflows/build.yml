@@ -79,7 +79,7 @@ jobs:
                   cache: true
 
             - name: Validate setting defaults
-              run: dart tool/check_setting_bool_defaults.dart
+              run: dart tool/pilimax/check_setting_bool_defaults.dart
 
             - name: Apply Patch
               shell: pwsh

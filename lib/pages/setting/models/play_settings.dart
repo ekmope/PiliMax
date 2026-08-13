@@ -1,7 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:PiliMax/common/widgets/custom_icon.dart';
-import 'package:PiliMax/models/common/super_chat_time_type.dart';
+import 'package:PiliMax/pilimax/models/common/super_chat_time_type.dart';
 import 'package:PiliMax/models/common/super_chat_type.dart';
 import 'package:PiliMax/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliMax/pages/main/controller.dart';
@@ -16,7 +16,7 @@ import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart';

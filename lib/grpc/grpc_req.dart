@@ -3,10 +3,10 @@ import 'dart:typed_data';
 
 import 'package:PiliMax/grpc/bilibili/rpc.pb.dart';
 import 'package:PiliMax/http/constants.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/retry_interceptor.dart';
-import 'package:PiliMax/utils/accounts/account.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
 import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart'

@@ -5,7 +5,7 @@ import 'package:PiliMax/models/common/search/search_type.dart';
 import 'package:PiliMax/models/common/search/video_search_type.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
-import 'package:PiliMax/pages/search_panel/controller.dart';
+import 'package:PiliMax/pilimax/forks/pages/search_panel/controller.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/url_utils.dart';
 import 'package:PiliMax/utils/recommend_filter.dart';

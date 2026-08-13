@@ -25,7 +25,7 @@ import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:PiliMax/utils/upload_image_validator.dart';
+import 'package:PiliMax/pilimax/utils/upload_image_validator.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart'
     hide CacheManager;
 import 'package:dio/dio.dart' show CancelToken;

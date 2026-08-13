@@ -1,5 +1,5 @@
 import 'package:PiliMax/common/assets.dart';
-import 'package:PiliMax/common/widgets/selectable_text.dart';
+import 'package:PiliMax/pilimax/common/widgets/selectable_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 

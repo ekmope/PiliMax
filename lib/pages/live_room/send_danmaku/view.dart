@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';
-import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
+import 'package:PiliMax/pilimax/common/widgets/loading_widget/button_loading.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/http/live.dart';
 import 'package:PiliMax/models/common/publish_panel_type.dart';

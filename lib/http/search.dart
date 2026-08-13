@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:PiliMax/http/api.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/search/search_type.dart';
 import 'package:PiliMax/models/search/result.dart';
@@ -13,7 +13,7 @@ import 'package:PiliMax/models_new/search/search_rcmd/data.dart';
 import 'package:PiliMax/models_new/search/search_trending/data.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/request_utils.dart';
-import 'package:PiliMax/utils/wbi_sign.dart';
+import 'package:PiliMax/pilimax/forks/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

@@ -5,7 +5,7 @@ import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/pages/setting/widgets/switch_item.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/filtering_text.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/material.dart' hide ListTile;

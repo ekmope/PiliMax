@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
-import 'package:PiliMax/common/widgets/flutter/page/page_view.dart';
+import 'package:PiliMax/pilimax/common/widgets/flutter/page/page_view.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';

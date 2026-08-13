@@ -1,7 +1,7 @@
-import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/http/constants.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/sponsor_block.dart';
 import 'package:PiliMax/models/common/sponsor_block/segment_type.dart';
@@ -10,7 +10,7 @@ import 'package:PiliMax/models_new/sponsor_block/user_info.dart';
 import 'package:PiliMax/pages/setting/slide_color_picker.dart';
 import 'package:PiliMax/utils/filtering_text.dart';
 import 'package:PiliMax/utils/page_utils.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';

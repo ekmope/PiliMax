@@ -3,11 +3,11 @@ import 'dart:convert' show base64, jsonDecode, jsonEncode, utf8;
 import 'dart:io' show Platform;
 
 import 'package:PiliMax/http/browser_ua.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/main.dart';
-import 'package:PiliMax/pages/login/geetest/geetest_security.dart';
-import 'package:PiliMax/utils/accounts/account.dart';
+import 'package:PiliMax/pilimax/pages/login/geetest/geetest_security.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
 import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';

@@ -1,8 +1,8 @@
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/search.dart';
-import 'package:PiliMax/utils/accounts/account.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
 import 'package:PiliMax/utils/id_utils.dart';
-import 'package:PiliMax/utils/log_redactor.dart';
+import 'package:PiliMax/pilimax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;

@@ -1,6 +1,6 @@
 import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/fav.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/space/space_fav/data.dart';
 import 'package:PiliMax/models_new/space/space_fav/list.dart';

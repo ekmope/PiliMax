@@ -2,14 +2,14 @@ import 'dart:io';
 
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/dial_prefix.dart';
-import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
-import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/pilimax/common/widgets/loading_widget/button_loading.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/login/controller.dart';
-import 'package:PiliMax/pages/login/web_login_view.dart';
+import 'package:PiliMax/pilimax/pages/login/web_login_view.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/widget_ext.dart';
 import 'package:PiliMax/utils/image_utils.dart';

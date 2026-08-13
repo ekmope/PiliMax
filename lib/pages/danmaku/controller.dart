@@ -7,7 +7,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/data_source.dart';
 import 'package:PiliMax/plugin/pl_player/utils/danmaku_options.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

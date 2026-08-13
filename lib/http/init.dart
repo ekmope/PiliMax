@@ -1,23 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:PiliMax/build_config.dart';
 import 'package:PiliMax/http/api.dart';
-import 'package:PiliMax/http/account_activation_coordinator.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/retry_interceptor.dart';
-import 'package:PiliMax/http/system_proxy_config.dart';
 import 'package:PiliMax/http/user.dart';
-import 'package:PiliMax/services/local_diagnostics.dart';
 import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/account.dart';
 import 'package:PiliMax/utils/accounts/account_manager/account_mgr.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/login_utils.dart';
-import 'package:PiliMax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:archive/archive.dart';
@@ -26,62 +20,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
-import 'package:flutter/foundation.dart'
-    show debugPrint, kDebugMode, listEquals;
-import 'package:http2/http2.dart' show ClientTransportConnection;
-
-final class _FailClosedProxyAdapter implements HttpClientAdapter {
-  const _FailClosedProxyAdapter(this.reason);
-
-  final String reason;
-
-  @override
-  Future<ResponseBody> fetch(
-    RequestOptions options,
-    Stream<Uint8List>? requestStream,
-    Future<void>? cancelFuture,
-  ) => Future<ResponseBody>.error(
-    DioException.connectionError(
-      requestOptions: options,
-      reason: reason,
-      error: StateError(reason),
-      stackTrace: StackTrace.current,
-    ),
-    StackTrace.current,
-  );
-
-  @override
-  void close({bool force = false}) {}
-}
-
-final class _FailClosedProxyConnectionManager implements ConnectionManager {
-  const _FailClosedProxyConnectionManager(this.reason);
-
-  final String reason;
-
-  @override
-  int get cachedConnectionsCount => 0;
-
-  @override
-  Future<ClientTransportConnection> getConnection(
-    RequestOptions options,
-    List<RedirectRecord> redirects,
-  ) => Future<ClientTransportConnection>.error(
-    DioException.connectionError(
-      requestOptions: options,
-      reason: reason,
-      error: StateError(reason),
-      stackTrace: StackTrace.current,
-    ),
-    StackTrace.current,
-  );
-
-  @override
-  void removeConnection(ClientTransportConnection transport) {}
-
-  @override
-  void close({bool force = false}) {}
-}
+import 'package:flutter/foundation.dart' show kDebugMode, listEquals;
 
 class Request {
   static const _gzipDecoder = GZipDecoder();
@@ -89,12 +28,7 @@ class Request {
 
   static final Request _instance = Request._internal();
   static late AccountManager accountManager;
-  static Future<void>? _cookieSetupFuture;
-  static bool _cookieSetupComplete = false;
-  static bool _accountManagerInstalled = false;
   static final _enableHttp2 = Pref.enableHttp2;
-  static final AccountActivationCoordinator<Account> _accountActivation =
-      AccountActivationCoordinator<Account>();
   static late final Dio dio;
   static Dio? _http11Dio;
   static Dio get http11Dio =>
@@ -102,57 +36,20 @@ class Request {
   factory Request() => _instance;
 
   /// 设置cookie
-  static Future<void> setCookie() {
-    if (_cookieSetupComplete) return Future<void>.value();
-    final pending = _cookieSetupFuture;
-    if (pending != null) return pending;
-    final future = _setCookie();
-    _cookieSetupFuture = future;
-    return future.whenComplete(() {
-      if (identical(_cookieSetupFuture, future)) {
-        _cookieSetupFuture = null;
-      }
-    });
-  }
-
-  static Future<void> _setCookie() async {
-    if (!_accountManagerInstalled) {
-      accountManager = AccountManager();
-      dio.interceptors.add(accountManager);
-      _accountManagerInstalled = true;
-    }
-
-    await Accounts.init();
-    await Accounts.restoreAccountModes();
-    _cookieSetupComplete = true;
-
-    _runStartupTask(
-      'Request.activateAccounts',
-      Accounts.activateAccountModes,
-    );
-    _runStartupTask('Request.setWebCookie', () async {
-      await LoginUtils.setWebCookie();
-    });
+  static void setCookie() {
+    accountManager = AccountManager();
+    dio.interceptors.add(accountManager);
+    Accounts.refresh();
+    LoginUtils.setWebCookie();
 
     if (Accounts.main.isLogin) {
       final coin = Pref.userInfoCache?.money;
       if (coin == null) {
-        _runStartupTask('Request.setCoin', setCoin);
+        setCoin();
       } else {
         GlobalData().coins = coin;
       }
     }
-  }
-
-  static void _runStartupTask(
-    String operation,
-    Future<void> Function() task,
-  ) {
-    unawaited(
-      Future<void>.sync(task).catchError((Object error, StackTrace stackTrace) {
-        _reportOperationFailure(operation, error, stackTrace);
-      }),
-    );
   }
 
   static Future<void> setCoin() async {
@@ -162,78 +59,45 @@ class Request {
     }
   }
 
-  static Future<void> buvidActive(Account account) =>
-      _accountActivation.activate(
-        key: account,
-        isActivated: () => account.activated,
-        request: () => _activateBuvid(account),
-        setActivated: (value) => account.activated = value,
-        onError: (error, stackTrace) => _reportOperationFailure(
-          'Request.buvidActive',
-          error,
-          stackTrace,
+  static Future<void> buvidActive(Account account) async {
+    // 这样线程不安全, 但仍按预期进行
+    if (account.activated) return;
+    account.activated = true;
+    try {
+      // final html = await Request().get(Api.dynamicSpmPrefix,
+      //     options: Options(extra: {'account': account}));
+      // final String spmPrefix = _spmPrefixExp.firstMatch(html.data)!.group(1)!;
+      final String randPngEnd = base64.encode([
+        ...Iterable<int>.generate(32, (_) => Utils.random.nextInt(256)),
+        0,
+        0,
+        0,
+        0,
+        73,
+        69,
+        78,
+        68,
+        ...Iterable<int>.generate(4, (_) => Utils.random.nextInt(256)),
+      ]);
+
+      final jsonData = json.encode({
+        '3064': 1,
+        '39c8': '333.1387.fp.risk',
+        '3c43': {
+          'adca': 'Linux',
+          'bfe9': randPngEnd.substring(randPngEnd.length - 50),
+        },
+      });
+
+      await Request().post(
+        Api.activateBuvidApi,
+        data: {'payload': jsonData},
+        options: Options(
+          extra: {'account': account},
+          contentType: Headers.jsonContentType,
         ),
       );
-
-  static Future<void> _activateBuvid(Account account) async {
-    // final html = await Request().get(Api.dynamicSpmPrefix,
-    //     options: Options(extra: {'account': account}));
-    // final String spmPrefix = _spmPrefixExp.firstMatch(html.data)!.group(1)!;
-    final String randPngEnd = base64.encode([
-      ...Iterable<int>.generate(
-        32,
-        (_) => Utils.secureRandom.nextInt(256),
-      ),
-      0,
-      0,
-      0,
-      0,
-      73,
-      69,
-      78,
-      68,
-      ...Iterable<int>.generate(
-        4,
-        (_) => Utils.secureRandom.nextInt(256),
-      ),
-    ]);
-
-    final jsonData = json.encode({
-      '3064': 1,
-      '39c8': '333.1387.fp.risk',
-      '3c43': {
-        'adca': 'Linux',
-        'bfe9': randPngEnd.substring(randPngEnd.length - 50),
-      },
-    });
-
-    final response = await Request().post(
-      Api.activateBuvidApi,
-      data: {'payload': jsonData},
-      options: Options(
-        extra: {'account': account},
-        contentType: Headers.jsonContentType,
-      ),
-    );
-
-    if (!_isSuccessfulBuvidActivation(response)) {
-      final data = response.data;
-      final code = data is Map ? data['code'] : null;
-      throw StateError(
-        'Buvid activation rejected '
-        '(status=${response.statusCode}, code=$code)',
-      );
-    }
-  }
-
-  static bool _isSuccessfulBuvidActivation(Response response) {
-    final statusCode = response.statusCode;
-    final data = response.data;
-    return statusCode != null &&
-        statusCode >= 200 &&
-        statusCode < 300 &&
-        data is Map &&
-        data['code'] == 0;
+    } catch (_) {}
   }
 
   static Dio _cloneHttp11Dio() {
@@ -269,54 +133,47 @@ class Request {
     Connectivity().onConnectivityChanged.skip(1).listen(_onConnectivityChanged);
   }
 
-  static (HttpClientAdapter, ConnectionManager?) _createPool() {
-    final proxy = SystemProxyConfig.resolve(
-      enabled: Pref.enableSystemProxy,
-      host: Pref.systemProxyHost,
-      port: Pref.systemProxyPort,
-    );
-    if (proxy.isInvalid) {
-      final reason = '系统代理配置无效：${proxy.validationMessage}。请修正代理设置或关闭代理。';
-      return (
-        _FailClosedProxyAdapter(reason),
-        _enableHttp2 ? _FailClosedProxyConnectionManager(reason) : null,
-      );
+  static (IOHttpClientAdapter, ConnectionManager?) _createPool() {
+    final bool enableSystemProxy;
+    late final String systemProxyHost;
+    late final int? systemProxyPort;
+    if (Pref.enableSystemProxy) {
+      systemProxyHost = Pref.systemProxyHost;
+      systemProxyPort = int.tryParse(Pref.systemProxyPort);
+      enableSystemProxy = systemProxyPort != null && systemProxyHost.isNotEmpty;
+    } else {
+      enableSystemProxy = false;
     }
 
-    final allowBadCertificates = Pref.badCertificateCallback;
     final http11Adapter = IOHttpClientAdapter(
-      createHttpClient: () {
-        final client = HttpClient()
-          ..idleTimeout = const Duration(seconds: 15)
-          ..autoUncompress = false; // Http2Adapter没有自动解压, 统一行为
-        if (proxy.isValid) {
-          client.findProxy = (_) => proxy.httpProxyDirective;
-        }
-        if (allowBadCertificates) {
-          client.badCertificateCallback = (cert, host, port) => true;
-        }
-        return client;
-      },
+      createHttpClient: enableSystemProxy
+          ? () => HttpClient()
+              ..idleTimeout = const Duration(seconds: 15)
+              ..autoUncompress = false
+              ..findProxy = ((_) => 'PROXY $systemProxyHost:$systemProxyPort')
+              ..badCertificateCallback = (cert, host, port) => true
+          : () => HttpClient()
+              ..idleTimeout = const Duration(seconds: 15)
+              ..autoUncompress = false, // Http2Adapter没有自动解压, 统一行为
     );
 
     final connectionManager = _enableHttp2
         ? ConnectionManager(
             idleTimeout: const Duration(seconds: 15),
-            onClientCreate: proxy.isValid || allowBadCertificates
+            onClientCreate: enableSystemProxy
                 ? (_, config) => config
-                    ..proxy = proxy.isValid ? proxy.proxyUri : null
-                    ..onBadCertificate = allowBadCertificates
-                        ? (_) => true
-                        : null
+                    ..proxy = Uri(
+                      scheme: 'http',
+                      host: systemProxyHost,
+                      port: systemProxyPort,
+                    )
+                    ..onBadCertificate = (_) => true
+                : Pref.badCertificateCallback
+                ? (_, config) => config.onBadCertificate = (_) => true
                 : null,
           )
         : null;
     return (http11Adapter, connectionManager);
-  }
-
-  static void reloadNetworkConfiguration() {
-    Request();
-    _resetAdaptersForNetworkChange();
   }
 
   @pragma('vm:notify-debugger-on-exception')
@@ -335,13 +192,7 @@ class Request {
           ..httpClientAdapter.close(force: true)
           ..httpClientAdapter = h11;
       }
-    } catch (error, stackTrace) {
-      _reportOperationFailure(
-        'Request.resetAdaptersForNetworkChange',
-        error,
-        stackTrace,
-      );
-    }
+    } catch (_) {}
   }
 
   /*
@@ -381,15 +232,12 @@ class Request {
     }
 
     // 日志拦截器 输出请求、响应内容
-    if (BuildConfig.localDiagnostics && Pref.enableNetworkLog) {
+    if (kDebugMode) {
       dio.interceptors.add(
         LogInterceptor(
           request: false,
           requestHeader: false,
           responseHeader: false,
-          logPrint: (value) => debugPrint(
-            LogRedactor.redactText(value.toString()),
-          ),
         ),
       );
     }
@@ -419,11 +267,13 @@ class Request {
         options: options,
         cancelToken: cancelToken,
       );
-    } on DioException catch (e, s) {
-      return _handleDioException(
-        e,
-        s,
-        operation: 'Request.get',
+    } on DioException catch (e) {
+      return Response(
+        data: {
+          'message': await AccountManager.dioError(e),
+        }, // 将自定义 Map 数据赋值给 Response 的 data 属性
+        statusCode: e.response?.statusCode ?? -1,
+        requestOptions: e.requestOptions,
       );
     }
   }
@@ -447,12 +297,14 @@ class Request {
         options: options,
         cancelToken: cancelToken,
       );
-    } on DioException catch (e, s) {
-      return _handleDioException(
-        e,
-        s,
-        operation: 'Request.post',
-        showToast: true,
+    } on DioException catch (e) {
+      AccountManager.toast(e);
+      return Response(
+        data: {
+          'message': await AccountManager.dioError(e),
+        }, // 将自定义 Map 数据赋值给 Response 的 data 属性
+        statusCode: e.response?.statusCode ?? -1,
+        requestOptions: e.requestOptions,
       );
     }
   }
@@ -476,96 +328,15 @@ class Request {
         // },
       );
       // if (kDebugMode) debugPrint('downloadFile success: ${response.data}');
-    } on DioException catch (e, s) {
+    } on DioException catch (e) {
       // if (kDebugMode) debugPrint('downloadFile error: $e');
-      return _handleDioException(
-        e,
-        s,
-        operation: 'Request.downloadFile',
+      return Response(
+        data: {
+          'message': await AccountManager.dioError(e),
+        },
+        statusCode: e.response?.statusCode ?? -1,
+        requestOptions: e.requestOptions,
       );
-    }
-  }
-
-  static Future<Response> _handleDioException(
-    DioException error,
-    StackTrace stackTrace, {
-    required String operation,
-    bool showToast = false,
-  }) async {
-    if (BuildConfig.localDiagnostics) {
-      final requestUri = error.requestOptions.uri;
-      unawaited(
-        LocalDiagnostics.record(
-          LocalDiagnosticArea.http,
-          'request_failed',
-          details: {
-            'operation': operation,
-            'method': error.requestOptions.method,
-            'uri': requestUri
-                .replace(userInfo: '', query: '', fragment: '')
-                .toString(),
-            'statusCode': error.response?.statusCode,
-            'errorType': error.type.name,
-          },
-        ),
-      );
-    }
-    if (showToast) {
-      try {
-        AccountManager.toast(error);
-      } catch (toastError, toastStackTrace) {
-        _reportOperationFailure(
-          '$operation.toast',
-          toastError,
-          toastStackTrace,
-        );
-      }
-    }
-    try {
-      Utils.reportError(error, stackTrace, operation);
-    } catch (reportError) {
-      if (kDebugMode) {
-        debugPrint(
-          '$operation reporting failed (${reportError.runtimeType})',
-        );
-      }
-    }
-
-    String message;
-    try {
-      message = await AccountManager.dioError(error);
-    } catch (messageError, messageStackTrace) {
-      _reportOperationFailure(
-        '$operation.describeError',
-        messageError,
-        messageStackTrace,
-      );
-      message = '网络请求失败';
-    }
-    return Response(
-      data: {'message': message},
-      statusCode: error.response?.statusCode ?? -1,
-      requestOptions: error.requestOptions,
-    );
-  }
-
-  static void _reportOperationFailure(
-    String operation,
-    Object error,
-    StackTrace stackTrace,
-  ) {
-    try {
-      Utils.reportError(
-        StateError('$operation failed (${error.runtimeType})'),
-        stackTrace,
-        operation,
-      );
-    } catch (reportError) {
-      if (kDebugMode) {
-        debugPrint(
-          '$operation reporting failed (${reportError.runtimeType})',
-        );
-      }
     }
   }
 

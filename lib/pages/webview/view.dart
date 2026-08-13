@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:PiliMax/common/widgets/flutter/popup_menu.dart';
-import 'package:PiliMax/common/widgets/selectable_text.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/pilimax/common/widgets/selectable_text.dart';
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/main.dart';
 import 'package:PiliMax/models/common/webview_menu_type.dart';

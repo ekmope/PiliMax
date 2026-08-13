@@ -4,7 +4,7 @@ import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/constants.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/reply.dart';
 import 'package:PiliMax/models/common/dynamic/dynamics_type.dart';
@@ -25,10 +25,10 @@ import 'package:PiliMax/models_new/dynamic/dyn_topic_feed/topic_card_list.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_topic_top/top_details.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_topic_top/topic_item.dart';
 import 'package:PiliMax/models_new/followee_votes/vote.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/parse_int.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:PiliMax/utils/wbi_sign.dart';
+import 'package:PiliMax/pilimax/forks/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
 
 abstract final class DynamicsHttp {

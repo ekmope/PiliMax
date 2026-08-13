@@ -1,5 +1,5 @@
 import 'package:PiliMax/http/api.dart';
-import 'package:PiliMax/http/init.dart';
+import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/match/match_info/contest.dart';
 import 'package:PiliMax/models_new/match/match_info/data.dart';

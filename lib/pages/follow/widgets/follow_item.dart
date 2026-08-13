@@ -1,4 +1,4 @@
-import 'package:PiliMax/common/widgets/loading_widget/button_loading.dart';
+import 'package:PiliMax/pilimax/common/widgets/loading_widget/button_loading.dart';
 import 'package:PiliMax/common/widgets/pendant_avatar.dart';
 import 'package:PiliMax/models_new/follow/list.dart';
 import 'package:PiliMax/pages/share/view.dart' show UserModel;

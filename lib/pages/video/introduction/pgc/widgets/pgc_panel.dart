@@ -6,7 +6,7 @@ import 'package:PiliMax/models_new/pgc/pgc_info_model/new_ep.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart'
     hide EpisodeItem;
 import 'package:PiliMax/pages/video/controller.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/storage_pref.dart';

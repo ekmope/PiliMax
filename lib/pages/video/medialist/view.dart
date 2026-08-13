@@ -11,7 +11,7 @@ import 'package:PiliMax/models/common/stat_type.dart';
 import 'package:PiliMax/models_new/media_list/media_list.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart';
 import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
-import 'package:PiliMax/models/common/list_order.dart';
+import 'package:PiliMax/pilimax/models/common/list_order.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/material.dart';

@@ -1,4 +1,4 @@
-import 'package:PiliMax/utils/accounts/account.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
 import 'package:hive_ce/hive.dart';
 
 class LoginAccountAdapter extends TypeAdapter<LoginAccount> {

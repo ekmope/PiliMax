@@ -11,7 +11,7 @@ import 'package:PiliMax/pages/search/widgets/hot_keyword.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/utils/em.dart' show Em;
 import 'package:PiliMax/utils/extension/size_ext.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter/material.dart';

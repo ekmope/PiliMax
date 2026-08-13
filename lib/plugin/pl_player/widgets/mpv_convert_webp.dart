@@ -5,7 +5,7 @@ import 'dart:ffi';
 
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/http/constants.dart';
-import 'package:PiliMax/utils/log_redactor.dart';
+import 'package:PiliMax/pilimax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';

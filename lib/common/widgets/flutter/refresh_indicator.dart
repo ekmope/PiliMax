@@ -11,8 +11,7 @@ import 'package:PiliMax/common/widgets/scroll_physics.dart'
     show BouncingScrollPhysicsExt;
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
-    show OnDrag, RefreshScrollPhysicsMixin;
+import 'package:extended_nested_scroll_view/refresh.dart';
 import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter/material.dart' hide RefreshIndicator;
 
@@ -221,6 +220,7 @@ class RefreshIndicatorState extends State<RefreshIndicator>
   RefreshIndicatorStatus? _status;
   late Future<void> _pendingRefreshFuture;
   double? _dragOffset;
+  double _lastViewportDimension = 0.0;
   late Color _effectiveValueColor;
   // late Color _backgroundColor;
 
@@ -325,6 +325,7 @@ class RefreshIndicatorState extends State<RefreshIndicator>
     if (notification is ScrollUpdateNotification) {
       if (_status == RefreshIndicatorStatus.drag) {
         _dragOffset = _dragOffset! - notification.scrollDelta!;
+        _lastViewportDimension = notification.metrics.viewportDimension;
         _checkDragOffset(notification.metrics.viewportDimension);
 
         if (notification.dragDetails == null &&
@@ -338,6 +339,7 @@ class RefreshIndicatorState extends State<RefreshIndicator>
     } else if (notification is OverscrollNotification) {
       if (_status == RefreshIndicatorStatus.drag) {
         _dragOffset = _dragOffset! - notification.overscroll;
+        _lastViewportDimension = notification.metrics.viewportDimension;
         _checkDragOffset(notification.metrics.viewportDimension);
       }
     } else if (notification is ScrollEndNotification) {
@@ -576,10 +578,10 @@ class RefreshIndicatorState extends State<RefreshIndicator>
     );
   }
 
-  bool _onDrag(double offset, double viewportDimension) {
+  bool _onDrag(double offset) {
     if (_positionController.value > 0.0 && _status == .drag) {
       _dragOffset = _dragOffset! + offset;
-      _checkDragOffset(viewportDimension);
+      _checkDragOffset(_lastViewportDimension);
       return true;
     }
     return false;

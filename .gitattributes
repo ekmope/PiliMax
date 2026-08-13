@@ -1,0 +1,9 @@
+# `git apply` reads patch bytes verbatim from the working tree. Keep every
+# Flutter SDK patch in LF so the same patch applies on Windows and macOS.
+lib/scripts/*.patch text eol=lf
+
+# Dart/YAML sources are committed as LF. Force LF on checkout so patch
+# context matching is deterministic on Windows (`core.autocrlf=true`).
+*.dart text eol=lf
+pubspec.yaml text eol=lf
+pubspec.lock text eol=lf

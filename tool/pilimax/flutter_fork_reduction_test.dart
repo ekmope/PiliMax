@@ -6,7 +6,7 @@ import 'package:PiliMax/pilimax/common/widgets/flutter/page/page_view.dart'
 import 'package:PiliMax/pilimax/common/widgets/flutter/page/tabs.dart' as custom_tabs;
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';
-import 'package:PiliMax/common/widgets/flutter/vertical_tabs.dart';
+import 'package:PiliMax/pilimax/forks/common/widgets/flutter/vertical_tabs.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

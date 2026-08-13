@@ -3,7 +3,9 @@ import 'package:PiliMax/models_new/video/video_ai_conclusion/model_result.dart';
 import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
+import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
+    hide ExtendedVisibilityDetector;
+import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

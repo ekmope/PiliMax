@@ -8,7 +8,9 @@ import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
+import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
+    hide ExtendedVisibilityDetector;
+import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

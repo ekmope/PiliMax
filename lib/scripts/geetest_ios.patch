@@ -1,6 +1,5 @@
 diff --git a/lib/pages/login/geetest/geetest_plugin.dart b/lib/pages/login/geetest/geetest_plugin.dart
 new file mode 100644
-index 000000000..2823c2188
 --- /dev/null
 +++ b/lib/pages/login/geetest/geetest_plugin.dart
 @@ -0,0 +1,110 @@
@@ -12,9 +11,9 @@ index 000000000..2823c2188
 +import 'package:gt3_flutter_plugin/gt3_flutter_plugin.dart';
 +
 +abstract final class GeetestPlugin {
-+  static Future geetest(String gt, String challenge) {
-+    final completer = Completer();
-+    void complete([result]) {
++  static Future<Map<String, String>?> geetest(String gt, String challenge) {
++    final completer = Completer<Map<String, String>?>();
++    void complete([Map<String, String>? result]) {
 +      if (!completer.isCompleted) {
 +        completer.complete(result);
 +      }
@@ -115,32 +114,29 @@ index 000000000..2823c2188
 +  }
 +}
 diff --git a/lib/pages/login/geetest/geetest_webview_dialog.dart b/lib/pages/login/geetest/geetest_webview_dialog.dart
-index 7a0461170..da032af1a 100644
 --- a/lib/pages/login/geetest/geetest_webview_dialog.dart
 +++ b/lib/pages/login/geetest/geetest_webview_dialog.dart
 @@ -1,3 +1,5 @@
 +import 'package:PiliMax/pages/login/geetest/geetest_plugin.dart';
 +
+ import 'dart:async' show unawaited;
  import 'dart:convert' show base64, jsonDecode, jsonEncode, utf8;
  import 'dart:io' show Platform;
- 
-@@ -22,6 +24,7 @@ class GeetestWebviewDialog extends StatefulWidget {
+@@ -25,6 +27,7 @@
    State<GeetestWebviewDialog> createState() => _GeetestWebviewDialogState();
  
-   static Future geetest(String gt, String challenge) {
+   static Future<Map<String, String>?> geetest(String gt, String challenge) {
 +    return GeetestPlugin.geetest(gt, challenge);
-     return showDialog(
+     return showDialog<Map<String, String>>(
        context: Get.context!,
        builder: (context) => GeetestWebviewDialog(gt, challenge),
 diff --git a/pubspec.yaml b/pubspec.yaml
-index 1ec95f9f1..e29e474e0 100644
 --- a/pubspec.yaml
 +++ b/pubspec.yaml
-@@ -34,6 +34,7 @@ dependencies:
+@@ -34,5 +34,6 @@
      sdk: flutter
    flutter_localizations:
      sdk: flutter
 +  gt3_flutter_plugin: ^0.1.0
  
-   app_links: ^7.1.1
-   archive: ^4.0.0
+   visibility_detector: ^0.4.0+2

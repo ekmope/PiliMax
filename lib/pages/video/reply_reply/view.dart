@@ -17,7 +17,9 @@ import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/widget_ext.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
+import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
+    hide ExtendedVisibilityDetector;
+import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';

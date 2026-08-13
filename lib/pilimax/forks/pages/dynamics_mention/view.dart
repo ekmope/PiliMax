@@ -3,9 +3,7 @@ import 'dart:math';
 
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
-import 'package:PiliMax/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_header.dart';
-import 'package:PiliMax/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_mention/group.dart';
 import 'package:PiliMax/pages/dynamics_mention/controller.dart';
@@ -86,6 +84,7 @@ class _DynMentionPanelState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final padding = MediaQuery.paddingOf(context).bottom;
+    final viewInset = MediaQuery.viewInsetsOf(context).bottom;
     return Column(
       children: [
         SizedBox(
@@ -166,38 +165,42 @@ class _DynMentionPanelState
           ),
         ),
         Expanded(
-          child: ScaffoldLayout(
-            body: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is UserScrollNotification) {
-                  if (_controller.focusNode.hasFocus) {
-                    _controller.focusNode.unfocus();
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is UserScrollNotification) {
+                    if (_controller.focusNode.hasFocus) {
+                      _controller.focusNode.unfocus();
+                    }
+                  } else if (notification is ScrollEndNotification) {
+                    widget.onCachePos?.call(notification.metrics.pixels);
                   }
-                } else if (notification is ScrollEndNotification) {
-                  widget.onCachePos?.call(notification.metrics.pixels);
-                }
-                return false;
-              },
-              child: CustomScrollView(
-                controller: widget.scrollController,
-                slivers: [
-                  Obx(
-                    () => _buildBody(theme, _controller.loadingState.value),
-                  ),
-                  SliverToBoxAdapter(child: SizedBox(height: padding + 100)),
-                ],
-              ),
-            ),
-            fab: Obx(() {
-              return Padding(
-                padding: .only(
-                  right: kFloatingActionButtonMargin,
-                  bottom: kFloatingActionButtonMargin + padding,
+                  return false;
+                },
+                child: CustomScrollView(
+                  controller: widget.scrollController,
+                  slivers: [
+                    Obx(
+                      () => _buildBody(theme, _controller.loadingState.value),
+                    ),
+                    SliverToBoxAdapter(
+                      child: SizedBox(height: padding + viewInset + 100),
+                    ),
+                  ],
                 ),
-                child: ViewInsetsSafeArea(
+              ),
+              Obx(() {
+                return Positioned(
+                  right: kFloatingActionButtonMargin,
+                  bottom:
+                      padding +
+                      kFloatingActionButtonMargin +
+                      (_controller.showBtn.value ? viewInset : 0),
                   child: AnimatedSlide(
                     offset: _controller.showBtn.value
-                        ? .zero
+                        ? Offset.zero
                         : const Offset(0, 3),
                     duration: const Duration(milliseconds: 120),
                     child: FloatingActionButton(
@@ -212,9 +215,9 @@ class _DynMentionPanelState
                       child: const Icon(Icons.check),
                     ),
                   ),
-                ),
-              );
-            }),
+                );
+              }),
+            ],
           ),
         ),
       ],

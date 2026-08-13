@@ -81,6 +81,17 @@ jobs:
             - name: Validate setting defaults
               run: dart tool/pilimax/check_setting_bool_defaults.dart
 
+            - name: Audit fork references
+              run: dart run tool/pilimax/check_fork_references.dart
+
+            - name: Fetch upstream ref
+              run: |
+                  git remote add upstream https://github.com/bggRGjQaUbCoE/PiliPlus.git 2>/dev/null || true
+                  git fetch --no-tags upstream main || true
+
+            - name: Verify upstream sync
+              run: dart run tool/pilimax/check_upstream_sync.dart --warn-only
+
             - name: Apply Patch
               shell: pwsh
               run: lib/scripts/patch.ps1 android

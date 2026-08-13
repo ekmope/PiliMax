@@ -8,10 +8,8 @@ $BottomSheetAndroidPatch = "lib/scripts/bottom_sheet_android.patch"
 $BottomSheetIOSFlutterPatch = "lib/scripts/bottom_sheet_ios_flutter.patch"
 $BottomSheetIOSPiliMaxPatch = "lib/scripts/bottom_sheet_ios_pilimax.patch"
 
-# Flutter issue #185052: restore the text-selection toolbar after a short scroll.
-$TextSelectionMenuFix = "beb2ad17004a1b118ff2bd09f55cee23198f6652";
-
-# Upstream issue #1662
+# https://github.com/bggRGjQaUbCoE/PiliPlus/issues/1662
+# handle bottom scroll event
 $ScrollViewPatch = "lib/scripts/scroll_view.patch"
 
 # Upstream issue #2106
@@ -58,15 +56,21 @@ if ($platform.ToLower() -eq "ios") {
     git apply $BottomSheetIOSPiliMaxPatch
     if ($LASTEXITCODE -eq 0) {
         Write-Host "$BottomSheetIOSPiliMaxPatch applied"
+    } else {
+        Write-Error "failed to apply $BottomSheetIOSPiliMaxPatch (exit $LASTEXITCODE)"
+        exit 1
     }
     git apply $GeetestIOSPatch
     if ($LASTEXITCODE -eq 0) {
         Write-Host "$GeetestIOSPatch applied"
+    } else {
+        Write-Error "failed to apply $GeetestIOSPatch (exit $LASTEXITCODE)"
+        exit 1
     }
 }
 Set-Location $env:FLUTTER_ROOT
 
-$picks   = @($TextSelectionMenuFix)
+$picks   = @()
 $reverts = @()
 $patches = @($ModalBarrierPatch, $TextSelectionPatch, $MouseCursorPatch,
             $ImageAnimPatch, $LayoutBuilderPatch, $NavigationDrawerPatch,
@@ -95,34 +99,75 @@ switch ($platform.ToLower()) {
     default {}
 }
 
-git config --global user.name "ci"
-git config --global user.email "example@example.com"
+git config user.name "ci"
+git config user.email "example@example.com"
 
 git reset --hard HEAD
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "git reset --hard HEAD failed (exit $LASTEXITCODE)"
+    exit 1
+}
 
 foreach ($pick in $picks) {
     git stash
-    git cherry-pick $pick --no-edit
-    if ($LASTEXITCODE -eq 0) {
-        git reset --soft HEAD~1
-        Write-Host "$pick picked"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "git stash failed before cherry-picking $pick (exit $LASTEXITCODE)"
+        exit 1
     }
-    git stash pop
+    try {
+        git cherry-pick $pick --no-edit
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "git cherry-pick $pick failed (exit $LASTEXITCODE)"
+            exit 1
+        }
+        git reset --soft HEAD~1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "git reset --soft HEAD~1 failed after $pick (exit $LASTEXITCODE)"
+            exit 1
+        }
+        Write-Host "$pick picked"
+    } finally {
+        git stash pop
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "git stash pop failed after $pick (exit $LASTEXITCODE)"
+            exit 1
+        }
+    }
 }
 
 foreach ($revert in $reverts) {
     git stash
-    git revert $revert --no-edit
-    if ($LASTEXITCODE -eq 0) {
-        git reset --soft HEAD~1
-        Write-Host "$revert reverted"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "git stash failed before reverting $revert (exit $LASTEXITCODE)"
+        exit 1
     }
-    git stash pop
+    try {
+        git revert $revert --no-edit
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "git revert $revert failed (exit $LASTEXITCODE)"
+            exit 1
+        }
+        git reset --soft HEAD~1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "git reset --soft HEAD~1 failed after $revert (exit $LASTEXITCODE)"
+            exit 1
+        }
+        Write-Host "$revert reverted"
+    } finally {
+        git stash pop
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "git stash pop failed after $revert (exit $LASTEXITCODE)"
+            exit 1
+        }
+    }
 }
 
 foreach ($patch in $patches) {
     git apply "$env:GITHUB_WORKSPACE/$patch"
     if ($LASTEXITCODE -eq 0) {
         Write-Host "$patch applied"
+    } else {
+        Write-Error "failed to apply $patch (exit $LASTEXITCODE)"
+        exit 1
     }
 }

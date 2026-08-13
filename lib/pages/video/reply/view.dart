@@ -13,7 +13,7 @@ import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliMax/pages/video/reply_reply/view.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:easy_debounce/easy_throttle.dart';
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
+import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 

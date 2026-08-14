@@ -1028,16 +1028,16 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.isPureBlackTheme, defaultValue: false);
 
   static bool get antiGoodsDyn =>
-      _setting.get(SettingBoxKey.antiGoodsDyn, defaultValue: false);
+      _setting.get(SettingBoxKey.antiGoodsDyn, defaultValue: true);
 
   static bool get removeBlockedDyn =>
-      _setting.get(SettingBoxKey.removeBlockedDyn, defaultValue: false);
+      _setting.get(SettingBoxKey.removeBlockedDyn, defaultValue: true);
 
   static bool get removeOnlyFansVideoDyn =>
-      _setting.get(SettingBoxKey.removeOnlyFansVideoDyn, defaultValue: false);
+      _setting.get(SettingBoxKey.removeOnlyFansVideoDyn, defaultValue: true);
 
   static bool get antiGoodsReply =>
-      _setting.get(SettingBoxKey.antiGoodsReply, defaultValue: false);
+      _setting.get(SettingBoxKey.antiGoodsReply, defaultValue: true);
 
   static int get replyMinLevel =>
       _setting.get(SettingBoxKey.replyMinLevel, defaultValue: 0);
@@ -1257,7 +1257,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableAutoExit, defaultValue: true);
 
   static bool get autoPlayEnable =>
-      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: false);
+      _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: true);
 
   static bool get pipNoDanmaku =>
       _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: false);
@@ -1388,7 +1388,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableAndroidRouteRestore, defaultValue: true);
 
   static bool get enableSponsorBlock =>
-      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: false);
+      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: true);
 
   static bool get enableHA =>
       _setting.get(SettingBoxKey.enableHA, defaultValue: true);
@@ -1461,13 +1461,13 @@ abstract final class Pref {
   );
 
   static bool get enableAi =>
-      _setting.get(SettingBoxKey.enableAi, defaultValue: false);
+      _setting.get(SettingBoxKey.enableAi, defaultValue: true);
 
   static bool get enablePredictiveBack =>
       _setting.get(SettingBoxKey.enablePredictiveBack, defaultValue: true);
 
   static bool get enableOnlineTotal =>
-      _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: false);
+      _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: true);
 
   static bool get autoEnterFullScreen =>
       _setting.get(SettingBoxKey.enableAutoEnter, defaultValue: false);
@@ -1674,7 +1674,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.saveReply, defaultValue: true);
 
   static bool get floatingNavBar =>
-      _setting.get(SettingBoxKey.floatingNavBar, defaultValue: false);
+      _setting.get(SettingBoxKey.floatingNavBar, defaultValue: true);
 
   static bool get liquidGlassNavBar =>
       _setting.get(SettingBoxKey.liquidGlassNavBar, defaultValue: false);

@@ -67,11 +67,19 @@ class ImageGridView extends StatelessWidget {
     required this.picArr,
     this.onViewImage,
     this.fullScreen = false,
+    this.heroTag,
   });
 
   final List<ImageModel> picArr;
   final VoidCallback? onViewImage;
   final bool fullScreen;
+  final String? heroTag;
+
+  /// Stable base tag shared by the grid thumbnails and the image viewer Hero,
+  /// so the expand animation survives rebuilds (unlike the widget identity
+  /// [hashCode]).
+  String get _heroBaseTag =>
+      heroTag ?? Object.hashAll(picArr.map((e) => e.url)).toString();
 
   static bool horizontalPreview = Pref.horizontalPreview;
   static final _regex = RegExp(r'/videoV|/dynamicDetail$|/articlePage');
@@ -108,7 +116,7 @@ class ImageGridView extends StatelessWidget {
     PageUtils.imageView(
       initialPage: index,
       imgList: imgList,
-      tag: hashCode.toString(),
+      tag: _heroBaseTag,
     );
   }
 
@@ -252,7 +260,7 @@ class ImageGridView extends StatelessWidget {
               ],
             );
             if (!item.isLongPic) {
-              child = Hero(tag: '${item.url}$hashCode', child: child);
+              child = Hero(tag: '${item.url}$_heroBaseTag', child: child);
             }
             child = Semantics(
               label: '图片，第 ${index + 1} 张，共 ${picArr.length} 张',

@@ -41,6 +41,7 @@ abstract final class SettingBoxKey {
       showControlsOnManualEpisodeChange = 'showControlsOnManualEpisodeChange',
       horizontalScreen = 'horizontalScreen',
       CDNService = 'CDNService',
+      customCDNUrl = 'customCDNUrl',
       disableAudioCDN = 'disableAudioCDN',
       autoPiP = 'autoPiP',
       enableInAppPip = 'enableInAppPip',
@@ -335,7 +336,11 @@ abstract final class LocalCacheKey {
       mixinKey = 'mixinKey',
       timeStamp = 'timeStamp',
       buvid = 'buvid',
-      remarkMids = 'remarkMids';
+      remarkMids = 'remarkMids',
+      replyEmoteFallback = 'replyEmoteFallback',
+      cdnNodeList = 'cdnNodeList',
+      cdnNodeListTime = 'cdnNodeListTime',
+      cdnNodeRegion = 'cdnNodeRegion';
 }
 
 abstract final class VideoBoxKey {

@@ -1,11 +1,12 @@
 import 'dart:io';
 
 import 'package:PiliMax/models/common/video/audio_quality.dart';
-import 'package:PiliMax/models/common/video/cdn_type.dart';
 import 'package:PiliMax/models/common/video/live_quality.dart';
 import 'package:PiliMax/models/common/video/video_decode_type.dart';
 import 'package:PiliMax/models/common/video/video_quality.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
+import 'package:PiliMax/pages/setting/widgets/cdn_node_dialog.dart';
+import 'package:PiliMax/pages/setting/widgets/cdn_select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/plugin/pl_player/models/audio_output_type.dart';
@@ -64,7 +65,7 @@ List<SettingsModel> get videoSettings => [
     title: 'CDN 设置',
     leading: const Icon(MdiIcons.cloudPlusOutline),
     getSubtitle: () =>
-        '当前使用：${VideoUtils.cdnService.desc}，部分 CDN 可能失效，如无法播放请尝试切换',
+        '当前使用：${VideoUtils.effectiveCdnDesc()}，部分 CDN 可能失效，如无法播放请尝试切换',
     onTap: _showCDNDialog,
   ),
   NormalModel(
@@ -211,13 +212,12 @@ List<SettingsModel> get videoSettings => [
 ];
 
 Future<void> _showCDNDialog(BuildContext context, VoidCallback setState) async {
-  final res = await showDialog<CDNService>(
+  final res = await showDialog<CdnSelectResult>(
     context: context,
     builder: (context) => const CdnSelectDialog(),
   );
   if (res != null) {
-    VideoUtils.cdnService = res;
-    await GStorage.setting.put(SettingBoxKey.CDNService, res.name);
+    await applyCdnSelectResult(res);
     setState();
   }
 }
@@ -231,10 +231,30 @@ Future<void> _showLiveCDNDialog(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('输入CDN host'),
-      content: TextFormField(
-        initialValue: host,
-        autofocus: true,
-        onChanged: (value) => host = value,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            initialValue: host,
+            autofocus: true,
+            onChanged: (value) => host = value,
+          ),
+          const SizedBox(height: 4),
+          TextButton.icon(
+            icon: const Icon(Icons.travel_explore_outlined, size: 18),
+            label: const Text('从节点列表选择'),
+            onPressed: () async {
+              final node = await showDialog<String>(
+                context: context,
+                builder: (context) => const CdnNodeDialog(isLive: true),
+              );
+              if (node != null && context.mounted) {
+                Navigator.pop(context, node);
+              }
+            },
+          ),
+        ],
       ),
       actions: [
         TextButton(

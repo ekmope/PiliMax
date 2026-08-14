@@ -55,6 +55,7 @@ import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
+import 'package:PiliMax/utils/video_utils.dart';
 import 'package:archive/archive.dart' show getCrc32;
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -2008,9 +2009,14 @@ class PlPlayerController with BlockConfigMixin {
                   isBuffering: isBuffering.value,
                   bufferedSeconds: buffered.value,
                 )) {
+              final customHost = VideoUtils.customCDNUrl;
               SmartDialog.showToast(
-                '视频链接打开失败，重试中',
-                displayTime: const Duration(milliseconds: 500),
+                customHost == null
+                    ? '视频链接打开失败，重试中'
+                    : '视频链接打开失败，重试中\n当前自定义CDN节点：$customHost，持续失败可尝试更换或清除',
+                displayTime: customHost == null
+                    ? const Duration(milliseconds: 500)
+                    : const Duration(milliseconds: 3000),
               );
               await _refreshSourceForRetry(
                 lease,

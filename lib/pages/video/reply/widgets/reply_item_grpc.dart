@@ -30,6 +30,7 @@ import 'package:PiliMax/pages/audio/controller.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/reply/widgets/zan_grpc.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
+import 'package:PiliMax/pilimax/utils/reply_emote_resolver.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:PiliMax/utils/color_utils.dart';
@@ -57,6 +58,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:protobuf/protobuf.dart';
+
+/// 翻译结果只带文本，会丢掉表情/话题/@/链接映射。
+/// 展示翻译时沿用原文的映射，避免 [微笑] 之类内容退化成纯文字。
+Content _effectiveReplyContent(ReplyInfo replyItem, ReplyControl replyControl) {
+  if (!replyControl.showTranslation) {
+    return replyItem.content;
+  }
+  final original = replyItem.content;
+  final translated = replyItem.translatedContent;
+  return Content(
+    message: translated.message,
+    emotes: original.emotes.entries,
+    topics: original.topics.entries,
+    urls: original.urls.entries,
+    vote: original.hasVote() ? original.vote : null,
+    atNameToMid: original.atNameToMid.entries,
+  );
+}
 
 class ReplyItemGrpc extends StatelessWidget {
   const ReplyItemGrpc({
@@ -343,35 +362,36 @@ class ReplyItemGrpc extends StatelessWidget {
           ),
         Padding(
           padding: padding,
-          child: custom_text.Text.rich(
-            primary: colorScheme.primary,
-            style: const TextStyle(height: 1.75, fontSize: 14),
-            maxLines: replyLevel == 1 ? replyLengthLimit : null,
-            TextSpan(
-              children: [
-                if (replyControl.isUpTop) ...[
-                  const WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
-                    child: PBadge(
-                      text: 'TOP',
-                      size: PBadgeSize.small,
-                      isStack: false,
-                      type: PBadgeType.line_primary,
-                      fontSize: 9,
-                      textScaleFactor: 1,
+          child: ValueListenableBuilder<Map<String, ReplyEmoteFallback>>(
+            valueListenable: ReplyEmoteResolver.listenable,
+            builder: (context, _, _) => custom_text.Text.rich(
+              primary: colorScheme.primary,
+              style: const TextStyle(height: 1.75, fontSize: 14),
+              maxLines: replyLevel == 1 ? replyLengthLimit : null,
+              TextSpan(
+                children: [
+                  if (replyControl.isUpTop) ...[
+                    const WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: PBadge(
+                        text: 'TOP',
+                        size: PBadgeSize.small,
+                        isStack: false,
+                        type: PBadgeType.line_primary,
+                        fontSize: 9,
+                        textScaleFactor: 1,
+                      ),
                     ),
+                    const TextSpan(text: ' '),
+                  ],
+                  _buildMessage(
+                    context,
+                    colorScheme,
+                    _effectiveReplyContent(replyItem, replyControl),
+                    replyControl,
                   ),
-                  const TextSpan(text: ' '),
                 ],
-                _buildMessage(
-                  context,
-                  colorScheme,
-                  replyControl.showTranslation
-                      ? replyItem.translatedContent
-                      : replyItem.content,
-                  replyControl,
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -842,6 +862,19 @@ class ReplyItemGrpc extends StatelessWidget {
                 type: ImageType.emote,
                 width: size,
                 height: size,
+              ),
+            ),
+          );
+        } else if (ReplyEmoteResolver.lookup(matchStr) case final fallback?) {
+          // 接口或翻译结果缺 emotes 时，用官方表情表兜底渲染。
+          spanChildren.add(
+            EmoteSpan(
+              rawText: matchStr,
+              child: NetworkImgLayer(
+                src: fallback.url,
+                type: ImageType.emote,
+                width: fallback.size,
+                height: fallback.size,
               ),
             ),
           );

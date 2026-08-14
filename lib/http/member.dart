@@ -439,6 +439,7 @@ abstract final class MemberHttp {
   static Future<LoadingState<DynamicsDataModel>> memberDynamic({
     String? offset,
     required int mid,
+    int loadNextHops = 0,
   }) async {
     String dmImgStr = Utils.base64EncodeRandomString(16, 64);
     String dmCoverImgStr = Utils.base64EncodeRandomString(32, 128);
@@ -471,7 +472,20 @@ abstract final class MemberHttp {
       try {
         DynamicsDataModel data = DynamicsDataModel.fromJson(res.data['data']);
         if (data.loadNext == true) {
-          return await memberDynamic(offset: data.offset, mid: mid);
+          if (loadNextHops >= 4) {
+            return const Error('动态流连续过滤过多，请调整过滤规则后重试');
+          }
+          final nextOffset = data.offset;
+          if (nextOffset == null ||
+              nextOffset.isEmpty ||
+              nextOffset == offset) {
+            return Success(data);
+          }
+          return await memberDynamic(
+            offset: nextOffset,
+            mid: mid,
+            loadNextHops: loadNextHops + 1,
+          );
         }
         return Success(data);
       } catch (e, s) {

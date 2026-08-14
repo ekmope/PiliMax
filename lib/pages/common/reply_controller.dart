@@ -8,6 +8,7 @@ import 'package:PiliMax/models/common/reply/reply_sort_type.dart';
 import 'package:PiliMax/pages/common/common_list_controller.dart';
 import 'package:PiliMax/pages/common/publish/publish_route.dart';
 import 'package:PiliMax/pages/video/reply_new/view.dart';
+import 'package:PiliMax/pilimax/utils/reply_emote_resolver.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/reply_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -43,6 +44,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   @override
   void onInit() {
     super.onInit();
+    ReplyEmoteResolver.ensureLoaded();
     final cacheSortType = Pref.replySortType;
     sortType = cacheSortType.obs;
     mode = cacheSortType == .time ? Mode.MAIN_LIST_TIME : Mode.MAIN_LIST_HOT;

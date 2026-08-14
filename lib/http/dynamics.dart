@@ -38,6 +38,7 @@ abstract final class DynamicsHttp {
     String? offset,
     int? mid,
     Set<int>? tempBannedList,
+    int loadNextHops = 0,
   }) async {
     Map<String, dynamic> data = {
       if (type == DynamicsTabType.up)
@@ -59,11 +60,23 @@ abstract final class DynamicsHttp {
           tempBannedList: tempBannedList,
         );
         if (data.loadNext == true) {
+          // 本地过滤把整页滤空时会递归拉下一页；给递归加硬上限，
+          // 防止上游持续返回 has_more 时加载环永不结束且不产生任何日志。
+          if (loadNextHops >= 4) {
+            return const Error('动态流连续过滤过多，请调整过滤规则后重试');
+          }
+          final nextOffset = data.offset;
+          if (nextOffset == null ||
+              nextOffset.isEmpty ||
+              nextOffset == offset) {
+            return Success(data);
+          }
           return await followDynamic(
             type: type,
-            offset: data.offset,
+            offset: nextOffset,
             mid: mid,
             tempBannedList: tempBannedList,
+            loadNextHops: loadNextHops + 1,
           );
         }
         return Success(data);

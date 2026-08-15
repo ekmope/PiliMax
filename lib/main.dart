@@ -516,9 +516,17 @@ class MyApp extends StatelessWidget {
         child: child,
       );
     }
-    return CrashReportStartupGate(
-      initialReport: startupCrashReport,
-      child: child,
+    return NotificationListener<NavigationNotification>(
+      onNotification: (notification) {
+        debugPrint(
+          '[PiliMax-PB] NavigationNotification canHandlePop=${notification.canHandlePop}',
+        );
+        return false;
+      },
+      child: CrashReportStartupGate(
+        initialReport: startupCrashReport,
+        child: child,
+      ),
     );
   }
 

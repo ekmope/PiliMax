@@ -108,6 +108,9 @@ Widget content(
         if (pics != null && pics.isNotEmpty)
           ImageGridView(
             fullScreen: true,
+            heroTag: item.idStr == null
+                ? null
+                : 'dynamic:${item.idStr}:content',
             picArr: pics
                 .map(
                   (item) => ImageModel(

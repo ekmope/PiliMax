@@ -8,6 +8,7 @@ import 'package:PiliMax/common/widgets/image/cached_network_svg_image.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/image_grid/image_grid_view.dart';
 import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
+import 'package:PiliMax/common/widgets/image_viewer/image_hero_tag.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/models/common/image_type.dart';
@@ -244,6 +245,10 @@ class OpusContent extends StatelessWidget {
             case 2 when (element.pic != null):
               final pics = element.pic!.pics!;
               if (pics.length == 1) {
+                // `images()` is the article-wide single-image list, so all
+                // single-image paragraphs share one scope and use the same
+                // global index when the viewer page is opened.
+                final heroScope = 'opus:$opusId:single';
                 final pic = pics.first;
                 double? width = pic.width == null
                     ? null
@@ -252,6 +257,8 @@ class OpusContent extends StatelessWidget {
                     ? null
                     : width * pic.height! / pic.width!;
                 width ??= maxWidth;
+                final images = this.images();
+                final imageIndex = images.indexWhere((e) => e.url == pic.url);
                 Widget child = CachedNetworkImage(
                   width: width,
                   height: height,
@@ -263,22 +270,27 @@ class OpusContent extends StatelessWidget {
                 );
                 if (!(pic.isLongPic ?? false)) {
                   child = fromHero(
-                    tag: '${pic.url!}$hashCode',
+                    tag: ImageHeroTag.item(
+                      scope: heroScope,
+                      url: pic.url!,
+                      index: imageIndex < 0 ? 0 : imageIndex,
+                    ),
+                    transitionOnUserGestures: true,
                     child: child,
                   );
                 }
-                final images = this.images();
                 return GestureDetector(
                   onTap: () => PageUtils.imageView(
                     imgList: images,
-                    initialPage: images.indexWhere((e) => e.url == pic.url),
+                    initialPage: imageIndex < 0 ? 0 : imageIndex,
                     quality: 60,
-                    tag: hashCode.toString(),
+                    heroScope: heroScope,
                   ),
                   child: child,
                 );
               } else {
                 return ImageGridView(
+                  heroTag: 'opus:$opusId:paragraph:$index',
                   picArr: pics
                       .map(
                         (e) => ImageModel(

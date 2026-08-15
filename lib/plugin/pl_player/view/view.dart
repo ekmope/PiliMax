@@ -145,6 +145,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   late AnimationController _animationController;
   late VideoController videoController;
+  VideoController? _firstFrameTrackedController;
+  final ValueNotifier<bool> _liveFirstFrameReady = ValueNotifier<bool>(false);
   late final CommonIntroController introController = widget.introController!;
   late final VideoDetailController videoDetailController =
       widget.videoDetailController!;
@@ -411,6 +413,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   @override
   void dispose() {
     removeObserverMobile(this);
+    _liveFirstFrameReady.dispose();
     _brightnessTimer?.cancel();
     _danmakuListener?.cancel();
     _tapGestureRecognizer.dispose();
@@ -2264,6 +2267,34 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     return child;
   }
 
+  /// Tracks the native first-frame signal for live playback. A live stream can
+  /// report valid video geometry before the SurfaceTexture has actually
+  /// uploaded its first frame; rendering the [Texture] in that window samples a
+  /// stale/zero buffer into a zoomed quadrant. Waiting for the real first-frame
+  /// notification keeps the surface hidden (and lets the room cover show
+  /// through) until the decoded frame is genuinely ready.
+  void _ensureLiveFirstFrameTracking(VideoController controller) {
+    if (identical(_firstFrameTrackedController, controller)) {
+      return;
+    }
+    _firstFrameTrackedController = controller;
+    // Reset outside the build phase: this may be invoked from the widget's
+    // Obx builder and setting the ValueNotifier synchronously here would fire
+    // the listener (and markNeedsBuild) during build. A microtask runs after
+    // the current build but before a completed first-frame future's `.then`,
+    // so an already-rendered (reused) live controller still ends up ready.
+    Future.microtask(() {
+      if (mounted && identical(_firstFrameTrackedController, controller)) {
+        _liveFirstFrameReady.value = false;
+      }
+    });
+    controller.waitUntilFirstFrameRendered.then((_) {
+      if (mounted && identical(_firstFrameTrackedController, controller)) {
+        _liveFirstFrameReady.value = true;
+      }
+    });
+  }
+
   Widget get _videoWidget {
     final videoKey = widget.transitionVideoKey ?? _videoKey;
     // 使用 LayoutBuilder 动态捕获当前渲染容器的真实约束。
@@ -2328,7 +2359,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       videoController = currentVideoController;
                     }
                     final videoFit = plPlayerController.videoFit.value;
-                    return Transform.flip(
+                    final Widget videoChild = Transform.flip(
                       flipX: plPlayerController.flipX.value,
                       flipY: plPlayerController.flipY.value,
                       child: FittedBox(
@@ -2341,6 +2372,24 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                           aspectRatio: videoFit.aspectRatio,
                         ),
                       ),
+                    );
+                    if (!plPlayerController.isLive) {
+                      // Non-live detail pages already gate the surface through
+                      // their own handoff cover; keep the original rendering
+                      // path so that carefully tuned reveal timing is untouched.
+                      return videoChild;
+                    }
+                    _ensureLiveFirstFrameTracking(currentVideoController);
+                    return ValueListenableBuilder<bool>(
+                      valueListenable: _liveFirstFrameReady,
+                      builder: (context, firstFrameReady, _) {
+                        if (!firstFrameReady) {
+                          // Transparent until the first frame is uploaded; the
+                          // room cover / loading indicator stays visible.
+                          return const SizedBox.shrink();
+                        }
+                        return videoChild;
+                      },
                     );
                   },
                 ),

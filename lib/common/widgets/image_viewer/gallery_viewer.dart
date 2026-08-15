@@ -22,6 +22,7 @@ import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/pilimax/common/widgets/flutter/page/page_view.dart';
 import 'package:PiliMax/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image_viewer/image.dart';
+import 'package:PiliMax/common/widgets/image_viewer/image_hero_tag.dart';
 import 'package:PiliMax/common/widgets/image_viewer/loading_indicator.dart';
 import 'package:PiliMax/common/widgets/image_viewer/viewer.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
@@ -60,6 +61,9 @@ class GalleryViewer extends StatefulWidget {
     this.initIndex = 0,
     this.onPageChanged,
     this.tag = '',
+    this.heroScope,
+    this.backGestureProgress,
+    this.backGestureCommand,
   });
 
   final double minScale;
@@ -68,7 +72,17 @@ class GalleryViewer extends StatefulWidget {
   final List<SourceModel> sources;
   final int initIndex;
   final ValueChanged<int>? onPageChanged;
+
+  /// Stable business scope used to match the source image Hero.
+  final String? heroScope;
   final String tag;
+
+  /// Android predictive-back gesture progress [0,1]; drives the gallery's own
+  /// mask fade + image scale so the surface follows the finger.
+  final ValueNotifier<double>? backGestureProgress;
+
+  /// 0 = idle, 1 = commit (pop), 2 = cancel (spring back).
+  final ValueNotifier<int>? backGestureCommand;
 
   @override
   State<GalleryViewer> createState() => _GalleryViewerState();
@@ -100,6 +114,7 @@ class _GalleryViewerState extends State<GalleryViewer>
 
   Offset _offset = Offset.zero;
   bool _dragging = false;
+  bool _closing = false;
 
   String _getActualUrl(String url) {
     return _quality != 100
@@ -173,6 +188,24 @@ class _GalleryViewerState extends State<GalleryViewer>
         end: Colors.transparent,
       ),
     );
+
+    widget.backGestureProgress?.addListener(_onBackGestureProgress);
+    widget.backGestureCommand?.addListener(_onBackGestureCommand);
+  }
+
+  void _onBackGestureProgress() {
+    if (!mounted) return;
+    final progress = widget.backGestureProgress?.value ?? 0.0;
+    _animateController.value = progress.clamp(0.0, 1.0);
+  }
+
+  void _onBackGestureCommand() {
+    if (!mounted) return;
+    // cancel (2) needs no handling: the system keeps reporting progress back
+    // to 0 through onBackGestureProgress, which springs the surface back.
+    if (widget.backGestureCommand?.value == 1) {
+      _dismiss();
+    }
   }
 
   late final bool _hideSystemBar;
@@ -214,7 +247,11 @@ class _GalleryViewerState extends State<GalleryViewer>
   }
 
   Matrix4 _onTransform(double val) {
-    final scale = val.lerp(1.0, 0.25);
+    // Follow the finger one-to-one while shrinking the image enough for the
+    // dismiss feedback to stay visible. The 0.72 floor keeps the preview on
+    // screen until the Hero flight actually takes over on release.
+    final scale = val.lerp(1.0, 0.72);
+    final drag = val;
 
     // Matrix4.identity()
     //   ..translateByDouble(size.width / 2, size.height / 2, 0, 1)
@@ -224,8 +261,8 @@ class _GalleryViewerState extends State<GalleryViewer>
 
     final tmp = (1.0 - scale) / 2.0;
     return Matrix4.diagonal3Values(scale, scale, scale)..setTranslationRaw(
-      _containerSize.width * (val * dx + tmp),
-      _containerSize.height * (val * dy + tmp),
+      _containerSize.width * (drag * dx + tmp),
+      _containerSize.height * (drag * dy + tmp),
       0,
     );
   }
@@ -235,37 +272,43 @@ class _GalleryViewerState extends State<GalleryViewer>
     if (dy == 0) {
       dx = 0;
     } else {
-      dx = _offset.dx / _offset.dy.abs();
+      dx = (_offset.dx / _offset.dy.abs()).clamp(-1.0, 1.0).toDouble();
     }
   }
 
   void _onDragStart(ScaleStartDetails details) {
+    if (_closing) return;
     _dragging = true;
 
     if (_animateController.isAnimating) {
       _animateController.stop();
-    } else {
-      _offset = Offset.zero;
-      _animateController.value = 0.0;
     }
+    _offset = Offset.zero;
+    _animateController.value = 0.0;
     _updateMoveAnimation();
   }
 
   void _onDragUpdate(ScaleUpdateDetails details) {
-    if (!_dragging || _animateController.isAnimating) {
+    if (_closing || !_dragging || _animateController.isAnimating) {
       return;
     }
 
     _offset += details.focalPointDelta;
     _updateMoveAnimation();
 
-    if (!_animateController.isAnimating) {
-      _animateController.value = _offset.dy.abs() / _containerSize.height;
+    if (!_animateController.isAnimating && _containerSize.height > 0) {
+      final rawProgress = _offset.dy.abs() / _containerSize.height;
+      // No damping or cap: the mask opacity and image transform must keep
+      // tracking the gesture all the way up to (and past) the close threshold.
+      // The previous clamp to 0.32 made the surface barely move/fade and then
+      // pop abruptly, which read as "not following the hand".
+      final progress = rawProgress.clamp(0.0, 1.0).toDouble();
+      _animateController.value = progress;
     }
   }
 
   void _onDragEnd(ScaleEndDetails details) {
-    if (!_dragging || _animateController.isAnimating) {
+    if (_closing || !_dragging || _animateController.isAnimating) {
       return;
     }
 
@@ -273,15 +316,26 @@ class _GalleryViewerState extends State<GalleryViewer>
 
     if (!_animateController.isDismissed) {
       if (_animateController.value > 0.2) {
-        Get.back();
+        _dismiss();
       } else {
         _animateController.reverse();
       }
     }
   }
 
+  void _dismiss() {
+    if (_closing || !mounted) return;
+    _closing = true;
+    // Let the route animation and HeroController perform the closing flight
+    // from the current bounded transform. Never animate the gallery controller
+    // to 1.0 first, which would push the image off-screen before popping.
+    Navigator.of(context).pop();
+  }
+
   @override
   void dispose() {
+    widget.backGestureProgress?.removeListener(_onBackGestureProgress);
+    widget.backGestureCommand?.removeListener(_onBackGestureCommand);
     _player?.dispose();
     _player = null;
     _videoController = null;
@@ -518,14 +572,24 @@ class _GalleryViewerState extends State<GalleryViewer>
               : const SizedBox.shrink(),
         );
     }
-    return Hero(tag: '${item.url}${widget.tag}', child: child);
+    final tag = widget.heroScope == null
+        ? '${item.url}${widget.tag}'
+        : ImageHeroTag.item(
+            scope: widget.heroScope!,
+            url: item.url,
+            index: index,
+          );
+    return Hero(
+      tag: tag,
+      child: child,
+    );
   }
 
   void _onTap() {
     EasyThrottle.throttle(
       'VIEWER_TAP',
       const Duration(milliseconds: 555),
-      Get.back,
+      _dismiss,
     );
   }
 

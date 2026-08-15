@@ -22,6 +22,7 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/image_grid/image_grid_builder.dart';
+import 'package:PiliMax/common/widgets/image_viewer/image_hero_tag.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -75,11 +76,11 @@ class ImageGridView extends StatelessWidget {
   final bool fullScreen;
   final String? heroTag;
 
-  /// Stable base tag shared by the grid thumbnails and the image viewer Hero,
-  /// so the expand animation survives rebuilds (unlike the widget identity
-  /// [hashCode]).
+  /// Stable scope shared by the grid thumbnails and image viewer Hero.
+  /// Callers should provide a business identity; the URL-list fallback keeps
+  /// legacy callers working without using widget identity [hashCode].
   String get _heroBaseTag =>
-      heroTag ?? Object.hashAll(picArr.map((e) => e.url)).toString();
+      heroTag ?? ImageHeroTag.fallback(picArr.map((e) => e.url));
 
   static bool horizontalPreview = Pref.horizontalPreview;
   static final _regex = RegExp(r'/videoV|/dynamicDetail$|/articlePage');
@@ -109,6 +110,7 @@ class ImageGridView extends StatelessWidget {
           scaffoldState,
           imgList,
           index,
+          heroScope: _heroBaseTag,
         );
         return;
       }
@@ -116,7 +118,7 @@ class ImageGridView extends StatelessWidget {
     PageUtils.imageView(
       initialPage: index,
       imgList: imgList,
-      tag: _heroBaseTag,
+      heroScope: _heroBaseTag,
     );
   }
 
@@ -260,7 +262,14 @@ class ImageGridView extends StatelessWidget {
               ],
             );
             if (!item.isLongPic) {
-              child = Hero(tag: '${item.url}$_heroBaseTag', child: child);
+              child = Hero(
+                tag: ImageHeroTag.item(
+                  scope: _heroBaseTag,
+                  url: item.url,
+                  index: index,
+                ),
+                child: child,
+              );
             }
             child = Semantics(
               label: '图片，第 ${index + 1} 张，共 ${picArr.length} 张',

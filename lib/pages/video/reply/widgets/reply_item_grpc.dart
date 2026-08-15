@@ -408,6 +408,7 @@ class ReplyItemGrpc extends StatelessWidget {
                     ),
                   )
                   .toList(),
+              heroTag: 'reply:${replyItem.oid}:${replyItem.id}',
               onViewImage: onViewImage,
             ),
           ),

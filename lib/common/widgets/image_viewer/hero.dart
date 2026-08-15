@@ -3,8 +3,10 @@ import 'package:flutter/widgets.dart';
 Widget fromHero({
   required Object tag,
   required Widget child,
+  bool transitionOnUserGestures = false,
 }) => Hero(
   tag: tag,
+  transitionOnUserGestures: transitionOnUserGestures,
   createRectTween: createEndRectTween,
   child: child,
 );

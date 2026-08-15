@@ -79,15 +79,23 @@ abstract final class PageUtils {
     int? quality,
     ValueChanged<int>? onPageChanged,
     String tag = '',
+    String? heroScope,
   }) {
+    final backGestureProgress = ValueNotifier<double>(0.0);
+    final backGestureCommand = ValueNotifier<int>(0);
     return Get.key.currentState!.push<void>(
       HeroDialogRoute(
+        backGestureProgress: backGestureProgress,
+        backGestureCommand: backGestureCommand,
         pageBuilder: (context, animation, secondaryAnimation) => GalleryViewer(
           sources: imgList,
           initIndex: initialPage,
           quality: quality ?? GlobalData().imgQuality,
           onPageChanged: onPageChanged,
           tag: tag,
+          heroScope: heroScope,
+          backGestureProgress: backGestureProgress,
+          backGestureCommand: backGestureCommand,
         ),
       ),
     );
@@ -528,22 +536,20 @@ abstract final class PageUtils {
     }
   }
 
-  static void onHorizontalPreviewState(
+  static Future<void> onHorizontalPreviewState(
     ScaffoldState state,
     List<SourceModel> imgList,
-    int index,
-  ) {
-    state.showBottomSheet(
-      constraints: const BoxConstraints(),
-      (context) => GalleryViewer(
-        sources: imgList,
-        initIndex: index,
-        quality: GlobalData().imgQuality,
-      ),
-      enableDrag: false,
-      elevation: 0.0,
-      backgroundColor: Colors.transparent,
-      sheetAnimationStyle: AnimationStyle.noAnimation,
+    int index, {
+    String? heroScope,
+  }) {
+    if (!state.mounted) return Future.value();
+    // Landscape preview used to open a BottomSheet, which bypassed the image
+    // PageRoute, HeroController, and Android predictive-back lifecycle. Keep
+    // the same viewer content but use the shared route for every orientation.
+    return imageView(
+      initialPage: index,
+      imgList: imgList,
+      heroScope: heroScope,
     );
   }
 

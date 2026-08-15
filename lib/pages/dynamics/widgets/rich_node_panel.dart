@@ -59,7 +59,9 @@ TextSpan? richNode(
     if (richTextNodes == null || richTextNodes.isEmpty) {
       return null;
     } else {
-      for (final i in richTextNodes) {
+      for (var nodeIndex = 0; nodeIndex < richTextNodes.length; nodeIndex++) {
+        final currentNodeIndex = nodeIndex;
+        final i = richTextNodes[nodeIndex];
         switch (i.type) {
           case 'RICH_TEXT_NODE_TYPE_TEXT':
             spanChildren.add(TextSpan(text: i.origText));
@@ -260,6 +262,9 @@ TextSpan? richNode(
                   WidgetSpan(
                     child: ImageGridView(
                       fullScreen: true,
+                      heroTag: item.idStr == null
+                          ? null
+                          : 'dynamic:${item.idStr}:rich:$currentNodeIndex',
                       picArr: i.pics!
                           .map(
                             (item) => ImageModel(
@@ -280,10 +285,14 @@ TextSpan? richNode(
                   recognizer: NoDeadlineTapGestureRecognizer()
                     ..onTap = () {
                       void onView(List<OpusPicModel> list) {
+                        final heroScope = item.idStr == null
+                            ? null
+                            : 'dynamic:${item.idStr}:rich:$currentNodeIndex';
                         PageUtils.imageView(
                           imgList: list
                               .map((e) => SourceModel(url: e.src!))
                               .toList(),
+                          heroScope: heroScope,
                         );
                       }
 

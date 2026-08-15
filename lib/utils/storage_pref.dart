@@ -119,6 +119,7 @@ abstract final class Pref {
         SettingBoxKey.enableLongShowControl: () => enableLongShowControl,
         SettingBoxKey.enableMYBar: () => enableMYBar,
         SettingBoxKey.enableOnlineTotal: () => enableOnlineTotal,
+        SettingBoxKey.enablePinchRotate: () => enablePinchRotate,
         SettingBoxKey.enablePredictiveBack: () => enablePredictiveBack,
         SettingBoxKey.enableQuickDouble: () => enableQuickDouble,
         SettingBoxKey.enableSaveLastData: () => enableSaveLastData,
@@ -1070,6 +1071,9 @@ abstract final class Pref {
 
   static bool get enableShrinkVideoSize =>
       _setting.get(SettingBoxKey.enableShrinkVideoSize, defaultValue: true);
+
+  static bool get enablePinchRotate =>
+      _setting.get(SettingBoxKey.enablePinchRotate, defaultValue: true);
 
   static bool get showDynActionBar =>
       _setting.get(SettingBoxKey.showDynActionBar, defaultValue: true);

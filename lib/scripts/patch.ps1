@@ -21,6 +21,11 @@ $NavigatorPatch = "lib/scripts/navigator.patch"
 # Upstream issue #2107
 $ImageAnimPatch = "lib/scripts/image_anim.patch"
 
+# fix predictive back direction after popping a nested route
+# (route below mounts the transition with a null back event during another
+#  route's gesture; direction tween is never recomputed on later gestures)
+$PredictiveBackPatch = "lib/scripts/predictive_back_page_transitions_builder.patch"
+
 $LayoutBuilderPatch = "lib/scripts/layout_builder.patch"
 
 # Upstream issue #2308
@@ -87,6 +92,7 @@ switch ($platform.ToLower()) {
         $patches += $BottomSheetAndroidPatch
         $patches += $ScrollViewPatch
         $patches += $NavigatorPatch
+        $patches += $PredictiveBackPatch
     }
     "ios" {
         $patches += $ScrollViewPatch

@@ -277,7 +277,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       _onControlChanged,
     );
 
-    _transformationController = TransformationController();
+    _transformationController = TransformationController()
+      ..addListener(_onTransformChanged);
 
     _animationController = AnimationController(
       vsync: this,
@@ -423,7 +424,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     _brightnessListener?.cancel();
     _controlsListener?.cancel();
     _animationController.dispose();
-    _transformationController.dispose();
+    _transformationController
+      ..removeListener(_onTransformChanged)
+      ..dispose();
     _removeDmAction();
     if (PlatformUtils.isMobile) {
       FlutterVolumeController.removeListener();
@@ -1089,8 +1092,18 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     _initialFocalPoint = details.localFocalPoint;
   }
 
-  void _onScaleUpdate(double scale) {
-    showRestoreScaleBtn.value = scale != 1.0;
+  // 显隐由 _onTransformChanged 统一驱动
+  void _onScaleUpdate(double scale) {}
+
+  // 浮点残差，不与 identity 精确比较
+  void _onTransformChanged() {
+    final matrix = _transformationController.value;
+    final translation = matrix.getTranslation();
+    showRestoreScaleBtn.value =
+        translation.x.abs() > 0.5 ||
+        translation.y.abs() > 0.5 ||
+        matrix.storage[1].abs() > 1e-3 ||
+        (matrix.getMaxScaleOnAxis() - 1).abs() > 1e-3;
   }
 
   void _onHorizontalDragStart() {
@@ -2331,6 +2344,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           child: Obx(
             () => MouseInteractiveViewer(
               scaleEnabled: !plPlayerController.controlsLock.value,
+              rotateEnabled: plPlayerController.enablePinchRotate,
               pointerSignalFallback: _onPointerSignal,
               onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
               onPointerPanZoomEnd: _onPointerPanZoomEnd,

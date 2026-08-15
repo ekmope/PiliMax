@@ -11,6 +11,7 @@ import 'package:PiliMax/pages/video/reply/controller.dart';
 import 'package:PiliMax/pages/video/reply/vote/reply_vote_item.dart';
 import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliMax/pages/video/reply_reply/view.dart';
+import 'package:PiliMax/pages/video/widgets/keyboard_scrollable.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
@@ -23,11 +24,15 @@ class VideoReplyPanel extends StatefulWidget {
     this.replyLevel = 1,
     required this.heroTag,
     required this.isNested,
+    this.pageScrollController,
   });
 
   final int replyLevel;
   final String heroTag;
   final bool isNested;
+
+  /// 嵌套在页面滚动（竖屏）时由页面传入的整页滚动控制器，键盘滚动评论区用
+  final ScrollController? pageScrollController;
 
   @override
   State<VideoReplyPanel> createState() => _VideoReplyPanelState();
@@ -75,49 +80,56 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
         child: Stack(
           clipBehavior: .none,
           children: [
-            CustomScrollView(
-              controller: widget.isNested
-                  ? null
+            KeyboardScrollable(
+              controller: () => widget.isNested
+                  ? widget.pageScrollController
                   : _videoReplyController.scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              key: const PageStorageKey(_VideoReplyPanelState),
-              slivers: [
-                SliverFloatingHeaderWidget(
-                  backgroundColor: colorScheme.surface,
-                  child: Padding(
-                    padding: const .fromLTRB(12, 2.5, 6, 2.5),
-                    child: Obx(() {
-                      final sortType = _videoReplyController.sortType.value;
-                      return Row(
-                        mainAxisAlignment: .spaceBetween,
-                        children: [
-                          Text(
-                            sortType.title,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          TextButton.icon(
-                            style: Style.buttonStyle,
-                            onPressed: _videoReplyController.queryBySort,
-                            icon: Icon(
-                              Icons.sort,
-                              size: 16,
-                              color: colorScheme.secondary,
+              child: CustomScrollView(
+                controller: widget.isNested
+                    ? null
+                    : _videoReplyController.scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                key: const PageStorageKey(_VideoReplyPanelState),
+                slivers: [
+                  SliverFloatingHeaderWidget(
+                    backgroundColor: colorScheme.surface,
+                    child: Padding(
+                      padding: const .fromLTRB(12, 2.5, 6, 2.5),
+                      child: Obx(() {
+                        final sortType = _videoReplyController.sortType.value;
+                        return Row(
+                          mainAxisAlignment: .spaceBetween,
+                          children: [
+                            Text(
+                              sortType.title,
+                              style: const TextStyle(fontSize: 13),
                             ),
-                            label: Text(
-                              sortType.label,
-                              style: TextStyle(
-                                fontSize: 13,
+                            TextButton.icon(
+                              style: Style.buttonStyle,
+                              onPressed: _videoReplyController.queryBySort,
+                              icon: Icon(
+                                Icons.sort,
+                                size: 16,
                                 color: colorScheme.secondary,
                               ),
+                              label: Text(
+                                sortType.label,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.secondary,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      );
-                    }),
+                          ],
+                        );
+                      }),
+                    ),
                   ),
-                ),
-                Obx(() => _buildBody(_videoReplyController.loadingState.value)),
-              ],
+                  Obx(
+                    () => _buildBody(_videoReplyController.loadingState.value),
+                  ),
+                ],
+              ),
             ),
             Positioned(
               right: 0,

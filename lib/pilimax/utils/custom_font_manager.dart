@@ -176,11 +176,11 @@ final class CustomFontManager {
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
     );
-    if (result == null || result.files.isEmpty) {
+    if (result.isEmpty) {
       return false;
     }
 
-    final picked = result.files.single;
+    final picked = result.single;
     final selectedName = picked.path ?? picked.name;
     final CustomFontSource source;
     final sourcePath = picked.path;

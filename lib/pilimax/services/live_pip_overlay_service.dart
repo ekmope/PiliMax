@@ -10,8 +10,14 @@ import 'package:PiliMax/pilimax/services/pip_transition_coordinator.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/device_utils.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart' show GestureBinding, PointerScrollEvent;
+import 'package:flutter/gestures.dart'
+    show
+        GestureBinding,
+        PointerEnterEvent,
+        PointerExitEvent,
+        PointerScrollEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -281,6 +287,8 @@ class _LivePipWidgetState extends State<LivePipWidget>
 
   bool _showControls = true;
   Timer? _hideTimer;
+  // 桌面端:鼠标悬停时控制栏保持显示,移出即隐藏
+  bool _hovering = false;
   bool _isClosing = false;
   bool _isRefreshing = false;
   late final GlobalKey _videoContentKey = GlobalKey();
@@ -296,7 +304,12 @@ class _LivePipWidgetState extends State<LivePipWidget>
     } else {
       _phaseController.value = 1;
     }
-    _startHideTimer();
+    // 桌面端控制栏初始隐藏,由 hover 显示
+    if (PlatformUtils.isDesktop) {
+      _showControls = false;
+    } else {
+      _startHideTimer();
+    }
   }
 
   void _onPhaseChanged() {
@@ -380,6 +393,8 @@ class _LivePipWidgetState extends State<LivePipWidget>
 
   void _startHideTimer() {
     _hideTimer?.cancel();
+    // 悬停中不自动隐藏
+    if (_hovering) return;
     _hideTimer = Timer(const Duration(seconds: 3), () {
       if (mounted) {
         setState(() {
@@ -393,6 +408,24 @@ class _LivePipWidgetState extends State<LivePipWidget>
     if (_showControls) {
       _startHideTimer();
     }
+  }
+
+  void _onHoverEnter(PointerEnterEvent event) {
+    // 收起/归位动画期间 IgnorePointer 已屏蔽事件,此守卫防异常时序
+    if (_transition.phase != PipPhase.active || _isClosing) return;
+    _hideTimer?.cancel();
+    setState(() {
+      _hovering = true;
+      _showControls = true;
+    });
+  }
+
+  void _onHoverExit(PointerExitEvent event) {
+    _hideTimer?.cancel();
+    setState(() {
+      _hovering = false;
+      _showControls = false;
+    });
   }
 
   Future<void> _onRefresh() async {
@@ -415,6 +448,8 @@ class _LivePipWidgetState extends State<LivePipWidget>
   }
 
   void _onTap() {
+    // 悬停中由 hover 驱动;触摸/笔等无 hover 场景保留点击切换兜底
+    if (_hovering) return;
     setState(() {
       _showControls = !_showControls;
     });
@@ -648,136 +683,144 @@ class _LivePipWidgetState extends State<LivePipWidget>
                       _startHideTimer();
                     }
                   },
-                  child: FadeTransition(
-                    opacity: _closeController.drive(
-                      Tween<double>(begin: 1, end: 0),
-                    ),
-                    child: ScaleTransition(
-                      scale: _closeController.drive(
-                        Tween<double>(begin: 1, end: 0.85).chain(
-                          CurveTween(curve: Curves.easeOut),
-                        ),
+                  child: MouseRegion(
+                    onEnter: _onHoverEnter,
+                    onExit: _onHoverExit,
+                    child: FadeTransition(
+                      opacity: _closeController.drive(
+                        Tween<double>(begin: 1, end: 0),
                       ),
-                      child: AnimatedContainer(
-                        duration: inTransition || _instantResize
-                            ? Duration.zero
-                            : const Duration(milliseconds: 250),
-                        curve: Curves.easeOutCubic,
-                        width: rect.width,
-                        height: rect.height,
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.circular(radius),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              blurRadius: 12,
-                              spreadRadius: 2,
-                            ),
-                          ],
+                      child: ScaleTransition(
+                        scale: _closeController.drive(
+                          Tween<double>(begin: 1, end: 0.85).chain(
+                            CurveTween(curve: Curves.easeOut),
+                          ),
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(radius),
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: AbsorbPointer(
-                                  child: PipMiniVideoContent(
-                                    key: _videoContentKey,
-                                    plPlayerController:
-                                        widget.plPlayerController,
-                                    transition: _transition,
-                                  ),
-                                ),
+                        child: AnimatedContainer(
+                          duration: inTransition || _instantResize
+                              ? Duration.zero
+                              : const Duration(milliseconds: 250),
+                          curve: Curves.easeOutCubic,
+                          width: rect.width,
+                          height: rect.height,
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(radius),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                blurRadius: 12,
+                                spreadRadius: 2,
                               ),
-                              if (interactive && _showControls) ...[
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(radius),
+                            child: Stack(
+                              children: [
                                 Positioned.fill(
-                                  child: Container(
-                                    color: Colors.black.withValues(alpha: 0.4),
-                                  ),
-                                ),
-                                // 左上角关闭
-                                Positioned(
-                                  top: 3,
-                                  left: 4,
-                                  child: GestureDetector(
-                                    onTap: _beginClose,
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(8.0),
-                                      child: Icon(
-                                        Icons.close,
-                                        color: Colors.white,
-                                        size: 21,
-                                      ),
+                                  child: AbsorbPointer(
+                                    child: PipMiniVideoContent(
+                                      key: _videoContentKey,
+                                      plPlayerController:
+                                          widget.plPlayerController,
+                                      transition: _transition,
                                     ),
                                   ),
                                 ),
-                                // 右上角放大/还原
-                                Positioned(
-                                  top: 3,
-                                  right: 4,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      _hideTimer?.cancel();
-                                      widget.onReturn();
-                                    },
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(8.0),
-                                      child: Icon(
-                                        Icons.open_in_full,
-                                        color: Colors.white,
-                                        size: 18,
+                                if (interactive && _showControls) ...[
+                                  Positioned.fill(
+                                    child: Container(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.4,
                                       ),
                                     ),
                                   ),
-                                ),
-                                Positioned(
-                                  left: 0,
-                                  right: 0,
-                                  bottom: 8,
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      const SizedBox(width: 22),
-                                      Obx(() {
-                                        final isPlaying =
-                                            widget
-                                                .plPlayerController
-                                                .playerStatus
-                                                .value ==
-                                            PlayerStatus.playing;
-                                        return GestureDetector(
-                                          onTap: () {
-                                            _resetHideTimer();
-                                            if (isPlaying) {
-                                              widget.plPlayerController.pause();
-                                            } else {
-                                              widget.plPlayerController.play();
-                                            }
-                                          },
-                                          child: Icon(
-                                            isPlaying
-                                                ? Icons.pause
-                                                : Icons.play_arrow,
-                                            color: Colors.white,
-                                            size: 30,
-                                          ),
-                                        );
-                                      }),
-                                      GestureDetector(
-                                        onTap: _onRefresh,
-                                        child: const Icon(
-                                          Icons.refresh,
-                                          color: Colors.white70,
-                                          size: 22,
+                                  // 左上角关闭
+                                  Positioned(
+                                    top: 3,
+                                    left: 4,
+                                    child: GestureDetector(
+                                      onTap: _beginClose,
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(8.0),
+                                        child: Icon(
+                                          Icons.close,
+                                          color: Colors.white,
+                                          size: 21,
                                         ),
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),
+                                  // 右上角放大/还原
+                                  Positioned(
+                                    top: 3,
+                                    right: 4,
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        _hideTimer?.cancel();
+                                        widget.onReturn();
+                                      },
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(8.0),
+                                        child: Icon(
+                                          Icons.open_in_full,
+                                          color: Colors.white,
+                                          size: 18,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 8,
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceEvenly,
+                                      children: [
+                                        const SizedBox(width: 22),
+                                        Obx(() {
+                                          final isPlaying =
+                                              widget
+                                                  .plPlayerController
+                                                  .playerStatus
+                                                  .value ==
+                                              PlayerStatus.playing;
+                                          return GestureDetector(
+                                            onTap: () {
+                                              _resetHideTimer();
+                                              if (isPlaying) {
+                                                widget.plPlayerController
+                                                    .pause();
+                                              } else {
+                                                widget.plPlayerController
+                                                    .play();
+                                              }
+                                            },
+                                            child: Icon(
+                                              isPlaying
+                                                  ? Icons.pause
+                                                  : Icons.play_arrow,
+                                              color: Colors.white,
+                                              size: 30,
+                                            ),
+                                          );
+                                        }),
+                                        GestureDetector(
+                                          onTap: _onRefresh,
+                                          child: const Icon(
+                                            Icons.refresh,
+                                            color: Colors.white70,
+                                            size: 22,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
                       ),

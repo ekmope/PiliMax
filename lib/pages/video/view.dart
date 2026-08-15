@@ -58,6 +58,7 @@ import 'package:PiliMax/pilimax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/pages/video/view_point/view.dart';
 import 'package:PiliMax/pages/video/widgets/header_control.dart';
 import 'package:PiliMax/pages/video/widgets/player_focus.dart';
+import 'package:PiliMax/pages/video/widgets/keyboard_scrollable.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
@@ -544,6 +545,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   final videoReplyPanelKey = GlobalKey();
   final videoRelatedKey = GlobalKey();
   final videoIntroKey = GlobalKey();
+
+  /// 播放器键盘焦点：点/悬停视频区、切换 tab 时抢回，方向键恢复音量控制
+  final playerFocusNode = FocusNode();
   final _transitionVideoKey = GlobalKey();
   final _transitionPlayerForegroundKey = GlobalKey();
   final _transitionPageForegroundKey = GlobalKey();
@@ -1986,6 +1990,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     _fullScreenExitAwaitingStateChange = false;
     _pendingPopAfterFullScreenExit = false;
     _didPopNextGeneration++;
+    playerFocusNode.dispose();
     if (!_hasVideoDetailController) {
       VideoStackManager.decrement();
       removeObserverMobile(this);
@@ -3372,6 +3377,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         plPlayerController: videoDetailController.plPlayerController,
         introController: introController,
         onSendDanmaku: videoDetailController.showShootDanmakuSheet,
+        focusNode: playerFocusNode,
         canPlay: () {
           if (videoDetailController.autoPlay) {
             return true;
@@ -3433,6 +3439,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       dividerColor: Colors.transparent,
       dividerHeight: 0,
       onTap: (value) {
+        // 切换 tab 归还键盘焦点给播放器（方向键恢复音量控制）
+        if (value != videoDetailController.tabCtr.index) {
+          playerFocusNode.requestFocus();
+        }
         void animToTop() {
           if (onTap != null) {
             onTap();
@@ -3584,201 +3594,215 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         playerController.isDesktopPip ||
         PipOverlayService.isInPipMode ||
         LivePipOverlayService.isInPipMode;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        const Positioned.fill(child: ColoredBox(color: Colors.black)),
+    return MouseRegion(
+      onEnter: (_) => playerFocusNode.requestFocus(),
+      child: Listener(
+        onPointerDown: (_) => playerFocusNode.requestFocus(),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Positioned.fill(child: ColoredBox(color: Colors.black)),
 
-        Positioned.fill(child: ClipRect(child: cover())),
+            Positioned.fill(child: ClipRect(child: cover())),
 
-        plPlayer(width: width, height: height),
-        Positioned.fill(
-          child: VideoDetailExitCaptureBoundary(
-            key: _transitionPageForegroundKey,
-            child: Stack(
-              fit: StackFit.expand,
-              clipBehavior: Clip.none,
-              children: [
-                Obx(() {
-                  if (!videoDetailController.autoPlay) {
-                    return Positioned.fill(
-                      child: _routeFadeTransition(
-                        child: GestureDetector(
-                          onTap: handlePlay,
-                          behavior: .opaque,
-                          child: const SizedBox.expand(),
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                }),
-                _routeFadeTransition(child: manualPlayerWidget),
-
-                if (videoDetailController.plPlayerController.enableBlock ||
-                    videoDetailController.continuePlayingPart)
-                  Positioned(
-                    left: 16,
-                    bottom: isFullScreen ? max(75, maxHeight * 0.25) : 75,
-                    width: MediaQuery.textScalerOf(context).scale(120),
-                    child: _routeFadeTransition(
-                      child: ExcludeSemantics(
-                        child: AnimatedList(
-                          padding: EdgeInsets.zero,
-                          key: videoDetailController.listKey,
-                          reverse: true,
-                          shrinkWrap: true,
-                          initialItemCount:
-                              videoDetailController.listData.length,
-                          itemBuilder: (context, index, animation) {
-                            return videoDetailController.buildItem(
-                              videoDetailController.listData[index],
-                              animation,
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // for debug
-                // Positioned(
-                //   right: 16,
-                //   bottom: 75,
-                //   child: FilledButton.tonal(
-                //     onPressed: () {
-                //       videoDetailController.onAddItem(
-                //         SegmentModel(
-                //           UUID: '',
-                //           segmentType:
-                //               SegmentType.values[Utils.random.nextInt(
-                //                 SegmentType.values.length,
-                //               )],
-                //           segment: Pair(first: 0, second: 0),
-                //           skipType: SkipType.alwaysSkip,
-                //         ),
-                //       );
-                //     },
-                //     child: const Text('skip'),
-                //   ),
-                // ),
-                // Positioned(
-                //   right: 16,
-                //   bottom: 120,
-                //   child: FilledButton.tonal(
-                //     onPressed: () {
-                //       videoDetailController.onAddItem(2);
-                //     },
-                //     child: const Text('index'),
-                //   ),
-                // ),
-                _routeFadeTransition(
-                  child: Obx(() {
-                    if (videoDetailController.showSteinEdgeInfo.value) {
-                      try {
-                        return Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              left: 16,
-                              right: 16,
-                              bottom:
-                                  plPlayerController?.showControls.value == true
-                                  ? 75
-                                  : 16,
-                            ),
-                            child: Wrap(
-                              spacing: 25,
-                              runSpacing: 10,
-                              children: videoDetailController
-                                  .steinEdgeInfo!
-                                  .edges!
-                                  .questions!
-                                  .first
-                                  .choices!
-                                  .map((item) {
-                                    return FilledButton.tonal(
-                                      style: FilledButton.styleFrom(
-                                        shape: const RoundedRectangleBorder(
-                                          borderRadius: .all(.circular(6)),
-                                        ),
-                                        backgroundColor: themeData
-                                            .colorScheme
-                                            .secondaryContainer
-                                            .withValues(alpha: 0.8),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 15,
-                                          vertical: 10,
-                                        ),
-                                        visualDensity: VisualDensity.compact,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      onPressed: () async {
-                                        final changed = await ugcIntroController
-                                            .onChangeEpisode(
-                                              item,
-                                              isStein: true,
-                                            );
-                                        if (changed) {
-                                          await videoDetailController
-                                              .getSteinEdgeInfo(item.id);
-                                        }
-                                      },
-                                      child: Text(item.option!),
-                                    );
-                                  })
-                                  .toList(),
+            plPlayer(width: width, height: height),
+            Positioned.fill(
+              child: VideoDetailExitCaptureBoundary(
+                key: _transitionPageForegroundKey,
+                child: Stack(
+                  fit: StackFit.expand,
+                  clipBehavior: Clip.none,
+                  children: [
+                    Obx(() {
+                      if (!videoDetailController.autoPlay) {
+                        return Positioned.fill(
+                          child: _routeFadeTransition(
+                            child: GestureDetector(
+                              onTap: handlePlay,
+                              behavior: .opaque,
+                              child: const SizedBox.expand(),
                             ),
                           ),
                         );
-                      } catch (e) {
-                        if (kDebugMode) debugPrint('build stein edges: $e');
-                        return const SizedBox.shrink();
                       }
-                    }
-                    return const SizedBox.shrink();
-                  }),
+                      return const SizedBox.shrink();
+                    }),
+                    _routeFadeTransition(child: manualPlayerWidget),
+
+                    if (videoDetailController.plPlayerController.enableBlock ||
+                        videoDetailController.continuePlayingPart)
+                      Positioned(
+                        left: 16,
+                        bottom: isFullScreen ? max(75, maxHeight * 0.25) : 75,
+                        width: MediaQuery.textScalerOf(context).scale(120),
+                        child: _routeFadeTransition(
+                          child: ExcludeSemantics(
+                            child: AnimatedList(
+                              padding: EdgeInsets.zero,
+                              key: videoDetailController.listKey,
+                              reverse: true,
+                              shrinkWrap: true,
+                              initialItemCount:
+                                  videoDetailController.listData.length,
+                              itemBuilder: (context, index, animation) {
+                                return videoDetailController.buildItem(
+                                  videoDetailController.listData[index],
+                                  animation,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // for debug
+                    // Positioned(
+                    //   right: 16,
+                    //   bottom: 75,
+                    //   child: FilledButton.tonal(
+                    //     onPressed: () {
+                    //       videoDetailController.onAddItem(
+                    //         SegmentModel(
+                    //           UUID: '',
+                    //           segmentType:
+                    //               SegmentType.values[Utils.random.nextInt(
+                    //                 SegmentType.values.length,
+                    //               )],
+                    //           segment: Pair(first: 0, second: 0),
+                    //           skipType: SkipType.alwaysSkip,
+                    //         ),
+                    //       );
+                    //     },
+                    //     child: const Text('skip'),
+                    //   ),
+                    // ),
+                    // Positioned(
+                    //   right: 16,
+                    //   bottom: 120,
+                    //   child: FilledButton.tonal(
+                    //     onPressed: () {
+                    //       videoDetailController.onAddItem(2);
+                    //     },
+                    //     child: const Text('index'),
+                    //   ),
+                    // ),
+                    _routeFadeTransition(
+                      child: Obx(() {
+                        if (videoDetailController.showSteinEdgeInfo.value) {
+                          try {
+                            return Align(
+                              alignment: Alignment.bottomCenter,
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                  left: 16,
+                                  right: 16,
+                                  bottom:
+                                      plPlayerController?.showControls.value ==
+                                          true
+                                      ? 75
+                                      : 16,
+                                ),
+                                child: Wrap(
+                                  spacing: 25,
+                                  runSpacing: 10,
+                                  children: videoDetailController
+                                      .steinEdgeInfo!
+                                      .edges!
+                                      .questions!
+                                      .first
+                                      .choices!
+                                      .map((item) {
+                                        return FilledButton.tonal(
+                                          style: FilledButton.styleFrom(
+                                            shape: const RoundedRectangleBorder(
+                                              borderRadius: .all(.circular(6)),
+                                            ),
+                                            backgroundColor: themeData
+                                                .colorScheme
+                                                .secondaryContainer
+                                                .withValues(alpha: 0.8),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 15,
+                                              vertical: 10,
+                                            ),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                          ),
+                                          onPressed: () async {
+                                            final changed =
+                                                await ugcIntroController
+                                                    .onChangeEpisode(
+                                                      item,
+                                                      isStein: true,
+                                                    );
+                                            if (changed) {
+                                              await videoDetailController
+                                                  .getSteinEdgeInfo(item.id);
+                                            }
+                                          },
+                                          child: Text(item.option!),
+                                        );
+                                      })
+                                      .toList(),
+                                ),
+                              ),
+                            );
+                          } catch (e) {
+                            if (kDebugMode) debugPrint('build stein edges: $e');
+                            return const SizedBox.shrink();
+                          }
+                        }
+                        return const SizedBox.shrink();
+                      }),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            if (backProgress != null && !skipReturnMediaCover)
+              Positioned.fill(
+                child: Obx(() {
+                  final liveCover = videoDetailController.cover.value;
+                  final argumentCover = _videoArgs['cover'];
+                  final cover = liveCover.isNotEmpty
+                      ? liveCover
+                      : argumentCover is String && argumentCover.isNotEmpty
+                      ? argumentCover
+                      : null;
+                  return _VideoDetailReturnMediaCover(
+                    backProgress: backProgress,
+                    cover: cover,
+                    width: width,
+                    height: height,
+                  );
+                }),
+              ),
+          ],
         ),
-        if (backProgress != null && !skipReturnMediaCover)
-          Positioned.fill(
-            child: Obx(() {
-              final liveCover = videoDetailController.cover.value;
-              final argumentCover = _videoArgs['cover'];
-              final cover = liveCover.isNotEmpty
-                  ? liveCover
-                  : argumentCover is String && argumentCover.isNotEmpty
-                  ? argumentCover
-                  : null;
-              return _VideoDetailReturnMediaCover(
-                backProgress: backProgress,
-                cover: cover,
-                width: width,
-                height: height,
-              );
-            }),
-          ),
-      ],
+      ),
     );
   }
 
   Widget localIntroPanel({bool needCtr = true}) {
-    return CustomScrollView(
-      controller: needCtr
+    return KeyboardScrollable(
+      controller: () => needCtr
           ? videoDetailController.effectiveIntroScrollCtr
-          : null,
-      physics: !needCtr ? platformAlwaysClampingPhysics : null,
-      key: const PageStorageKey(CommonIntroController),
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.only(top: 7, bottom: padding.bottom + 100),
-          sliver: LocalIntroPanel(key: videoRelatedKey, heroTag: heroTag),
-        ),
-      ],
+          : videoDetailController.scrollCtr,
+      child: CustomScrollView(
+        controller: needCtr
+            ? videoDetailController.effectiveIntroScrollCtr
+            : null,
+        physics: !needCtr ? platformAlwaysClampingPhysics : null,
+        key: const PageStorageKey(CommonIntroController),
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.only(top: 7, bottom: padding.bottom + 100),
+            sliver: LocalIntroPanel(key: videoRelatedKey, heroTag: heroTag),
+          ),
+        ],
+      ),
     );
   }
 
@@ -3855,7 +3879,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           child: child,
         );
       }
-      return KeepAliveWrapper(child: child);
+      return KeepAliveWrapper(
+        child: KeyboardScrollable(
+          controller: () => needCtr
+              ? videoDetailController.effectiveIntroScrollCtr
+              : videoDetailController.scrollCtr,
+          child: child,
+        ),
+      );
     }
 
     if (videoDetailController.isPlayAll) {
@@ -4024,6 +4055,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     key: videoReplyPanelKey,
     isNested: isNested,
     heroTag: heroTag,
+    pageScrollController: isNested ? videoDetailController.scrollCtr : null,
   );
 
   // ai总结

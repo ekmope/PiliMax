@@ -260,6 +260,9 @@ Future<void> _main() async {
 
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
 
+  // ESC 全平台注册：平板/手机外接键盘也可用（PageRoute 默认不消费 escape）
+  FocusManager.instance.addEarlyKeyEventHandler(_onKeyEvent);
+
   if (PlatformUtils.isMobile) {
     SystemChrome.setEnabledSystemUIMode(.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(
@@ -288,8 +291,6 @@ Future<void> _main() async {
       ScreenBrightnessPlatform.instance.setAutoReset(false);
     }
   } else if (PlatformUtils.isDesktop) {
-    FocusManager.instance.addEarlyKeyEventHandler(_onKeyEvent);
-
     await windowManager.ensureInitialized();
 
     final windowOptions = WindowOptions(
@@ -510,12 +511,10 @@ class MyApp extends StatelessWidget {
         child: child!,
       );
     }
-    if (PlatformUtils.isDesktop) {
-      child = BackDetector(
-        onBack: _onBack,
-        child: child,
-      );
-    }
+    child = BackDetector(
+      onBack: _onBack,
+      child: child,
+    );
     return NotificationListener<NavigationNotification>(
       onNotification: (notification) {
         debugPrint(

@@ -102,6 +102,9 @@ mixin BlockMixin on GetxController {
       _blockListener = player?.stream.position.listen((position) {
         if (!isBlockSourceCurrent) return;
         int currentPos = position.inSeconds;
+        // 续播落地前的瞬时 0 位置不应触发跳过：若已存在待恢复的起播位置，
+        // 本帧直接放行，等真正的续播位置到达后再正常监听后续片段。
+        if (currentPos == 0 && currPosInMilliseconds > 0) return;
         if (currentPos != _lastBlockPos) {
           _lastBlockPos = currentPos;
           final msPos = currentPos * 1000;
@@ -194,10 +197,16 @@ mixin BlockMixin on GetxController {
                               return true;
                             }
                             if (e) {
-                              future = onSkip(
-                                segmentModel,
-                                skipSource: BlockSkipSource.automatic,
-                              );
+                              // 播放真正开始时用实时位置复核：续播可能已落地到
+                              // 片段之外，避免误跳过开场/过场片段。
+                              if (segmentModel.segment.contains(
+                                currPosInMilliseconds,
+                              )) {
+                                future = onSkip(
+                                  segmentModel,
+                                  skipSource: BlockSkipSource.automatic,
+                                );
+                              }
                               return true;
                             }
                             return false;

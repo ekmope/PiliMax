@@ -1319,10 +1319,13 @@ class VideoDetailController extends GetxController
       await _loadLocalPlaybackMeta(isCurrent: isCurrentInit);
       if (!isCurrentInit()) return;
     }
-    Duration? seek = defaultST ?? playedTime;
+    final resumePosition = defaultST ?? playedTime;
+    Duration? seek = resumePosition;
     if (seek == null || seek == Duration.zero) {
       seek = getFirstSegment();
     }
+    // SponsorBlock 起播跳过判定使用「预期续播位置」，而非 seek 落地前的瞬时 0。
+    markStartAnchor(resumePosition);
     Future<bool> setDataSource() {
       sourceRequested = true;
       return plPlayerController.setDataSource(

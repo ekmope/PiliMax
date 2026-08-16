@@ -889,6 +889,8 @@ class AudioController extends GetxController
     final currentPlayer = player;
     if (currentPlayer == null) return;
     final start = _start;
+    // SponsorBlock 起播跳过判定使用「预期续播位置」，而非 seek 落地前的瞬时 0。
+    markStartAnchor(start);
     _resetHeartBeatProgress();
     currentPlayer.setMediaHeader(
       userAgent: ua,

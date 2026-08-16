@@ -40,6 +40,7 @@ mixin BlockConfigMixin {
 
 mixin BlockMixin on GetxController {
   int? _lastBlockPos;
+  int? _startAnchorMs;
   BlockConfigMixin get blockConfig;
   StreamSubscription<Duration>? _blockListener;
   StreamSubscription<Duration>? get blockListener => _blockListener;
@@ -59,6 +60,15 @@ mixin BlockMixin on GetxController {
   bool get isBlockSourceCurrent => true;
   int get currPosInMilliseconds;
   bool get isFullScreen => false;
+
+  /// 标记预期起播位置（续播位置）。起播时的自动跳过判定应使用这个稳定值，
+  /// 而不是 seek 落地前播放器瞬时发出的 0。
+  void markStartAnchor(Duration? start) {
+    final ms = start?.inMilliseconds ?? 0;
+    _startAnchorMs = ms > 0 ? ms : null;
+  }
+
+  int get _resolvedStartPositionMs => _startAnchorMs ?? currPosInMilliseconds;
 
   bool get isUgc;
   late final isBlock = isUgc || !blockConfig.enablePgcSkip;
@@ -102,9 +112,13 @@ mixin BlockMixin on GetxController {
       _blockListener = player?.stream.position.listen((position) {
         if (!isBlockSourceCurrent) return;
         int currentPos = position.inSeconds;
-        // 续播落地前的瞬时 0 位置不应触发跳过：若已存在待恢复的起播位置，
+        // 播放器产生真实非零位置时，说明续播 seek 已落地，锚点不再需要。
+        if (currentPos > 0) {
+          _startAnchorMs = null;
+        }
+        // 续播落地前的瞬时 0 位置不应触发跳过：若仍存在待恢复的起播锚点，
         // 本帧直接放行，等真正的续播位置到达后再正常监听后续片段。
-        if (currentPos == 0 && currPosInMilliseconds > 0) return;
+        if (currentPos == 0 && (_startAnchorMs ?? 0) > 0) return;
         if (currentPos != _lastBlockPos) {
           _lastBlockPos = currentPos;
           final msPos = currentPos * 1000;
@@ -177,7 +191,7 @@ mixin BlockMixin on GetxController {
                     autoPlay &&
                     player != null &&
                     isBlockSourceCurrent) {
-                  final currPos = currPosInMilliseconds;
+                  final currPos = _resolvedStartPositionMs;
 
                   if (segmentModel.segment.contains(currPos)) {
                     _lastBlockPos = currPos;
@@ -197,10 +211,10 @@ mixin BlockMixin on GetxController {
                               return true;
                             }
                             if (e) {
-                              // 播放真正开始时用实时位置复核：续播可能已落地到
-                              // 片段之外，避免误跳过开场/过场片段。
+                              // 播放真正开始时用稳定起播锚点复核，避免续播落地
+                              // 到片段之外时误跳过开场/过场片段。
                               if (segmentModel.segment.contains(
-                                currPosInMilliseconds,
+                                _resolvedStartPositionMs,
                               )) {
                                 future = onSkip(
                                   segmentModel,
@@ -548,6 +562,7 @@ mixin BlockMixin on GetxController {
   void resetBlock() {
     cancelBlockListener();
     _lastBlockPos = null;
+    _startAnchorMs = null;
     videoLabel?.value = '';
     _segmentList.clear();
     segmentProgressList.clear();

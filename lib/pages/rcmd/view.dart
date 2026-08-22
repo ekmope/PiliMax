@@ -8,7 +8,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/rcmd/controller.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class RcmdPage extends StatefulWidget {

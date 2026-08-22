@@ -1,5 +1,5 @@
 import 'package:PiliMax/pages/setting/models/extra_settings.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ExtraSetting extends StatefulWidget {
   const ExtraSetting({super.key, this.showAppBar = true});

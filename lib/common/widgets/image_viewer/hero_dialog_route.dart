@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart' show PredictiveBackEvent;
 
 /// https://github.com/qq326646683/interactiveviewer_gallery

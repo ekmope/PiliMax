@@ -1,6 +1,6 @@
 // Vendored from fluttercandies/extended_nested_scroll_view (MIT), which no
 // longer exports this widget as of the Flutter 3.47 dependency update.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 /// Tracks the visibility of [child] and exposes the latest [VisibilityInfo]

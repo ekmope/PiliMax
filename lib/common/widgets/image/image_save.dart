@@ -11,7 +11,7 @@ import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/num_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 const _previewTransitionDuration = Duration(milliseconds: 240);
@@ -248,7 +248,9 @@ class _CoverPreviewDialogState extends State<_CoverPreviewDialog> {
                           Expanded(
                             child: SelectionText(
                               widget.title!,
-                              style: theme.textTheme.titleSmall,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: theme.colorScheme.onSurface,
+                              ),
                             ),
                           )
                         else

@@ -12,7 +12,7 @@ import 'package:PiliMax/models/horizontal_video_model.dart';
 import 'package:PiliMax/pages/member_video_web/base/controller.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

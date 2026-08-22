@@ -10,7 +10,7 @@ import 'package:PiliMax/common/widgets/gesture/image_horizontal_drag_gesture_rec
 import 'package:PiliMax/common/widgets/image_viewer/viewer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show DoubleTapGestureRecognizer;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 

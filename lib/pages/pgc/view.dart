@@ -21,7 +21,7 @@ import 'package:PiliMax/pages/pgc_index/view.dart';
 import 'package:PiliMax/pilimax/forks/pages/pgc_index/widgets/pgc_card_v_pgc_index.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class PgcPage extends StatefulWidget {

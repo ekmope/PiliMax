@@ -1,5 +1,5 @@
 import 'package:PiliMax/pages/setting/models/style_settings.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class StyleSetting extends StatefulWidget {
   const StyleSetting({super.key, this.showAppBar = true});

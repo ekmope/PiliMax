@@ -9,7 +9,7 @@ import 'package:PiliMax/pages/live/widgets/live_item_app.dart';
 import 'package:PiliMax/pages/live_area_detail/child/controller.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class LiveAreaChildPage extends StatefulWidget {

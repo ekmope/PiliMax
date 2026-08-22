@@ -1,7 +1,7 @@
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/pilimax/pages/setting/models/dynamics_settings.dart';
-import 'package:flutter/material.dart' hide ListTile;
+import 'package:material_ui/material_ui.dart' hide ListTile;
 
 class DynamicsSetting extends StatefulWidget {
   const DynamicsSetting({

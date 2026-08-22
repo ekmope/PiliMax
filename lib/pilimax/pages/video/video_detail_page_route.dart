@@ -1,7 +1,7 @@
 import 'package:PiliMax/pilimax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_transition_timing.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 /// Keeps the video Hero and entry overlay on one fixed route timeline.
@@ -19,7 +19,6 @@ final class VideoDetailPageRoute<T> extends GetPageRoute<T> {
          binding: definition.binding,
          bindings: definition.bindings,
          routeName: definition.name,
-         title: definition.title,
          maintainState: definition.maintainState,
          middlewares: definition.middlewares,
        ) {

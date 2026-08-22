@@ -3,7 +3,7 @@ import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/log_table/controller.dart';
 import 'package:PiliMax/utils/extension/widget_ext.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class LogPage<T> extends StatefulWidget {

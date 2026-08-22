@@ -13,7 +13,7 @@ import 'package:PiliMax/models_new/popular/popular_series_one/config.dart';
 import 'package:PiliMax/pages/popular_series/controller.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/page_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class PopularSeriesPage extends StatefulWidget {

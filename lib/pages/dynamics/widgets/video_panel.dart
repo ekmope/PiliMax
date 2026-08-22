@@ -9,7 +9,7 @@ import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget videoSeasonWidget(
   BuildContext context, {

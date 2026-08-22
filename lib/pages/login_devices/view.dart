@@ -6,7 +6,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/login_devices/device.dart';
 import 'package:PiliMax/pages/login_devices/controller.dart';
 import 'package:PiliMax/utils/extension/widget_ext.dart';
-import 'package:flutter/material.dart' hide ListTile;
+import 'package:material_ui/material_ui.dart' hide ListTile;
 import 'package:get/get.dart';
 
 class LoginDevicesPage extends StatefulWidget {

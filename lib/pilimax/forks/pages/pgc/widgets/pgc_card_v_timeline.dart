@@ -8,7 +8,7 @@ import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_timeline/episode.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 // 视频卡片 - 垂直布局
 class PgcCardVTimeline extends StatelessWidget {

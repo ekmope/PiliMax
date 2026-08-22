@@ -27,7 +27,7 @@ import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:get/get.dart';
 import 'package:tray_manager/tray_manager.dart';
@@ -358,7 +358,7 @@ class _MainAppState extends PopScopeState<MainApp>
   @override
   void onWindowClose() {
     if (_mainController.showTrayIcon && _mainController.minimizeOnExit) {
-      windowManager.hide();
+      unawaited(_hide());
       _onHideWindow();
     } else {
       _onClose();
@@ -408,14 +408,29 @@ class _MainAppState extends PopScopeState<MainApp>
     }
   }
 
+  /// Hide the Windows window without leaving a stale opaque surface behind.
+  Future<void> _hide() async {
+    if (Platform.isWindows) {
+      await windowManager.setOpacity(0.0);
+    }
+    await windowManager.hide();
+  }
+
+  Future<void> _show() async {
+    if (Platform.isWindows) {
+      await windowManager.setOpacity(1.0);
+    }
+    await windowManager.show();
+  }
+
   @override
   Future<void> onTrayIconMouseDown() async {
     if (await windowManager.isVisible()) {
       _onHideWindow();
-      windowManager.hide();
+      await _hide();
     } else {
       _onShowWindow();
-      windowManager.show();
+      await _show();
     }
   }
 
@@ -429,7 +444,7 @@ class _MainAppState extends PopScopeState<MainApp>
   void onTrayMenuItemClick(MenuItem menuItem) {
     switch (menuItem.key) {
       case 'show':
-        windowManager.show();
+        unawaited(_show());
       case 'exit':
         _onClose();
     }

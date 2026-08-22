@@ -13,7 +13,7 @@ import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 export 'package:PiliMax/pilimax/common/widgets/video_card/video_transition_registry.dart'
     show VideoTransitionSourceLayout;

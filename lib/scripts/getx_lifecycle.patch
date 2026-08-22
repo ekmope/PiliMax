@@ -1,0 +1,20 @@
+diff --git a/lib/get_instance/src/lifecycle.dart b/lib/get_instance/src/lifecycle.dart
+index 3f04bbe..3949883 100644
+--- a/lib/get_instance/src/lifecycle.dart
++++ b/lib/get_instance/src/lifecycle.dart
+@@ -79,6 +79,15 @@ mixin GetLifeCycleBase {
+     onClose();
+   }
+
++  /// Reopens a controller retained by the in-app PiP overlay.
++  ///
++  /// PiP keeps controller instances alive while their route is removed. The
++  /// next route reuses the same instance, so GetX must clear its closed flag
++  /// before the controller is registered again.
++  void $reopenLifeCycle() {
++    _isClosed = false;
++  }
++
+   void $configureLifeCycle() {
+     _checkIfAlreadyConfigured();
+     onStart._callback = _onStart;

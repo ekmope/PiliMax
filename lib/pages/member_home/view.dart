@@ -18,7 +18,7 @@ import 'package:PiliMax/pages/member_like_arc/view.dart';
 import 'package:PiliMax/pages/member_pgc/widgets/pgc_card_v_member_pgc.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 

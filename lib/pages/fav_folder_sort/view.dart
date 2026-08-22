@@ -4,7 +4,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/fav/fav_folder/list.dart';
 import 'package:PiliMax/pages/fav/video/controller.dart';
 import 'package:PiliMax/pages/fav/video/widgets/item.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 

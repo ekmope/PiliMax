@@ -11,7 +11,7 @@ import 'package:PiliMax/utils/storage_key.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     hide ExtendedVisibilityDetector;
 import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class ViewPointsPage extends CommonSlidePage {

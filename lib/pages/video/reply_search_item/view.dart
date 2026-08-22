@@ -4,7 +4,7 @@ import 'package:PiliMax/models/common/reply/reply_search_type.dart';
 import 'package:PiliMax/pages/video/reply_search_item/child/view.dart';
 import 'package:PiliMax/pages/video/reply_search_item/controller.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class ReplySearchPage extends StatefulWidget {

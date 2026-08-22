@@ -13,7 +13,7 @@ import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/reply_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:fixnum/fixnum.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -41,11 +41,14 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
       _enableCommAntifraud || _biliSendCommAntifraud;
   dynamic get sourceId;
 
+  /// Main comments and nested replies may use different default sorting.
+  ReplySortType get defaultSortType => Pref.replySortType;
+
   @override
   void onInit() {
     super.onInit();
     ReplyEmoteResolver.ensureLoaded();
-    final cacheSortType = Pref.replySortType;
+    final cacheSortType = defaultSortType;
     sortType = cacheSortType.obs;
     mode = cacheSortType == .time ? Mode.MAIN_LIST_TIME : Mode.MAIN_LIST_HOT;
   }

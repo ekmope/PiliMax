@@ -1,5 +1,5 @@
 import 'package:PiliMax/pages/setting/models/video_settings.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class VideoSetting extends StatefulWidget {
   const VideoSetting({super.key, this.showAppBar = true});

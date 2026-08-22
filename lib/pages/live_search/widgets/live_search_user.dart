@@ -5,7 +5,7 @@ import 'package:PiliMax/models_new/live/live_search/user_item.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class LiveSearchUserItem extends StatelessWidget {
   const LiveSearchUserItem({

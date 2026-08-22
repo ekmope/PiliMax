@@ -2,7 +2,7 @@ import 'dart:async' show unawaited;
 import 'dart:ui' show SemanticsRole, clampDouble;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart' hide TabBarView;
+import 'package:material_ui/material_ui.dart' hide TabBarView;
 
 /// Tab-controlled page view that also supports a vertical page axis.
 class CustomTabBarView extends StatefulWidget {

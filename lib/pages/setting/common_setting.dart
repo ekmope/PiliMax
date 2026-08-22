@@ -1,6 +1,6 @@
 import 'package:PiliMax/models/common/setting_type.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class CommonSetting extends StatefulWidget {
   const CommonSetting({

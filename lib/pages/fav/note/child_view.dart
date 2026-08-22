@@ -7,7 +7,7 @@ import 'package:PiliMax/models_new/fav/fav_note/list.dart';
 import 'package:PiliMax/pages/fav/note/controller.dart';
 import 'package:PiliMax/pages/fav/note/widget/item.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class FavNoteChildPage extends StatefulWidget {

@@ -10,7 +10,7 @@ import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models_new/upower_rank/rank_info.dart';
 import 'package:PiliMax/pages/member_upower_rank/controller.dart';
 import 'package:PiliMax/utils/extension/widget_ext.dart';
-import 'package:flutter/material.dart' hide ListTile;
+import 'package:material_ui/material_ui.dart' hide ListTile;
 import 'package:get/get.dart';
 
 class UpowerRankPage extends StatefulWidget {

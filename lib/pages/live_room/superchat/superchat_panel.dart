@@ -5,7 +5,7 @@ import 'package:PiliMax/models/common/super_chat_type.dart';
 import 'package:PiliMax/pages/live_room/controller.dart';
 import 'package:PiliMax/pages/live_room/superchat/superchat_card.dart';
 import 'package:PiliMax/pages/search/controller.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
 
 class SuperChatPanel extends StatefulWidget {

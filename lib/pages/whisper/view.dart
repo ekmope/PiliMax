@@ -9,7 +9,7 @@ import 'package:PiliMax/pages/whisper/widgets/item.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/extension/three_dot_ext.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 

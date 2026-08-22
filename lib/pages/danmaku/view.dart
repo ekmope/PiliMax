@@ -10,7 +10,7 @@ import 'package:PiliMax/utils/danmaku_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 /// 传入播放器控制器，监听播放进度，加载对应弹幕

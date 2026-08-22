@@ -8,7 +8,7 @@ import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class MemberFavItem extends StatelessWidget {

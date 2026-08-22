@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart' hide ListTile;
-import 'package:flutter/material.dart' as material show ListTile;
+import 'package:material_ui/material_ui.dart' hide ListTile;
+import 'package:material_ui/material_ui.dart' as material show ListTile;
 
 /// Flutter [material.ListTile] with PiliMax's desktop secondary-click hooks
 /// and optional horizontal safe-area padding.

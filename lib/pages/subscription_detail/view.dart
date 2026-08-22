@@ -10,7 +10,7 @@ import 'package:PiliMax/pages/subscription_detail/widget/sub_video_card.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class SubDetailPage extends StatefulWidget {

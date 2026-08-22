@@ -11,7 +11,7 @@ import 'package:PiliMax/models_new/emote/package.dart';
 import 'package:PiliMax/pages/emote/controller.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class EmotePanel extends StatefulWidget {

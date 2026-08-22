@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart' hide PageView;
+import 'package:material_ui/material_ui.dart' hide PageView;
 import 'package:flutter/material.dart' as material show PageView;
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 

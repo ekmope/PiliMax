@@ -9,7 +9,7 @@ import 'package:PiliMax/pages/blacklist/controller.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class BlackListPage extends StatefulWidget {

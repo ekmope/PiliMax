@@ -49,7 +49,7 @@ import 'package:PiliMax/pilimax/utils/cache_policy.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:flex_seed_scheme/flex_seed_scheme.dart' show FlexSchemeVariant;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -1347,6 +1347,14 @@ abstract final class Pref {
         SettingBoxKey.replySortType,
         defaultValue: ReplySortType.hot.index,
       )];
+
+  /// Nested replies fall back to the main comment setting until customized.
+  static ReplySortType get replyReplySortType =>
+      ReplySortType.values[_setting.get(SettingBoxKey.replyReplySortType) ??
+          _setting.get(
+            SettingBoxKey.replySortType,
+            defaultValue: ReplySortType.hot.index,
+          )];
 
   static DynamicBadgeMode get dynamicBadgeMode =>
       DynamicBadgeMode.values[_setting.get(

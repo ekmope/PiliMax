@@ -9,7 +9,7 @@ import 'package:PiliMax/pilimax/forks/pages/member_coin_arc/widgets/item.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class MemberCoinArcPage extends StatefulWidget {

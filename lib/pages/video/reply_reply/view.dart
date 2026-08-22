@@ -21,7 +21,7 @@ import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     hide ExtendedVisibilityDetector;
 import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';

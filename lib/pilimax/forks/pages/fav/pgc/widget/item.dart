@@ -10,7 +10,7 @@ import 'package:PiliMax/models_new/fav/fav_pgc/list.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class FavPgcItem extends StatelessWidget {
   const FavPgcItem({

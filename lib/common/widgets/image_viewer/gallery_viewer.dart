@@ -41,7 +41,7 @@ import 'package:PiliMax/utils/utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart' hide Image, PageView;
+import 'package:material_ui/material_ui.dart' hide Image, PageView;
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:get/get.dart';
 import 'package:media_kit/media_kit.dart';
@@ -106,6 +106,11 @@ class _GalleryViewerState extends State<GalleryViewer>
   late final DoubleTapGestureRecognizer _doubleTapGestureRecognizer;
   late final ImageHorizontalDragGestureRecognizer
   _horizontalDragGestureRecognizer;
+
+  ImageHorizontalDragGestureRecognizer horizontalDragGestureRecognizer() {
+    return _horizontalDragGestureRecognizer;
+  }
+
   late final LongPressGestureRecognizer _longPressGestureRecognizer;
 
   late final AnimationController _animateController;
@@ -393,8 +398,8 @@ class _GalleryViewerState extends State<GalleryViewer>
                   ),
                   itemCount: widget.sources.length,
                   itemBuilder: _itemBuilder,
-                  horizontalDragGestureRecognizer: () =>
-                      _horizontalDragGestureRecognizer,
+                  horizontalDragGestureRecognizer:
+                      horizontalDragGestureRecognizer,
                 ),
               );
             },

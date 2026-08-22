@@ -17,6 +17,7 @@ import 'package:PiliMax/grpc/bilibili/app/playurl/v1.pb.dart'
 import 'package:PiliMax/grpc/dm.dart';
 import 'package:PiliMax/pilimax/grpc/playurl.dart';
 
+import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -91,10 +92,11 @@ import 'package:PiliMax/utils/utils.dart';
 import 'package:PiliMax/utils/video_utils.dart';
 
 import 'package:collection/collection.dart';
+import 'package:dio/dio.dart' show Options;
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     show ExtendedNestedScrollViewState;
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
@@ -2559,10 +2561,36 @@ class VideoDetailController extends GetxController
     try {
       final res = await Request().get(
         'https://bvc.bilivideo.com/pbp/data',
-        queryParameters: {'bvid': bvid, 'cid': cid.value},
+        queryParameters: {
+          'aid': aid,
+          'bvid': bvid,
+          'cid': cid.value,
+          'r': 'loader',
+        },
+        options: Options(
+          headers: {
+            'user-agent': BrowserUa.pc,
+            'origin': 'https://www.bilibili.com',
+            'referer': 'https://www.bilibili.com/video/$bvid',
+          },
+        ),
       );
-      PbpData data = PbpData.fromJson(res.data);
-      int stepSec = data.stepSec ?? 0;
+      final raw = res.data;
+      Map<String, dynamic>? json;
+      if (raw is Map) {
+        final modules = raw['modules'];
+        if (modules is List && modules.isNotEmpty && modules.first is Map) {
+          final params = modules.first['params'];
+          final data = params is Map ? params['data'] : null;
+          if (data is Map) {
+            json = Map<String, dynamic>.from(data);
+          }
+        }
+        json ??= Map<String, dynamic>.from(raw);
+      }
+      if (json == null) return null;
+      final data = PbpData.fromJson(json);
+      final stepSec = data.stepSec ?? 0;
       if (stepSec != 0 && data.events?.eDefault?.isNotEmpty == true) {
         return data.events!.eDefault!;
       }

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:PiliMax/pilimax/services/local_diagnostics.dart';
 import 'package:PiliMax/pilimax/utils/log_file_export.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 class LocalDiagnosticsPage extends StatefulWidget {

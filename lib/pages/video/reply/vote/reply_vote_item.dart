@@ -2,7 +2,7 @@ import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show VoteCard;
 import 'package:PiliMax/pages/dynamics/widgets/vote.dart';
 import 'package:PiliMax/utils/num_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget buildVoteCard(
   BuildContext context,

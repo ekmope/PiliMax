@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:PiliMax/pages/video/pay_coins/view.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

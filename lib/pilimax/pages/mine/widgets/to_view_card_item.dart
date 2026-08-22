@@ -6,7 +6,7 @@ import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/later/list.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ToViewCardItem extends StatelessWidget {
   const ToViewCardItem({super.key, required this.item});

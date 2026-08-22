@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:PiliMax/common/widgets/flutter/vertical_slider.dart';
 import 'package:PiliMax/pages/audio/controller.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show RenderProxyBox, BoxHitTestResult;
 import 'package:get/get.dart';
 

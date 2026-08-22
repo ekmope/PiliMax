@@ -1,7 +1,7 @@
 import 'package:PiliMax/models/dynamics/result.dart' show ModuleBlocked;
 import 'package:PiliMax/pages/article/widgets/opus_content.dart'
     show moduleBlockedItem;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget blockedItem(
   BuildContext context, {

@@ -4,7 +4,7 @@ import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/pilimax/utils/user_whitelist.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 List<SettingsModel> get dynamicsSettings => [
   getListBanWordModel(

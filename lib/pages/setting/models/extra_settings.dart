@@ -47,7 +47,7 @@ import 'package:PiliMax/utils/update.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart' hide RefreshIndicator;
+import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -553,6 +553,13 @@ List<SettingsModel> get extraSettings => [
     leading: const Icon(Icons.whatshot_outlined),
     getSubtitle: () => '当前优先展示「${Pref.replySortType.title}」',
     onTap: _showReplySortDialog,
+  ),
+  NormalModel(
+    title: '楼中楼展示',
+    subtitle: '单独设置楼中楼回复的默认排序',
+    leading: const Icon(Icons.forum_outlined),
+    getSubtitle: () => '当前优先展示「${Pref.replyReplySortType.title}」',
+    onTap: _showReplyReplySortDialog,
   ),
   NormalModel(
     title: '动态展示',
@@ -1081,6 +1088,24 @@ Future<void> _showReplySortDialog(
   );
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.replySortType, res.index);
+    setState();
+  }
+}
+
+Future<void> _showReplyReplySortDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<ReplySortType>(
+    context: context,
+    builder: (context) => SelectDialog<ReplySortType>(
+      title: '楼中楼展示',
+      value: Pref.replyReplySortType,
+      values: ReplySortType.values.take(2).map((e) => (e, e.title)).toList(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.replyReplySortType, res.index);
     setState();
   }
 }

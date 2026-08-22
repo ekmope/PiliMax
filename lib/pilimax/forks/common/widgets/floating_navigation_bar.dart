@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
 import 'package:flutter/gestures.dart' show kTouchSlop;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
 
 const double _kNavigationHeight = 64.0;

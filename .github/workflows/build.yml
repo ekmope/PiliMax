@@ -161,12 +161,12 @@ jobs:
 
             - name: Flutter Build Release Apk
               if: ${{ github.event_name == 'workflow_dispatch' }}
-              run: flutter build apk --release --split-per-abi --dart-define-from-file=pili_release.json --pub
+              run: flutter build apk --release --split-per-abi --dart-define-from-file=pili_release.json --no-pub
 
             - name: Flutter Build Dev Apk
               if: ${{ github.event_name == 'pull_request' }}
               run: |
-                  flutter build apk --release --split-per-abi --android-project-arg dev=1 --dart-define=pilimax.localDiagnostics=false --pub
+                  flutter build apk --release --split-per-abi --android-project-arg dev=1 --dart-define=pilimax.localDiagnostics=false --no-pub
 
             - name: Rename
               run: |

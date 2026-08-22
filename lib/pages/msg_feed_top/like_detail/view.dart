@@ -10,7 +10,7 @@ import 'package:PiliMax/pages/msg_feed_top/like_detail/controller.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class LikeDetailPage extends StatefulWidget {

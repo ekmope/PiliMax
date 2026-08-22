@@ -27,7 +27,7 @@ import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/share_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
-import 'package:flutter/material.dart' hide PageView;
+import 'package:material_ui/material_ui.dart' hide PageView;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';

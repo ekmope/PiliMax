@@ -5,7 +5,7 @@ import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget liveRcmdPanel(
   BuildContext context, {

@@ -15,7 +15,7 @@ import 'package:PiliMax/pages/video/widgets/keyboard_scrollable.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class VideoReplyPanel extends StatefulWidget {

@@ -12,7 +12,7 @@ import 'package:PiliMax/models_new/music/bgm_recommend_list.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class MusicVideoCardH extends StatelessWidget {
   final BgmRecommend videoItem;

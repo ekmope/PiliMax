@@ -7,7 +7,7 @@ import 'package:PiliMax/models_new/follow/list.dart';
 import 'package:PiliMax/pages/follow/widgets/follow_item.dart';
 import 'package:PiliMax/pages/follow_type/controller.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:flutter/material.dart'
+import 'package:material_ui/material_ui.dart'
     hide SliverGridDelegateWithMaxCrossAxisExtent;
 import 'package:get/get.dart';
 

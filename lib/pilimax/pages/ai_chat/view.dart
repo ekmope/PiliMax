@@ -7,7 +7,7 @@ import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pilimax/services/ai_chat/ai_chat_service.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';
-import 'package:flutter/material.dart' hide TextField;
+import 'package:material_ui/material_ui.dart' hide TextField;
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_markdown_plus_latex/flutter_markdown_plus_latex.dart';

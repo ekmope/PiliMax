@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart' as flutter;
+import 'package:material_ui/material_ui.dart' as flutter;
 import 'package:flutter/rendering.dart' show RenderObject, RenderParagraph;
 
 /// Text with PiliMax's compact "查看更多" overflow affordance.

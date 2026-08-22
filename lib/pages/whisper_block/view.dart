@@ -6,7 +6,7 @@ import 'package:PiliMax/grpc/bilibili/app/im/v1.pb.dart'
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/pages/whisper_block/controller.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart' show LengthLimitingTextInputFormatter;
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';

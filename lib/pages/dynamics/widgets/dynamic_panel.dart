@@ -10,7 +10,7 @@ import 'package:PiliMax/pages/dynamics/widgets/interaction.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class DynamicPanel extends StatefulWidget {
   final DynamicItemModel item;

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 const audioPageExitTransitionDuration = Duration(milliseconds: 400);
@@ -17,7 +17,6 @@ final class AudioPageRoute<T> extends GetPageRoute<T> {
          binding: definition.binding,
          bindings: definition.bindings,
          routeName: definition.name,
-         title: definition.title,
          maintainState: definition.maintainState,
          middlewares: definition.middlewares,
        );

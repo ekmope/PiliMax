@@ -10,7 +10,7 @@ import 'package:PiliMax/pilimax/forks/pages/later/widgets/video_card_h_later.dar
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/page_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class LaterViewChildPage extends StatefulWidget {

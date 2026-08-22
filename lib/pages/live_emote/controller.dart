@@ -2,7 +2,7 @@ import 'package:PiliMax/http/live.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/live/live_emote/datum.dart';
 import 'package:PiliMax/pages/common/common_list_controller.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class LiveEmotePanelController

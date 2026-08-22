@@ -1,6 +1,6 @@
 import 'package:PiliMax/common/skeleton/skeleton.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_card_h_layout_metrics.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class VideoCardHSkeleton extends StatelessWidget {
   const VideoCardHSkeleton({super.key});

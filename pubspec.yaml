@@ -20,8 +20,8 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 version: 2.1.0+1
 
 environment:
-  sdk: ">=3.12.0"
-  flutter: 3.47.0
+  sdk: ">=3.13.0"
+  flutter: 3.47.1
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -43,6 +43,10 @@ dependencies:
     git:
       url: https://github.com/bggRGjQaUbCoE/audio_service.git
       path: audio_service
+      ref: main
+  audio_service_win:
+    git:
+      url: https://github.com/Starfallan/audio_service_win.git
       ref: main
   audio_session: ^0.2.2
   battery_plus: ^7.0.0
@@ -71,6 +75,7 @@ dependencies:
   connectivity_plus: ^7.1.1
   cookie_jar: ^4.0.8
   crypto: ^3.0.6
+  cupertino_ui: 1.0.0
   desktop_webview_window:
     git:
       url: https://github.com/Predidit/linux_webview_window
@@ -89,7 +94,10 @@ dependencies:
   file_picker: ^12.0.0
   fixnum: ^1.1.1
   fl_chart: ^1.0.0
-  flex_seed_scheme: ^4.0.1
+  flex_seed_scheme:
+    git:
+      url: https://github.com/bggRGjQaUbCoE/flex_seed_scheme.git
+      ref: dev
   flutter_displaymode: ^0.7.0
   flutter_html: ^3.0.0-beta.2
   flutter_inappwebview: ^6.1.5
@@ -113,8 +121,8 @@ dependencies:
       ref: v10.9.0
   get:
     git:
-      url: https://github.com/Starfallan/getx.git
-      ref: version_4.7.2_patch
+      url: https://github.com/bggRGjQaUbCoE/getx.git
+      ref: dev
   hashlib: ^1.12.0
   hive_ce: ^2.19.3
   html: ^0.15.4
@@ -132,6 +140,7 @@ dependencies:
       url: https://github.com/bggRGjQaUbCoE/material_design_icons_flutter.git
       ref: const
   material_new_shapes: ^1.0.0
+  material_ui: 1.0.0
   media_kit: 1.1.11
   media_kit_libs_video: 1.0.5
   media_kit_video: 1.2.5

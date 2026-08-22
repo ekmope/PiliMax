@@ -4,7 +4,7 @@ import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/space_setting/privacy.dart';
 import 'package:PiliMax/pages/space_setting/controller.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class SpaceSettingPage extends StatefulWidget {

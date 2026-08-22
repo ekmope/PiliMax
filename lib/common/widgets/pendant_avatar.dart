@@ -6,7 +6,7 @@ import 'package:PiliMax/models/common/avatar_badge_type.dart';
 import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_svg/svg.dart';
 
 class PendantAvatar extends StatelessWidget {

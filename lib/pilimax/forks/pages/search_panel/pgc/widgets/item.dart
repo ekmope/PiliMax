@@ -8,7 +8,7 @@ import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class SearchPgcItem extends StatelessWidget {
   const SearchPgcItem({

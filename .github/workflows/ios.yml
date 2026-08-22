@@ -37,7 +37,7 @@ jobs:
       - name: Build iOS
         run: |
           set +e
-          flutter build ios --release --no-codesign --dart-define-from-file=pili_release.json -v
+          flutter build ios --release --no-codesign --dart-define-from-file=pili_release.json --no-pub -v
           build_status=$?
           set -e
           if [ "$build_status" -ne 0 ] && [ ! -d build/ios/iphoneos/Runner.app ]; then

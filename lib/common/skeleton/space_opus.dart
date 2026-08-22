@@ -1,6 +1,6 @@
 import 'package:PiliMax/common/skeleton/skeleton.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class SpaceOpusSkeleton extends StatelessWidget {
   const SpaceOpusSkeleton({super.key});

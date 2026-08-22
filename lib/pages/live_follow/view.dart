@@ -7,7 +7,7 @@ import 'package:PiliMax/models_new/live/live_follow/item.dart';
 import 'package:PiliMax/pages/live_follow/controller.dart';
 import 'package:PiliMax/pages/live_follow/widgets/live_item_follow.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class LiveFollowPage extends StatefulWidget {

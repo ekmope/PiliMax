@@ -1,6 +1,6 @@
 import 'package:PiliMax/common/style.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class VideoCoverHero extends StatelessWidget {
   const VideoCoverHero({

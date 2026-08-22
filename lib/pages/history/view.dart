@@ -14,7 +14,7 @@ import 'package:PiliMax/pages/history/controller.dart';
 import 'package:PiliMax/pages/history/widgets/item.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:flutter/material.dart' hide TabBarView;
+import 'package:material_ui/material_ui.dart' hide TabBarView;
 import 'package:get/get.dart';
 
 class HistoryPage extends StatefulWidget {

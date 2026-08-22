@@ -5,7 +5,7 @@ import 'package:PiliMax/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/pages/common/search/common_search_controller.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 abstract class CommonSearchPageState<S extends StatefulWidget, R, T>

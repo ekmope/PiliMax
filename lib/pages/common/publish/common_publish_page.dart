@@ -6,7 +6,7 @@ import 'package:PiliMax/models/common/publish_panel_type.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:chat_bottom_container/chat_bottom_container.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 abstract class CommonPublishPage<T> extends StatefulWidget {

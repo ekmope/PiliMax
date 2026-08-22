@@ -3,7 +3,7 @@ import 'package:PiliMax/pilimax/services/crash/crash_report.dart';
 import 'package:PiliMax/pilimax/services/crash/crash_report_store.dart';
 import 'package:PiliMax/pilimax/services/crash/crash_reporter.dart';
 import 'package:PiliMax/pilimax/utils/log_file_export.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 class CrashReportHistoryPage extends StatefulWidget {

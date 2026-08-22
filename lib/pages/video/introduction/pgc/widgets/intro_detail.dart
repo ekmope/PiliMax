@@ -11,7 +11,7 @@ import 'package:PiliMax/pages/pgc_review/view.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/material.dart' hide TabBarView;
+import 'package:material_ui/material_ui.dart' hide TabBarView;
 import 'package:get/get.dart';
 
 class PgcIntroPanel extends CommonSlidePage {
@@ -97,8 +97,7 @@ class _IntroDetailState extends State<PgcIntroPanel>
     return TabBarView<TabBarDragGestureRecognizer>(
       controller: _tabController,
       physics: clampingScrollPhysics,
-      horizontalDragGestureRecognizer: () =>
-          TabBarDragGestureRecognizer(isDxAllowed: isDxAllowed),
+      horizontalDragGestureRecognizer: horizontalDragGestureRecognizer,
       children: [
         KeepAliveWrapper(child: _buildInfo(theme)),
         PgcReviewPage(

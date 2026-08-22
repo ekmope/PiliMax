@@ -7,9 +7,10 @@ import 'package:PiliMax/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/member_guard/guard_top_list.dart';
 import 'package:PiliMax/pages/member_guard/controller.dart';
+import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:PiliMax/utils/extension/widget_ext.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:flutter/material.dart' hide ListTile;
+import 'package:material_ui/material_ui.dart' hide ListTile;
 import 'package:get/get.dart';
 
 class MemberGuard extends StatefulWidget {
@@ -172,16 +173,6 @@ class _MemberGuardState extends State<MemberGuard> {
     );
   }
 
-  static String? _pendantUrl(int guardLevel) => switch (guardLevel) {
-    1 =>
-      'https://i0.hdslb.com/bfs/live/a454275dea465ac15a03f121f0d7edaf96e30bcf.png',
-    2 =>
-      'https://i0.hdslb.com/bfs/live/3b46129e796df42ec7356fcba77c8a79d47db682.png',
-    3 =>
-      'https://i0.hdslb.com/bfs/live/80f732943cc3367029df65e267960d56736a82ee.png',
-    _ => null,
-  };
-
   static Widget _avatar(String url, double size, int guardLevel) {
     final pendentSize = 1.35 * size;
     return Stack(
@@ -198,7 +189,7 @@ class _MemberGuardState extends State<MemberGuard> {
           type: .emote,
           width: pendentSize,
           height: pendentSize,
-          src: _pendantUrl(guardLevel),
+          src: BiliUtils.liveGuardPendant(guardLevel),
           getPlaceHolder: () => const SizedBox.shrink(),
         ),
       ],

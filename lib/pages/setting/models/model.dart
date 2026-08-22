@@ -6,7 +6,7 @@ import 'package:PiliMax/pages/setting/widgets/switch_item.dart';
 import 'package:PiliMax/pilimax/pages/setting/widgets/list_editor_dialog.dart';
 import 'package:PiliMax/pilimax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
-import 'package:flutter/material.dart' hide PopupMenuItemSelected;
+import 'package:material_ui/material_ui.dart' hide PopupMenuItemSelected;
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';

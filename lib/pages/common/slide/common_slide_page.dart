@@ -3,7 +3,7 @@ import 'dart:math' show max;
 import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/gestures.dart' show HorizontalDragGestureRecognizer;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 abstract class CommonSlidePage extends StatefulWidget {
@@ -29,6 +29,10 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
         ? dx > CommonSlideMixin.offset &&
               dx < maxWidth - CommonSlideMixin.offset
         : true;
+  }
+
+  TabBarDragGestureRecognizer horizontalDragGestureRecognizer() {
+    return TabBarDragGestureRecognizer(isDxAllowed: isDxAllowed);
   }
 
   @override

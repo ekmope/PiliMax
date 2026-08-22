@@ -2,7 +2,7 @@ import 'package:PiliMax/common/skeleton/dynamic_card.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show SliverConstraints;
 import 'package:waterfall_flow/waterfall_flow.dart'
     show SliverWaterfallFlowDelegate;

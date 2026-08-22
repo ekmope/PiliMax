@@ -3,7 +3,7 @@ import 'dart:ui' show SemanticsRole, clampDouble;
 
 import 'package:PiliMax/pilimax/common/widgets/flutter/page/page_view.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart' hide PageView, TabBarView;
+import 'package:material_ui/material_ui.dart' hide PageView, TabBarView;
 
 /// TabBarView using PiliMax's directional horizontal drag recognizer.
 class TabBarView<T extends HorizontalDragGestureRecognizer>

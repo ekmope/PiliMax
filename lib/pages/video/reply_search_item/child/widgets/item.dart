@@ -8,7 +8,7 @@ import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/reply/reply_search_type.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class ReplySearchItem extends StatelessWidget {

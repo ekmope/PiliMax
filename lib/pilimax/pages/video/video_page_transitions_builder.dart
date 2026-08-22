@@ -9,8 +9,8 @@ import 'package:PiliMax/pilimax/pages/video/video_detail_exit_snapshot.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_transition_timing.dart';
 
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'package:flutter/services.dart';
 

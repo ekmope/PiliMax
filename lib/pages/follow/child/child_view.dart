@@ -14,7 +14,7 @@ import 'package:PiliMax/pages/follow/widgets/follow_item.dart';
 import 'package:PiliMax/pages/follow_type/follow_same/view.dart';
 import 'package:PiliMax/pages/share/view.dart' show UserModel;
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class FollowChildPage extends StatefulWidget {

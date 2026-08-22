@@ -292,6 +292,17 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     setPlaybackState(status, isBuffering, isLive);
   }
 
+  Uri _artworkUri(String? cover) {
+    var url = ImageUtils.safeThumbnailUrl(cover);
+    // Windows SMTC is rendered by the shell process, which may not have a
+    // WebP codec installed. Bilibili's image service can transcode this form
+    // to JPEG without changing the artwork on other platforms.
+    if (Platform.isWindows && url.contains('@') && url.endsWith('.webp')) {
+      url = '${url.substring(0, url.length - '.webp'.length)}.jpg';
+    }
+    return Uri.parse(url);
+  }
+
   void onVideoDetailChange(
     dynamic data,
     int cid,
@@ -307,8 +318,6 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     // }
     if (data == null) return;
 
-    Uri getUri(String? cover) => Uri.parse(ImageUtils.safeThumbnailUrl(cover));
-
     late final id = '$cid$herotag';
     final MediaItem mediaItem;
     switch (data) {
@@ -320,7 +329,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
             title: current?.part ?? '',
             artist: data.owner?.name,
             duration: Duration(seconds: current?.duration ?? 0),
-            artUri: getUri(data.pic),
+            artUri: _artworkUri(data.pic),
           );
         } else {
           mediaItem = MediaItem(
@@ -328,7 +337,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
             title: data.title ?? '',
             artist: data.owner?.name,
             duration: Duration(seconds: data.duration ?? 0),
-            artUri: getUri(data.pic),
+            artUri: _artworkUri(data.pic),
           );
         }
       case EpisodeItem():
@@ -339,14 +348,14 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
           duration: data.from == 'pugv'
               ? Duration(seconds: data.duration ?? 0)
               : Duration(milliseconds: data.duration ?? 0),
-          artUri: getUri(data.cover),
+          artUri: _artworkUri(data.cover),
         );
       case RoomInfoH5Data():
         mediaItem = MediaItem(
           id: id,
           title: data.roomInfo?.title ?? '',
           artist: data.anchorInfo?.baseInfo?.uname,
-          artUri: getUri(data.roomInfo?.cover),
+          artUri: _artworkUri(data.roomInfo?.cover),
           isLive: true,
         );
       case Part():
@@ -355,7 +364,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
           title: data.part ?? '',
           artist: artist,
           duration: Duration(seconds: data.duration ?? 0),
-          artUri: getUri(cover),
+          artUri: _artworkUri(cover),
         );
       case DetailItem(:final arc):
         mediaItem = MediaItem(
@@ -363,21 +372,27 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
           title: arc.title,
           artist: data.owner.name,
           duration: Duration(seconds: arc.duration.toInt()),
-          artUri: getUri(arc.cover),
+          artUri: _artworkUri(arc.cover),
         );
       case BiliDownloadEntryInfo():
         final coverFile = File(
           path.join(data.entryDirPath, PathUtils.coverName),
         );
-        final uri = coverFile.existsSync()
-            ? coverFile.absolute.uri
-            : getUri(data.cover);
+        final localCoverPath = coverFile.existsSync()
+            ? coverFile.absolute.path
+            : null;
+        final uri = localCoverPath == null
+            ? _artworkUri(data.cover)
+            : Uri.file(localCoverPath);
         mediaItem = MediaItem(
           id: id,
           title: data.showTitle,
           artist: data.ownerName,
           duration: Duration(milliseconds: data.totalTimeMilli),
           artUri: uri,
+          extras: localCoverPath == null
+              ? null
+              : <String, dynamic>{'artCacheFile': localCoverPath},
         );
       default:
         return;
@@ -409,6 +424,9 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       artist: data.owner.name,
       duration: Duration(seconds: data.arc.duration.toInt()),
       artUri: artUri,
+      extras: artUri?.scheme == 'file'
+          ? <String, dynamic>{'artCacheFile': artUri!.toFilePath()}
+          : null,
     );
     if (!PlPlayerController.instanceExists()) return;
     _item
@@ -419,16 +437,19 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   }
 
   Future<Uri?> _cachedArtworkUri(String? cover) async {
-    final url = ImageUtils.safeThumbnailUrl(cover);
-    if (url.isEmpty) return null;
-    final uri = Uri.tryParse(url);
-    if (uri == null) return null;
+    final sourceUrl = ImageUtils.safeThumbnailUrl(cover);
+    if (sourceUrl.isEmpty) return null;
+    final uri = _artworkUri(cover);
     if (uri.scheme == 'file' || uri.scheme == 'content') return uri;
     try {
-      final fileInfo = await CacheManager.manager.getFileFromCache(url);
-      return fileInfo?.file.absolute.uri;
+      // Use the same URL as artUri so Windows does not reuse a cached WebP
+      // after the SMTC-safe JPEG conversion above.
+      final fileInfo = await CacheManager.manager.getFileFromCache(
+        uri.toString(),
+      );
+      return fileInfo?.file.absolute.uri ?? uri;
     } catch (_) {
-      return null;
+      return uri;
     }
   }
 

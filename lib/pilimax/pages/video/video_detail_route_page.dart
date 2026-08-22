@@ -18,7 +18,7 @@ import 'package:PiliMax/pilimax/services/route_restore_service.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 /// Resolves and preloads video data while the source card expands.

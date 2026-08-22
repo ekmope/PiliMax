@@ -4,7 +4,7 @@
 
 // ignore_for_file: prefer_initializing_formals
 
-import 'package:flutter/material.dart' hide PopupMenuItem;
+import 'package:material_ui/material_ui.dart' hide PopupMenuItem;
 
 const _kDefaultPopupMenuPadding = EdgeInsets.all(8);
 

@@ -2,6 +2,20 @@ param(
     [string]$platform = ""
 )
 
+$Workspace = if ([string]::IsNullOrWhiteSpace($env:GITHUB_WORKSPACE)) {
+    (Get-Location).Path
+} else {
+    $env:GITHUB_WORKSPACE
+}
+
+$MaterialPatches = @(
+    "lib/scripts/material/modal_barrier_material.patch",
+    "lib/scripts/material/navigation_drawer.patch",
+    "lib/scripts/material/popup_menu.patch",
+    "lib/scripts/material/refresh_indicator.patch",
+    "lib/scripts/material/text_field.patch"
+)
+
 $BottomSheetAndroidPatch = "lib/scripts/bottom_sheet_android.patch"
 
 # Upstream issue #1906
@@ -43,6 +57,9 @@ $ScrollablePatch = "lib/scripts/scrollable.patch"
 
 $DraggableScrollableSheetPatch = "lib/scripts/draggable_scrollable_sheet.patch"
 
+# Keep PiP-retained GetX controllers reusable after their route is removed.
+$GetxLifecyclePatch = "lib/scripts/getx_lifecycle.patch"
+
 $RefreshIndicatorPatch = "lib/scripts/refresh_indicator.patch"
 
 # TODO: remove
@@ -59,7 +76,40 @@ $MouseCursorPatch = "lib/scripts/mouse_cursor.patch"
 
 $GeetestIOSPatch = "lib/scripts/geetest_ios.patch"
 
+# Pub cache entries can survive between CI runs. Apply a dependency patch only
+# when it is missing, and accept an exact reverse match as already applied.
+function Apply-DependencyPatch {
+    param(
+        [Parameter(Mandatory = $true)][string]$PatchPath,
+        [Parameter(Mandatory = $true)][string]$Description
+    )
+
+    & git apply --ignore-space-change --check -- $PatchPath *> $null
+    $forwardCheckExit = $LASTEXITCODE
+    if ($forwardCheckExit -eq 0) {
+        & git apply --ignore-space-change -- $PatchPath
+        $applyExit = $LASTEXITCODE
+        if ($applyExit -eq 0) {
+            Write-Host "$Description applied"
+            return $true
+        }
+        Write-Error "failed to apply $Description (exit $applyExit)"
+        return $false
+    }
+
+    & git apply --ignore-space-change --reverse --check -- $PatchPath *> $null
+    $reverseCheckExit = $LASTEXITCODE
+    if ($reverseCheckExit -eq 0) {
+        Write-Host "$Description already applied"
+        return $true
+    }
+
+    Write-Error "failed to apply ${Description}: patch matches neither the original nor the already-applied state"
+    return $false
+}
+
 if ($platform.ToLower() -eq "ios") {
+    Set-Location $Workspace
     git apply $BottomSheetIOSPiliMaxPatch
     if ($LASTEXITCODE -eq 0) {
         Write-Host "$BottomSheetIOSPiliMaxPatch applied"
@@ -75,6 +125,47 @@ if ($platform.ToLower() -eq "ios") {
         exit 1
     }
 }
+
+Set-Location $Workspace
+flutter pub get
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "flutter pub get failed (exit $LASTEXITCODE)"
+    exit 1
+}
+
+$PackageConfigPath = Join-Path $Workspace ".dart_tool/package_config.json"
+if (-not (Test-Path $PackageConfigPath)) {
+    Write-Error "package config not found after flutter pub get: $PackageConfigPath"
+    exit 1
+}
+
+try {
+    $PackageConfig = Get-Content $PackageConfigPath -Raw | ConvertFrom-Json
+    $MaterialPackage = $PackageConfig.packages |
+        Where-Object { $_.name -eq "material_ui" } |
+        Select-Object -First 1
+    $GetPackage = $PackageConfig.packages |
+        Where-Object { $_.name -eq "get" } |
+        Select-Object -First 1
+    if ($null -eq $MaterialPackage) {
+        throw "material_ui is missing from package_config.json"
+    }
+    $MaterialRoot = ([System.Uri]$MaterialPackage.rootUri).LocalPath
+    if (-not (Test-Path $MaterialRoot)) {
+        throw "material_ui directory does not exist: $MaterialRoot"
+    }
+    if ($null -eq $GetPackage) {
+        throw "get is missing from package_config.json"
+    }
+    $GetRoot = ([System.Uri]$GetPackage.rootUri).LocalPath
+    if (-not (Test-Path $GetRoot)) {
+        throw "get directory does not exist: $GetRoot"
+    }
+} catch {
+    Write-Error "failed to locate required dependency package: $($_.Exception.Message)"
+    exit 1
+}
+
 Set-Location $env:FLUTTER_ROOT
 
 $picks   = @()
@@ -172,7 +263,7 @@ foreach ($revert in $reverts) {
 }
 
 foreach ($patch in $patches) {
-    git apply "$env:GITHUB_WORKSPACE/$patch"
+    git apply (Join-Path $Workspace $patch)
     if ($LASTEXITCODE -eq 0) {
         Write-Host "$patch applied"
     } else {
@@ -180,3 +271,18 @@ foreach ($patch in $patches) {
         exit 1
     }
 }
+
+Set-Location $MaterialRoot
+foreach ($patch in $MaterialPatches) {
+    $patchPath = Join-Path $Workspace $patch
+    if (-not (Apply-DependencyPatch -PatchPath $patchPath -Description "$patch to material_ui")) {
+        exit 1
+    }
+}
+
+Set-Location $GetRoot
+if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $GetxLifecyclePatch) -Description "$GetxLifecyclePatch to get")) {
+    exit 1
+}
+
+Set-Location $Workspace

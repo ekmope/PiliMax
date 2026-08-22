@@ -12,7 +12,7 @@ import 'package:PiliMax/pages/search/controller.dart' show DebounceStreamState;
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class DynMentionPanel extends StatefulWidget {

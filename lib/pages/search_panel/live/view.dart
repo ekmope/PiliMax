@@ -5,7 +5,7 @@ import 'package:PiliMax/pilimax/forks/pages/search_panel/controller.dart';
 import 'package:PiliMax/pages/search_panel/live/widgets/item.dart';
 import 'package:PiliMax/pilimax/forks/pages/search_panel/view.dart';
 import 'package:PiliMax/utils/grid.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class SearchLivePanel extends CommonSearchPanel {

@@ -1,6 +1,6 @@
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/pages/setting/models/recommend_settings.dart';
-import 'package:flutter/material.dart' hide ListTile;
+import 'package:material_ui/material_ui.dart' hide ListTile;
 
 class RecommendSetting extends StatefulWidget {
   const RecommendSetting({super.key, this.showAppBar = true});

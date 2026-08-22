@@ -4,7 +4,7 @@ import 'package:PiliMax/models_new/live/live_area_list/area_item.dart';
 import 'package:PiliMax/models_new/live/live_area_list/area_list.dart';
 import 'package:PiliMax/pages/common/common_list_controller.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
-import 'package:flutter/material.dart' show TabController;
+import 'package:material_ui/material_ui.dart' show TabController;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 

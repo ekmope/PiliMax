@@ -51,7 +51,7 @@ jobs:
 
           for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
             Write-Host "Windows package attempt $attempt of $maxAttempts"
-            fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json"
+            fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json,no-pub" --skip-clean
             $exitCode = $LASTEXITCODE
 
             if ($exitCode -eq 0) {

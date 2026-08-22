@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:PiliMax/models_new/space/space/tab2.dart';
 import 'package:PiliMax/pages/member/controller.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class MemberContributeCtr extends GetxController

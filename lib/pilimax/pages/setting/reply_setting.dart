@@ -3,7 +3,7 @@ import 'package:PiliMax/grpc/reply.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/pilimax/pages/setting/models/reply_settings.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:flutter/material.dart' hide ListTile;
+import 'package:material_ui/material_ui.dart' hide ListTile;
 
 class ReplySetting extends StatefulWidget {
   const ReplySetting({

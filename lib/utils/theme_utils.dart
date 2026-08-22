@@ -2,9 +2,9 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/pilimax/pages/video/video_page_transitions_builder.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:flutter/cupertino.dart' show CupertinoThemeData;
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoThemeData;
 import 'package:flutter/foundation.dart' show PlatformDispatcher;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 abstract final class ThemeUtils {
   static late ThemeData lightTheme;

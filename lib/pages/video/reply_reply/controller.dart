@@ -2,6 +2,7 @@ import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, DetailListReply;
 import 'package:PiliMax/grpc/reply.dart';
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models/common/reply/reply_sort_type.dart';
 import 'package:PiliMax/pages/common/publish/publish_route.dart';
 import 'package:PiliMax/pages/common/reply_controller.dart';
 import 'package:PiliMax/pages/video/reply_new/view.dart';
@@ -9,7 +10,7 @@ import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:fixnum/fixnum.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -49,6 +50,9 @@ class VideoReplyReplyController extends ReplyController
 
   @override
   dynamic get sourceId => replyType == 1 ? IdUtils.av2bv(oid) : oid;
+
+  @override
+  ReplySortType get defaultSortType => Pref.replyReplySortType;
 
   @override
   void onInit() {

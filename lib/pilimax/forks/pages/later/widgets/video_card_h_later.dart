@@ -14,7 +14,7 @@ import 'package:PiliMax/pilimax/forks/pages/later/controller.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 // 视频卡片 - 水平布局

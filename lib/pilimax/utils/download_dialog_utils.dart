@@ -4,7 +4,7 @@ import 'package:PiliMax/models/common/video/video_quality.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 

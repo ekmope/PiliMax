@@ -2,7 +2,7 @@ import 'package:PiliMax/pilimax/common/widgets/flutter/page/tabs.dart';
 import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:flutter/material.dart' hide TabBarView;
+import 'package:material_ui/material_ui.dart' hide TabBarView;
 
 Widget tabBarView({
   required List<Widget> children,

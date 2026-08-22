@@ -6,7 +6,7 @@ import 'package:PiliMax/models_new/msg/msgfeed_unread.dart';
 import 'package:PiliMax/pages/common/common_whisper_controller.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 import 'package:protobuf/protobuf.dart' show PbMap;
 

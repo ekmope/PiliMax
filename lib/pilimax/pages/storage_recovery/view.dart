@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/pilimax/utils/android/android_mmkv_box.dart';
 import 'package:PiliMax/pilimax/utils/android/android_mmkv_recovery.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 typedef AndroidMmkvRetryCallback = Future<void> Function();
 typedef AndroidMmkvResetCallback =

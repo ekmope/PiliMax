@@ -2,7 +2,7 @@ import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/pages/download/detail/widgets/item.dart';
 import 'package:PiliMax/services/download/download_service.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 

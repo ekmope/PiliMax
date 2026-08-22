@@ -768,7 +768,7 @@ class DownloadService extends GetxService {
         subtitleList.map((sub) async {
           if (sub.subtitleUrl?.isNotEmpty != true) return null;
           try {
-            return await VideoHttp.vttSubtitles(sub.subtitleUrl!);
+            return await VideoHttp.getSubtitles(sub.subtitleUrl!);
           } catch (_) {
             return null;
           }

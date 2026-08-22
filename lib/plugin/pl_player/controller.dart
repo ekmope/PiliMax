@@ -1546,11 +1546,8 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
-  Map<String, String>? _buffer;
-  Map<String, String> get buffer =>
-      _buffer ??= Pref.initBuffer(_playbackSpeed.value);
-  Map<String, String>? _liveBuffer;
-  Map<String, String> get liveBuffer => _liveBuffer ??= Pref.initLiveBuffer();
+  late final buffer = Pref.initBuffer(_playbackSpeed.value);
+  late final liveBuffer = Pref.initLiveBuffer();
 
   // 配置播放器
   Future<({Player player, Media media, String primarySource})?>
@@ -1584,17 +1581,14 @@ class PlPlayerController with BlockConfigMixin {
       }
     }
 
-    final Map<String, String> extras = {};
-
-    if (dataSource is FileSource) {
-      extras['cache'] = 'no';
-    } else {
-      if (isLive) {
-        extras.addAll(liveBuffer);
-      } else {
-        extras.addAll(buffer);
-      }
-    }
+    final Map<String, String> extras = {
+      if (dataSource is FileSource)
+        'cache': 'no'
+      else if (isLive)
+        ...liveBuffer
+      else
+        ...buffer,
+    };
 
     var primarySource = dataSource.videoSource;
     String video = primarySource;
@@ -1606,10 +1600,10 @@ class PlPlayerController with BlockConfigMixin {
         // EDL length fields are UTF-8 byte counts, not Dart string lengths.
         video =
             ('edl://'
-            '!no_clip;!no_chapters;'
+            '!no_chapters;'
             // '!delay_open,media_type=video;'
             '%${utf8.encode(video).length}%$video;'
-            '!new_stream;!no_clip;!no_chapters;'
+            '!new_stream;!no_chapters;'
             // '!delay_open,media_type=audio;'
             '%${utf8.encode(audio).length}%$audio');
       }
@@ -1936,7 +1930,10 @@ class PlPlayerController with BlockConfigMixin {
           final safePrefix = PlPlayerSourceErrorPolicy.sanitize(log.prefix);
           final safeText = PlPlayerSourceErrorPolicy.sanitize(log.text);
           if (log.level == 'error' || log.level == 'fatal') {
-            Utils.reportError('${log.level}: $safePrefix: $safeText', null);
+            Utils.reportError(
+              '${log.level}: $safePrefix: $safeText\n${player.state.playlist}',
+              null,
+            );
           } else {
             debugPrint('${log.level}: $safePrefix: $safeText');
           }
@@ -3018,11 +3015,6 @@ class PlPlayerController with BlockConfigMixin {
     );
   }
 
-  void setOnlyPlayAudio() {
-    onlyPlayAudio.value = !onlyPlayAudio.value;
-    applyOnlyPlayAudioTrack();
-  }
-
   late final Map<String, ui.Image?> previewCache = {};
   final PreviewRequestEpoch _previewRequestEpoch = PreviewRequestEpoch();
   LoadingState<VideoShotData>? videoShot;
@@ -3144,6 +3136,8 @@ class PlPlayerController with BlockConfigMixin {
                     bytes: bytes.buffer.asUint8List(),
                     fileName: 'screenshot_${sourceCid}_$time',
                   );
+                } else {
+                  SmartDialog.showToast('保存失败');
                 }
                 if (context.mounted) {
                   Navigator.of(context).pop();

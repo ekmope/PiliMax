@@ -104,9 +104,7 @@ class NetworkImgLayer extends StatelessWidget {
       clipBehavior: !clip || isEmote ? Clip.none : Clip.antiAlias,
       decoration: BoxDecoration(
         shape: clip && isAvatar ? BoxShape.circle : BoxShape.rectangle,
-        color: Theme.of(
-          context,
-        ).colorScheme.onInverseSurface.withValues(alpha: 0.4),
+        color: ColorScheme.of(context).onInverseSurface.withValues(alpha: 0.4),
         borderRadius: !clip || isEmote || isAvatar ? null : borderRadius,
       ),
       child: Center(

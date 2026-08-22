@@ -1,4 +1,5 @@
 import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
@@ -31,11 +32,11 @@ void addOpenOrSearchSelectionMenuItem(
         }
 
         final parameters = {'keyword': text};
-        if (Get.routing.route is PageRoute) {
-          Get.toNamed('/searchResult', parameters: parameters);
-        } else {
-          Get.offNamed('/searchResult', parameters: parameters);
-        }
+        Get.offOrToNamed(
+          '/searchResult',
+          parameters: parameters,
+          off: Get.routing.route is! PageRoute,
+        );
       },
     ),
   );

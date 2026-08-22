@@ -7,7 +7,6 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/dialog/report.dart';
-import 'package:PiliMax/common/widgets/emote_span.dart';
 import 'package:PiliMax/common/widgets/flutter/text/text.dart' as custom_text;
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
@@ -852,7 +851,7 @@ class ReplyItemGrpc extends StatelessWidget {
           final emote = content.emotes[matchStr]!;
           final size = emote.size.toInt() * 20.0;
           spanChildren.add(
-            EmoteSpan(
+            WidgetSpan(
               rawText: matchStr,
               child: NetworkImgLayer(
                 src: emote.hasWebpUrl()
@@ -869,7 +868,7 @@ class ReplyItemGrpc extends StatelessWidget {
         } else if (ReplyEmoteResolver.lookup(matchStr) case final fallback?) {
           // 接口或翻译结果缺 emotes 时，用官方表情表兜底渲染。
           spanChildren.add(
-            EmoteSpan(
+            WidgetSpan(
               rawText: matchStr,
               child: NetworkImgLayer(
                 src: fallback.url,

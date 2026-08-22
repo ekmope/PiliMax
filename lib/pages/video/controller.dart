@@ -688,7 +688,7 @@ class VideoDetailController extends GetxController
       );
       if (res case Success(:final response)) {
         if (response.mediaList.isEmpty && retryAttempt < 1) {
-          return _retryMediaListRequest(
+          return await _retryMediaListRequest(
             request: request,
             currentItems: currentItems,
             retryAttempt: retryAttempt,
@@ -711,7 +711,7 @@ class VideoDetailController extends GetxController
         return response.mediaList.isEmpty && applyResult.hasMoreShufflePages;
       } else if (_mediaListCoordinator.isRequestActive(request)) {
         if (retryAttempt < 1) {
-          return _retryMediaListRequest(
+          return await _retryMediaListRequest(
             request: request,
             currentItems: currentItems,
             retryAttempt: retryAttempt,
@@ -724,7 +724,7 @@ class VideoDetailController extends GetxController
       if (_mediaListCoordinator.isRequestActive(request)) {
         Utils.reportError(error, stackTrace);
         if (retryAttempt < 1) {
-          return _retryMediaListRequest(
+          return await _retryMediaListRequest(
             request: request,
             currentItems: currentItems,
             retryAttempt: retryAttempt,
@@ -760,7 +760,7 @@ class VideoDetailController extends GetxController
         mediaList: mediaList,
         onChangeEpisode: (episode, {bool manual = false}) async {
           try {
-            return Get.find<UgcIntroController>(
+            return await Get.find<UgcIntroController>(
               tag: heroTag,
             ).onChangeEpisode(episode, manual: manual);
           } catch (_) {}
@@ -1727,7 +1727,7 @@ class VideoDetailController extends GetxController
             )) {
           final playableDurl = durl;
           if (playableDurl.length > 1) {
-            final sb = StringBuffer('edl://!no_clip;!no_chapters;');
+            final sb = StringBuffer('edl://!no_chapters;');
             for (final segment in playableDurl) {
               final video = VideoUtils.getCdnUrl(
                 _usableMediaUrls(segment.playUrls),
@@ -1966,7 +1966,7 @@ class VideoDetailController extends GetxController
           final player = plPlayerController.videoPlayerController;
           return player == null ? null : _MediaKitVideoSubtitlePlayer(player);
         },
-        loadVtt: VideoHttp.vttSubtitles,
+        loadVtt: VideoHttp.getSubtitles,
       );
 
   void _invalidateSubtitleSelections() => _subtitleCoordinator.invalidate();

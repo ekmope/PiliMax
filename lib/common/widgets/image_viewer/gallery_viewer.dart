@@ -206,10 +206,17 @@ class _GalleryViewerState extends State<GalleryViewer>
 
   void _onBackGestureCommand() {
     if (!mounted) return;
-    // cancel (2) needs no handling: the system keeps reporting progress back
-    // to 0 through onBackGestureProgress, which springs the surface back.
     if (widget.backGestureCommand?.value == 1) {
-      _dismiss();
+      // The owning PageRoute commits the pop. Calling Navigator.pop here too
+      // races that transaction and can pop the underlying page or require a
+      // second swipe on Android.
+      _closing = true;
+    } else if (widget.backGestureCommand?.value == 2) {
+      _dragging = false;
+      _closing = false;
+      if (_animateController.value > 0) {
+        _animateController.reverse();
+      }
     }
   }
 

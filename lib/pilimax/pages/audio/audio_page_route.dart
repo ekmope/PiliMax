@@ -1,5 +1,8 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:get/get.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 
 const audioPageExitTransitionDuration = Duration(milliseconds: 400);
 
@@ -31,6 +34,18 @@ final class AudioPageRoute<T> extends GetPageRoute<T> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
+    // On Android, keep the framework predictive-back transition mounted for
+    // the whole gesture. Switching to the custom reverse tree as soon as the
+    // animation reports reverse breaks the gesture's progress/cancel path.
+    if (defaultTargetPlatform == TargetPlatform.android &&
+        Pref.enablePredictiveBack) {
+      return super.buildTransitions(
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
+    }
     if (animation.status == AnimationStatus.reverse) {
       _usingExitTransition = true;
     }

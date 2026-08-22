@@ -150,6 +150,10 @@ class _PredictiveBackDetectorState extends State<_PredictiveBackDetector>
     }
     widget.backGestureCommand?.value = 0;
     widget.backGestureProgress?.value = backEvent.progress;
+    // This route replaces the framework transition widget, so forward the
+    // lifecycle event to PageRoute as well. Without this, the gallery moves
+    // visually but Navigator never receives the predictive-back transaction.
+    widget.route.handleStartBackGesture(progress: 1 - backEvent.progress);
     _log('start -> ACCEPT (return true)');
     return true;
   }
@@ -158,18 +162,25 @@ class _PredictiveBackDetectorState extends State<_PredictiveBackDetector>
   void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
     _log('update: progress=${backEvent.progress}');
     widget.backGestureProgress?.value = backEvent.progress;
+    widget.route.handleUpdateBackGestureProgress(
+      progress: 1 - backEvent.progress,
+    );
   }
 
   @override
   void handleCancelBackGesture() {
     _log('cancel');
     widget.backGestureCommand?.value = 2;
+    widget.route.handleCancelBackGesture();
   }
 
   @override
   void handleCommitBackGesture() {
     _log('commit');
     widget.backGestureCommand?.value = 1;
+    // PageRoute performs the single Navigator.pop. GalleryViewer must not
+    // issue a second pop from its command listener.
+    widget.route.handleCommitBackGesture();
   }
 
   @override

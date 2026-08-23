@@ -398,17 +398,7 @@ class MainController extends GetxController
       } else {
         final pageController = controller as PageController;
         if (pageController.hasClients) {
-          if (animate) {
-            unawaited(
-              pageController.animateToPage(
-                value,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-              ),
-            );
-          } else {
-            pageController.jumpToPage(value);
-          }
+          pageController.jumpToPage(value);
         }
       }
       if (currentNav == NavigationBarType.home) {

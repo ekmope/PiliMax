@@ -1,0 +1,26 @@
+diff --git a/lib/get_navigation/src/routes/get_transition_mixin.dart b/lib/get_navigation/src/routes/get_transition_mixin.dart
+--- a/lib/get_navigation/src/routes/get_transition_mixin.dart
++++ b/lib/get_navigation/src/routes/get_transition_mixin.dart
+@@ -150,17 +150,17 @@ mixin GetPageRouteTransitionMixin<T> on PageRoute<T> {
+   ) {
+     switch (Get.defaultTransition) {
+       case Transition.native:
+         if (Platform.isIOS || Platform.isMacOS) {
+           return CupertinoRouteTransitionMixin.buildPageTransitions<T>(
+             rawRoute,
+             context,
+             animation,
+             secondaryAnimation,
+             child,
+           );
+         }
+-        return const ZoomPageTransitionsBuilder().buildTransitions(
++        return Theme.of(context).pageTransitionsTheme.buildTransitions<T>(
+           rawRoute,
+           context,
+           animation,
+           secondaryAnimation,
+           child,
+         );
+
+       case Transition.cupertino || Transition.cupertinoDialog:

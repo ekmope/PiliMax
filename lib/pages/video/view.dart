@@ -3245,7 +3245,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     final videoRenderObject = videoContext?.findRenderObject();
     if (playerController == null ||
         videoController == null ||
-        !VideoDetailExitSnapshotPolicy.shouldCapture() ||
+        !VideoDetailExitSnapshotPolicy.shouldCapture(
+          isPlaying: playerController.playerStatus.isPlaying,
+        ) ||
         playerController.isFullScreen.value ||
         playerController.isPipMode ||
         playerController.isDesktopPip ||
@@ -4702,7 +4704,9 @@ class _VideoDetailReturnMediaCover extends StatelessWidget {
           width: width,
           height: height,
           clip: false,
-          fit: BoxFit.cover,
+          // Keep the fallback frame intact; the surrounding black player
+          // surface supplies any status-bar or letterbox space.
+          fit: BoxFit.contain,
           fadeInDuration: Duration.zero,
           fadeOutDuration: Duration.zero,
         ),

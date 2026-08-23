@@ -765,10 +765,27 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
   }
 
   void _prepareSnapshotExit() {
-    // A video-detail exit must preserve one live page tree. Extracting a
-    // texture above a snapshot makes the media and the rest of the page use
-    // different geometry, which causes the visibly split return animation.
-    _endSnapshotExit();
+    // Freeze the expensive page layers once, then keep the decoded video
+    // texture live above that snapshot. If any geometry or capture step is
+    // unavailable, leave the route fully live instead of showing a partial
+    // or stale exit frame.
+    _exitVisual?.dispose();
+    final provider =
+        _arguments?[videoDetailExitVisualProviderKey]
+            as VideoDetailExitVisualProvider?;
+    final transitionRoot = _transitionRootKey.currentContext
+        ?.findRenderObject();
+    final visual = transitionRoot is RenderBox
+        ? provider?.call(transitionRoot)
+        : null;
+    if (visual?.isUsable == true) {
+      _exitVisual = visual;
+    } else {
+      visual?.dispose();
+      _exitVisual = null;
+    }
+    _exitTexture = _exitVisual?.buildLiveTexture();
+    _snapshotController.allowSnapshotting = _exitVisual != null;
   }
 
   void _endSnapshotExit() {
@@ -1154,11 +1171,6 @@ class VideoPageExitTransition extends StatelessWidget {
     required BorderRadius borderRadius,
     required double opacity,
   }) {
-    final textureRect = _mapRect(
-      visual.playerRect,
-      from: visual.clipRect,
-      to: rect,
-    );
     return ClipRect(
       clipper: _VideoExitRectClipper(visibleRect),
       clipBehavior: Clip.hardEdge,
@@ -1174,7 +1186,10 @@ class VideoPageExitTransition extends StatelessWidget {
                 rect: rect,
                 child: const ColoredBox(color: Colors.black),
               ),
-              Positioned.fromRect(rect: textureRect, child: texture),
+              // The black target surface supplies the status-bar/letterbox
+              // area. The live texture keeps its decoded aspect ratio inside
+              // that surface instead of being stretched into the card crop.
+              Positioned.fromRect(rect: rect, child: texture),
               for (final foreground in visual.foregrounds)
                 if (foreground.role == VideoDetailExitForegroundRole.media)
                   _mappedForegroundLayer(

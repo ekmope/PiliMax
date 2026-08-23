@@ -10,17 +10,17 @@ const videoDetailExitVisualProviderKey = '_videoDetailExitVisualProvider';
 typedef VideoDetailExitVisualProvider =
     VideoDetailExitVisual? Function(RenderBox transitionRoot);
 
-/// Snapshotting turns the route into a bitmap, which blurs the video and can
-/// freeze danmaku that becomes visible after exit preparation. Video details
-/// therefore always keep their original page subtree live while returning.
+/// Playing detail pages use one snapshot for the non-media layers while the
+/// decoded video texture remains live above it. This keeps predictive-back
+/// frames from repainting the full player, danmaku, and control tree.
 abstract final class VideoDetailExitSnapshotPolicy {
-  static bool shouldCapture() => false;
+  static bool shouldCapture({required bool isPlaying}) => isPlaying;
 }
 
 /// Player geometry captured when a video-detail exit starts.
 ///
-/// This remains available for non-live fallback callers. The normal video
-/// detail return intentionally keeps the original page subtree in place.
+/// This remains available for fallback callers and for the live media layer
+/// used above the playing-page snapshot.
 final class VideoDetailExitVisual {
   VideoDetailExitVisual({
     required this.playerRect,
@@ -186,12 +186,14 @@ class _VideoDetailLiveTexture extends StatelessWidget {
           flipX: visual.flipX,
           flipY: visual.flipY,
           child: FittedBox(
-            fit: visual.fit,
+            // Predictive return must preserve the decoded frame rather than
+            // applying the user's playback crop mode to the source card.
+            fit: BoxFit.contain,
             alignment: visual.alignment,
             child: SimpleVideo(
               key: ValueKey(('video-exit-texture', visual.controller.hashCode)),
               controller: visual.controller,
-              aspectRatio: visual.aspectRatio,
+              aspectRatio: null,
             ),
           ),
         ),

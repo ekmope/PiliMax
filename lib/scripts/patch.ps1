@@ -60,6 +60,9 @@ $DraggableScrollableSheetPatch = "lib/scripts/draggable_scrollable_sheet.patch"
 # Keep PiP-retained GetX controllers reusable after their route is removed.
 $GetxLifecyclePatch = "lib/scripts/getx_lifecycle.patch"
 
+# Restore Android predictive-back for standard GetPageRoute transitions.
+$GetxPredictiveBackPatch = "lib/scripts/getx_predictive_back.patch"
+
 $RefreshIndicatorPatch = "lib/scripts/refresh_indicator.patch"
 
 # TODO: remove
@@ -282,6 +285,9 @@ foreach ($patch in $MaterialPatches) {
 
 Set-Location $GetRoot
 if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $GetxLifecyclePatch) -Description "$GetxLifecyclePatch to get")) {
+    exit 1
+}
+if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $GetxPredictiveBackPatch) -Description "$GetxPredictiveBackPatch to get")) {
     exit 1
 }
 

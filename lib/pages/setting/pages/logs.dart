@@ -348,6 +348,33 @@ class _InfoCard extends StatelessWidget {
           iconButton(
             size: 34,
             iconSize: 22,
+            tooltip: '复制相关信息',
+            onPressed: () {
+              final report = Report(
+                '',
+                null,
+                DateTime(1970),
+                info.item.$1,
+                info.item.$2,
+                info.item.$3,
+                null,
+              ).formatInfo();
+              Utils.copyText(
+                LogRedactor.redactText('```\n$report```'),
+                needToast: false,
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('已将相关信息复制至剪贴板'),
+                  duration: _snackBarDisplayDuration,
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy_outlined, size: 16),
+          ),
+          iconButton(
+            size: 34,
+            iconSize: 22,
             tooltip: info.isExpanded ? '收起' : '展开',
             icon: Icon(
               info.isExpanded ? Icons.expand_less : Icons.expand_more,

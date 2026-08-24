@@ -650,6 +650,15 @@ abstract final class Pref {
     return _defaultPreferCodecs;
   }
 
+  /// Falls back to the Wi-Fi codec order until a cellular order is selected.
+  static List<VideoDecodeFormatType> get preferCodecsCellular {
+    final codecs = _setting.get(SettingBoxKey.preferCodecsCellular);
+    if (codecs is List) {
+      return codecs.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
+    }
+    return preferCodecs;
+  }
+
   static String get hardwareDecoding => _setting.get(
     SettingBoxKey.hardwareDecoding,
     defaultValue: Platform.isAndroid
@@ -1348,13 +1357,10 @@ abstract final class Pref {
         defaultValue: ReplySortType.hot.index,
       )];
 
-  /// Nested replies fall back to the main comment setting until customized.
+  /// Nested replies default to chronological order so reply chains stay intact.
   static ReplySortType get replyReplySortType =>
       ReplySortType.values[_setting.get(SettingBoxKey.replyReplySortType) ??
-          _setting.get(
-            SettingBoxKey.replySortType,
-            defaultValue: ReplySortType.hot.index,
-          )];
+          ReplySortType.time.index];
 
   static DynamicBadgeMode get dynamicBadgeMode =>
       DynamicBadgeMode.values[_setting.get(

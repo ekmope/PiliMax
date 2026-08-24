@@ -1630,6 +1630,7 @@ class VideoDetailController extends GetxController
       if (plPlayerController.cacheVideoQa == null) {
         final isWiFi = await ConnectivityUtils.isWiFi;
         if (!isCurrentQuery()) return;
+        preferCodecs = isWiFi ? Pref.preferCodecs : Pref.preferCodecsCellular;
         final fsQa = isWiFi ? Pref.defaultVideoQa : Pref.defaultVideoQaCellular;
         final halfScreenQa = Pref.defaultVideoQaHalfScreen;
         plPlayerController

@@ -15,7 +15,7 @@ class RankPage extends StatefulWidget {
 class _RankPageState extends State<RankPage>
     with AutomaticKeepAliveClientMixin {
   final RankController _rankController = Get.put(RankController());
-  
+
   /// Fixed width for the vertical tab rail to prevent unbounded constraints
   /// in Row layout. Without this, the ListView inside VerticalTabBar would
   /// request infinite horizontal space, causing layout failure.

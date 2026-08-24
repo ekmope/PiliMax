@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/grpc/dyn.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/msg.dart';
 import 'package:PiliMax/models/common/dynamic/dynamic_badge_mode.dart';
+import 'package:PiliMax/models/common/home_tab_type.dart';
 import 'package:PiliMax/models/common/msg/msg_unread_type.dart';
 import 'package:PiliMax/models/common/nav_bar_config.dart';
 import 'package:PiliMax/pages/dynamics/controller.dart';
@@ -266,7 +268,7 @@ class MainController extends GetxController
     }
     this.navigationBars = navigationBars;
     final defPage = Pref.defaultHomePage;
-    selectedIndex.value = navigationBars.indexOf(defPage);
+    selectedIndex.value = math.max(0, navigationBars.indexOf(defPage));
   }
 
   void checkDefaultSearch([bool shouldCheck = false]) {
@@ -439,6 +441,22 @@ class MainController extends GetxController
     } else if (currentNav == NavigationBarType.dynamics) {
       dynamicController.toTopOrRefresh();
     }
+  }
+
+  /// Refreshes the recommendation feed for the macOS Command+R shortcut.
+  bool refreshRecommendations() {
+    final index = selectedIndex.value;
+    final tabIndex = homeController.tabController.index;
+    if (index >= 0 &&
+        index < navigationBars.length &&
+        tabIndex >= 0 &&
+        tabIndex < homeController.tabs.length &&
+        navigationBars[index] == NavigationBarType.home &&
+        homeController.tabs[tabIndex] == HomeTabType.rcmd) {
+      homeController.onRefresh();
+      return true;
+    }
+    return false;
   }
 
   void setSearchBar() {

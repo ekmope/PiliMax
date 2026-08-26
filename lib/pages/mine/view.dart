@@ -239,7 +239,7 @@ class _MediaPageState extends CommonPageState<MinePage>
               iconSize: iconSize,
               padding: padding,
               style: style,
-              tooltip: '切换至${controller.nextThemeType.desc}主题',
+              tooltip: '切换至${controller.nextThemeType.label}主题',
               onPressed: controller.onChangeTheme,
               icon: controller.themeType.value.icon,
             );
@@ -552,7 +552,9 @@ class _MediaPageState extends CommonPageState<MinePage>
                       child: IconButton(
                         tooltip: '查看更多',
                         style: ButtonStyle(
-                          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+                          padding: const WidgetStatePropertyAll(
+                            EdgeInsets.zero,
+                          ),
                           backgroundColor: WidgetStatePropertyAll(
                             theme.colorScheme.secondaryContainer.withValues(
                               alpha: 0.5,

@@ -240,13 +240,13 @@ List<SettingsModel> get styleSettings => [
   NormalModel(
     title: '动态未读标记',
     leading: const Icon(Icons.motion_photos_on_outlined),
-    getSubtitle: () => '当前标记样式：${Pref.dynamicBadgeMode.desc}',
+    getSubtitle: () => '当前标记样式：${Pref.dynamicBadgeMode.label}',
     onTap: _showDynBadgeDialog,
   ),
   NormalModel(
     title: '消息未读标记',
     leading: const Icon(MdiIcons.bellBadgeOutline),
-    getSubtitle: () => '当前标记样式：${Pref.msgBadgeMode.desc}',
+    getSubtitle: () => '当前标记样式：${Pref.msgBadgeMode.label}',
     onTap: _showMsgBadgeDialog,
   ),
   NormalModel(
@@ -967,7 +967,7 @@ Future<void> _showDynBadgeDialog(
     builder: (context) => SelectDialog<DynamicBadgeMode>(
       title: '动态未读标记',
       value: Pref.dynamicBadgeMode,
-      values: DynamicBadgeMode.values.map((e) => (e, e.desc)).toList(),
+      values: DynamicBadgeMode.values.map((e) => (e, e.label)).toList(),
     ),
   );
   if (res != null) {
@@ -991,7 +991,7 @@ Future<void> _showMsgBadgeDialog(
     builder: (context) => SelectDialog<DynamicBadgeMode>(
       title: '消息未读标记',
       value: Pref.msgBadgeMode,
-      values: DynamicBadgeMode.values.map((e) => (e, e.desc)).toList(),
+      values: DynamicBadgeMode.values.map((e) => (e, e.label)).toList(),
     ),
   );
   if (res != null) {

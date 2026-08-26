@@ -17,8 +17,7 @@ import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/widget_ext.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
-    hide ExtendedVisibilityDetector;
+import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
 import 'package:fixnum/fixnum.dart' show Int64;
 import 'package:material_ui/material_ui.dart';
@@ -398,7 +397,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
               icon: Icon(Icons.sort, size: 16, color: colorScheme.secondary),
               label: Obx(
                 () => Text(
-                  _controller.sortType.value.text!,
+                  _controller.sortType.value.label,
                   style: TextStyle(fontSize: 13, color: colorScheme.secondary),
                 ),
               ),

@@ -91,7 +91,7 @@ class PopupModel<T extends EnumWithLabel> extends SettingsModel {
   final String title;
 
   final ValueGetter<T> value;
-  final List<T> items;
+  final Iterable<T> items;
   final PopupMenuItemSelected<T> onSelected;
 
   @override

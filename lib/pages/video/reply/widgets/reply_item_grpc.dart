@@ -48,6 +48,7 @@ import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/theme_utils.dart';
 import 'package:PiliMax/utils/url_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
@@ -1220,13 +1221,19 @@ class ReplyItemGrpc extends StatelessWidget {
             ListTile(
               onTap: () {
                 Get.back();
+                final oid = item.oid;
+                final rpid = item.id;
                 autoWrapReportDialog(
                   context,
                   ReportOptions.commentReport,
+                  withContent: ReportOptions.withContentReply,
+                  contentRequired: ReportOptions.contentRequiredReply,
+                  reportUrl:
+                      'https://www.bilibili.com/h5/comment/report?oid=$oid&pageType=${item.type}&rpid=$rpid&platform=android&build=8430300&${ThemeUtils.themeUrl(colorScheme.isDark)}',
                   (reasonType, reasonDesc, banUid) async {
                     final res = await ReplyHttp.report(
-                      rpid: item.id,
-                      oid: item.oid,
+                      rpid: rpid,
+                      oid: oid,
                       reasonType: reasonType,
                       reasonDesc: reasonDesc,
                       banUid: banUid,

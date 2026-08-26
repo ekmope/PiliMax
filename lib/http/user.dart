@@ -1,4 +1,4 @@
-﻿import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/pilimax/http/web_request_headers.dart';
 import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -37,7 +37,10 @@ abstract final class UserHttp {
   // }
 
   static Future<LoadingState<UserInfoData>> userInfo() async {
-    final res = await Request().get(Api.userInfo, options: WebRequestHeaders.browser);
+    final res = await Request().get(
+      Api.userInfo,
+      options: WebRequestHeaders.browser,
+    );
     if (res.data['code'] == 0) {
       UserInfoData data = UserInfoData.fromJson(res.data['data']);
       GlobalData().coins = data.money;
@@ -418,7 +421,7 @@ abstract final class UserHttp {
         "accused_uid": mid,
         "dynamic_id": dynId,
         "reason_type": reasonType,
-        "reason_desc": reasonType == 0 ? reasonDesc : null,
+        "reason_desc": reasonDesc,
       },
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );

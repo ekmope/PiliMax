@@ -548,18 +548,23 @@ List<SettingsModel> get extraSettings => [
     leading: Icon(Icons.more_time_outlined),
     onTap: _showReplyDelayDialog,
   ),
-  NormalModel(
+  PopupModel(
     title: '评论展示',
     leading: const Icon(Icons.whatshot_outlined),
-    getSubtitle: () => '当前优先展示「${Pref.replySortType.title}」',
-    onTap: _showReplySortDialog,
+    value: () => Pref.replySortType,
+    items: ReplySortType.values.take(2),
+    onSelected: (value, setState) => GStorage.setting
+        .put(SettingBoxKey.replySortType, value.index)
+        .whenComplete(setState),
   ),
-  NormalModel(
-    title: '楼中楼展示',
-    subtitle: '单独设置楼中楼回复的默认排序',
+  PopupModel(
+    title: '楼中楼评论展示',
     leading: const Icon(Icons.forum_outlined),
-    getSubtitle: () => '当前优先展示「${Pref.replyReplySortType.title}」',
-    onTap: _showReplyReplySortDialog,
+    value: () => Pref.replyReplySortType,
+    items: ReplySortType.values.take(2),
+    onSelected: (value, setState) => GStorage.setting
+        .put(SettingBoxKey.replyReplySortType, value.index)
+        .whenComplete(setState),
   ),
   NormalModel(
     title: '动态展示',
@@ -1071,42 +1076,6 @@ Future<void> _showReplyDelayDialog(
     await GStorage.setting.put(SettingBoxKey.retryDelay, res.toInt());
     setState();
     SmartDialog.showToast('重启生效');
-  }
-}
-
-Future<void> _showReplySortDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<ReplySortType>(
-    context: context,
-    builder: (context) => SelectDialog<ReplySortType>(
-      title: '评论展示',
-      value: Pref.replySortType,
-      values: ReplySortType.values.take(2).map((e) => (e, e.title)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.replySortType, res.index);
-    setState();
-  }
-}
-
-Future<void> _showReplyReplySortDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<ReplySortType>(
-    context: context,
-    builder: (context) => SelectDialog<ReplySortType>(
-      title: '楼中楼展示',
-      value: Pref.replyReplySortType,
-      values: ReplySortType.values.take(2).map((e) => (e, e.title)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.replyReplySortType, res.index);
-    setState();
   }
 }
 

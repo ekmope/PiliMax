@@ -7,6 +7,7 @@ import 'package:PiliMax/main.dart';
 import 'package:PiliMax/models/common/webview_menu_type.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
+import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/login_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
@@ -37,7 +38,8 @@ class WebviewPage extends StatefulWidget {
 }
 
 class _WebviewPageState extends State<WebviewPage> {
-  late final String _url = widget.url ?? Get.parameters['url'] ?? '';
+  late final String _url =
+      (widget.url ?? Get.parameters['url'])?.http2https ?? '';
   late final String userAgent;
   final RxString title = ''.obs;
   final RxDouble progress = 1.0.obs;

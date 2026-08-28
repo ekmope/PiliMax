@@ -427,18 +427,27 @@ class _MainAppState extends PopScopeState<MainApp>
     }
   }
 
+  double? _opacity;
+
+  Future<void>? _setOpacity(double opacity) {
+    if (Platform.isWindows && _opacity != opacity) {
+      _opacity = opacity;
+      return windowManager.setOpacity(opacity);
+    }
+    return null;
+  }
+
+  @override
+  Future<void>? onWindowFocus() => _setOpacity(1.0);
+
   /// Hide the Windows window without leaving a stale opaque surface behind.
   Future<void> _hide() async {
-    if (Platform.isWindows) {
-      await windowManager.setOpacity(0.0);
-    }
+    await _setOpacity(0.0);
     await windowManager.hide();
   }
 
   Future<void> _show() async {
-    if (Platform.isWindows) {
-      await windowManager.setOpacity(1.0);
-    }
+    await _setOpacity(1.0);
     await windowManager.show();
   }
 

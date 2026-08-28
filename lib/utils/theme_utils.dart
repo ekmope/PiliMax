@@ -90,7 +90,11 @@ abstract final class ThemeUtils {
         actionTextColor: colorScheme.primary,
         backgroundColor: colorScheme.secondaryContainer,
         closeIconColor: colorScheme.secondary,
-        contentTextStyle: TextStyle(color: colorScheme.onSecondaryContainer),
+        contentTextStyle: TextStyle(
+          color: colorScheme.onSecondaryContainer,
+          fontFamily: customFontFamily,
+          fontWeight: fontWeight,
+        ),
         elevation: 20,
       ),
       popupMenuTheme: PopupMenuThemeData(
@@ -133,9 +137,11 @@ abstract final class ThemeUtils {
       // ignore: deprecated_member_use
       sliderTheme: const SliderThemeData(year2023: false),
       tooltipTheme: TooltipThemeData(
-        textStyle: const TextStyle(
+        textStyle: TextStyle(
           color: Colors.white,
           fontSize: 14,
+          fontFamily: customFontFamily,
+          fontWeight: fontWeight,
         ),
         decoration: BoxDecoration(
           color: Colors.grey[700]!.withValues(alpha: 0.9),

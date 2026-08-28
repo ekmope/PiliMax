@@ -6,6 +6,7 @@ import 'package:PiliMax/pages/common/multi_select/base.dart'
     show MultiSelectData;
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/route_manager.dart';
@@ -144,6 +145,15 @@ class BiliDownloadEntryInfo with MultiSelectData {
                       SmartDialog.showToast(e.toString());
                     }
                   },
+                ),
+              if (!PlatformUtils.isDesktop)
+                PopupMenuItem(
+                  height: 38,
+                  child: const Text(
+                    '复制缓存路径',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  onTap: () => Utils.copyText(entryDirPath),
                 ),
               if (ownerId case final mid?)
                 PopupMenuItem(

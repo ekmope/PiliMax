@@ -495,7 +495,31 @@ class _EpisodePanelState extends State<EpisodePanel>
                             bottom: 6.0,
                             type: PBadgeType.gray,
                           ),
-                        if (isCharging == true)
+                        if (widget.type == EpisodeType.part)
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.secondaryContainer,
+                                borderRadius: const BorderRadius.only(
+                                  bottomLeft: Radius.circular(4),
+                                  topRight: Style.imgRadius,
+                                ),
+                              ),
+                              child: Text(
+                                '${index + 1}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.colorScheme.onSecondaryContainer,
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (isCharging == true)
                           const PBadge(
                             text: '充电专属',
                             top: 6,

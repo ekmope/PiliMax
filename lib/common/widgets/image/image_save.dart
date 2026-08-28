@@ -11,6 +11,8 @@ import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/num_utils.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
@@ -267,6 +269,14 @@ class _CoverPreviewDialogState extends State<_CoverPreviewDialog> {
                               ),
                             },
                             icon: const Icon(Icons.watch_later_outlined),
+                          ),
+                        if (PlatformUtils.isDesktop &&
+                            coverUrl?.isNotEmpty == true)
+                          iconButton(
+                            iconSize: iconSize,
+                            tooltip: '复制链接',
+                            onPressed: () => Utils.copyText(coverUrl!),
+                            icon: const Icon(Icons.copy),
                           ),
                       ],
                     ),

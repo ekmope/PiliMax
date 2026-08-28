@@ -26,12 +26,11 @@ abstract final class LoginUtils {
     final webManager = web.CookieManager.instance(
       webViewEnvironment: webViewEnvironment,
     );
-    final isWindows = Platform.isWindows;
     return Future.wait(
       cookies.map(
         (cookie) => webManager.setCookie(
           url: web.WebUri(
-            '${isWindows ? 'https://' : ''} ${cookie.domain}',
+            '${Platform.isWindows ? 'https://' : ''}${cookie.domain}',
           ),
           name: cookie.name,
           value: cookie.value,

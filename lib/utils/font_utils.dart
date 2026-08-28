@@ -1,10 +1,11 @@
 import 'dart:ffi';
-import 'dart:io';
+
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, debugPrint, kDebugMode;
 
 import 'package:PiliMax/utils/android/bindings.g.dart';
 import 'package:PiliMax/utils/fontconfig.g.dart';
 import 'package:ffi/ffi.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:jni/jni.dart';
 import 'package:win32/win32.dart';
@@ -16,9 +17,12 @@ abstract final class FontUtils {
   static Set<String> getFont() {
     if (_initialized) return _fonts;
     _initialized = true;
-    if (!((Platform.isAndroid && _initAndroid()) ||
-        (Platform.isWindows && _initWindows()) ||
-        (Platform.isLinux && _initLinux()))) {
+    if (!switch (defaultTargetPlatform) {
+      .android => _initAndroid(),
+      .windows => _initWindows(),
+      .linux => _initLinux(),
+      _ => true,
+    }) {
       // TODO: ios/macos CTFontManagerCopyAvailableFontFamilyNames
       SmartDialog.showToast('加载系统字体失败');
     }

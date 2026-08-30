@@ -259,16 +259,18 @@ class ImageGridView extends StatelessWidget {
                   const PBadge(text: '长图', right: 8, bottom: 8),
               ],
             );
-            child = Hero(
-              tag: ImageHeroTag.item(
-                scope: _heroBaseTag,
-                url: item.url,
-                index: index,
-              ),
-              transitionOnUserGestures: true,
-              createRectTween: createEndRectTween,
-              child: child,
-            );
+            if (!item.isLongPic) {
+              child = Hero(
+                tag: ImageHeroTag.item(
+                  scope: _heroBaseTag,
+                  url: item.url,
+                  index: index,
+                ),
+                transitionOnUserGestures: true,
+                createRectTween: createEndRectTween,
+                child: child,
+              );
+            }
             child = Semantics(
               label: '图片，第 ${index + 1} 张，共 ${picArr.length} 张',
               button: true,

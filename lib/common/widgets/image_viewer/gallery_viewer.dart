@@ -501,6 +501,7 @@ class _GalleryViewerState extends State<GalleryViewer>
           maxScale: widget.maxScale,
           sourceWidth: item.width,
           sourceHeight: item.height,
+          isLongPic: item.isLongPic,
           containerSize: _containerSize,
           doubleTapGestureRecognizer: _doubleTapGestureRecognizer,
           horizontalDragGestureRecognizer: _horizontalDragGestureRecognizer,
@@ -525,6 +526,7 @@ class _GalleryViewerState extends State<GalleryViewer>
                   maxScale: widget.maxScale,
                   sourceWidth: item.width,
                   sourceHeight: item.height,
+                  isLongPic: item.isLongPic,
                   containerSize: _containerSize,
                   onDragStart: null,
                   onDragUpdate: null,
@@ -585,6 +587,13 @@ class _GalleryViewerState extends State<GalleryViewer>
             url: item.url,
             index: index,
           );
+    if (item.isLongPic) {
+      // The grid thumbnail is intentionally capped in height. A standard
+      // Hero RectTween would therefore scale that cropped rectangle
+      // non-uniformly into the full long image. Let the viewer open in place
+      // until a ratio-preserving long-image shuttle is available.
+      return child;
+    }
     return Hero(
       tag: tag,
       transitionOnUserGestures: true,

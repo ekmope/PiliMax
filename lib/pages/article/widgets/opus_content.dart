@@ -274,6 +274,7 @@ class OpusContent extends StatelessWidget {
                     index: imageIndex < 0 ? 0 : imageIndex,
                   ),
                   transitionOnUserGestures: true,
+                  isLongPic: pic.isLongPic ?? false,
                   child: child,
                 );
                 return GestureDetector(

@@ -4,12 +4,15 @@ Widget fromHero({
   required Object tag,
   required Widget child,
   bool transitionOnUserGestures = true,
-}) => Hero(
-  tag: tag,
-  transitionOnUserGestures: transitionOnUserGestures,
-  createRectTween: createEndRectTween,
-  child: child,
-);
+  bool isLongPic = false,
+}) => isLongPic
+    ? child
+    : Hero(
+        tag: tag,
+        transitionOnUserGestures: transitionOnUserGestures,
+        createRectTween: createEndRectTween,
+        child: child,
+      );
 
 RectTween createEndRectTween(Rect? begin, Rect? end) {
   // Keep the actual source and destination bounds. A synthetic centered rect

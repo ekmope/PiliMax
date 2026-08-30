@@ -2367,8 +2367,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                           'stable-video-surface',
                           currentVideoController,
                           plPlayerController.activeSourceGeneration,
-                          finalWidth,
-                          finalHeight,
                           sourceRevision,
                           plPlayerController.isLive,
                         ),
@@ -2377,9 +2375,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       sourceGeneration:
                           plPlayerController.activeSourceGeneration,
                       viewportSize: Size(finalWidth, finalHeight),
-                      requireFirstFrame:
-                          plPlayerController.isLive ||
-                          plPlayerController.playerStatus.isPlaying,
+                      // Playback state must not recreate the native surface.
+                      // A paused video should keep its last rendered frame.
+                      requireFirstFrame: plPlayerController.isLive,
                       placeholder: ColoredBox(color: widget.fill),
                       child: videoChild,
                     );
@@ -2857,13 +2855,13 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
   void didUpdateWidget(covariant _StableVideoSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.controller, widget.controller) ||
-        oldWidget.sourceGeneration != widget.sourceGeneration ||
-        oldWidget.requireFirstFrame != widget.requireFirstFrame) {
+        oldWidget.sourceGeneration != widget.sourceGeneration) {
       _attachController();
     } else if (oldWidget.viewportSize != widget.viewportSize) {
       // didUpdateWidget is part of the parent's build; defer the visual
-      // invalidation to the next check instead of calling setState here.
-      _resetStability(notify: false);
+      // geometry check to the next frame. Keep an already visible surface
+      // while the native texture reports its transient resize rect.
+      _resetStability(notify: false, preserveSurface: true);
       _scheduleCheck();
     }
   }
@@ -2962,14 +2960,14 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
     _trackingGeneration++;
   }
 
-  void _resetStability({bool notify = true}) {
+  void _resetStability({bool notify = true, bool preserveSurface = false}) {
     _stableFrames = 0;
     _previousRect = null;
     _previousTextureId = null;
     _previousWidth = null;
     _previousHeight = null;
     _startProbeTimer();
-    if (!_surfaceReady) {
+    if (!_surfaceReady || preserveSurface) {
       return;
     }
     _surfaceReady = false;
@@ -3062,7 +3060,7 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
           (controller.player.state.playing &&
               !controller.player.state.buffering);
       if (!geometryReady || !playbackReady || !_firstFrameReady) {
-        _resetStability();
+        _resetStability(preserveSurface: _hasShownSurface);
         return;
       }
       final sameGeometry =
@@ -3075,13 +3073,10 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
         _stableFrames++;
       } else {
         _stableFrames = 1;
-        if (_surfaceReady) {
-          // A successful surface stops polling. Geometry changes are still
-          // delivered by the native listeners, but a final event is not
-          // guaranteed after rotation/PiP, so resume the bounded probe here.
-          _startProbeTimer();
-          setState(() => _surfaceReady = false);
-        }
+        // Keep the previous surface visible while fullscreen/rotation/PiP
+        // settles. Clearing it here produces a black placeholder and can
+        // expose a transient right-bottom texture on the next frame.
+        _startProbeTimer();
       }
       _previousRect = rect;
       _previousTextureId = textureId;

@@ -38,6 +38,7 @@ class Image extends StatefulWidget {
     this.filterQuality = FilterQuality.medium,
     this.sourceWidth,
     this.sourceHeight,
+    this.isLongPic,
     required this.minScale,
     required this.maxScale,
     required this.containerSize,
@@ -72,6 +73,7 @@ class Image extends StatefulWidget {
     this.filterQuality = FilterQuality.medium,
     this.sourceWidth,
     this.sourceHeight,
+    this.isLongPic,
     this.isAntiAlias = false,
     Map<String, String>? headers,
     int? cacheWidth,
@@ -123,6 +125,7 @@ class Image extends StatefulWidget {
     this.filterQuality = FilterQuality.medium,
     this.sourceWidth,
     this.sourceHeight,
+    this.isLongPic,
     int? cacheWidth,
     int? cacheHeight,
     required this.minScale,
@@ -173,6 +176,7 @@ class Image extends StatefulWidget {
     this.filterQuality = FilterQuality.medium,
     this.sourceWidth,
     this.sourceHeight,
+    this.isLongPic,
     int? cacheWidth,
     int? cacheHeight,
     required this.minScale,
@@ -223,6 +227,7 @@ class Image extends StatefulWidget {
     this.filterQuality = FilterQuality.medium,
     this.sourceWidth,
     this.sourceHeight,
+    this.isLongPic,
     int? cacheWidth,
     int? cacheHeight,
     required this.minScale,
@@ -265,6 +270,10 @@ class Image extends StatefulWidget {
   /// They keep long-image layout and Hero geometry stable during opening.
   final int? sourceWidth;
   final int? sourceHeight;
+
+  /// Whether the source is known to be a long image. When supplied, this
+  /// metadata wins over dimensions reported by a quality thumbnail.
+  final bool? isLongPic;
 
   final BlendMode? colorBlendMode;
 
@@ -608,32 +617,28 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
       // }
     }
 
-    final imgWidth =
-        _imageInfo?.image.width.toDouble() ??
-        widget.sourceWidth?.toDouble() ??
-        0.0;
-    final imgHeight =
-        _imageInfo?.image.height.toDouble() ??
-        widget.sourceHeight?.toDouble() ??
-        0.0;
+    final decodedWidth = _imageInfo?.image.width.toDouble() ?? 0.0;
+    final decodedHeight = _imageInfo?.image.height.toDouble() ?? 0.0;
+    final sourceWidth = widget.sourceWidth?.toDouble() ?? 0.0;
+    final sourceHeight = widget.sourceHeight?.toDouble() ?? 0.0;
+    final hasSourceDimensions = sourceWidth > 0 && sourceHeight > 0;
+    final imgWidth = hasSourceDimensions ? sourceWidth : decodedWidth;
+    final imgHeight = hasSourceDimensions ? sourceHeight : decodedHeight;
     final Size childSize;
-    final bool isLongPic;
+    final bool calculatedLongPic;
     double? minScale, maxScale;
-    final hasSourceDimensions =
-        (_imageInfo != null && imgWidth > 0 && imgHeight > 0) ||
-        ((widget.sourceWidth ?? 0) > 0 && (widget.sourceHeight ?? 0) > 0);
-    if (hasSourceDimensions) {
+    if (imgWidth > 0 && imgHeight > 0) {
       final hasViewport =
           widget.containerSize.width.isFinite &&
           widget.containerSize.height.isFinite &&
           widget.containerSize.width > 0 &&
           widget.containerSize.height > 0;
       final imgRatio = imgWidth > 0 ? imgHeight / imgWidth : 0.0;
-      isLongPic =
+      calculatedLongPic =
           hasViewport &&
           imgRatio > Style.imgMaxRatio &&
           imgHeight > widget.containerSize.height;
-      if (isLongPic) {
+      if (calculatedLongPic) {
         final compatWidth = math.min(650.0, widget.containerSize.width);
         // The long-image child is laid out at the viewport width in the
         // OverflowBox below, so derive the initial scale from that same base
@@ -645,8 +650,9 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
       childSize = Size(imgWidth, imgHeight);
     } else {
       childSize = .zero;
-      isLongPic = false;
+      calculatedLongPic = false;
     }
+    final isLongPic = widget.isLongPic ?? calculatedLongPic;
     final rawImage = RawImage(
       image: _imageInfo?.image,
       // Never stretch decoded pixels. Long images use an explicit display

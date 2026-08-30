@@ -540,10 +540,10 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                       .toList(),
                   initialPage: index,
                 ),
-                child: Hero(
+                child: fromHero(
                   tag: pic.url!,
                   transitionOnUserGestures: true,
-                  createRectTween: createEndRectTween,
+                  isLongPic: pic.isLongPic == true,
                   child: Stack(
                     clipBehavior: .none,
                     alignment: Alignment.center,

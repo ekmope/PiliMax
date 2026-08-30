@@ -867,6 +867,17 @@ class PlPlayerController with BlockConfigMixin {
 
   int? get activeSourceGeneration => _activeSourceGeneration;
 
+  /// Drop the texture geometry published by the previous source before a
+  /// replacement is opened. The native controller may reuse the same texture
+  /// id, so leaving the old rect in place lets the Flutter surface expose a
+  /// stale frame during the handoff.
+  void _clearVideoSurfaceBinding() {
+    final controller = _videoController;
+    if (controller == null) return;
+    controller.id.value = null;
+    controller.rect.value = null;
+  }
+
   bool isSourceOwnerActive(Object sourceOwner) =>
       _sourceCoordinator.isOwnerActive(sourceOwner);
 
@@ -1165,6 +1176,7 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _handleSourceInvalidated() {
+    _clearVideoSurfaceBinding();
     sourceRevision.value++;
     _livePlaybackRequested = false;
     _livePausedForInterruption = false;
@@ -1689,6 +1701,7 @@ class PlPlayerController with BlockConfigMixin {
     // coordinator generation. Invalidate the Flutter surface gate before the
     // request enters the serialized queue so the old frame cannot remain
     // visible while an earlier operation is draining.
+    _clearVideoSurfaceBinding();
     sourceRevision.value++;
     return _sourceCoordinator.refresh(
       generation: generation,

@@ -36,6 +36,8 @@ class Image extends StatefulWidget {
     this.gaplessPlayback = false,
     this.isAntiAlias = false,
     this.filterQuality = FilterQuality.medium,
+    this.sourceWidth,
+    this.sourceHeight,
     required this.minScale,
     required this.maxScale,
     required this.containerSize,
@@ -68,6 +70,8 @@ class Image extends StatefulWidget {
     this.matchTextDirection = false,
     this.gaplessPlayback = false,
     this.filterQuality = FilterQuality.medium,
+    this.sourceWidth,
+    this.sourceHeight,
     this.isAntiAlias = false,
     Map<String, String>? headers,
     int? cacheWidth,
@@ -117,6 +121,8 @@ class Image extends StatefulWidget {
     this.gaplessPlayback = false,
     this.isAntiAlias = false,
     this.filterQuality = FilterQuality.medium,
+    this.sourceWidth,
+    this.sourceHeight,
     int? cacheWidth,
     int? cacheHeight,
     required this.minScale,
@@ -165,6 +171,8 @@ class Image extends StatefulWidget {
     this.isAntiAlias = false,
     String? package,
     this.filterQuality = FilterQuality.medium,
+    this.sourceWidth,
+    this.sourceHeight,
     int? cacheWidth,
     int? cacheHeight,
     required this.minScale,
@@ -213,6 +221,8 @@ class Image extends StatefulWidget {
     this.gaplessPlayback = false,
     this.isAntiAlias = false,
     this.filterQuality = FilterQuality.medium,
+    this.sourceWidth,
+    this.sourceHeight,
     int? cacheWidth,
     int? cacheHeight,
     required this.minScale,
@@ -250,6 +260,11 @@ class Image extends StatefulWidget {
   final Animation<double>? opacity;
 
   final FilterQuality filterQuality;
+
+  /// Dimensions reported by the API before the first decoded frame arrives.
+  /// They keep long-image layout and Hero geometry stable during opening.
+  final int? sourceWidth;
+  final int? sourceHeight;
 
   final BlendMode? colorBlendMode;
 
@@ -593,12 +608,21 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
       // }
     }
 
-    final imgWidth = _imageInfo?.image.width.toDouble() ?? 0.0;
-    final imgHeight = _imageInfo?.image.height.toDouble() ?? 0.0;
+    final imgWidth =
+        _imageInfo?.image.width.toDouble() ??
+        widget.sourceWidth?.toDouble() ??
+        0.0;
+    final imgHeight =
+        _imageInfo?.image.height.toDouble() ??
+        widget.sourceHeight?.toDouble() ??
+        0.0;
     final Size childSize;
     final bool isLongPic;
     double? minScale, maxScale;
-    if (_imageInfo != null) {
+    final hasSourceDimensions =
+        (_imageInfo != null && imgWidth > 0 && imgHeight > 0) ||
+        ((widget.sourceWidth ?? 0) > 0 && (widget.sourceHeight ?? 0) > 0);
+    if (hasSourceDimensions) {
       final hasViewport =
           widget.containerSize.width.isFinite &&
           widget.containerSize.height.isFinite &&
@@ -625,7 +649,10 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
     }
     final rawImage = RawImage(
       image: _imageInfo?.image,
-      fit: isLongPic ? BoxFit.fill : BoxFit.contain,
+      // Never stretch decoded pixels. Long images use an explicit display
+      // size below, but contain remains the final guard when dimensions are
+      // unavailable during the first frame.
+      fit: BoxFit.contain,
       alignment: isLongPic ? Alignment.topCenter : Alignment.center,
     );
     final Widget imageChild;
@@ -646,7 +673,7 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
           image: _imageInfo?.image,
           width: displayWidth,
           height: displayHeight,
-          fit: BoxFit.fill,
+          fit: BoxFit.contain,
           alignment: Alignment.topCenter,
         ),
       );

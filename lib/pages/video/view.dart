@@ -101,15 +101,13 @@ import 'package:get/get.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
 
-typedef VideoDetailInitialVisualReady =
-    void Function(
-      VideoDetailSession session,
-    );
+typedef VideoDetailInitialVisualReady = void Function(
+  VideoDetailSession session,
+);
 
-typedef VideoDetailInitialLayoutReady =
-    void Function(
-      VideoDetailSession session,
-    );
+typedef VideoDetailInitialLayoutReady = void Function(
+  VideoDetailSession session,
+);
 
 class VideoDetailPageV extends StatefulWidget {
   const VideoDetailPageV({
@@ -238,6 +236,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   // restore animation and page attachment handshake both complete.
   bool _pipRestoreInFlight = false;
   int _pipRestoreRectAttempts = 0;
+  Timer? _pipRestoreFallbackTimer;
   final _pageRootKey = GlobalKey();
 
   // intro ctr
@@ -579,6 +578,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   void _schedulePipRestoreAttach() {
     _pipRestoreRectAttempts = 0;
+    _pipRestoreFallbackTimer?.cancel();
+    _pipRestoreFallbackTimer = Timer(const Duration(milliseconds: 2300), () {
+      if (!mounted || !_pipRestoreInFlight) return;
+      // PipTransitionCoordinator uses a two-second restore handshake. Reveal
+      // the page even if an overlay callback is lost during route teardown.
+      setState(() => _pipRestoreInFlight = false);
+      _resetEnteringPipFlags();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _attachPipRestore());
   }
 
@@ -594,6 +601,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     PipOverlayService.transition.attachRestorePage(
       targetRect: targetRect,
       onCompleted: () {
+        _pipRestoreFallbackTimer?.cancel();
+        _pipRestoreFallbackTimer = null;
         if (!mounted) {
           _pipRestoreInFlight = false;
           return;
@@ -1983,6 +1992,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   @override
   void dispose() {
+    _pipRestoreFallbackTimer?.cancel();
+    _pipRestoreFallbackTimer = null;
     _fullScreenExitSettleGeneration++;
     _fullScreenExitSettleTimer?.cancel();
     _fullScreenExitSettleTimer = null;
@@ -2295,6 +2306,13 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         return;
       }
       plPlayerController = videoDetailController.plPlayerController;
+      // Recovery can complete without the normal onInit callback (for
+      // example when a controller is recreated after PiP). Reveal the page
+      // once the current route owns the restored player so it cannot remain
+      // permanently hidden behind SizedBox.shrink().
+      videoDetailController.videoState
+        ..value = true
+        ..refresh();
     } else {
       // 场景 3：直接恢复关联的小窗/后台播放器，确保界面正常显示
       // 小窗可能刚刚被关闭（OverlayEntry 移除），延迟一帧再展开主页播放器，

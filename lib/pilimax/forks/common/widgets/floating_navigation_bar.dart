@@ -774,7 +774,10 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     final defaultIconTheme = navigationBarTheme.iconTheme;
     final inactiveTheme =
         defaultIconTheme?.resolve(const <WidgetState>{}) ??
-        IconThemeData(color: colorScheme.onSurfaceVariant, size: 24);
+        IconThemeData(
+          color: colorScheme.onSurface.withValues(alpha: 0.82),
+          size: 24,
+        );
     final activeTheme =
         defaultIconTheme?.resolve(const <WidgetState>{WidgetState.selected}) ??
         IconThemeData(color: colorScheme.onSecondaryContainer, size: 24);
@@ -1012,17 +1015,20 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         navigationBarTheme.surfaceTintColor ??
         colorScheme.surfaceTint;
     final defaultGlassColor = colorScheme.surfaceContainer.withValues(
-      alpha: isDark ? 0.22 : 0.24,
+      alpha: isDark ? 0.22 : 0.32,
     );
     final glassColor =
         widget.backgroundColor ??
         Color.alphaBlend(
-          tintColor.withValues(alpha: isDark ? 0.06 : 0.035),
-          defaultGlassColor,
+          tintColor.withValues(alpha: isDark ? 0.06 : 0.05),
+          Color.alphaBlend(
+            isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.06),
+            defaultGlassColor,
+          ),
         );
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.30)
-        : colorScheme.outline.withValues(alpha: 0.24);
+        : colorScheme.outlineVariant.withValues(alpha: 0.52);
     final effectiveShadowColor =
         widget.shadowColor ??
         navigationBarTheme.shadowColor ??
@@ -1037,7 +1043,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                 Colors.white.withValues(alpha: 0.10),
               )
             : Color.alphaBlend(
-                colorScheme.primary.withValues(alpha: 0.16),
+                colorScheme.primary.withValues(alpha: 0.24),
                 colorScheme.surfaceContainerHighest,
               ));
     final effectiveIndicatorShape =

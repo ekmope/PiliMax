@@ -23,6 +23,7 @@ import 'package:PiliMax/pilimax/common/widgets/flutter/page/page_view.dart';
 import 'package:PiliMax/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image_viewer/image.dart';
 import 'package:PiliMax/common/widgets/image_viewer/image_hero_tag.dart';
+import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
 import 'package:PiliMax/common/widgets/image_viewer/loading_indicator.dart';
 import 'package:PiliMax/common/widgets/image_viewer/viewer.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
@@ -77,8 +78,9 @@ class GalleryViewer extends StatefulWidget {
   final String? heroScope;
   final String tag;
 
-  /// Android predictive-back gesture progress [0,1]; drives the gallery's own
-  /// mask fade + image scale so the surface follows the finger.
+  /// Android predictive-back gesture progress [0,1]. The owning route uses it
+  /// for lifecycle coordination; the image itself is animated by Hero so it
+  /// can return to its source thumbnail instead of shrinking to screen center.
   final ValueNotifier<double>? backGestureProgress;
 
   /// 0 = idle, 1 = commit (pop), 2 = cancel (spring back).
@@ -194,14 +196,7 @@ class _GalleryViewerState extends State<GalleryViewer>
       ),
     );
 
-    widget.backGestureProgress?.addListener(_onBackGestureProgress);
     widget.backGestureCommand?.addListener(_onBackGestureCommand);
-  }
-
-  void _onBackGestureProgress() {
-    if (!mounted) return;
-    final progress = widget.backGestureProgress?.value ?? 0.0;
-    _animateController.value = progress.clamp(0.0, 1.0);
   }
 
   void _onBackGestureCommand() {
@@ -346,7 +341,6 @@ class _GalleryViewerState extends State<GalleryViewer>
 
   @override
   void dispose() {
-    widget.backGestureProgress?.removeListener(_onBackGestureProgress);
     widget.backGestureCommand?.removeListener(_onBackGestureCommand);
     _player?.dispose();
     _player = null;
@@ -505,6 +499,8 @@ class _GalleryViewerState extends State<GalleryViewer>
           image: CachedNetworkImageProvider(_getActualUrl(item.url)),
           minScale: widget.minScale,
           maxScale: widget.maxScale,
+          sourceWidth: item.width,
+          sourceHeight: item.height,
           containerSize: _containerSize,
           doubleTapGestureRecognizer: _doubleTapGestureRecognizer,
           horizontalDragGestureRecognizer: _horizontalDragGestureRecognizer,
@@ -527,6 +523,8 @@ class _GalleryViewerState extends State<GalleryViewer>
                   ),
                   minScale: widget.minScale,
                   maxScale: widget.maxScale,
+                  sourceWidth: item.width,
+                  sourceHeight: item.height,
                   containerSize: _containerSize,
                   onDragStart: null,
                   onDragUpdate: null,
@@ -589,6 +587,8 @@ class _GalleryViewerState extends State<GalleryViewer>
           );
     return Hero(
       tag: tag,
+      transitionOnUserGestures: true,
+      createRectTween: createEndRectTween,
       child: child,
     );
   }

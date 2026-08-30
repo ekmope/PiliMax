@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
@@ -89,6 +90,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   bool _pipRestoreInFlight = false;
   int _pipRestoreRectAttempts = 0;
+  Timer? _pipRestoreFallbackTimer;
   final _pageRootKey = GlobalKey();
 
   Rect? _livePlayerRect({bool relativeToPage = false}) {
@@ -115,6 +117,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   void _scheduleLivePipRestoreAttach() {
     _pipRestoreRectAttempts = 0;
+    _pipRestoreFallbackTimer?.cancel();
+    _pipRestoreFallbackTimer = Timer(const Duration(milliseconds: 2300), () {
+      if (!mounted || !_pipRestoreInFlight) return;
+      // The overlay coordinator has a two-second handshake timeout. Always
+      // reveal the page after that boundary so a missed callback cannot leave
+      // the live room black indefinitely.
+      setState(() => _pipRestoreInFlight = false);
+    });
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _attachLivePipRestore(),
     );
@@ -132,6 +142,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     LivePipOverlayService.transition.attachRestorePage(
       targetRect: targetRect,
       onCompleted: () {
+        _pipRestoreFallbackTimer?.cancel();
+        _pipRestoreFallbackTimer = null;
         if (!mounted) {
           _pipRestoreInFlight = false;
           return;
@@ -358,6 +370,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   @override
   void dispose() {
+    _pipRestoreFallbackTimer?.cancel();
+    _pipRestoreFallbackTimer = null;
     final isInLivePip = LivePipOverlayService.isCurrentLiveRoom(
       _liveRoomController.roomId,
     );

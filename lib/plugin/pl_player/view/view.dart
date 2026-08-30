@@ -2377,7 +2377,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       sourceGeneration:
                           plPlayerController.activeSourceGeneration,
                       viewportSize: Size(finalWidth, finalHeight),
-                      requireFirstFrame: plPlayerController.isLive,
+                      requireFirstFrame:
+                          plPlayerController.isLive ||
+                          plPlayerController.playerStatus.isPlaying,
                       placeholder: ColoredBox(color: widget.fill),
                       child: videoChild,
                     );
@@ -3039,12 +3041,18 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
       final width = controller.player.state.width;
       final height = controller.player.state.height;
       final geometryReady =
+          widget.sourceGeneration != null &&
           textureId != null &&
+          textureId >= 0 &&
           rect != null &&
           !rect.isEmpty &&
           rect.isFinite &&
+          rect.width > 2 &&
+          rect.height > 2 &&
           width > 0 &&
-          height > 0;
+          height > 0 &&
+          width > 1 &&
+          height > 1;
       // Once a valid frame is on screen, keep it during a short pause or
       // rebuffering period. Hiding the surface on every buffering event made
       // a live room flash black even though playback could recover normally.

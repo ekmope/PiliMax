@@ -23,6 +23,7 @@ class DynamicsTabController
   int? mid;
   bool _pendingRefresh = false;
   Completer<void>? _pendingRefreshCompleter;
+  Timer? _pendingRefreshTimer;
   Future<void>? _activeQuery;
   Future<void>? _activeRefresh;
   bool _drainingPendingRefresh = false;
@@ -83,7 +84,17 @@ class DynamicsTabController
     }
     if (isLoading || _activeQuery != null || _activeRefresh != null) {
       _pendingRefresh = true;
-      return (_pendingRefreshCompleter ??= Completer<void>()).future;
+      final completer = _pendingRefreshCompleter ??= Completer<void>();
+      _pendingRefreshTimer ??= Timer(const Duration(seconds: 45), () {
+        _pendingRefreshTimer = null;
+        _pendingRefresh = false;
+        final pending = _pendingRefreshCompleter;
+        _pendingRefreshCompleter = null;
+        if (pending != null && !pending.isCompleted) {
+          pending.complete();
+        }
+      });
+      return completer.future;
     }
     return _performRefresh();
   }
@@ -131,6 +142,8 @@ class DynamicsTabController
     try {
       while (_pendingRefresh && !_closing) {
         _pendingRefresh = false;
+        _pendingRefreshTimer?.cancel();
+        _pendingRefreshTimer = null;
         final pendingCompleter = _pendingRefreshCompleter;
         _pendingRefreshCompleter = null;
         try {
@@ -213,6 +226,8 @@ class DynamicsTabController
   void onClose() {
     _closing = true;
     _pendingRefresh = false;
+    _pendingRefreshTimer?.cancel();
+    _pendingRefreshTimer = null;
     final pendingCompleter = _pendingRefreshCompleter;
     _pendingRefreshCompleter = null;
     if (pendingCompleter != null && !pendingCompleter.isCompleted) {

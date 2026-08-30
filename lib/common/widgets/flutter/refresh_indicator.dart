@@ -4,7 +4,7 @@
 
 // ignore_for_file: prefer_initializing_formals
 
-import 'dart:async' show Completer;
+import 'dart:async' show Completer, unawaited;
 
 import 'package:PiliMax/common/widgets/scroll_behavior.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart'
@@ -210,6 +210,7 @@ class RefreshIndicator extends StatefulWidget {
 /// programmatically show the refresh indicator, see the [show] method.
 class RefreshIndicatorState extends State<RefreshIndicator>
     with TickerProviderStateMixin<RefreshIndicator> {
+  static const _refreshTimeout = Duration(seconds: 45);
   late AnimationController _positionController;
   late AnimationController _scaleController;
   late Animation<double> _positionFactor;
@@ -434,6 +435,15 @@ class RefreshIndicatorState extends State<RefreshIndicator>
     }
   }
 
+  void _finishRefresh(Completer<void> completer) {
+    if (!completer.isCompleted) {
+      completer.complete();
+    }
+    if (mounted && _status == RefreshIndicatorStatus.refresh) {
+      unawaited(_dismiss(RefreshIndicatorStatus.done));
+    }
+  }
+
   void _show() {
     assert(_status != RefreshIndicatorStatus.refresh);
     assert(_status != RefreshIndicatorStatus.snap);
@@ -457,12 +467,18 @@ class RefreshIndicatorState extends State<RefreshIndicator>
               _status = RefreshIndicatorStatus.refresh;
             });
 
-            widget.onRefresh().whenComplete(() {
-              if (mounted && _status == RefreshIndicatorStatus.refresh) {
-                completer.complete();
-                _dismiss(RefreshIndicatorStatus.done);
-              }
-            });
+            // A stalled network request must not leave the indicator in the
+            // refresh state forever. Future.sync also catches callbacks that
+            // throw before returning their Future.
+            unawaited(
+              Future<void>.sync(widget.onRefresh)
+                  .timeout(_refreshTimeout)
+                  .then<void>(
+                    (_) => _finishRefresh(completer),
+                    onError: (Object error, StackTrace stackTrace) =>
+                        _finishRefresh(completer),
+                  ),
+            );
           }
         });
   }

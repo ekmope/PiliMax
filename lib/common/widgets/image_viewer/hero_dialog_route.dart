@@ -16,9 +16,9 @@ class HeroDialogRoute<T> extends PageRoute<T> {
 
   final RoutePageBuilder pageBuilder;
 
-  /// Advances [0,1] as the Android predictive-back gesture moves. The gallery
-  /// listens to this and drives its own mask fade + image scale so the whole
-  /// surface follows the finger without a route-level page-scale transition.
+  /// Advances [0,1] as the Android predictive-back gesture moves. Kept for
+  /// callers that need to observe the gesture; the route animation and Hero
+  /// flight now own the visual transition.
   final ValueNotifier<double>? backGestureProgress;
 
   /// 0 = idle, 1 = commit (pop), 2 = cancel (spring back).

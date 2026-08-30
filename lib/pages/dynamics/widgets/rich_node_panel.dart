@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/image_grid/image_grid_view.dart';
@@ -289,7 +290,16 @@ TextSpan? richNode(
                             : 'dynamic:${item.idStr}:rich:$currentNodeIndex';
                         PageUtils.imageView(
                           imgList: list
-                              .map((e) => SourceModel(url: e.src!))
+                              .map(
+                                (e) => SourceModel(
+                                  url: e.src!,
+                                  width: e.width?.toInt(),
+                                  height: e.height?.toInt(),
+                                  isLongPic:
+                                      ((e.height ?? 0) / (e.width ?? 1)) >
+                                      Style.imgMaxRatio,
+                                ),
+                              )
                               .toList(),
                           heroScope: heroScope,
                         );

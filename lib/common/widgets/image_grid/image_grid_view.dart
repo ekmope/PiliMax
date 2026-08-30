@@ -23,6 +23,7 @@ import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/image_grid/image_grid_builder.dart';
 import 'package:PiliMax/common/widgets/image_viewer/image_hero_tag.dart';
+import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -93,8 +94,8 @@ class ImageGridView extends StatelessWidget {
           sourceType: isLive ? .livePhoto : .networkImage,
           url: item.url,
           liveUrl: isLive ? item.liveUrl : null,
-          width: isLive ? item.width.toInt() : null,
-          height: isLive ? item.height.toInt() : null,
+          width: item.width > 1 ? item.width.toInt() : null,
+          height: item.height > 1 ? item.height.toInt() : null,
           isLongPic: item.isLongPic,
         );
       },
@@ -264,6 +265,8 @@ class ImageGridView extends StatelessWidget {
                 url: item.url,
                 index: index,
               ),
+              transitionOnUserGestures: true,
+              createRectTween: createEndRectTween,
               child: child,
             );
             child = Semantics(

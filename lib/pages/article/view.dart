@@ -6,6 +6,7 @@ import 'package:PiliMax/pilimax/common/widgets/flutter/page/page_view.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
+import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_to_box_adapter.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
@@ -527,11 +528,22 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                 behavior: .opaque,
                 onTap: () => PageUtils.imageView(
                   quality: 60,
-                  imgList: pics.map((e) => SourceModel(url: e.url!)).toList(),
+                  imgList: pics
+                      .map(
+                        (e) => SourceModel(
+                          url: e.url!,
+                          width: e.width?.toInt(),
+                          height: e.height?.toInt(),
+                          isLongPic: e.isLongPic ?? false,
+                        ),
+                      )
+                      .toList(),
                   initialPage: index,
                 ),
                 child: Hero(
                   tag: pic.url!,
+                  transitionOnUserGestures: true,
+                  createRectTween: createEndRectTween,
                   child: Stack(
                     clipBehavior: .none,
                     alignment: Alignment.center,

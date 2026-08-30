@@ -100,6 +100,7 @@ final class VideoReturnTarget {
     this.mediaRect,
     this.mediaVisibleRect,
     this.mediaBorderRadius,
+    this.surfaceColor,
   });
 
   final Rect rect;
@@ -113,6 +114,10 @@ final class VideoReturnTarget {
   final Rect? mediaRect;
   final Rect? mediaVisibleRect;
   final BorderRadius? mediaBorderRadius;
+
+  /// Surface color behind the source media. The predictive exit uses this
+  /// instead of a detached black status-bar block while the media morphs.
+  final Color? surfaceColor;
 
   bool get hasMediaTarget =>
       mediaRect?.isEmpty == false && mediaVisibleRect?.isEmpty == false;
@@ -545,6 +550,7 @@ abstract final class VideoTransitionRegistry {
       mediaBorderRadius: hasVisibleMediaRect
           ? source.resolvedMediaBorderRadius()
           : null,
+      surfaceColor: source.resolvedSurfaceColor(),
     );
   }
 

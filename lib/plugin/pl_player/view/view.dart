@@ -1580,6 +1580,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       key: _playerKey,
       children: <Widget>[
         _videoWidget,
+        if (widget.danmuWidget case final danmaku?)
+          Positioned.fill(top: 4, child: danmaku),
         Positioned.fill(
           child: VideoDetailExitCaptureBoundary(
             key: widget.transitionForegroundKey,
@@ -1587,9 +1589,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               fit: StackFit.expand,
               clipBehavior: Clip.none,
               children: <Widget>[
-                if (widget.danmuWidget case final danmaku?)
-                  Positioned.fill(top: 4, child: danmaku),
-
                 if (!isLive && !widget.isInAppPip)
                   Positioned.fill(
                     child: IgnorePointer(

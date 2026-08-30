@@ -998,7 +998,7 @@ class VideoPageExitTransition extends StatelessWidget {
                 child,
                 if (exitVisual case final visual?)
                   Positioned.fromRect(
-                    rect: visual.clipRect,
+                    rect: visual.playerRect,
                     child: const ColoredBox(color: Colors.black),
                   ),
                 if ((exitVisual, exitTexture) case (
@@ -1006,7 +1006,7 @@ class VideoPageExitTransition extends StatelessWidget {
                   final texture?,
                 ))
                   ClipRect(
-                    clipper: _VideoExitRectClipper(visual.clipRect),
+                    clipper: _VideoExitRectClipper(visual.playerRect),
                     clipBehavior: Clip.hardEdge,
                     child: Stack(
                       fit: StackFit.expand,
@@ -1049,9 +1049,16 @@ class VideoPageExitTransition extends StatelessWidget {
   }) {
     final targetMediaRect = target.mediaRect!;
     final targetMediaVisibleRect = target.mediaVisibleRect!;
+    // The player surface can include the status-bar/header inset while the
+    // transition video rect is the actual decoded media. Start the media
+    // morph from the latter so the top inset never becomes part of the live
+    // video surface.
+    final sourceMediaRect = visual.playerRect.isEmpty
+        ? visual.clipRect
+        : visual.playerRect;
     final transformedPlayerRect = MatrixUtils.transformRect(
       geometry.contentTransform,
-      visual.clipRect,
+      sourceMediaRect,
     );
     final transformedVisibleRect = transformedPlayerRect.intersect(
       geometry.visibleClipRect,
@@ -1083,7 +1090,12 @@ class VideoPageExitTransition extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _bodyPageLayer(geometry, visual),
+        _bodyPageLayer(
+          geometry,
+          visual,
+          maskRect: _inverseTransformRect(geometry.contentTransform, mediaRect),
+          maskColor: target.surfaceColor ?? Colors.black,
+        ),
         if (!mediaRect.isEmpty && !mediaVisibleRect.isEmpty)
           _mediaPageLayer(
             visual: visual,
@@ -1092,6 +1104,7 @@ class VideoPageExitTransition extends StatelessWidget {
             visibleRect: mediaVisibleRect,
             borderRadius: mediaBorderRadius,
             opacity: 1 - mediaHandoff,
+            surfaceColor: target.surfaceColor ?? Colors.black,
           ),
         if (visual.foregrounds.any(
           (foreground) => foreground.role == VideoDetailExitForegroundRole.body,
@@ -1103,8 +1116,10 @@ class VideoPageExitTransition extends StatelessWidget {
 
   Widget _bodyPageLayer(
     _VideoExitGeometry geometry,
-    VideoDetailExitVisual visual,
-  ) {
+    VideoDetailExitVisual visual, {
+    Rect? maskRect,
+    Color maskColor = Colors.black,
+  }) {
     return ClipRect(
       clipper: _VideoExitRectClipper(geometry.visibleClipRect),
       clipBehavior: progress <= 0 ? Clip.none : Clip.hardEdge,
@@ -1122,8 +1137,8 @@ class VideoPageExitTransition extends StatelessWidget {
               children: [
                 child,
                 Positioned.fromRect(
-                  rect: visual.clipRect,
-                  child: const ColoredBox(color: Colors.black),
+                  rect: maskRect ?? visual.clipRect,
+                  child: ColoredBox(color: maskColor),
                 ),
               ],
             ),
@@ -1170,6 +1185,7 @@ class VideoPageExitTransition extends StatelessWidget {
     required Rect visibleRect,
     required BorderRadius borderRadius,
     required double opacity,
+    required Color surfaceColor,
   }) {
     return ClipRect(
       clipper: _VideoExitRectClipper(visibleRect),
@@ -1184,11 +1200,11 @@ class VideoPageExitTransition extends StatelessWidget {
             children: [
               Positioned.fromRect(
                 rect: rect,
-                child: const ColoredBox(color: Colors.black),
+                child: ColoredBox(color: surfaceColor),
               ),
-              // The black target surface supplies the status-bar/letterbox
-              // area. The live texture keeps its decoded aspect ratio inside
-              // that surface instead of being stretched into the card crop.
+              // The source surface supplies any contain letterbox area. The
+              // live texture keeps its decoded aspect ratio inside that
+              // surface instead of being stretched into the card crop.
               Positioned.fromRect(rect: rect, child: texture),
               for (final foreground in visual.foregrounds)
                 if (foreground.role == VideoDetailExitForegroundRole.media)
@@ -1304,6 +1320,15 @@ class VideoPageExitTransition extends StatelessWidget {
       to.left + (rect.right - from.left) * scaleX,
       to.top + (rect.bottom - from.top) * scaleY,
     );
+  }
+
+  static Rect _inverseTransformRect(Matrix4 transform, Rect rect) {
+    final inverse = transform.clone();
+    final determinant = inverse.invert();
+    if (determinant == 0 || !determinant.isFinite) {
+      return rect;
+    }
+    return MatrixUtils.transformRect(inverse, rect);
   }
 
   static double _maxRadius(BorderRadius radius) => [

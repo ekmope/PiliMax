@@ -828,7 +828,8 @@ class VideoDetailHeroShell extends StatefulWidget {
 
 class _VideoDetailHeroShellState extends State<VideoDetailHeroShell>
     with SingleTickerProviderStateMixin {
-  static const _shimmerDuration = Duration(milliseconds: 1200);
+  static const _shimmerDuration = Duration(milliseconds: 800);
+  static const _shimmerInitialValue = 0.2;
 
   final VideoDetailUgcTitleHeightCache _ugcTitleHeightCache =
       VideoDetailUgcTitleHeightCache();
@@ -848,7 +849,9 @@ class _VideoDetailHeroShellState extends State<VideoDetailHeroShell>
     }
     _shimmerEnabled = shouldAnimate;
     if (shouldAnimate) {
-      _shimmerController.repeat();
+      _shimmerController
+        ..value = _shimmerInitialValue
+        ..repeat(min: _shimmerInitialValue);
     } else {
       _shimmerController
         ..stop()
@@ -947,6 +950,7 @@ class _VideoDetailHeroShellState extends State<VideoDetailHeroShell>
               hasEpisodePanel: widget.hasEpisodePanel,
               ugcTitleHeight: ugcTitleHeight,
               shimmer: _shimmerController,
+              shimmerViewportWidth: width,
             ),
           ),
         );
@@ -1050,6 +1054,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     required this.hasEpisodePanel,
     required this.ugcTitleHeight,
     required this.shimmer,
+    required this.shimmerViewportWidth,
   }) : super(repaint: shimmer);
 
   final ColorScheme colorScheme;
@@ -1075,6 +1080,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   final bool hasEpisodePanel;
   final double ugcTitleHeight;
   final Animation<double> shimmer;
+  final double shimmerViewportWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1394,10 +1400,10 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
               layout.followRect,
               const Radius.circular(6),
             ),
-            Paint()
-              ..color = colorScheme.secondaryContainer.withValues(
-                alpha: 0.72 * detailSurfaceOpacity,
-              ),
+            _coloredSkeletonPaint(
+              color: colorScheme.secondaryContainer,
+              opacity: detailSurfaceOpacity,
+            ),
           );
         _drawBar(
           canvas,
@@ -1620,10 +1626,10 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         );
         canvas.drawRRect(
           RRect.fromRectAndRadius(followRect, const Radius.circular(6)),
-          Paint()
-            ..color = colorScheme.secondaryContainer.withValues(
-              alpha: 0.72 * detailSurfaceOpacity,
-            ),
+          _coloredSkeletonPaint(
+            color: colorScheme.secondaryContainer,
+            opacity: detailSurfaceOpacity,
+          ),
         );
 
         const authorX = padding + avatarDiameter + 10;
@@ -1765,10 +1771,10 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
             ),
             const Radius.circular(8),
           ),
-          Paint()
-            ..color = colorScheme.secondaryContainer.withValues(
-              alpha: 0.72 * detailSurfaceOpacity,
-            ),
+          _coloredSkeletonPaint(
+            color: colorScheme.secondaryContainer,
+            opacity: detailSurfaceOpacity,
+          ),
         );
         _drawBar(
           canvas,
@@ -1935,7 +1941,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         surfaceRect,
         const Radius.circular(VideoDetailLayoutMetrics.seasonPanelRadius),
       ),
-      Paint()..color = colorScheme.onInverseSurface.withValues(alpha: opacity),
+      _seasonPanelPaint(opacity),
     );
 
     final contentLeft =
@@ -1975,7 +1981,11 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         centerY,
       ),
       VideoDetailLayoutMetrics.seasonPanelStatusIconExtent / 2,
-      Paint()..color = colorScheme.primary.withValues(alpha: 0.46 * opacity),
+      _coloredSkeletonPaint(
+        color: colorScheme.primary,
+        opacity: opacity,
+        baseOpacity: 0.46,
+      ),
     );
     _drawBar(
       canvas,
@@ -2246,33 +2256,80 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   }
 
   Paint _skeletonPaint(double opacity) => _shimmerPaint(
-    colorScheme.onSurfaceVariant.withValues(alpha: 0.17 * opacity),
+    baseColor: colorScheme.onSurfaceVariant,
+    baseOpacity: 0.17 * opacity,
+    highlightOpacity: 0.56 * opacity,
   );
 
   Paint _subtlePaint(double opacity) => _shimmerPaint(
-    colorScheme.onSurfaceVariant.withValues(alpha: 0.11 * opacity),
+    baseColor: colorScheme.onSurfaceVariant,
+    baseOpacity: 0.11 * opacity,
+    highlightOpacity: 0.48 * opacity,
   );
 
   Paint _thumbnailPaint(double opacity) => _shimmerPaint(
-    colorScheme.surfaceContainerHighest.withValues(alpha: 0.92 * opacity),
+    baseColor: colorScheme.surfaceContainerHighest,
+    baseOpacity: 0.92 * opacity,
+    highlightOpacity: 0.98 * opacity,
   );
 
-  Paint _shimmerPaint(Color color) {
-    const bandWidth = 168.0;
-    const travelDistance = 1680.0;
-    final center = -bandWidth + shimmer.value * travelDistance;
-    final highlight = Color.lerp(
-      color,
-      colorScheme.onSurface.withValues(alpha: color.a),
-      0.22,
-    )!;
+  Paint _coloredSkeletonPaint({
+    required Color color,
+    required double opacity,
+    double baseOpacity = 0.72,
+  }) => _shimmerPaint(
+    baseColor: color,
+    baseOpacity: baseOpacity * opacity,
+    highlightOpacity: 0.98 * opacity,
+  );
+
+  Paint _seasonPanelPaint(double opacity) {
+    final baseColor = colorScheme.onInverseSurface;
+    return _shimmerPaint(
+      baseColor: baseColor,
+      highlightColor: Color.lerp(
+        baseColor,
+        colorScheme.onSurfaceVariant,
+        0.18,
+      )!,
+      baseOpacity: opacity,
+      highlightOpacity: opacity,
+    );
+  }
+
+  Paint _shimmerPaint({
+    required Color baseColor,
+    Color? highlightColor,
+    required double baseOpacity,
+    required double highlightOpacity,
+  }) {
+    final resolvedBaseOpacity = baseOpacity.clamp(0.0, 1.0).toDouble();
+    final resolvedHighlightOpacity = highlightOpacity
+        .clamp(0.0, 1.0)
+        .toDouble();
+    final resolvedHighlightColor =
+        highlightColor ?? _brightShimmerColor(baseColor);
+    final sweepWidth = math.max(1.0, shimmerViewportWidth);
+    final bandWidth = (sweepWidth * 0.32).clamp(96.0, 220.0).toDouble();
+    final center = -bandWidth + shimmer.value * (sweepWidth + 2 * bandWidth);
+    final base = baseColor.withValues(alpha: resolvedBaseOpacity);
+    final highlight = resolvedHighlightColor.withValues(
+      alpha: resolvedHighlightOpacity,
+    );
     return Paint()
       ..shader = ui.Gradient.linear(
         Offset(center - bandWidth, 0),
         Offset(center + bandWidth, 0),
-        <Color>[color, color, highlight, color, color],
-        <double>[0, 0.34, 0.5, 0.66, 1],
+        <Color>[base, base, highlight, base, base],
+        <double>[0, 0.3, 0.5, 0.7, 1],
       );
+  }
+
+  Color _brightShimmerColor(Color baseColor) {
+    final highlightTarget = colorScheme.brightness == Brightness.dark
+        ? colorScheme.onSurface
+        : colorScheme.surface;
+    return Color.lerp(baseColor, highlightTarget, 0.78)!;
   }
 
   static void _drawBar(Canvas canvas, Rect rect, Paint paint) {
@@ -2309,7 +2366,8 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         actionCount != oldDelegate.actionCount ||
         hasEpisodePanel != oldDelegate.hasEpisodePanel ||
         ugcTitleHeight != oldDelegate.ugcTitleHeight ||
-        shimmer != oldDelegate.shimmer;
+        shimmer != oldDelegate.shimmer ||
+        shimmerViewportWidth != oldDelegate.shimmerViewportWidth;
   }
 }
 

@@ -145,8 +145,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   late AnimationController _animationController;
   late VideoController videoController;
-  VideoController? _firstFrameTrackedController;
-  final ValueNotifier<bool> _liveFirstFrameReady = ValueNotifier<bool>(false);
   late final CommonIntroController introController = widget.introController!;
   late final VideoDetailController videoDetailController =
       widget.videoDetailController!;
@@ -414,7 +412,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   @override
   void dispose() {
     removeObserverMobile(this);
-    _liveFirstFrameReady.dispose();
     _brightnessTimer?.cancel();
     _danmakuListener?.cancel();
     _tapGestureRecognizer.dispose();
@@ -2280,34 +2277,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
     return child;
   }
 
-  /// Tracks the native first-frame signal for live playback. A live stream can
-  /// report valid video geometry before the SurfaceTexture has actually
-  /// uploaded its first frame; rendering the [Texture] in that window samples a
-  /// stale/zero buffer into a zoomed quadrant. Waiting for the real first-frame
-  /// notification keeps the surface hidden (and lets the room cover show
-  /// through) until the decoded frame is genuinely ready.
-  void _ensureLiveFirstFrameTracking(VideoController controller) {
-    if (identical(_firstFrameTrackedController, controller)) {
-      return;
-    }
-    _firstFrameTrackedController = controller;
-    // Reset outside the build phase: this may be invoked from the widget's
-    // Obx builder and setting the ValueNotifier synchronously here would fire
-    // the listener (and markNeedsBuild) during build. A microtask runs after
-    // the current build but before a completed first-frame future's `.then`,
-    // so an already-rendered (reused) live controller still ends up ready.
-    Future.microtask(() {
-      if (mounted && identical(_firstFrameTrackedController, controller)) {
-        _liveFirstFrameReady.value = false;
-      }
-    });
-    controller.waitUntilFirstFrameRendered.then((_) {
-      if (mounted && identical(_firstFrameTrackedController, controller)) {
-        _liveFirstFrameReady.value = true;
-      }
-    });
-  }
-
   Widget get _videoWidget {
     final videoKey = widget.transitionVideoKey ?? _videoKey;
     // 使用 LayoutBuilder 动态捕获当前渲染容器的真实约束。
@@ -2387,23 +2356,24 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                         ),
                       ),
                     );
-                    if (!plPlayerController.isLive) {
-                      // Non-live detail pages already gate the surface through
-                      // their own handoff cover; keep the original rendering
-                      // path so that carefully tuned reveal timing is untouched.
-                      return videoChild;
-                    }
-                    _ensureLiveFirstFrameTracking(currentVideoController);
-                    return ValueListenableBuilder<bool>(
-                      valueListenable: _liveFirstFrameReady,
-                      builder: (context, firstFrameReady, _) {
-                        if (!firstFrameReady) {
-                          // Transparent until the first frame is uploaded; the
-                          // room cover / loading indicator stays visible.
-                          return const SizedBox.shrink();
-                        }
-                        return videoChild;
-                      },
+                    return _StableVideoSurface(
+                      key: ValueKey(
+                        (
+                          'stable-video-surface',
+                          currentVideoController,
+                          plPlayerController.activeSourceGeneration,
+                          finalWidth,
+                          finalHeight,
+                          plPlayerController.isLive,
+                        ),
+                      ),
+                      controller: currentVideoController,
+                      sourceGeneration:
+                          plPlayerController.activeSourceGeneration,
+                      viewportSize: Size(finalWidth, finalHeight),
+                      requireFirstFrame: plPlayerController.isLive,
+                      placeholder: ColoredBox(color: widget.fill),
+                      child: videoChild,
                     );
                   },
                 ),
@@ -2812,6 +2782,253 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       ),
     );
   }
+}
+
+/// Keeps a native video texture hidden until its geometry has settled. Native
+/// surfaces can publish a valid-looking rect before the texture buffer is
+/// rebound after rotation, fullscreen, PiP, or a source switch. Requiring the
+/// same rect, texture id, and decoded size for several Flutter frames avoids
+/// exposing that transient state to the user.
+class _StableVideoSurface extends StatefulWidget {
+  const _StableVideoSurface({
+    super.key,
+    required this.controller,
+    required this.sourceGeneration,
+    required this.viewportSize,
+    required this.requireFirstFrame,
+    required this.placeholder,
+    required this.child,
+  });
+
+  final VideoController controller;
+  final int? sourceGeneration;
+  final Size viewportSize;
+  final bool requireFirstFrame;
+  final Widget placeholder;
+  final Widget child;
+
+  @override
+  State<_StableVideoSurface> createState() => _StableVideoSurfaceState();
+}
+
+class _StableVideoSurfaceState extends State<_StableVideoSurface> {
+  static const _stableFrameCount = 3;
+
+  VideoController? _trackedController;
+  VoidCallback? _rectListener;
+  VoidCallback? _idListener;
+  StreamSubscription? _sizeSubscription;
+  Timer? _probeTimer;
+  int _trackingGeneration = 0;
+  bool _checkScheduled = false;
+  bool _checkInFlight = false;
+  bool _firstFrameReady = false;
+  bool _surfaceReady = false;
+  int _stableFrames = 0;
+  Rect? _previousRect;
+  int? _previousTextureId;
+  int? _previousWidth;
+  int? _previousHeight;
+
+  @override
+  void initState() {
+    super.initState();
+    _attachController();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StableVideoSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller) ||
+        oldWidget.sourceGeneration != widget.sourceGeneration ||
+        oldWidget.requireFirstFrame != widget.requireFirstFrame) {
+      _attachController();
+    } else if (oldWidget.viewportSize != widget.viewportSize) {
+      // didUpdateWidget is part of the parent's build; defer the visual
+      // invalidation to the next check instead of calling setState here.
+      _resetStability(notify: false);
+      _scheduleCheck();
+    }
+  }
+
+  void _attachController() {
+    _detachController();
+    final generation = ++_trackingGeneration;
+    _trackedController = widget.controller;
+    _firstFrameReady = !widget.requireFirstFrame;
+    _resetStability(notify: false);
+
+    void onGeometryChanged() => _scheduleCheck();
+
+    _rectListener = onGeometryChanged;
+    _idListener = onGeometryChanged;
+    widget.controller.rect.addListener(onGeometryChanged);
+    widget.controller.id.addListener(onGeometryChanged);
+    _sizeSubscription = widget.controller.player.stream.size.listen(
+      (_) => _scheduleCheck(),
+    );
+    _startProbeTimer();
+    if (widget.requireFirstFrame) {
+      unawaited(
+        widget.controller.waitUntilFirstFrameRendered.then<void>(
+          (_) {
+            if (mounted &&
+                generation == _trackingGeneration &&
+                identical(_trackedController, widget.controller)) {
+              _firstFrameReady = true;
+              _scheduleCheck();
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (kDebugMode) {
+              debugPrint('Video first-frame wait failed: $error');
+            }
+          },
+        ),
+      );
+    }
+    _scheduleCheck();
+  }
+
+  void _startProbeTimer() {
+    if (_probeTimer != null) {
+      return;
+    }
+    _probeTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) => _scheduleCheck(),
+    );
+  }
+
+  void _stopProbeTimer() {
+    _probeTimer?.cancel();
+    _probeTimer = null;
+  }
+
+  void _detachController() {
+    final controller = _trackedController;
+    if (controller != null) {
+      if (_rectListener case final listener?) {
+        controller.rect.removeListener(listener);
+      }
+      if (_idListener case final listener?) {
+        controller.id.removeListener(listener);
+      }
+    }
+    _rectListener = null;
+    _idListener = null;
+    _sizeSubscription?.cancel();
+    _sizeSubscription = null;
+    _stopProbeTimer();
+    _trackedController = null;
+    _trackingGeneration++;
+  }
+
+  void _resetStability({bool notify = true}) {
+    _stableFrames = 0;
+    _previousRect = null;
+    _previousTextureId = null;
+    _previousWidth = null;
+    _previousHeight = null;
+    _startProbeTimer();
+    if (!_surfaceReady) {
+      return;
+    }
+    _surfaceReady = false;
+    if (notify && mounted) {
+      setState(() {});
+    }
+  }
+
+  void _scheduleCheck() {
+    if (!mounted || _checkScheduled) {
+      return;
+    }
+    _checkScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkScheduled = false;
+      if (mounted) {
+        unawaited(_checkSurface());
+      }
+    });
+  }
+
+  Future<void> _checkSurface() async {
+    if (_checkInFlight || !mounted) {
+      return;
+    }
+    _checkInFlight = true;
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || !identical(_trackedController, widget.controller)) {
+        return;
+      }
+      final controller = widget.controller;
+      final rect = controller.rect.value;
+      final textureId = controller.id.value;
+      final width = controller.player.state.width;
+      final height = controller.player.state.height;
+      final geometryReady =
+          textureId != null &&
+          rect != null &&
+          !rect.isEmpty &&
+          rect.isFinite &&
+          width > 0 &&
+          height > 0;
+      // Once a valid frame is on screen, keep it during a short pause or
+      // rebuffering period. Hiding the surface on every buffering event made
+      // a live room flash black even though playback could recover normally.
+      final playbackReady =
+          _surfaceReady ||
+          !widget.requireFirstFrame ||
+          (controller.player.state.playing &&
+              !controller.player.state.buffering);
+      if (!geometryReady || !playbackReady || !_firstFrameReady) {
+        _resetStability();
+        return;
+      }
+      final sameGeometry =
+          _previousTextureId == textureId &&
+          _previousWidth == width &&
+          _previousHeight == height &&
+          _previousRect != null &&
+          _rectNearlyEqual(_previousRect!, rect);
+      if (sameGeometry) {
+        _stableFrames++;
+      } else {
+        _stableFrames = 1;
+        if (_surfaceReady) {
+          setState(() => _surfaceReady = false);
+        }
+      }
+      _previousRect = rect;
+      _previousTextureId = textureId;
+      _previousWidth = width;
+      _previousHeight = height;
+      if (_stableFrames >= _stableFrameCount && !_surfaceReady) {
+        setState(() => _surfaceReady = true);
+        _stopProbeTimer();
+      }
+    } finally {
+      _checkInFlight = false;
+    }
+  }
+
+  bool _rectNearlyEqual(Rect first, Rect second) =>
+      (first.left - second.left).abs() < 0.5 &&
+      (first.top - second.top).abs() < 0.5 &&
+      (first.right - second.right).abs() < 0.5 &&
+      (first.bottom - second.bottom).abs() < 0.5;
+
+  @override
+  void dispose() {
+    _detachController();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      _surfaceReady ? widget.child : SizedBox.expand(child: widget.placeholder);
 }
 
 class _SubtitleSelectPanel extends StatelessWidget {

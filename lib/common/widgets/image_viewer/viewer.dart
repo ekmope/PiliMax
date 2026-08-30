@@ -123,19 +123,32 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
 
   void _initSize() {
     _reset();
-    _imageSize = applyBoxFit(
-      .scaleDown,
-      widget.childSize,
-      widget.containerSize,
-    ).destination;
-    if (widget.isLongPic) {
-      final containerWidth = widget.containerSize.width;
-      final containerHeight = widget.containerSize.height;
-      final imageHeight = _imageSize.height * _scale;
-      _position = Offset(
-        (1 - _scale) * containerWidth / 2,
-        (imageHeight - _scale * containerHeight) / 2,
+    final containerWidth = widget.containerSize.width;
+    final childWidth = widget.childSize.width;
+    final childHeight = widget.childSize.height;
+    if (widget.isLongPic &&
+        containerWidth.isFinite &&
+        containerWidth > 0 &&
+        widget.containerSize.height.isFinite &&
+        widget.containerSize.height > 0 &&
+        childWidth > 0 &&
+        childHeight > 0) {
+      // Long images must keep their full aspect ratio while their height is
+      // allowed to overflow the viewport. BoxFit.fitWidth would crop a tall
+      // source when the viewport is wider than the source aspect ratio.
+      _imageSize = Size(
+        containerWidth,
+        containerWidth * childHeight / childWidth,
       );
+      // Keep the first visible pixel at the top of the image. The vertical
+      // position is clamped to [containerHeight - imageHeight, 0] below.
+      _position = Offset((1 - _scale) * containerWidth / 2, 0);
+    } else {
+      _imageSize = applyBoxFit(
+        .scaleDown,
+        widget.childSize,
+        widget.containerSize,
+      ).destination;
     }
   }
 
@@ -193,6 +206,20 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     final dxOffset = (imageWidth - containerSize.width) / 2;
     final dyOffset = (imageHeight - containerSize.height) / 2;
 
+    final double dy;
+    if (widget.isLongPic) {
+      dy = imageHeight > containerSize.height
+          ? clampDouble(offset.dy, containerSize.height - imageHeight, 0)
+          : (containerSize.height - imageHeight) / 2;
+    } else {
+      dy = imageHeight > containerSize.height
+          ? clampDouble(
+              offset.dy,
+              center.height - dyOffset,
+              center.height + dyOffset,
+            )
+          : center.height;
+    }
     return Offset(
       imageWidth > containerSize.width
           ? clampDouble(
@@ -201,13 +228,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
               center.width + dxOffset,
             )
           : center.width,
-      imageHeight > containerSize.height
-          ? clampDouble(
-              offset.dy,
-              center.height - dyOffset,
-              center.height + dyOffset,
-            )
-          : center.height,
+      dy,
     );
   }
 
@@ -277,12 +298,12 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
         if (_scalePos != null && _calc(_scalePos!, details.focalPoint)) {
           final bool drag;
           if (details.focalPoint.dy > _scalePos!.dy) {
+            drag = _position.dy.equals(0, 1e-6);
+          } else {
             drag = _position.dy.equals(
-              (imageHeight - _scale * containerHeight) / 2,
+              containerHeight - imageHeight,
               1e-6,
             );
-          } else {
-            drag = _position.dy.equals(containerHeight - imageHeight, 1e-6);
           }
           if (drag) {
             _gestureType = .drag;

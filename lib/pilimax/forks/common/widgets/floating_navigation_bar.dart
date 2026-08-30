@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
-import 'package:flutter/gestures.dart' show kTouchSlop;
+import 'package:flutter/gestures.dart' show PointerDeviceKind, kTouchSlop;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
 
@@ -300,6 +300,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
   double _dragStartIndex = 0;
   double _itemExtent = _kIndicatorWidth;
   bool _isPressed = false;
+  bool _expandPressIndicator = false;
   bool _interactionCommitted = false;
   int? _activePointer;
   int? _pendingPointerUp;
@@ -579,6 +580,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     _gestureDirectionLocked = false;
     _isVerticalGesture = false;
     _dragStartIndex = index;
+    _expandPressIndicator = event.kind != PointerDeviceKind.mouse;
     _interactionCommitted = false;
     _dragVelocity = 0;
     _dragOverscroll = _overscrollForX(event.localPosition.dx);
@@ -841,8 +843,17 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
             : math.max(56.0, math.min(78.0, _itemExtent - 4));
         final indicatorWidth =
             baseWidth + stretchAmount + 24 * pressProgress + 8 * dragProgress;
+        // Keep mouse presses vertically stable on desktop. Touch input keeps
+        // the tactile press and drag swell.
+        final verticalPressProgress = _expandPressIndicator
+            ? pressProgress
+            : 0.0;
+        final verticalDragProgress = _expandPressIndicator ? dragProgress : 0.0;
         final indicatorHeight =
-            _kNavigationHeight - 12 + 20 * pressProgress + 3 * dragProgress;
+            _kNavigationHeight -
+            12 +
+            20 * verticalPressProgress +
+            3 * verticalDragProgress;
         final centerX =
             _kIndicatorPadding + _itemExtent * (indicatorIndex + 0.5);
         final transitionProgress = math.sin(
@@ -886,9 +897,10 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         final signedDragOffset = dragIndex != null
             ? motionIndex * _itemExtent
             : _releaseMotionIndex * _itemExtent * releaseProgress;
+        final shapePressProgress = _expandPressIndicator ? pressProgress : 0.0;
         final lensShape = _LiquidLensShape(
           baseShape: effectiveIndicatorShape,
-          pressProgress: pressProgress,
+          pressProgress: shapePressProgress,
           dragOffset: signedDragOffset,
           velocity: velocityNorm,
         );
@@ -1000,7 +1012,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         navigationBarTheme.surfaceTintColor ??
         colorScheme.surfaceTint;
     final defaultGlassColor = colorScheme.surfaceContainer.withValues(
-      alpha: isDark ? 0.22 : 0.15,
+      alpha: isDark ? 0.22 : 0.24,
     );
     final glassColor =
         widget.backgroundColor ??
@@ -1008,9 +1020,9 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           tintColor.withValues(alpha: isDark ? 0.06 : 0.035),
           defaultGlassColor,
         );
-    final borderColor = Colors.white.withValues(
-      alpha: isDark ? 0.30 : 0.42,
-    );
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.30)
+        : colorScheme.outline.withValues(alpha: 0.24);
     final effectiveShadowColor =
         widget.shadowColor ??
         navigationBarTheme.shadowColor ??
@@ -1019,10 +1031,15 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         widget.elevation ?? navigationBarTheme.elevation ?? 3.0;
     final effectiveIndicatorColor =
         widget.indicatorColor ??
-        Color.alphaBlend(
-          colorScheme.primary.withValues(alpha: isDark ? 0.20 : 0.13),
-          Colors.white.withValues(alpha: isDark ? 0.10 : 0.26),
-        );
+        (isDark
+            ? Color.alphaBlend(
+                colorScheme.primary.withValues(alpha: 0.20),
+                Colors.white.withValues(alpha: 0.10),
+              )
+            : Color.alphaBlend(
+                colorScheme.primary.withValues(alpha: 0.16),
+                colorScheme.surfaceContainerHighest,
+              ));
     final effectiveIndicatorShape =
         widget.indicatorShape ??
         navigationBarTheme.indicatorShape ??
@@ -1294,11 +1311,30 @@ class _LiquidDestinationIcon extends StatelessWidget {
       progress,
     ).copyWith(color: color);
 
-    // Outlined and filled custom glyphs do not share the same optical
-    // baseline. Crossfading both layers therefore makes the glyph appear to
-    // move vertically while the liquid indicator is dragged. Keep one stable
-    // geometry during interpolation and switch to the selected glyph only at
-    // the settled endpoint.
+    final iconBoxSize = math.max(
+      inactiveTheme.size ?? 24.0,
+      activeTheme.size ?? 24.0,
+    );
+
+    Widget iconLayer(Widget child, double opacity) {
+      return Opacity(
+        opacity: opacity,
+        child: IconTheme(
+          data: iconTheme,
+          child: SizedBox.square(
+            dimension: iconBoxSize,
+            child: Align(
+              alignment: Alignment.center,
+              child: child,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Keep both glyphs on the same fixed visual baseline while their opacity
+    // changes. This avoids a vertical jump when outlined and filled icons
+    // have different intrinsic metrics.
     final transitionIcon = ShaderMask(
       blendMode: BlendMode.srcIn,
       shaderCallback: (bounds) => LinearGradient(
@@ -1306,14 +1342,16 @@ class _LiquidDestinationIcon extends StatelessWidget {
         end: Alignment.bottomCenter,
         colors: [highlightColor, color],
       ).createShader(bounds),
-      child: IconTheme(
-        data: iconTheme,
-        child: progress >= 0.999 ? (selectedIcon ?? icon) : icon,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          iconLayer(
+            icon,
+            selectedIcon == null ? 1.0 : 1.0 - progress,
+          ),
+          if (selectedIcon != null) iconLayer(selectedIcon!, progress),
+        ],
       ),
-    );
-    final iconBoxSize = math.max(
-      inactiveTheme.size ?? 24.0,
-      activeTheme.size ?? 24.0,
     );
     return ExcludeSemantics(
       child: SizedBox.square(

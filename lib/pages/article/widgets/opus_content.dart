@@ -267,17 +267,15 @@ class OpusContent extends StatelessWidget {
                   fadeOutDuration: const Duration(milliseconds: 120),
                   placeholder: (_, _) => Image.asset(Assets.loading),
                 );
-                if (!(pic.isLongPic ?? false)) {
-                  child = fromHero(
-                    tag: ImageHeroTag.item(
-                      scope: heroScope,
-                      url: pic.url!,
-                      index: imageIndex < 0 ? 0 : imageIndex,
-                    ),
-                    transitionOnUserGestures: true,
-                    child: child,
-                  );
-                }
+                child = fromHero(
+                  tag: ImageHeroTag.item(
+                    scope: heroScope,
+                    url: pic.url!,
+                    index: imageIndex < 0 ? 0 : imageIndex,
+                  ),
+                  transitionOnUserGestures: true,
+                  child: child,
+                );
                 return GestureDetector(
                   onTap: () => PageUtils.imageView(
                     imgList: images,

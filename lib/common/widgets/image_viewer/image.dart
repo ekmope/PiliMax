@@ -593,25 +593,65 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
       // }
     }
 
+    final imgWidth = _imageInfo?.image.width.toDouble() ?? 0.0;
+    final imgHeight = _imageInfo?.image.height.toDouble() ?? 0.0;
     final Size childSize;
     final bool isLongPic;
     double? minScale, maxScale;
     if (_imageInfo != null) {
-      final imgWidth = _imageInfo!.image.width.toDouble();
-      final imgHeight = _imageInfo!.image.height.toDouble();
-      final imgRatio = imgHeight / imgWidth;
+      final hasViewport =
+          widget.containerSize.width.isFinite &&
+          widget.containerSize.height.isFinite &&
+          widget.containerSize.width > 0 &&
+          widget.containerSize.height > 0;
+      final imgRatio = imgWidth > 0 ? imgHeight / imgWidth : 0.0;
       isLongPic =
+          hasViewport &&
           imgRatio > Style.imgMaxRatio &&
           imgHeight > widget.containerSize.height;
       if (isLongPic) {
         final compatWidth = math.min(650.0, widget.containerSize.width);
-        minScale = compatWidth / widget.containerSize.height * imgRatio;
+        // The long-image child is laid out at the viewport width in the
+        // OverflowBox below, so derive the initial scale from that same base
+        // width. This keeps the capped initial width (650 px) consistent with
+        // Viewer._imageSize and avoids oversizing the image on first frame.
+        minScale = compatWidth / widget.containerSize.width;
         maxScale = math.max(widget.maxScale, minScale * 3);
       }
       childSize = Size(imgWidth, imgHeight);
     } else {
       childSize = .zero;
       isLongPic = false;
+    }
+    final rawImage = RawImage(
+      image: _imageInfo?.image,
+      fit: isLongPic ? BoxFit.fill : BoxFit.contain,
+      alignment: isLongPic ? Alignment.topCenter : Alignment.center,
+    );
+    final Widget imageChild;
+    if (isLongPic &&
+        widget.containerSize.width.isFinite &&
+        widget.containerSize.width > 0 &&
+        imgWidth > 0 &&
+        imgHeight > 0) {
+      final displayWidth = widget.containerSize.width;
+      final displayHeight = displayWidth * imgHeight / imgWidth;
+      imageChild = OverflowBox(
+        alignment: Alignment.topCenter,
+        minWidth: displayWidth,
+        maxWidth: displayWidth,
+        minHeight: displayHeight,
+        maxHeight: displayHeight,
+        child: RawImage(
+          image: _imageInfo?.image,
+          width: displayWidth,
+          height: displayHeight,
+          fit: BoxFit.fill,
+          alignment: Alignment.topCenter,
+        ),
+      );
+    } else {
+      imageChild = rawImage;
     }
     Widget result = Viewer(
       minScale: minScale ?? widget.minScale,
@@ -625,7 +665,7 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
       doubleTapGestureRecognizer: widget.doubleTapGestureRecognizer,
       horizontalDragGestureRecognizer: widget.horizontalDragGestureRecognizer,
       onChangePage: widget.onChangePage,
-      child: RawImage(image: _imageInfo?.image),
+      child: imageChild,
     );
 
     if (!widget.excludeFromSemantics) {

@@ -500,7 +500,6 @@ class _GalleryViewerState extends State<GalleryViewer>
           onChangePage: _onChangePage,
         );
       case SourceType.networkImage:
-        final isLongPic = item.isLongPic;
         child = Image(
           key: _key,
           image: CachedNetworkImageProvider(_getActualUrl(item.url)),
@@ -555,9 +554,6 @@ class _GalleryViewerState extends State<GalleryViewer>
           onDragUpdate: _onDragUpdate,
           onDragEnd: _onDragEnd,
         );
-        if (isLongPic) {
-          return child;
-        }
       case SourceType.livePhoto:
         child = Obx(
           key: _key,

@@ -12,17 +12,8 @@ Widget fromHero({
 );
 
 RectTween createEndRectTween(Rect? begin, Rect? end) {
-  if (begin != null && end != null) {
-    final endWidth = end.width;
-    final endHeight = end.height;
-    // TODO: use real image rect
-    final beginRect = Rect.fromLTWH(
-      begin.left + (begin.width - endWidth) / 2,
-      begin.top + (begin.height - endHeight) / 2,
-      endWidth,
-      endHeight,
-    );
-    return RectTween(begin: beginRect, end: end);
-  }
+  // Keep the actual source and destination bounds. Centering the destination
+  // size inside the source rect makes predictive-back briefly show a small
+  // image in the middle of the screen before it fades out.
   return RectTween(begin: begin, end: end);
 }

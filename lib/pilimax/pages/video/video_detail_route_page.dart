@@ -1039,8 +1039,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       variant: _skeletonVariant,
       title: _entryTitle,
       expandedIntro: Pref.alwaysExpandIntroPanel,
-      showRecommendations:
-          Pref.showRelatedVideo && !Pref.alwaysExpandIntroPanel,
+      showRecommendations: Pref.showRelatedVideo,
       hasSeasonPanel:
           !Pref.alwaysExpandIntroPanel && _entryContentProfile.hasSeasonPanel,
       hasPagesPanel:

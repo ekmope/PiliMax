@@ -581,6 +581,33 @@ void main() {
       },
     );
 
+    test('reserves a related-video preview below a tall vertical player', () {
+      const viewport = Size(360, 800);
+      const bodyTop = 565.0;
+      const naturalTop = 750.0;
+
+      final previewTop = VideoDetailLayoutMetrics.portraitRecommendationTop(
+        viewport: viewport,
+        bodyTop: bodyTop,
+        naturalTop: naturalTop,
+        reserveVisiblePreview: true,
+      );
+
+      expect(
+        previewTop,
+        viewport.height - VideoDetailLayoutMetrics.relatedPreviewHeight,
+      );
+      expect(
+        VideoDetailLayoutMetrics.portraitRecommendationTop(
+          viewport: viewport,
+          bodyTop: bodyTop,
+          naturalTop: naturalTop,
+          reserveVisiblePreview: false,
+        ),
+        naturalTop,
+      );
+    });
+
     test('uses the expanded vertical layout on every landscape platform', () {
       const viewport = Size(1200, 720);
       final standardLandscape = VideoDetailLayoutMetrics.entryLayout(

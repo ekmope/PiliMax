@@ -178,6 +178,27 @@ abstract final class VideoDetailLayoutMetrics {
   static const double relatedCardHeight = VideoCardHLayoutMetrics.itemHeight;
   static const double relatedCardSpacing =
       VideoCardHLayoutMetrics.mainAxisSpacing;
+  static const double relatedPreviewHeight =
+      relatedDividerHeight + relatedTopPadding + relatedCardHeight;
+
+  /// Keeps the first related-video skeleton visible below a tall vertical
+  /// player without moving it above the detail body.
+  static double portraitRecommendationTop({
+    required Size viewport,
+    required double bodyTop,
+    required double naturalTop,
+    required bool reserveVisiblePreview,
+  }) {
+    if (!reserveVisiblePreview) {
+      return naturalTop;
+    }
+    final minimumTop = bodyTop.clamp(0.0, viewport.height).toDouble();
+    final previewTop = math.max(
+      minimumTop,
+      viewport.height - relatedPreviewHeight,
+    );
+    return naturalTop.clamp(minimumTop, previewTop).toDouble();
+  }
 
   /// Includes a partially visible final row, matching the scrollable sidebar.
   static int landscapeRecommendationCountForSidebarHeight(

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_card_h_layout_metrics.dart';
@@ -825,9 +826,41 @@ class VideoDetailHeroShell extends StatefulWidget {
   }
 }
 
-class _VideoDetailHeroShellState extends State<VideoDetailHeroShell> {
+class _VideoDetailHeroShellState extends State<VideoDetailHeroShell>
+    with SingleTickerProviderStateMixin {
+  static const _shimmerDuration = Duration(milliseconds: 1200);
+
   final VideoDetailUgcTitleHeightCache _ugcTitleHeightCache =
       VideoDetailUgcTitleHeightCache();
+  late final AnimationController _shimmerController = AnimationController(
+    vsync: this,
+    duration: _shimmerDuration,
+  );
+  bool _shimmerEnabled = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final shouldAnimate =
+        !(MediaQuery.maybeOf(context)?.disableAnimations ?? false);
+    if (shouldAnimate == _shimmerEnabled) {
+      return;
+    }
+    _shimmerEnabled = shouldAnimate;
+    if (shouldAnimate) {
+      _shimmerController.repeat();
+    } else {
+      _shimmerController
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -913,6 +946,7 @@ class _VideoDetailHeroShellState extends State<VideoDetailHeroShell> {
               actionCount: widget.actionCount,
               hasEpisodePanel: widget.hasEpisodePanel,
               ugcTitleHeight: ugcTitleHeight,
+              shimmer: _shimmerController,
             ),
           ),
         );
@@ -1015,7 +1049,8 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     required this.actionCount,
     required this.hasEpisodePanel,
     required this.ugcTitleHeight,
-  });
+    required this.shimmer,
+  }) : super(repaint: shimmer);
 
   final ColorScheme colorScheme;
   final double playerSurfaceOpacity;
@@ -1039,6 +1074,7 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
   final int actionCount;
   final bool hasEpisodePanel;
   final double ugcTitleHeight;
+  final Animation<double> shimmer;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1542,10 +1578,17 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     final panelHeight =
         seasonPanelVisibility * VideoDetailLayoutMetrics.seasonPanelHeight +
         pagesPanelVisibility * VideoDetailLayoutMetrics.pagesPanelHeight;
-    final recommendationTop =
+    final naturalRecommendationTop =
         actionBottom +
         panelHeight +
         VideoDetailLayoutMetrics.relatedDividerTopPadding;
+    final recommendationTop =
+        VideoDetailLayoutMetrics.portraitRecommendationTop(
+          viewport: size,
+          bodyTop: top,
+          naturalTop: naturalRecommendationTop,
+          reserveVisiblePreview: isVertical == true && showRecommendations,
+        );
 
     _paintSection(
       canvas,
@@ -2202,17 +2245,35 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
     return Rect.fromLTRB(0, safeTop, size.width, safeBottom);
   }
 
-  Paint _skeletonPaint(double opacity) => Paint()
-    ..color = colorScheme.onSurfaceVariant.withValues(alpha: 0.17 * opacity);
+  Paint _skeletonPaint(double opacity) => _shimmerPaint(
+    colorScheme.onSurfaceVariant.withValues(alpha: 0.17 * opacity),
+  );
 
-  Paint _subtlePaint(double opacity) => Paint()
-    ..color = colorScheme.onSurfaceVariant.withValues(alpha: 0.11 * opacity);
+  Paint _subtlePaint(double opacity) => _shimmerPaint(
+    colorScheme.onSurfaceVariant.withValues(alpha: 0.11 * opacity),
+  );
 
-  Paint _thumbnailPaint(double opacity) =>
-      Paint()
-        ..color = colorScheme.surfaceContainerHighest.withValues(
-          alpha: 0.92 * opacity,
-        );
+  Paint _thumbnailPaint(double opacity) => _shimmerPaint(
+    colorScheme.surfaceContainerHighest.withValues(alpha: 0.92 * opacity),
+  );
+
+  Paint _shimmerPaint(Color color) {
+    const bandWidth = 168.0;
+    const travelDistance = 1680.0;
+    final center = -bandWidth + shimmer.value * travelDistance;
+    final highlight = Color.lerp(
+      color,
+      colorScheme.onSurface.withValues(alpha: color.a),
+      0.22,
+    )!;
+    return Paint()
+      ..shader = ui.Gradient.linear(
+        Offset(center - bandWidth, 0),
+        Offset(center + bandWidth, 0),
+        <Color>[color, color, highlight, color, color],
+        <double>[0, 0.34, 0.5, 0.66, 1],
+      );
+  }
 
   static void _drawBar(Canvas canvas, Rect rect, Paint paint) {
     if (rect.width <= 0 || rect.height <= 0) {
@@ -2247,7 +2308,8 @@ class _VideoDetailSkeletonPainter extends CustomPainter {
         tabCount != oldDelegate.tabCount ||
         actionCount != oldDelegate.actionCount ||
         hasEpisodePanel != oldDelegate.hasEpisodePanel ||
-        ugcTitleHeight != oldDelegate.ugcTitleHeight;
+        ugcTitleHeight != oldDelegate.ugcTitleHeight ||
+        shimmer != oldDelegate.shimmer;
   }
 }
 

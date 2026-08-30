@@ -903,8 +903,7 @@ abstract final class PageUtils {
             variant: variant,
             title: rawTitle is String ? rawTitle : null,
             expandedIntro: Pref.alwaysExpandIntroPanel,
-            showRecommendations:
-                Pref.showRelatedVideo && !Pref.alwaysExpandIntroPanel,
+            showRecommendations: Pref.showRelatedVideo,
             tabCount: skeletonProfile.tabCount,
             actionCount: skeletonProfile.actionCount,
             hasEpisodePanel: skeletonProfile.hasEpisodePanel,

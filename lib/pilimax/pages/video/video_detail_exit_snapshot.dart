@@ -7,8 +7,9 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 const videoDetailExitVisualProviderKey = '_videoDetailExitVisualProvider';
 
-typedef VideoDetailExitVisualProvider =
-    VideoDetailExitVisual? Function(RenderBox transitionRoot);
+typedef VideoDetailExitVisualProvider = VideoDetailExitVisual? Function(
+  RenderBox transitionRoot,
+);
 
 /// Playing detail pages use one snapshot for the non-media layers while the
 /// decoded video texture remains live above it. This keeps predictive-back
@@ -31,6 +32,7 @@ final class VideoDetailExitVisual {
     required this.flipX,
     required this.flipY,
     this.aspectRatio,
+    this.fallbackCover,
     this.foregrounds = const [],
   });
 
@@ -42,6 +44,13 @@ final class VideoDetailExitVisual {
   final bool flipX;
   final bool flipY;
   final double? aspectRatio;
+
+  /// The detail poster used only for the final same-rect media handoff.
+  ///
+  /// It is deliberately kept out of the page snapshot. Rendering it inside
+  /// the transition media surface prevents a second, independently animated
+  /// full-screen cover from appearing behind the live texture.
+  final String? fallbackCover;
   final List<VideoDetailExitForeground> foregrounds;
 
   bool get isUsable {

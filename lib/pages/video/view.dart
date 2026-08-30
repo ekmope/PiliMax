@@ -49,7 +49,6 @@ import 'package:PiliMax/pages/video/related/view.dart';
 import 'package:PiliMax/pages/video/reply/controller.dart';
 import 'package:PiliMax/pages/video/reply/view.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_args.dart';
-import 'package:PiliMax/pilimax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_exit_snapshot.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_fullscreen_exit_settle.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_session.dart';
@@ -130,9 +129,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   final Map _videoArgs = VideoDetailArgs.normalize(Get.arguments);
   late final String heroTag = _resolveControllerTag();
   late final bool _fromPip = _videoArgs['fromPip'] ?? false;
-
-  VideoDetailBackProgress? get _videoBackProgress =>
-      _videoArgs[videoDetailBackProgressKey] as VideoDetailBackProgress?;
 
   String _resolveControllerTag() {
     final requestedTag = _videoArgs['heroTag'] as String;
@@ -3333,6 +3329,13 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         }
       }
       final videoFit = playerController.videoFit.value;
+      final liveCover = videoDetailController.cover.value;
+      final argumentCover = _videoArgs['cover'];
+      final fallbackCover = liveCover.isNotEmpty
+          ? liveCover
+          : argumentCover is String && argumentCover.isNotEmpty
+          ? argumentCover
+          : null;
       final visual = VideoDetailExitVisual(
         playerRect: videoRect,
         clipRect: playerRect.intersect(rootRect),
@@ -3342,6 +3345,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         flipX: playerController.flipX.value,
         flipY: playerController.flipY.value,
         aspectRatio: videoFit.aspectRatio,
+        fallbackCover: fallbackCover,
         foregrounds: foregrounds,
       );
       if (visual.isUsable) {
@@ -3606,14 +3610,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         getPlaceHolder: () => Center(child: Image.asset(Assets.loading)),
       ),
     );
-    final backProgress = _videoBackProgress;
-    final playerController = videoDetailController.plPlayerController;
-    final skipReturnMediaCover =
-        backProgress == null ||
-        playerController.isPipMode ||
-        playerController.isDesktopPip ||
-        PipOverlayService.isInPipMode ||
-        LivePipOverlayService.isInPipMode;
     return MouseRegion(
       onEnter: (_) => playerFocusNode.requestFocus(),
       child: Listener(
@@ -3781,24 +3777,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                 ),
               ),
             ),
-            if (backProgress != null && !skipReturnMediaCover)
-              Positioned.fill(
-                child: Obx(() {
-                  final liveCover = videoDetailController.cover.value;
-                  final argumentCover = _videoArgs['cover'];
-                  final cover = liveCover.isNotEmpty
-                      ? liveCover
-                      : argumentCover is String && argumentCover.isNotEmpty
-                      ? argumentCover
-                      : null;
-                  return _VideoDetailReturnMediaCover(
-                    backProgress: backProgress,
-                    cover: cover,
-                    width: width,
-                    height: height,
-                  );
-                }),
-              ),
           ],
         ),
       ),
@@ -4690,51 +4668,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           ugcIntroController: ugcIntroController,
         );
       },
-    );
-  }
-}
-
-class _VideoDetailReturnMediaCover extends StatelessWidget {
-  const _VideoDetailReturnMediaCover({
-    required this.backProgress,
-    required this.cover,
-    required this.width,
-    required this.height,
-  });
-
-  final VideoDetailBackProgress backProgress;
-  final String? cover;
-  final double width;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    final source = cover;
-    if (source == null || source.isEmpty) {
-      return const SizedBox.expand();
-    }
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: backProgress,
-        child: NetworkImgLayer(
-          key: ValueKey(('video-detail-return-cover', source)),
-          src: source,
-          width: width,
-          height: height,
-          clip: false,
-          // Keep the fallback frame intact; the surrounding black player
-          // surface supplies any status-bar or letterbox space.
-          fit: BoxFit.contain,
-          fadeInDuration: Duration.zero,
-          fadeOutDuration: Duration.zero,
-        ),
-        builder: (context, child) => Opacity(
-          opacity: videoDetailReturnMediaCoverOpacity(
-            backProgress.value.exitProgress,
-          ),
-          child: child,
-        ),
-      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
+import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_entry_overlay.dart';
@@ -1093,7 +1094,13 @@ class VideoPageExitTransition extends StatelessWidget {
         _bodyPageLayer(
           geometry,
           visual,
-          maskRect: _inverseTransformRect(geometry.contentTransform, mediaRect),
+          // Hide the complete detail player surface from the frozen page.
+          // This Stack is transformed as a whole, so the mask must stay in
+          // the same pre-transform coordinates as the captured page.
+          // The live media rect may be narrower than the poster/player
+          // surface, so masking only that rect leaves a second, misaligned
+          // cover visible behind the decoded texture.
+          maskRect: visual.clipRect,
           maskColor: target.surfaceColor ?? Colors.black,
         ),
         if (!mediaRect.isEmpty && !mediaVisibleRect.isEmpty)
@@ -1103,7 +1110,7 @@ class VideoPageExitTransition extends StatelessWidget {
             rect: mediaRect,
             visibleRect: mediaVisibleRect,
             borderRadius: mediaBorderRadius,
-            opacity: 1 - mediaHandoff,
+            handoff: mediaHandoff,
             surfaceColor: target.surfaceColor ?? Colors.black,
           ),
         if (visual.foregrounds.any(
@@ -1184,37 +1191,65 @@ class VideoPageExitTransition extends StatelessWidget {
     required Rect rect,
     required Rect visibleRect,
     required BorderRadius borderRadius,
-    required double opacity,
+    required double handoff,
     required Color surfaceColor,
   }) {
+    final fallbackCover = visual.fallbackCover;
+    final liveOpacity = 1 - handoff;
     return ClipRect(
       clipper: _VideoExitRectClipper(visibleRect),
       clipBehavior: Clip.hardEdge,
       child: ClipRRect(
         clipper: _VideoExitClipper(borderRadius.toRRect(rect)),
         clipBehavior: Clip.antiAlias,
-        child: Opacity(
-          opacity: opacity,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned.fromRect(
-                rect: rect,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Keep the surface behind the decoded frame and its contain
+            // letterbox area. It fades with the live layer at handoff so it
+            // cannot cover the source card after the transition completes.
+            Positioned.fromRect(
+              rect: rect,
+              child: Opacity(
+                opacity: liveOpacity,
                 child: ColoredBox(color: surfaceColor),
               ),
-              // The source surface supplies any contain letterbox area. The
-              // live texture keeps its decoded aspect ratio inside that
-              // surface instead of being stretched into the card crop.
-              Positioned.fromRect(rect: rect, child: texture),
-              for (final foreground in visual.foregrounds)
-                if (foreground.role == VideoDetailExitForegroundRole.media)
-                  _mappedForegroundLayer(
+            ),
+            if (fallbackCover != null && fallbackCover.isNotEmpty)
+              Positioned.fromRect(
+                rect: rect,
+                child: Opacity(
+                  opacity: handoff,
+                  child: NetworkImgLayer(
+                    key: ValueKey(('video-detail-exit-cover', fallbackCover)),
+                    src: fallbackCover,
+                    width: rect.width,
+                    height: rect.height,
+                    clip: false,
+                    fit: BoxFit.contain,
+                    fadeInDuration: Duration.zero,
+                    fadeOutDuration: Duration.zero,
+                  ),
+                ),
+              ),
+            // The live texture and its controls share this exact rect. The
+            // poster is only allowed to crossfade in the same surface during
+            // the final handoff, never as an independent full-screen layer.
+            Positioned.fromRect(
+              rect: rect,
+              child: Opacity(opacity: liveOpacity, child: texture),
+            ),
+            for (final foreground in visual.foregrounds)
+              if (foreground.role == VideoDetailExitForegroundRole.media)
+                Opacity(
+                  opacity: liveOpacity,
+                  child: _mappedForegroundLayer(
                     foreground,
                     from: visual.clipRect,
                     to: rect,
                   ),
-            ],
-          ),
+                ),
+          ],
         ),
       ),
     );
@@ -1320,15 +1355,6 @@ class VideoPageExitTransition extends StatelessWidget {
       to.left + (rect.right - from.left) * scaleX,
       to.top + (rect.bottom - from.top) * scaleY,
     );
-  }
-
-  static Rect _inverseTransformRect(Matrix4 transform, Rect rect) {
-    final inverse = transform.clone();
-    final determinant = inverse.invert();
-    if (determinant == 0 || !determinant.isFinite) {
-      return rect;
-    }
-    return MatrixUtils.transformRect(inverse, rect);
   }
 
   static double _maxRadius(BorderRadius radius) => [

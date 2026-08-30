@@ -32,14 +32,18 @@ const videoDetailMediaMorphEnd = 0.98;
 /// rest. The geometry gate in the transition can delay this handoff further.
 const videoDetailMediaHandoffStart = 0.94;
 
-/// Fade the source thumbnail over a live player during the final part of a
-/// return. This protects the card handoff from a platform texture that has
-/// already gone black while the route is still being transformed.
+/// Legacy return-cover timing retained for callers compiled against older
+/// transition code. The active exit renderer now performs its handoff inside
+/// the single media surface and does not use these values for a separate
+/// full-screen cover.
+@Deprecated('Use the single media-surface handoff in VideoPageExitTransition')
 const videoDetailReturnMediaCoverStart = 0.70;
+
+@Deprecated('Use the single media-surface handoff in VideoPageExitTransition')
 const videoDetailReturnMediaCoverEnd = 0.95;
 
 /// The real detail subtree owns its reveal timing. Media readiness only
-/// controls the cover layered over the player rectangle.
+/// controls when the single media surface can hand off to the source card.
 bool videoDetailEntryCanReveal({required bool detailLayoutReady}) =>
     detailLayoutReady;
 
@@ -74,6 +78,9 @@ bool videoDetailFullscreenTransitionObserved({
     playerRectChanged ||
     (!requireGeometryChange && fullScreenActive);
 
+/// Legacy opacity curve retained for transition timing tests and downstream
+/// callers. It is no longer used to render an independent cover layer.
+@Deprecated('Use the single media-surface handoff in VideoPageExitTransition')
 double videoDetailReturnMediaCoverOpacity(double exitProgress) {
   final normalized =
       ((exitProgress - videoDetailReturnMediaCoverStart) /

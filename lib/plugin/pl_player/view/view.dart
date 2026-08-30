@@ -2341,6 +2341,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     if (!identical(videoController, currentVideoController)) {
                       videoController = currentVideoController;
                     }
+                    // Read the observable revision so a reused native
+                    // controller still recreates the source-scoped surface
+                    // gate after refresh or source replacement.
+                    final sourceRevision =
+                        plPlayerController.sourceRevision.value;
                     final videoFit = plPlayerController.videoFit.value;
                     final Widget videoChild = Transform.flip(
                       flipX: plPlayerController.flipX.value,
@@ -2364,6 +2369,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                           plPlayerController.activeSourceGeneration,
                           finalWidth,
                           finalHeight,
+                          sourceRevision,
                           plPlayerController.isLive,
                         ),
                       ),
@@ -2818,11 +2824,20 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
   VoidCallback? _rectListener;
   VoidCallback? _idListener;
   StreamSubscription? _sizeSubscription;
+  StreamSubscription? _playingSubscription;
+  StreamSubscription? _bufferingSubscription;
+  StreamSubscription? _positionSubscription;
   Timer? _probeTimer;
   int _trackingGeneration = 0;
   bool _checkScheduled = false;
   bool _checkInFlight = false;
+  bool _nativeFirstFrameReady = false;
+  bool _sourcePlaybackReady = false;
   bool _firstFrameReady = false;
+  // Once a real surface has been exposed, keep using it as the visual
+  // fallback while playback is paused/rebuffering or the viewport relayouts.
+  // The flag is cleared only when the controller/source identity changes.
+  bool _hasShownSurface = false;
   bool _surfaceReady = false;
   int _stableFrames = 0;
   Rect? _previousRect;
@@ -2855,7 +2870,10 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
     _detachController();
     final generation = ++_trackingGeneration;
     _trackedController = widget.controller;
-    _firstFrameReady = !widget.requireFirstFrame;
+    _nativeFirstFrameReady = !widget.requireFirstFrame;
+    _sourcePlaybackReady = !widget.requireFirstFrame;
+    _firstFrameReady = _nativeFirstFrameReady && _sourcePlaybackReady;
+    _hasShownSurface = false;
     _resetStability(notify: false);
 
     void onGeometryChanged() => _scheduleCheck();
@@ -2867,6 +2885,18 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
     _sizeSubscription = widget.controller.player.stream.size.listen(
       (_) => _scheduleCheck(),
     );
+    if (widget.requireFirstFrame) {
+      final playerStream = widget.controller.player.stream;
+      _playingSubscription = playerStream.playing.listen(
+        (_) => _markSourcePlaybackReady(widget.controller),
+      );
+      _bufferingSubscription = playerStream.buffering.listen(
+        (_) => _markSourcePlaybackReady(widget.controller),
+      );
+      _positionSubscription = playerStream.position.listen(
+        (_) => _markSourcePlaybackReady(widget.controller),
+      );
+    }
     _startProbeTimer();
     if (widget.requireFirstFrame) {
       unawaited(
@@ -2875,8 +2905,8 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
             if (mounted &&
                 generation == _trackingGeneration &&
                 identical(_trackedController, widget.controller)) {
-              _firstFrameReady = true;
-              _scheduleCheck();
+              _nativeFirstFrameReady = true;
+              _updateFirstFrameReady();
             }
           },
           onError: (Object error, StackTrace stackTrace) {
@@ -2919,6 +2949,12 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
     _idListener = null;
     _sizeSubscription?.cancel();
     _sizeSubscription = null;
+    _playingSubscription?.cancel();
+    _playingSubscription = null;
+    _bufferingSubscription?.cancel();
+    _bufferingSubscription = null;
+    _positionSubscription?.cancel();
+    _positionSubscription = null;
     _stopProbeTimer();
     _trackedController = null;
     _trackingGeneration++;
@@ -2940,6 +2976,30 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
     }
   }
 
+  void _markSourcePlaybackReady(VideoController controller) {
+    if (!mounted ||
+        !widget.requireFirstFrame ||
+        _sourcePlaybackReady ||
+        !identical(_trackedController, controller)) {
+      return;
+    }
+    final state = controller.player.state;
+    if (!state.playing || state.buffering) {
+      return;
+    }
+    _sourcePlaybackReady = true;
+    _updateFirstFrameReady();
+  }
+
+  void _updateFirstFrameReady() {
+    final ready = _nativeFirstFrameReady && _sourcePlaybackReady;
+    if (_firstFrameReady == ready) {
+      return;
+    }
+    _firstFrameReady = ready;
+    _scheduleCheck();
+  }
+
   void _scheduleCheck() {
     if (!mounted || _checkScheduled) {
       return;
@@ -2958,9 +3018,19 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
       return;
     }
     _checkInFlight = true;
+    final trackingGeneration = _trackingGeneration;
     try {
       await WidgetsBinding.instance.endOfFrame;
-      if (!mounted || !identical(_trackedController, widget.controller)) {
+      if (!mounted ||
+          trackingGeneration != _trackingGeneration ||
+          !identical(_trackedController, widget.controller)) {
+        // A controller/source replacement may have happened while this
+        // probe was waiting for the frame boundary. The replacement normally
+        // schedules its own probe; schedule one here as well when the state
+        // is still mounted so an in-flight check cannot leave a stale gate.
+        if (mounted && identical(_trackedController, widget.controller)) {
+          _scheduleCheck();
+        }
         return;
       }
       final controller = widget.controller;
@@ -2979,7 +3049,7 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
       // rebuffering period. Hiding the surface on every buffering event made
       // a live room flash black even though playback could recover normally.
       final playbackReady =
-          _surfaceReady ||
+          _hasShownSurface ||
           !widget.requireFirstFrame ||
           (controller.player.state.playing &&
               !controller.player.state.buffering);
@@ -2998,6 +3068,10 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
       } else {
         _stableFrames = 1;
         if (_surfaceReady) {
+          // A successful surface stops polling. Geometry changes are still
+          // delivered by the native listeners, but a final event is not
+          // guaranteed after rotation/PiP, so resume the bounded probe here.
+          _startProbeTimer();
           setState(() => _surfaceReady = false);
         }
       }
@@ -3006,6 +3080,7 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
       _previousWidth = width;
       _previousHeight = height;
       if (_stableFrames >= _stableFrameCount && !_surfaceReady) {
+        _hasShownSurface = true;
         setState(() => _surfaceReady = true);
         _stopProbeTimer();
       }

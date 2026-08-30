@@ -85,6 +85,11 @@ class PlPlayerController with BlockConfigMixin {
 
   final Rx<DataStatus> dataStatus = Rx(.none);
 
+  /// Monotonically changes whenever the active source is invalidated or
+  /// committed.  Views use this observable to discard source-scoped native
+  /// texture state even when the same Player/VideoController is reused.
+  final RxInt sourceRevision = 0.obs;
+
   Duration? seekToPos;
   bool hasToasted = false;
   final RxBool isSeeking = false.obs;
@@ -1095,6 +1100,10 @@ class PlPlayerController with BlockConfigMixin {
         // Close the synchronous handoff between the open-stage check and the
         // coordinator's active-source commit.
         ensureOpeningSucceeded();
+        // The coordinator invalidates the old source before opening this one;
+        // advance again when the new source is committed so a reused native
+        // controller gets a fresh surface gate at both boundaries.
+        sourceRevision.value++;
         if (isLive) {
           _liveSourceOnlyAudio = sourceOnlyPlayAudio;
         }
@@ -1156,6 +1165,7 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _handleSourceInvalidated() {
+    sourceRevision.value++;
     _livePlaybackRequested = false;
     _livePausedForInterruption = false;
     _livePausedForLifecycle = false;
@@ -1675,6 +1685,11 @@ class PlPlayerController with BlockConfigMixin {
         return refresh();
       }
     }
+    // Refresh reopens the current native player without invalidating the
+    // coordinator generation. Invalidate the Flutter surface gate before the
+    // request enters the serialized queue so the old frame cannot remain
+    // visible while an earlier operation is draining.
+    sourceRevision.value++;
     return _sourceCoordinator.refresh(
       generation: generation,
       open: (lease) async {

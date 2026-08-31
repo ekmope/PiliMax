@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:PiliMax/common/skeleton/video_card_h.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_card_h_layout_metrics.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
@@ -9,10 +10,12 @@ import 'package:flutter/rendering.dart';
 mixin GridMixin {
   late final gridDelegate = Grid.videoCardHDelegate();
 
-  Widget get gridSkeleton => SliverGrid.builder(
+  Widget get gridSkeleton => SliverGrid(
     gridDelegate: gridDelegate,
-    itemBuilder: (_, _) => const VideoCardHSkeleton(),
-    itemCount: 10,
+    delegate: const SliverSingleChildDelegate(
+      count: 10,
+      child: VideoCardHSkeleton(),
+    ),
   );
 }
 

@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/skeleton/msg_feed_top.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/view_sliver_safe_area.dart';
@@ -49,10 +50,12 @@ abstract class FollowTypePageState<T extends StatefulWidget> extends State<T> {
     LoadingState<List<FollowItemModel>?> loadingState,
   ) {
     return switch (loadingState) {
-      Loading() => SliverGrid.builder(
+      Loading() => SliverGrid(
         gridDelegate: gridDelegate,
-        itemBuilder: (context, index) => const MsgFeedTopSkeleton(),
-        itemCount: 16,
+        delegate: const SliverSingleChildDelegate(
+          count: 16,
+          child: MsgFeedTopSkeleton(),
+        ),
       ),
       Success(:final response) =>
         response != null && response.isNotEmpty

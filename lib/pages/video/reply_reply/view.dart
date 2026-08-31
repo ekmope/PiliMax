@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:PiliMax/common/skeleton/video_reply.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/colored_box_transition.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
@@ -414,10 +415,12 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
   ) {
     final jumpIndex = _controller.index.value;
     return switch (loadingState) {
-      Loading() => SliverPrototypeExtentList.builder(
-        prototypeItem: const VideoReplySkeleton(),
-        itemBuilder: (_, _) => const VideoReplySkeleton(),
-        itemCount: 8,
+      Loading() => const SliverPrototypeExtentList(
+        prototypeItem: VideoReplySkeleton(),
+        delegate: SliverSingleChildDelegate(
+          count: 8,
+          child: VideoReplySkeleton(),
+        ),
       ),
       Success(:final response!) => SuperSliverList.builder(
         listController: _controller.listController,

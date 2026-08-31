@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/skeleton/video_reply.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
@@ -94,10 +95,12 @@ class _PgcReviewChildPageState extends State<PgcReviewChildPage>
       color: theme.colorScheme.outline.withValues(alpha: 0.1),
     );
     return switch (loadingState) {
-      Loading() => SliverPrototypeExtentList.builder(
-        prototypeItem: const VideoReplySkeleton(),
-        itemBuilder: (_, _) => const VideoReplySkeleton(),
-        itemCount: 8,
+      Loading() => const SliverPrototypeExtentList(
+        prototypeItem: VideoReplySkeleton(),
+        delegate: SliverSingleChildDelegate(
+          count: 8,
+          child: VideoReplySkeleton(),
+        ),
       ),
       Success(:final response) =>
         response != null && response.isNotEmpty

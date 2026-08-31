@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/skeleton/video_reply.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -173,9 +174,12 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
   Widget _buildBody(LoadingState<List<ReplyInfo>?> loadingState) {
     switch (loadingState) {
       case Loading():
-        return SliverList.builder(
-          itemBuilder: (context, index) => const VideoReplySkeleton(),
-          itemCount: 5,
+        return const SliverPrototypeExtentList(
+          prototypeItem: VideoReplySkeleton(),
+          delegate: SliverSingleChildDelegate(
+            count: 5,
+            child: VideoReplySkeleton(),
+          ),
         );
       case Success(:final response):
         if (response != null && response.isNotEmpty) {

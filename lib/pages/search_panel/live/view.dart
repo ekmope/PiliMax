@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/skeleton/video_card_v.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pilimax/forks/pages/search_panel/controller.dart';
@@ -73,9 +74,11 @@ class _SearchLivePanelState
   }
 
   @override
-  Widget get buildLoading => SliverGrid.builder(
+  Widget get buildLoading => SliverGrid(
     gridDelegate: gridDelegate,
-    itemBuilder: (context, index) => const VideoCardVSkeleton(),
-    itemCount: 10,
+    delegate: const SliverSingleChildDelegate(
+      count: 10,
+      child: VideoCardVSkeleton(),
+    ),
   );
 }

@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/skeleton/video_card_h.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
@@ -175,9 +176,11 @@ class _HorizontalMemberPageState extends State<HorizontalMemberPage> {
   ) {
     final heroScope = 'video-member-${widget.videoDetailController.heroTag}';
     return switch (loadingState) {
-      Loading() => SliverFixedExtentList.builder(
-        itemCount: 10,
-        itemBuilder: (_, _) => const VideoCardHSkeleton(),
+      Loading() => const SliverFixedExtentList(
+        delegate: SliverSingleChildDelegate(
+          count: 10,
+          child: VideoCardHSkeleton(),
+        ),
         itemExtent: 112,
       ),
       Success(:final response) =>

@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/skeleton/space_opus.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -76,9 +77,9 @@ class _MemberShopState extends State<MemberShop>
       case Loading():
         return SliverWaterfallFlow(
           gridDelegate: gridDelegate,
-          delegate: SliverChildBuilderDelegate(
-            (context, index) => const SpaceOpusSkeleton(),
-            childCount: 10,
+          delegate: const SliverSingleChildDelegate(
+            count: 10,
+            child: SpaceOpusSkeleton(),
           ),
         );
       case Success(:final response):

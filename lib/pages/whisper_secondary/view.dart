@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/skeleton/whisper_item.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -97,9 +98,12 @@ class _WhisperSecPageState extends State<WhisperSecPage> {
       color: Colors.grey.withValues(alpha: 0.1),
     );
     return switch (loadingState) {
-      Loading() => SliverList.builder(
-        itemCount: 12,
-        itemBuilder: (context, index) => const WhisperItemSkeleton(),
+      Loading() => const SliverPrototypeExtentList(
+        prototypeItem: WhisperItemSkeleton(),
+        delegate: SliverSingleChildDelegate(
+          count: 12,
+          child: WhisperItemSkeleton(),
+        ),
       ),
       Success(:final response) =>
         response != null && response.isNotEmpty

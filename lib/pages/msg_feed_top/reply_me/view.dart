@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/skeleton/msg_feed_top.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
@@ -80,9 +81,12 @@ class _ReplyMePageState extends State<ReplyMePage> {
       color: Colors.grey.withValues(alpha: 0.1),
     );
     return switch (loadingState) {
-      Loading() => SliverList.builder(
-        itemCount: 12,
-        itemBuilder: (context, index) => const MsgFeedTopSkeleton(),
+      Loading() => const SliverPrototypeExtentList(
+        prototypeItem: MsgFeedTopSkeleton(),
+        delegate: SliverSingleChildDelegate(
+          count: 12,
+          child: MsgFeedTopSkeleton(),
+        ),
       ),
       Success(:final response) =>
         response != null && response.isNotEmpty

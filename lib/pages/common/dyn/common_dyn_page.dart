@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/skeleton/video_reply.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -131,9 +132,12 @@ mixin CommonDynPageMixin<T extends StatefulWidget>
   Widget replyList(LoadingState<List<ReplyInfo>?> loadingState) {
     switch (loadingState) {
       case Loading():
-        return SliverList.builder(
-          itemCount: 12,
-          itemBuilder: (context, index) => const VideoReplySkeleton(),
+        return const SliverPrototypeExtentList(
+          prototypeItem: VideoReplySkeleton(),
+          delegate: SliverSingleChildDelegate(
+            count: 12,
+            child: VideoReplySkeleton(),
+          ),
         );
       case Success(:final response):
         if (response != null && response.isNotEmpty) {

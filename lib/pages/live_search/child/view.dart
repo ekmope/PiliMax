@@ -1,5 +1,6 @@
 import 'package:PiliMax/common/skeleton/msg_feed_top.dart';
 import 'package:PiliMax/common/skeleton/video_card_v.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -57,15 +58,19 @@ class _LiveSearchChildPageState extends State<LiveSearchChildPage>
 
   Widget get _buildLoading {
     return switch (widget.searchType) {
-      LiveSearchType.room => SliverGrid.builder(
+      LiveSearchType.room => SliverGrid(
         gridDelegate: roomDelegate,
-        itemBuilder: (context, index) => const VideoCardVSkeleton(),
-        itemCount: 10,
+        delegate: const SliverSingleChildDelegate(
+          count: 10,
+          child: VideoCardVSkeleton(),
+        ),
       ),
-      LiveSearchType.user => SliverGrid.builder(
+      LiveSearchType.user => SliverGrid(
         gridDelegate: userDelegate,
-        itemBuilder: (context, index) => const MsgFeedTopSkeleton(),
-        itemCount: 12,
+        delegate: const SliverSingleChildDelegate(
+          count: 12,
+          child: MsgFeedTopSkeleton(),
+        ),
       ),
     };
   }

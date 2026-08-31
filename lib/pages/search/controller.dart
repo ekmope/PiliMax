@@ -173,10 +173,12 @@ class SSearchController extends GetxController
     }
 
     if (recordSearchHistory.value) {
-      historyList
-        ..remove(controller.text)
-        ..insert(0, controller.text);
-      GStorage.historyWord.put('cacheList', historyList);
+      final index = historyList.indexOf(controller.text);
+      if (index != 0) {
+        if (index != -1) historyList.removeAt(index);
+        historyList.insert(0, controller.text);
+        GStorage.historyWord.put('cacheList', historyList);
+      }
     }
 
     searchFocusNode.unfocus();

@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/skeleton/media_bangumi.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pilimax/forks/pages/search_panel/controller.dart';
@@ -69,13 +70,15 @@ class _SearchPgcPanelState
   }
 
   @override
-  Widget get buildLoading => SliverGrid.builder(
+  Widget get buildLoading => SliverGrid(
     gridDelegate: SliverGridDelegateWithExtentAndRatio(
       mainAxisSpacing: 2,
       maxCrossAxisExtent: Grid.smallCardWidth * 2,
       childAspectRatio: Style.aspectRatio * 1.5,
     ),
-    itemBuilder: (context, index) => const MediaPgcSkeleton(),
-    itemCount: 10,
+    delegate: const SliverSingleChildDelegate(
+      count: 10,
+      child: MediaPgcSkeleton(),
+    ),
   );
 }

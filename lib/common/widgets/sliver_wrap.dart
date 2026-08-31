@@ -38,7 +38,9 @@ class SliverFixedWrap extends SliverMultiBoxAdaptorWidget {
     renderObject
       ..mainAxisExtent = mainAxisExtent
       ..spacing = spacing
-      ..runSpacing = runSpacing;
+      ..runSpacing = runSpacing
+      // Child widths and cached row boundaries may depend on any layout input.
+      ..markRowsDirty();
   }
 }
 

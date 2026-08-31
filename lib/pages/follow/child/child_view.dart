@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:PiliMax/common/skeleton/msg_feed_top.dart';
+import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/widgets/button/more_btn.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -146,9 +147,12 @@ class _FollowChildPageState extends State<FollowChildPage>
 
   Widget _buildBody(LoadingState<List<FollowItemModel>?> loadingState) {
     return switch (loadingState) {
-      Loading() => SliverList.builder(
-        itemCount: 12,
-        itemBuilder: (context, index) => const MsgFeedTopSkeleton(),
+      Loading() => const SliverPrototypeExtentList(
+        prototypeItem: MsgFeedTopSkeleton(),
+        delegate: SliverSingleChildDelegate(
+          count: 12,
+          child: MsgFeedTopSkeleton(),
+        ),
       ),
       Success(:final response) =>
         response != null && response.isNotEmpty

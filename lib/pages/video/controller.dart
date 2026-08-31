@@ -60,6 +60,7 @@ import 'package:PiliMax/pages/video/note/view.dart';
 import 'package:PiliMax/pages/video/post_panel/view.dart';
 import 'package:PiliMax/pages/video/send_danmaku/view.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_args.dart';
+import 'package:PiliMax/pilimax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/pilimax/pages/video/video_media_list_coordinator.dart';
 import 'package:PiliMax/pilimax/pages/video/video_playback_session.dart';
 import 'package:PiliMax/pilimax/pages/video/video_subtitle_coordinator.dart';
@@ -534,12 +535,13 @@ class VideoDetailController extends GetxController
     }
 
     videoType = args['videoType'];
-    if (videoType == VideoType.pgc) {
-      if (!isLoginVideo) {
-        _actualVideoType = VideoType.ugc;
-      }
-    } else if (args['pgcApi'] == true) {
-      _actualVideoType = VideoType.pgc;
+    final actualVideoType = VideoDetailPlayUrlRequest.actualVideoType(
+      requestedVideoType: videoType,
+      isVideoAccountLoggedIn: isLoginVideo,
+      usePgcApi: args['pgcApi'] == true,
+    );
+    if (actualVideoType != videoType) {
+      _actualVideoType = actualVideoType;
     }
 
     bvid = args['bvid'];
@@ -1648,16 +1650,21 @@ class VideoDetailController extends GetxController
         isUgc: actualVideoType == VideoType.ugc,
         unlimitedTrialEnabled: Pref.unlimitedQnTrial,
       ).firstOrNull;
-      final result = await VideoHttp.videoUrl(
-        cid: requestCid,
+      final playUrlRequest = VideoDetailPlayUrlRequest.forCurrentVideoAccount(
         bvid: requestBvid,
-        epid: requestEpId,
+        cid: requestCid,
+        epId: requestEpId,
         seasonId: requestSeasonId,
         tryLook: plPlayerController.tryLook,
         videoType: actualVideoType,
         language: currLang.value,
         voiceBalance: plPlayerController.enableAudioNormalization,
       );
+      final prefetched = !fromReset && !fromSwitch
+          ? (args[videoDetailSessionKey] as VideoDetailSession?)
+                ?.takeInitialPlayUrl(playUrlRequest)
+          : null;
+      final result = await (prefetched ?? playUrlRequest.load());
       if (!isCurrentQuery()) return;
 
       if (result case Success(:final response)) {

@@ -2290,12 +2290,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             ? currentHeight
             : (maxHeight > 0 ? maxHeight : 9.0);
 
-        // Detail-page VODs already provide a black base and a poster below
-        // this widget. Keep this surface transparent while the native
-        // texture is being rebound so a source switch cannot turn that
-        // poster into an opaque black rectangle. Live/PiP surfaces retain
-        // their explicit fill because they have no detail-page poster owner.
-        final surfaceColor =
+        // Detail-page VODs reveal their poster until the native surface is
+        // stable. Once ready, the same gate paints the player's black fill
+        // outside the gesture transform so contain-fit letterboxing cannot
+        // reveal the poster. Live/PiP surfaces keep their explicit fill.
+        final hiddenColor =
             widget.videoDetailController == null ||
                 plPlayerController.isLive ||
                 widget.isPipMode ||
@@ -2303,86 +2302,76 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             ? widget.fill
             : Colors.transparent;
 
-        return Container(
-          clipBehavior: .none,
+        return SizedBox(
           width: finalWidth,
           height: finalHeight,
-          color: surfaceColor,
           child: Obx(
-            () => MouseInteractiveViewer(
-              scaleEnabled: !plPlayerController.controlsLock.value,
-              rotateEnabled: plPlayerController.enablePinchRotate,
-              pointerSignalFallback: _onPointerSignal,
-              onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
-              onPointerPanZoomEnd: _onPointerPanZoomEnd,
-              onPointerDown: _onPointerDown,
-              onPanStart: _onPanStart,
-              onPanUpdate: _onPanUpdate,
-              onPanEnd: _onPanEnd,
-              onScaleUpdate: _onScaleUpdate,
-              scaleGestureRecognizer: _scaleGestureRecognizer,
-              panEnabled: false,
-              minScale: plPlayerController.enableShrinkVideoSize ? 0.75 : 1,
-              maxScale: 2.0,
-              boundaryMargin: plPlayerController.enableShrinkVideoSize
-                  ? const .all(double.infinity)
-                  : .zero,
-              panAxis: .aligned,
-              transformationController: _transformationController,
-              childKey: videoKey,
-              child: RepaintBoundary(
-                key: videoKey,
-                child: Obx(
-                  () {
-                    final currentVideoController =
-                        plPlayerController.videoController ?? videoController;
-                    if (!identical(videoController, currentVideoController)) {
-                      videoController = currentVideoController;
-                    }
-                    // Observe the revision so a reused native controller
-                    // still refreshes the source-scoped surface gate after
-                    // refresh or source replacement. The revision is passed
-                    // as state rather than a key, keeping the native child
-                    // mounted while the new source binds.
-                    final sourceRevision =
-                        plPlayerController.sourceRevision.value;
-                    final videoFit = plPlayerController.videoFit.value;
-                    final Widget videoChild = Transform.flip(
-                      flipX: plPlayerController.flipX.value,
-                      flipY: plPlayerController.flipY.value,
-                      child: FittedBox(
-                        fit: videoFit.boxFit,
-                        alignment: widget.alignment,
-                        child: SimpleVideo(
-                          key: ValueKey(currentVideoController.hashCode),
-                          controller: currentVideoController,
-                          fill: widget.fill,
-                          aspectRatio: videoFit.aspectRatio,
-                        ),
+            () {
+              final currentVideoController =
+                  plPlayerController.videoController ?? videoController;
+              if (!identical(videoController, currentVideoController)) {
+                videoController = currentVideoController;
+              }
+              // Observe the revision so a reused native controller still
+              // refreshes the source-scoped surface gate after refresh or
+              // replacement. Keeping it as state preserves the native child.
+              final sourceRevision = plPlayerController.sourceRevision.value;
+              final videoFit = plPlayerController.videoFit.value;
+              final videoChild = MouseInteractiveViewer(
+                scaleEnabled: !plPlayerController.controlsLock.value,
+                rotateEnabled: plPlayerController.enablePinchRotate,
+                pointerSignalFallback: _onPointerSignal,
+                onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
+                onPointerPanZoomEnd: _onPointerPanZoomEnd,
+                onPointerDown: _onPointerDown,
+                onPanStart: _onPanStart,
+                onPanUpdate: _onPanUpdate,
+                onPanEnd: _onPanEnd,
+                onScaleUpdate: _onScaleUpdate,
+                scaleGestureRecognizer: _scaleGestureRecognizer,
+                panEnabled: false,
+                minScale: plPlayerController.enableShrinkVideoSize ? 0.75 : 1,
+                maxScale: 2.0,
+                boundaryMargin: plPlayerController.enableShrinkVideoSize
+                    ? const .all(double.infinity)
+                    : .zero,
+                panAxis: .aligned,
+                transformationController: _transformationController,
+                childKey: videoKey,
+                child: RepaintBoundary(
+                  key: videoKey,
+                  child: Transform.flip(
+                    flipX: plPlayerController.flipX.value,
+                    flipY: plPlayerController.flipY.value,
+                    child: FittedBox(
+                      fit: videoFit.boxFit,
+                      alignment: widget.alignment,
+                      child: SimpleVideo(
+                        key: ValueKey(currentVideoController.hashCode),
+                        controller: currentVideoController,
+                        fill: widget.fill,
+                        aspectRatio: videoFit.aspectRatio,
                       ),
-                    );
-                    return _StableVideoSurface(
-                      key: ValueKey(
-                        (
-                          'stable-video-surface',
-                          currentVideoController,
-                        ),
-                      ),
-                      controller: currentVideoController,
-                      sourceGeneration:
-                          plPlayerController.activeSourceGeneration,
-                      sourceRevision: sourceRevision,
-                      viewportSize: Size(finalWidth, finalHeight),
-                      // Playback state must not recreate the native surface.
-                      // A paused video should keep its last rendered frame.
-                      requireFirstFrame: plPlayerController.isLive,
-                      placeholder: ColoredBox(color: surfaceColor),
-                      child: videoChild,
-                    );
-                  },
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              );
+              return _StableVideoSurface(
+                key: ValueKey(
+                  ('stable-video-surface', currentVideoController),
+                ),
+                controller: currentVideoController,
+                sourceGeneration: plPlayerController.activeSourceGeneration,
+                sourceRevision: sourceRevision,
+                viewportSize: Size(finalWidth, finalHeight),
+                // Playback state must not recreate the native surface. A
+                // paused video should keep its last rendered frame.
+                requireFirstFrame: plPlayerController.isLive,
+                hiddenColor: hiddenColor,
+                readyColor: widget.fill,
+                child: videoChild,
+              );
+            },
           ),
         );
       },
@@ -2801,7 +2790,8 @@ class _StableVideoSurface extends StatefulWidget {
     required this.sourceRevision,
     required this.viewportSize,
     required this.requireFirstFrame,
-    required this.placeholder,
+    required this.hiddenColor,
+    required this.readyColor,
     required this.child,
   });
 
@@ -2810,7 +2800,8 @@ class _StableVideoSurface extends StatefulWidget {
   final int sourceRevision;
   final Size viewportSize;
   final bool requireFirstFrame;
-  final Widget placeholder;
+  final Color hiddenColor;
+  final Color readyColor;
   final Widget child;
 
   @override
@@ -2865,8 +2856,8 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
         sourceChanged ||
         oldWidget.requireFirstFrame != widget.requireFirstFrame) {
       // Keep the native child mounted but hide it until the new source has a
-      // settled texture. Detail VODs reveal their existing poster beneath
-      // this transparent surface instead of a stale frame or black layer.
+      // settled texture. Detail VODs reveal their existing poster until the
+      // gate atomically restores the ready background and native surface.
       _attachController();
     } else if (oldWidget.viewportSize != widget.viewportSize) {
       // didUpdateWidget is part of the parent's build; defer the visual
@@ -3116,12 +3107,9 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
   }
 
   @override
-  Widget build(BuildContext context) => Stack(
-    fit: StackFit.expand,
-    children: [
-      widget.placeholder,
-      Opacity(opacity: _surfaceReady ? 1 : 0, child: widget.child),
-    ],
+  Widget build(BuildContext context) => ColoredBox(
+    color: _surfaceReady ? widget.readyColor : widget.hiddenColor,
+    child: Opacity(opacity: _surfaceReady ? 1 : 0, child: widget.child),
   );
 }
 

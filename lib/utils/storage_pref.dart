@@ -688,6 +688,11 @@ abstract final class Pref {
   static String get banWordForRecommend =>
       _setting.get(SettingBoxKey.banWordForRecommend, defaultValue: '');
 
+  static String get banWordForRecommendUpName => _setting.get(
+    SettingBoxKey.banWordForRecommendUpName,
+    defaultValue: '',
+  );
+
   static String get banWordForReply =>
       _setting.get(SettingBoxKey.banWordForReply, defaultValue: '');
 
@@ -1175,11 +1180,36 @@ abstract final class Pref {
     return value is String && value.isNotEmpty ? value : null;
   }
 
-  static DanmakuFontSyncMode get danmakuFontSyncMode =>
-      DanmakuFontSyncMode.values[_setting.get(
-        SettingBoxKey.danmakuFontSyncMode,
-        defaultValue: DanmakuFontSyncMode.system.index,
-      )];
+  static Map<String, String> get customAppFont => _stringMapSetting(
+    SettingBoxKey.customAppFont,
+  );
+
+  static Map<String, String> get customAppFontNames => _stringMapSetting(
+    SettingBoxKey.customAppFontNames,
+  );
+
+  static Map<String, String> _stringMapSetting(String key) {
+    final value = _setting.get(key, defaultValue: const <String, String>{});
+    if (value is! Map) return {};
+    return <String, String>{
+      for (final entry in value.entries)
+        if (entry.key is String && entry.value is String)
+          entry.key as String: entry.value as String,
+    };
+  }
+
+  static DanmakuFontSyncMode get danmakuFontSyncMode {
+    final value = _setting.get(
+      SettingBoxKey.danmakuFontSyncMode,
+      defaultValue: DanmakuFontSyncMode.system.index,
+    );
+    if (value is int &&
+        value >= 0 &&
+        value < DanmakuFontSyncMode.values.length) {
+      return DanmakuFontSyncMode.values[value];
+    }
+    return DanmakuFontSyncMode.system;
+  }
 
   static bool get enableCustomDanmakuFont =>
       _setting.get(SettingBoxKey.enableCustomDanmakuFont, defaultValue: false);

@@ -20,6 +20,7 @@ import 'package:PiliMax/models_new/live/live_dm_block/shield_user_list.dart';
 import 'package:PiliMax/models_new/live/live_dm_info/data.dart';
 import 'package:PiliMax/models_new/live/live_emote/data.dart';
 import 'package:PiliMax/models_new/live/live_emote/datum.dart';
+import 'package:PiliMax/models_new/live/live_fans_medal/data.dart';
 import 'package:PiliMax/models_new/live/live_feed_index/data.dart';
 import 'package:PiliMax/models_new/live/live_follow/data.dart';
 import 'package:PiliMax/models_new/live/live_medal_wall/data.dart';
@@ -235,10 +236,8 @@ abstract final class LiveHttp {
       options: Options(
         headers: {
           'buvid': LoginHttp.buvid,
-          'fp_local':
-              '1111111111111111111111111111111111111111111111111111111111111111',
-          'fp_remote':
-              '1111111111111111111111111111111111111111111111111111111111111111',
+          'fp_local': '1111111111111111111111111111111111111111111111111111111111111111',
+          'fp_remote': '1111111111111111111111111111111111111111111111111111111111111111',
           'session_id': '11111111',
           'env': 'prod',
           'app-key': 'android',
@@ -315,10 +314,8 @@ abstract final class LiveHttp {
       options: Options(
         headers: {
           'buvid': LoginHttp.buvid,
-          'fp_local':
-              '1111111111111111111111111111111111111111111111111111111111111111',
-          'fp_remote':
-              '1111111111111111111111111111111111111111111111111111111111111111',
+          'fp_local': '1111111111111111111111111111111111111111111111111111111111111111',
+          'fp_remote': '1111111111111111111111111111111111111111111111111111111111111111',
           'session_id': '11111111',
           'env': 'prod',
           'app-key': 'android',
@@ -947,4 +944,101 @@ abstract final class LiveHttp {
       return Error(res.data['message']);
     }
   }
+
+  static Future<LoadingState<FansMedalPanelData>> fansMedalPanel({
+    required Object roomId,
+    required Object targetId,
+    int page = 1,
+  }) async {
+    final params = <String, dynamic>{
+      'access_key': ?Accounts.main.accessKey,
+      'actionKey': 'appkey',
+      'platform': 'android',
+      'statistics': Constants.statisticsApp,
+      'room_id': roomId,
+      'target_id': targetId,
+      'page': page,
+      'page_size': 50,
+    };
+    AppSign.appSign(params);
+    final res = await Request().get(
+      Api.liveFansMedalPanel,
+      queryParameters: params,
+      options: Options(extra: {'account': Accounts.main}),
+    );
+    final body = _jsonMap(res.data);
+    if (_responseCode(body?['code']) != 0) {
+      return Error(body?['message']?.toString() ?? '获取粉丝勋章失败');
+    }
+    final data = _jsonMap(body?['data']);
+    if (data == null) return const Error('粉丝勋章数据格式错误');
+    try {
+      return Success(FansMedalPanelData.fromJson(data));
+    } catch (error) {
+      return Error('粉丝勋章数据解析失败: $error');
+    }
+  }
+
+  static Future<LoadingState<void>> _fansMedalAction(
+    String url, {
+    required Object medalId,
+    required Object targetId,
+  }) async {
+    final params = <String, dynamic>{
+      'access_key': ?Accounts.main.accessKey,
+      'actionKey': 'appkey',
+      'platform': 'android',
+      'statistics': Constants.statisticsApp,
+      'medal_id': medalId,
+      'medal_type': 1,
+      'source': 1,
+      'target_id': targetId,
+    };
+    AppSign.appSign(params);
+    final res = await Request().post(
+      url,
+      data: params,
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': Accounts.main},
+      ),
+    );
+    final body = _jsonMap(res.data);
+    if (_responseCode(body?['code']) == 0) return const Success(null);
+    return Error(body?['message']?.toString() ?? '粉丝勋章操作失败');
+  }
+
+  static Future<LoadingState<void>> fansMedalWear({
+    required Object medalId,
+    required Object targetId,
+  }) => _fansMedalAction(
+    Api.liveFansMedalWear,
+    medalId: medalId,
+    targetId: targetId,
+  );
+
+  static Future<LoadingState<void>> fansMedalTakeOff({
+    required Object medalId,
+    required Object targetId,
+  }) => _fansMedalAction(
+    Api.liveFansMedalTakeOff,
+    medalId: medalId,
+    targetId: targetId,
+  );
+
+  static Map<String, dynamic>? _jsonMap(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is! Map) return null;
+    return {
+      for (final entry in value.entries) entry.key.toString(): entry.value,
+    };
+  }
+
+  static int? _responseCode(Object? value) => switch (value) {
+    int value => value,
+    num value => value.toInt(),
+    bool value => value ? 1 : 0,
+    String value => int.tryParse(value),
+    _ => null,
+  };
 }

@@ -50,7 +50,6 @@ abstract final class Api {
   /// web端点赞接口（无access_key时fallback）
   static const String likeVideoWeb = '/x/web-interface/archive/like';
 
-
   // 改用app端点赞接口
   static const String likeVideo = '${HttpString.appBaseUrl}/x/v2/view/like';
   //判断视频是否被点赞（双端）Get
@@ -1032,4 +1031,13 @@ abstract final class Api {
 
   static const String liveFeedback =
       '${HttpString.liveBaseUrl}/xlive/app-interface/v2/index/feedback';
+
+  static const String liveFansMedalPanel =
+      '${HttpString.liveBaseUrl}/xlive/app-ucenter/v1/fansMedal/panel';
+
+  static const String liveFansMedalWear =
+      '${HttpString.liveBaseUrl}/xlive/app-ucenter/v1/fansMedal/wear';
+
+  static const String liveFansMedalTakeOff =
+      '${HttpString.liveBaseUrl}/xlive/app-ucenter/v1/fansMedal/take_off';
 }

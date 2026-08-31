@@ -2587,10 +2587,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   // 双击播放、暂停
   Future<void> onDoubleTapCenter() async {
     if (!isLive && isCompleted) {
-      await videoPlayerController!.seek(Duration.zero);
-      videoPlayerController!.play();
+      await play(repeat: true);
+    } else if (videoPlayerController!.state.playing) {
+      await pause();
     } else {
-      videoPlayerController!.playOrPause();
+      await play();
     }
   }
 

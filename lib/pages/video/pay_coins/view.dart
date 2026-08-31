@@ -202,13 +202,16 @@ class _PayCoinsPageState extends State<PayCoinsPage>
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final isPortrait = size.isPortrait;
-    return isPortrait
-        ? _buildBody(isPortrait)
-        : _buildBody(isPortrait).constraintWidth(
-            constraints: BoxConstraints(
-              maxWidth: math.min(525, size.width * 0.6),
+    return DefaultTextStyle(
+      style: TextTheme.of(context).bodyMedium!,
+      child: isPortrait
+          ? _buildBody(isPortrait)
+          : _buildBody(isPortrait).constraintWidth(
+              constraints: BoxConstraints(
+                maxWidth: math.min(525, size.width * 0.6),
+              ),
             ),
-          );
+    );
   }
 
   Widget _buildCoinWidget(int index, double factor) {

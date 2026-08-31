@@ -24,6 +24,16 @@ abstract final class RecommendFilter {
   );
   static RegExp rcmdRegExp = _initialFilter.regExp;
   static bool enableFilter = _initialFilter.isEnabled;
+  static final _initialUpNameFilter = FilterPatternCompiler.compileStoredSafely(
+    Pref.banWordForRecommendUpName,
+    onError: (error, stackTrace) => Utils.reportError(
+      error,
+      stackTrace,
+      'RecommendFilter.invalidStoredUpNamePattern',
+    ),
+  );
+  static RegExp rcmdUpNameRegExp = _initialUpNameFilter.regExp;
+  static bool enableUpNameFilter = _initialUpNameFilter.isEnabled;
   static Map<int, String> recommendBlockedMids = Pref.recommendBlockedMids;
 
   static bool isWhitelisted(int? mid) {
@@ -59,6 +69,12 @@ abstract final class RecommendFilter {
     return (enableFilter && rcmdRegExp.hasMatch(title));
   }
 
+  static bool filterUpName(String? name) {
+    return enableUpNameFilter &&
+        name != null &&
+        rcmdUpNameRegExp.hasMatch(name);
+  }
+
   static bool filterUser(int? mid) {
     return recommendBlockedMids.isNotEmpty &&
         mid != null &&
@@ -77,7 +93,7 @@ abstract final class RecommendFilter {
             videoItem.duration < minDurationForRcmd) ||
         filterLikeRatio(videoItem.stat.like, videoItem.stat.view) ||
         filterTitle(videoItem.title) ||
-        filterUser(videoItem.owner.mid);
+        filterUpName(videoItem.owner.name);
   }
 
   static bool searchShouldRemove(int? mid, String title) {

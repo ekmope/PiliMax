@@ -28,6 +28,7 @@ import 'package:PiliMax/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
+import 'package:PiliMax/pilimax/utils/app_font.dart';
 import 'package:PiliMax/pilimax/utils/danmaku_font.dart';
 import 'package:PiliMax/utils/extension/file_ext.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
@@ -40,6 +41,7 @@ import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:material_ui/material_ui.dart' hide StatefulBuilder;
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -94,11 +96,11 @@ List<SettingsModel> get styleSettings => [
     title: 'App字体设置',
     leading: const Icon(Icons.font_download_outlined),
     getSubtitle: () {
-      final customFontName = Pref.customFontName;
-      if (customFontName != null) {
-        return '自定义：$customFontName';
+      final family = Pref.effectiveAppFontFamily;
+      if (AppFont.isCustomFont(family) || Pref.customFontFamily != null) {
+        return '自定义：${AppFont.currentFontName ?? family ?? '未知字体'}';
       }
-      return Pref.appFont ?? '系统默认';
+      return family ?? '系统默认';
     },
     onTap: (context, setState) async {
       await Get.toNamed('/fontSetting');
@@ -453,72 +455,129 @@ void _showQualityDialog({
   });
 }
 
+enum _DanmakuFontDialogAction { followApp, importFont }
+
 Future<void> _showDanmakuFontDialog(
   BuildContext context,
   VoidCallback setState,
 ) async {
   final pageContext = context;
-  await showDialog<void>(
+  final selected = await showDialog<Object>(
     context: pageContext,
     builder: (dialogContext) => AlertDialog(
-      title: const Text('选择弹幕字体模式'),
-      content: Text(
-        Pref.danmakuFontSyncMode == DanmakuFontSyncMode.global
-            ? '当前：跟随应用界面字体'
-            : DanmakuFont.currentFontName == null
-            ? '当前：系统自带弹幕字体 (尚未选择独立字体)'
-            : '当前独立字体：${DanmakuFont.currentFontName}',
+      title: const Text('选择弹幕字体'),
+      contentPadding: const EdgeInsets.fromLTRB(8, 12, 8, 4),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 420,
+          maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.55,
+        ),
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.sync),
+              title: const Text('跟随应用界面'),
+              trailing: Pref.danmakuFontSyncMode == DanmakuFontSyncMode.global
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () => Navigator.pop(
+                dialogContext,
+                _DanmakuFontDialogAction.followApp,
+              ),
+            ),
+            for (final font in DanmakuFont.fonts)
+              ListTile(
+                leading: const Icon(Icons.font_download_outlined),
+                title: Text(
+                  font.displayName,
+                  style: TextStyle(fontFamily: font.fontFamily),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing:
+                    Pref.danmakuFontSyncMode == DanmakuFontSyncMode.custom &&
+                        Pref.customDanmakuFontFamily == font.fontFamily
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(dialogContext, font.fontFamily),
+              ),
+            ListTile(
+              leading: const Icon(Icons.file_open_outlined),
+              title: const Text('导入新字体'),
+              subtitle: const Text('支持 TTF、OTF、TTC'),
+              onTap: () => Navigator.pop(
+                dialogContext,
+                _DanmakuFontDialogAction.importFont,
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(),
           child: const Text('取消'),
         ),
-        TextButton(
-          onPressed: () async {
-            Navigator.of(dialogContext).pop();
-            await GStorage.setting.put(
-              SettingBoxKey.danmakuFontSyncMode,
-              DanmakuFontSyncMode.global.index,
-            );
-            final cleared = await DanmakuFont.clear();
-            if (!pageContext.mounted) {
-              return;
-            }
-            setState();
-            if (cleared) {
-              SmartDialog.showToast('已清除独立字体并跟随应用界面');
-            } else {
-              SmartDialog.showToast('已跟随应用界面字体');
-            }
-          },
-          child: const Text('跟随应用界面'),
-        ),
-        FilledButton(
-          onPressed: () async {
-            Navigator.of(dialogContext).pop();
-            try {
-              final changed = await DanmakuFont.pickAndApply();
-              if (!pageContext.mounted) {
-                return;
-              }
-              if (changed) {
-                await GStorage.setting.put(
-                  SettingBoxKey.danmakuFontSyncMode,
-                  DanmakuFontSyncMode.custom.index,
-                );
-                setState();
-                SmartDialog.showToast('弹幕自定义字体已应用');
-              }
-            } catch (e) {
-              SmartDialog.showToast('字体加载失败: $e');
-            }
-          },
-          child: const Text('选择单独字体'),
-        ),
       ],
     ),
   );
+
+  if (selected == null || !pageContext.mounted) return;
+  if (selected == _DanmakuFontDialogAction.followApp) {
+    await GStorage.setting.put(
+      SettingBoxKey.danmakuFontSyncMode,
+      DanmakuFontSyncMode.global.index,
+    );
+    await DanmakuFont.clear();
+    if (!pageContext.mounted) return;
+    setState();
+    SmartDialog.showToast('已跟随应用界面字体');
+    return;
+  }
+
+  if (selected is String) {
+    SmartDialog.showLoading();
+    try {
+      await DanmakuFont.select(selected);
+      if (!pageContext.mounted) return;
+      setState();
+      SmartDialog.showToast('弹幕字体已应用');
+    } catch (error) {
+      SmartDialog.showToast('字体加载失败: $error');
+    } finally {
+      SmartDialog.dismiss(status: SmartStatus.loading);
+    }
+    return;
+  }
+
+  final files = await FilePicker.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: DanmakuFont.allowedExtensions,
+  );
+  if (files.isEmpty) return;
+
+  SmartDialog.showLoading();
+  try {
+    final result = await DanmakuFont.importFiles(files);
+    if (result.fonts.isNotEmpty) {
+      await DanmakuFont.select(result.fonts.last.fontFamily);
+    }
+    if (!pageContext.mounted) return;
+    setState();
+    if (result.fonts.isNotEmpty) {
+      SmartDialog.showToast('弹幕字体已应用');
+    }
+    if (result.failedCount != 0) {
+      SmartDialog.showToast(
+        result.fonts.isEmpty ? '字体导入失败' : '${result.failedCount} 个字体导入失败',
+      );
+    }
+  } catch (error) {
+    SmartDialog.showToast('字体导入失败: $error');
+  } finally {
+    SmartDialog.dismiss(status: SmartStatus.loading);
+  }
 }
 
 void _showUiScaleDialog(BuildContext context, VoidCallback setState) {

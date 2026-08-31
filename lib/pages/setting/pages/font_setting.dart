@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/scaffold/simple_scaffold.dart';
@@ -15,10 +15,10 @@ import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:path/path.dart' as path;
 
 class FontSettingPage extends StatefulWidget {
   const FontSettingPage({super.key});
@@ -27,20 +27,17 @@ class FontSettingPage extends StatefulWidget {
   State<FontSettingPage> createState() => _FontSettingPageState();
 }
 
-final class _PendingFont {
-  const _PendingFont({
-    required this.sourceName,
-    required this.bytes,
-  });
-
-  final String sourceName;
-  final Uint8List bytes;
-
-  String get displayName => path.basename(sourceName);
-}
-
 final class _FontSettingPageState extends State<FontSettingPage> {
   static const double _tileHeight = 45.0;
+  static final String? _platformDefaultFontFamily =
+      (switch (defaultTargetPlatform) {
+        TargetPlatform.iOS => Typography.whiteCupertino,
+        TargetPlatform.android ||
+        TargetPlatform.fuchsia => Typography.whiteMountainView,
+        TargetPlatform.windows => Typography.whiteRedmond,
+        TargetPlatform.macOS => Typography.whiteRedwoodCity,
+        TargetPlatform.linux => Typography.whiteHelsinki,
+      }).bodyMedium?.fontFamily;
 
   late final List<String> _fonts;
   late final bool _initialCustomFont;
@@ -49,22 +46,21 @@ final class _FontSettingPageState extends State<FontSettingPage> {
   late ScrollController _scrollController;
 
   String? _selectedFont;
-  String? _selectedDisplayName;
   bool _selectedCustom = false;
   int _selectedWeight = FontWeight.values.indexOf(Pref.appFontWeight);
   double _selectedScale = Pref.defaultTextScale;
   bool _saving = false;
 
-  final Map<String, _PendingFont> _customFonts = {};
-
   @override
   void initState() {
     super.initState();
-    final current = AppFont.currentSelection;
-    _initialCustomFont = current.isComplete;
+    final selected = Pref.effectiveAppFontFamily;
+    final legacyCustom = Pref.customFontFamily;
+    _initialCustomFont =
+        AppFont.isCustomFont(selected) ||
+        (legacyCustom != null && legacyCustom == selected);
     _selectedCustom = _initialCustomFont;
-    _selectedFont = _initialCustomFont ? current.fontFamily : Pref.appFont;
-    _selectedDisplayName = current.displayName;
+    _selectedFont = selected;
     _fonts = FontUtils.getFont().toList()..sort();
 
     if (!_selectedCustom && _selectedFont != null) {
@@ -72,7 +68,8 @@ final class _FontSettingPageState extends State<FontSettingPage> {
       if (index != -1) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && _scrollController.hasClients) {
-            _scrollController.jumpTo(index * _tileHeight);
+            final tileIndex = 1 + AppFont.fonts.length + index;
+            _scrollController.jumpTo(tileIndex * _tileHeight);
           }
         });
       }
@@ -87,50 +84,33 @@ final class _FontSettingPageState extends State<FontSettingPage> {
     _scrollController = PrimaryScrollController.of(context);
   }
 
-  @override
-  void dispose() {
-    _customFonts.clear();
-    super.dispose();
-  }
-
   Future<void> _importFonts() async {
+    final files = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: AppFont.allowedExtensions,
+    );
+    if (files.isEmpty) return;
+
     SmartDialog.showLoading();
-    var changed = false;
-    String? lastFamily;
     try {
-      final files = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: AppFont.allowedExtensions,
-      );
-      if (files.isEmpty) return;
-
-      final timestamp = DateTime.now().microsecondsSinceEpoch;
-      for (var index = 0; index < files.length; index++) {
-        final file = files[index];
-        final bytes = await file.readAsBytes();
-        if (bytes.isEmpty) continue;
-
-        final family = 'pilimax_preview_font_${timestamp}_$index';
-        await AppFont.loadPreview(fontFamily: family, bytes: bytes);
-        final sourceName = file.path ?? file.name;
-        _customFonts[family] = _PendingFont(
-          sourceName: sourceName,
-          bytes: bytes,
-        );
-        lastFamily = family;
-        changed = true;
-      }
-    } catch (error) {
-      SmartDialog.showToast('字体加载失败: $error');
-    } finally {
-      SmartDialog.dismiss();
-      if (mounted && changed && lastFamily != null) {
+      final result = await AppFont.importFiles(files);
+      if (!mounted) return;
+      if (result.fonts.isNotEmpty) {
+        final selected = result.fonts.last;
         setState(() {
-          _selectedFont = lastFamily;
-          _selectedDisplayName = _customFonts[lastFamily]!.displayName;
+          _selectedFont = selected.fontFamily;
           _selectedCustom = true;
         });
       }
+      if (result.failedCount != 0) {
+        SmartDialog.showToast(
+          result.fonts.isEmpty ? '字体导入失败' : '${result.failedCount} 个字体导入失败',
+        );
+      }
+    } catch (error) {
+      SmartDialog.showToast('字体导入失败: $error');
+    } finally {
+      SmartDialog.dismiss(status: SmartStatus.loading);
     }
   }
 
@@ -140,28 +120,18 @@ final class _FontSettingPageState extends State<FontSettingPage> {
 
     try {
       if (_selectedCustom) {
-        final pending = _selectedFont == null
-            ? null
-            : _customFonts[_selectedFont];
-        if (pending != null) {
-          await AppFont.apply(
-            CustomFontBytesSource(
-              sourceName: pending.sourceName,
-              bytes: pending.bytes,
-            ),
-          );
-        } else if (!AppFont.currentSelection.isComplete ||
-            AppFont.currentSelection.fontFamily != _selectedFont) {
+        final selected = _selectedFont;
+        if (selected == null) {
+          throw StateError('所选字体不可用，请重新选择');
+        }
+        if (AppFont.isCustomFont(selected)) {
+          await AppFont.select(selected);
+        } else if (!_initialCustomFont ||
+            selected != Pref.effectiveAppFontFamily) {
           throw StateError('所选字体不可用，请重新导入');
         }
-        await GStorage.setting.delete(SettingBoxKey.appFont);
       } else {
-        await AppFont.clear();
-        if (_selectedFont == null) {
-          await GStorage.setting.delete(SettingBoxKey.appFont);
-        } else {
-          await GStorage.setting.put(SettingBoxKey.appFont, _selectedFont);
-        }
+        await AppFont.selectSystemFont(_selectedFont);
       }
 
       await GStorage.setting.putAllNE({
@@ -187,13 +157,19 @@ final class _FontSettingPageState extends State<FontSettingPage> {
     setState(() {
       _selectedFont = value;
       _selectedCustom = isCustom;
-      _selectedDisplayName = isCustom
-          ? _customFonts[value]?.displayName ??
-                (AppFont.currentSelection.fontFamily == value
-                    ? AppFont.currentFontName
-                    : null)
-          : null;
     });
+    if (isCustom && value != null && AppFont.isCustomFont(value)) {
+      unawaited(_loadForPreview(value));
+    }
+  }
+
+  Future<void> _loadForPreview(String fontFamily) async {
+    try {
+      await AppFont.ensureLoaded(fontFamily);
+      if (mounted) setState(() {});
+    } catch (error) {
+      SmartDialog.showToast('字体加载失败: $error');
+    }
   }
 
   Color? _tileColor(String? value, {bool isCustom = false}) {
@@ -203,13 +179,8 @@ final class _FontSettingPageState extends State<FontSettingPage> {
     return null;
   }
 
-  Widget _buildCustomFontTile(String family, _PendingFont? pending) {
-    final displayName =
-        pending?.displayName ??
-        (family == AppFont.currentSelection.fontFamily
-            ? AppFont.currentFontName
-            : null) ??
-        family;
+  Widget _buildCustomFontTile(CustomFontEntry font) {
+    final family = font.fontFamily;
     return ListTile(
       minTileHeight: _tileHeight,
       tileColor: _tileColor(family, isCustom: true),
@@ -218,40 +189,104 @@ final class _FontSettingPageState extends State<FontSettingPage> {
         isCustom: true,
       ),
       title: Text(
-        displayName,
+        font.displayName,
         style: TextStyle(fontFamily: family),
       ),
-      trailing: pending == null
-          ? null
-          : iconButton(
-              size: 38,
-              iconSize: 22,
-              tooltip: '移除',
-              onPressed: () {
-                setState(() {
-                  if (_selectedCustom && _selectedFont == family) {
-                    _selectedFont = null;
-                    _selectedDisplayName = null;
-                    _selectedCustom = false;
-                  }
-                  _customFonts.remove(family);
-                });
-              },
-              icon: const Icon(Icons.clear),
-            ),
+      trailing: iconButton(
+        size: 38,
+        iconSize: 22,
+        tooltip: '移除',
+        onPressed: () => _confirmRemoveFont(font),
+        icon: const Icon(Icons.delete_outline),
+      ),
     );
+  }
+
+  Future<void> _confirmRemoveFont(CustomFontEntry font) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('移除字体'),
+        content: Text('确认移除“${font.displayName}”？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('移除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final appWasUsing = Pref.effectiveAppFontFamily == font.fontFamily;
+    try {
+      await AppFont.removeFont(font.fontFamily);
+    } catch (error) {
+      SmartDialog.showToast('字体移除失败: $error');
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      if (_selectedCustom && _selectedFont == font.fontFamily) {
+        _selectedFont = null;
+        _selectedCustom = false;
+      }
+    });
+    if (appWasUsing) {
+      Get
+        ..updateMyAppTheme()
+        ..appUpdate();
+    }
+  }
+
+  Future<void> _confirmClearFonts() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('清空字体库'),
+        content: const Text('确认移除全部已导入字体？App 与弹幕中正在使用的字体会恢复默认。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('清空'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final appWasUsing = AppFont.isCustomFont(Pref.effectiveAppFontFamily);
+    final selectedWasImported = AppFont.isCustomFont(_selectedFont);
+    try {
+      await AppFont.clearFonts();
+    } catch (error) {
+      SmartDialog.showToast('字体库清空失败: $error');
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      if (_selectedCustom && selectedWasImported) {
+        _selectedFont = null;
+        _selectedCustom = false;
+      }
+    });
+    if (appWasUsing) {
+      Get
+        ..updateMyAppTheme()
+        ..appUpdate();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final persistedCustomFamily = AppFont.currentSelection.fontFamily;
-    final customFontTiles = <Widget>[
-      if (persistedCustomFamily != null &&
-          !_customFonts.containsKey(persistedCustomFamily))
-        _buildCustomFontTile(persistedCustomFamily, null),
-      for (final entry in _customFonts.entries)
-        _buildCustomFontTile(entry.key, entry.value),
-    ];
+    final importedFonts = AppFont.fonts;
+    final customFontTiles = importedFonts.map(_buildCustomFontTile).toList();
 
     return SimpleScaffold(
       appBar: AppBar(
@@ -262,7 +297,6 @@ final class _FontSettingPageState extends State<FontSettingPage> {
                 ? null
                 : () => setState(() {
                     _selectedFont = null;
-                    _selectedDisplayName = null;
                     _selectedCustom = false;
                     _selectedWeight = FontWeight.values.indexOf(
                       FontWeight.normal,
@@ -275,6 +309,12 @@ final class _FontSettingPageState extends State<FontSettingPage> {
             onPressed: _saving ? null : _saveFontSetting,
             child: const Text('确定'),
           ),
+          if (importedFonts.isNotEmpty)
+            iconButton(
+              tooltip: '清空字体库',
+              onPressed: _saving ? null : _confirmClearFonts,
+              icon: const Icon(Icons.delete_sweep_outlined),
+            ),
           const SizedBox(width: 12),
         ],
       ),
@@ -297,7 +337,7 @@ final class _FontSettingPageState extends State<FontSettingPage> {
                       : "我能吞下玻璃而不伤身体"}\n\n'
                   '注：部分字体可能无法应用',
                   style: TextStyle(
-                    fontFamily: _selectedFont ?? '',
+                    fontFamily: _selectedFont ?? _platformDefaultFontFamily,
                     fontWeight: FontWeight.values[_selectedWeight],
                     fontSize: 14 * _selectedScale,
                   ),
@@ -336,13 +376,14 @@ final class _FontSettingPageState extends State<FontSettingPage> {
                           Expanded(
                             child: Text(
                               _selectedCustom
-                                  ? (_selectedDisplayName ??
-                                        _selectedFont ??
-                                        '自定义字体')
+                                  ? (_selectedFont == null
+                                        ? '自定义字体'
+                                        : AppFont.displayName(_selectedFont!))
                                   : _selectedFont ?? '默认',
                               style: TextStyle(
                                 fontSize: 15,
-                                fontFamily: _selectedFont ?? '',
+                                fontFamily:
+                                    _selectedFont ?? _platformDefaultFontFamily,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),

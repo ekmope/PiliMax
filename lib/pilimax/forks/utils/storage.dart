@@ -193,12 +193,10 @@ abstract final class GStorage {
       );
       await nextWatchProgressStore.enforceLimit();
 
-      final saveReply =
-          nextSetting.get(
-                SettingBoxKey.saveReply,
-                defaultValue: true,
-              )
-              as bool;
+      final saveReply = nextSetting.get(
+        SettingBoxKey.saveReply,
+        defaultValue: true,
+      ) as bool;
       final Box<Uint8List>? nextReply;
       if (saveReply) {
         nextReply = resources.own<Box<Uint8List>>(
@@ -324,6 +322,7 @@ abstract final class GStorage {
     try {
       FilterPatternCompiler.validateStoredSettings(settingValues, const [
         SettingBoxKey.banWordForRecommend,
+        SettingBoxKey.banWordForRecommendUpName,
         SettingBoxKey.banWordForReply,
         SettingBoxKey.banWordForZone,
         SettingBoxKey.banWordForDyn,

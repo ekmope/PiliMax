@@ -1994,56 +1994,61 @@ class HeaderControlState extends State<HeaderControl>
         (isFullScreen ||
             ((!horizontalScreen || plPlayerController.isDesktopPip) &&
                 !isPortrait))) {
-      title = Padding(
-        key: titleKey,
-        padding: isPortrait
-            ? EdgeInsets.zero
-            : const EdgeInsets.only(right: 10),
-        child: Obx(
-          () {
-            final videoDetail = introController.videoDetail.value;
-            final String title;
-            if (isFileSource || videoDetail.videos == 1) {
-              title = videoDetail.title!;
-            } else {
-              title =
-                  videoDetail.pages
-                      ?.firstWhereOrNull(
-                        (e) => e.cid == videoDetailCtr.cid.value,
-                      )
-                      ?.part ??
-                  videoDetail.title!;
-            }
-            return MarqueeText(
-              title,
-              spacing: 30,
-              velocity: 30,
-              strutStyle: const StrutStyle(fontSize: 16, leading: 0),
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              provider: effectiveProvider,
-            );
-          },
-        ),
-      );
-      if (introController.isShowOnlineTotal) {
-        title = Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+      title = Expanded(
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            title,
-            Obx(
-              () => Text(
-                '${introController.total.value}人正在看',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                ),
+            Padding(
+              key: titleKey,
+              padding: isPortrait
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.only(right: 10),
+              child: Obx(
+                () {
+                  final videoDetail = introController.videoDetail.value;
+                  final String title;
+                  if (isFileSource || videoDetail.videos == 1) {
+                    title = videoDetail.title!;
+                  } else {
+                    title =
+                        videoDetail.pages
+                            ?.firstWhereOrNull(
+                              (e) => e.cid == videoDetailCtr.cid.value,
+                            )
+                            ?.part ??
+                        videoDetail.title!;
+                  }
+                  return MarqueeText(
+                    title,
+                    spacing: 30,
+                    velocity: 30,
+                    strutStyle: const StrutStyle(fontSize: 16, leading: 0),
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    provider: effectiveProvider,
+                  );
+                },
               ),
             ),
+            if (introController.isShowOnlineTotal)
+              Positioned(
+                left: 0,
+                bottom: 0,
+                child: FractionalTranslation(
+                  translation: const Offset(0, 1),
+                  child: Obx(
+                    () => Text(
+                      '${introController.total.value}人正在看',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
-        );
-      }
-      title = Expanded(child: title);
+        ),
+      );
     } else {
       title = const Spacer();
     }
@@ -2059,7 +2064,12 @@ class HeaderControlState extends State<HeaderControl>
       foregroundColor: Colors.white,
       primary: false,
       automaticallyImplyLeading: false,
-      toolbarHeight: showFSActionItem ? 112 : null,
+      // Include the translated viewer-count line in AppBarAni's slide extent.
+      toolbarHeight: showFSActionItem
+          ? 112
+          : introController.isShowOnlineTotal
+          ? 60
+          : null,
       flexibleSpace: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

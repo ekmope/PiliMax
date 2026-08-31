@@ -13,6 +13,8 @@ import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models_new/live/live_danmaku/danmaku_msg.dart';
 import 'package:PiliMax/models_new/live/live_danmaku/live_emote.dart';
 import 'package:PiliMax/models_new/live/live_dm_info/data.dart';
+import 'package:PiliMax/models_new/live/live_fans_medal/data.dart';
+import 'package:PiliMax/models_new/live/live_fans_medal/item.dart';
 import 'package:PiliMax/models_new/live/live_medal_wall/uinfo_medal.dart';
 import 'package:PiliMax/models_new/live/live_room_info_h5/data.dart';
 import 'package:PiliMax/models_new/live/live_room_play_info/codec.dart';
@@ -130,6 +132,18 @@ class LiveRoomController extends GetxController {
 
   late final bool isLogin;
   late final int mid;
+
+  final Rxn<FansMedalPanelData> fansMedalData = Rxn();
+  final Rxn<FansMedalItem> wearingFansMedal = Rxn();
+  final RxBool fansMedalLoading = false.obs;
+  final RxBool fansMedalActing = false.obs;
+  final RxnString fansMedalError = RxnString();
+  final RxBool fansMedalHasMore = false.obs;
+  bool _fansMedalStale = false;
+  Future<void>? _fansMedalRequest;
+  int _fansMedalPage = 1;
+
+  Object? get medalTargetId => ruid ?? roomInfoH5.value?.roomInfo?.uid;
 
   String? videoUrl;
   bool? isPlaying;
@@ -1118,5 +1132,221 @@ class LiveRoomController extends GetxController {
         );
       },
     );
+  }
+
+  Future<void> loadFansMedal({bool force = false}) async {
+    if (!isLogin) return;
+    if (fansMedalActing.value) return;
+    if (_fansMedalRequest case final pending?) return pending;
+    if (!force && !_fansMedalStale && fansMedalData.value != null) return;
+    final targetId = medalTargetId;
+    if (targetId == null) return;
+
+    final request = _loadFansMedal(targetId);
+    await _runFansMedalRequest(request);
+  }
+
+  Future<void> _loadFansMedal(Object targetId) async {
+    final res = await LiveHttp.fansMedalPanel(
+      roomId: roomId,
+      targetId: targetId,
+    );
+    if (res case Success(:final response)) {
+      fansMedalData.value = response;
+      _fansMedalPage = 1;
+      _updateFansMedalHasMore(response);
+      _updateWearingFansMedal(response);
+      _fansMedalStale = false;
+      fansMedalError.value = null;
+    } else {
+      fansMedalError.value = res.toString();
+      if (fansMedalData.value != null) await res.toast();
+    }
+  }
+
+  Future<void> _runFansMedalRequest(Future<void> request) async {
+    _fansMedalRequest = request;
+    fansMedalLoading.value = true;
+    try {
+      await request;
+    } finally {
+      if (identical(_fansMedalRequest, request)) {
+        _fansMedalRequest = null;
+        fansMedalLoading.value = false;
+      }
+    }
+  }
+
+  void _updateFansMedalHasMore(FansMedalPanelData data) {
+    final itemCount =
+        (data.specialList?.length ?? 0) + (data.list?.length ?? 0);
+    final nextPage = data.nextPage;
+    fansMedalHasMore.value =
+        data.hasMore == true &&
+        nextPage != null &&
+        nextPage > _fansMedalPage &&
+        nextPage <= 20 &&
+        (data.totalNumber == null || itemCount < data.totalNumber!);
+  }
+
+  void _updateWearingFansMedal(FansMedalPanelData data) {
+    FansMedalItem? wearing;
+    for (final item in [...?data.specialList, ...?data.list]) {
+      if (item.medal?.wearingStatus == 1) {
+        wearing = item;
+        break;
+      }
+    }
+    wearingFansMedal.value = wearing;
+  }
+
+  void markFansMedalStale() {
+    _fansMedalStale = true;
+  }
+
+  Future<void> loadMoreFansMedal() async {
+    if (fansMedalActing.value) return;
+    if (_fansMedalRequest != null) return;
+    if (!fansMedalHasMore.value) return;
+    final data = fansMedalData.value;
+    final targetId = medalTargetId;
+    final nextPage = data?.nextPage;
+    if (data == null || targetId == null || nextPage == null) return;
+    if (nextPage <= _fansMedalPage || nextPage > 20) {
+      fansMedalHasMore.value = false;
+      return;
+    }
+
+    final request = _loadMoreFansMedal(
+      data: data,
+      targetId: targetId,
+      nextPage: nextPage,
+    );
+    await _runFansMedalRequest(request);
+  }
+
+  Future<void> _loadMoreFansMedal({
+    required FansMedalPanelData data,
+    required Object targetId,
+    required int nextPage,
+  }) async {
+    final res = await LiveHttp.fansMedalPanel(
+      roomId: roomId,
+      targetId: targetId,
+      page: nextPage,
+    );
+    if (res case Success(:final response)) {
+      final existingIds = <String>{
+        for (final item in [...?data.specialList, ...?data.list])
+          _fansMedalIdentity(item),
+      };
+      var addedCount = 0;
+
+      List<FansMedalItem> appendUnique(
+        List<FansMedalItem>? current,
+        List<FansMedalItem>? incoming,
+      ) {
+        final result = [...?current];
+        for (final item in incoming ?? const <FansMedalItem>[]) {
+          if (existingIds.add(_fansMedalIdentity(item))) {
+            result.add(item);
+            addedCount++;
+          }
+        }
+        return result;
+      }
+
+      data
+        ..specialList = appendUnique(
+          data.specialList,
+          response.specialList,
+        )
+        ..list = appendUnique(data.list, response.list)
+        ..totalNumber = response.totalNumber ?? data.totalNumber
+        ..hasMore = response.hasMore
+        ..nextPage = response.nextPage;
+      _fansMedalPage = nextPage;
+      if (addedCount == 0) {
+        fansMedalHasMore.value = false;
+      } else {
+        _updateFansMedalHasMore(data);
+      }
+      fansMedalData.refresh();
+    } else {
+      await res.toast();
+    }
+  }
+
+  String _fansMedalIdentity(FansMedalItem item) {
+    final medal = item.medal;
+    return '${medal?.medalId ?? ''}:${medal?.targetId ?? ''}:'
+        '${medal?.medalName ?? ''}:${item.anchorName ?? ''}';
+  }
+
+  Object? _fansMedalActionTarget(FansMedalItem item) {
+    // Older panel responses can omit target_id, so the current room owner is
+    // retained as a compatibility fallback only.
+    return item.medal?.targetId ?? medalTargetId;
+  }
+
+  Future<bool> wearFansMedal(FansMedalItem item) async {
+    if (fansMedalActing.value || _fansMedalRequest != null) return false;
+    final medalId = item.medal?.medalId;
+    final targetId = _fansMedalActionTarget(item);
+    if (medalId == null || targetId == null) return false;
+
+    fansMedalActing.value = true;
+    try {
+      final res = await LiveHttp.fansMedalWear(
+        medalId: medalId,
+        targetId: targetId,
+      );
+      if (!res.isSuccess) {
+        await res.toast();
+        return false;
+      }
+      _applyFansMedalWearStatus(medalId, 1);
+      wearingFansMedal.value = item;
+      _fansMedalStale = true;
+      SmartDialog.showToast('已佩戴 ${item.medal?.medalName ?? ''}');
+      return true;
+    } finally {
+      fansMedalActing.value = false;
+    }
+  }
+
+  Future<bool> takeOffFansMedal(FansMedalItem item) async {
+    if (fansMedalActing.value || _fansMedalRequest != null) return false;
+    final medalId = item.medal?.medalId;
+    final targetId = _fansMedalActionTarget(item);
+    if (medalId == null || targetId == null) return false;
+
+    fansMedalActing.value = true;
+    try {
+      final res = await LiveHttp.fansMedalTakeOff(
+        medalId: medalId,
+        targetId: targetId,
+      );
+      if (!res.isSuccess) {
+        await res.toast();
+        return false;
+      }
+      _applyFansMedalWearStatus(medalId, 0);
+      wearingFansMedal.value = null;
+      _fansMedalStale = true;
+      SmartDialog.showToast('已取消佩戴');
+      return true;
+    } finally {
+      fansMedalActing.value = false;
+    }
+  }
+
+  void _applyFansMedalWearStatus(int medalId, int status) {
+    final data = fansMedalData.value;
+    if (data == null) return;
+    for (final item in [...?data.specialList, ...?data.list]) {
+      item.medal?.wearingStatus = item.medal?.medalId == medalId ? status : 0;
+    }
+    fansMedalData.refresh();
   }
 }

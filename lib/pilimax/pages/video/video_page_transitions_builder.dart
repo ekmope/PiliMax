@@ -2,11 +2,9 @@ import 'dart:collection';
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
-import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_transition_registry.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_back_progress.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_entry_overlay.dart';
-import 'package:PiliMax/pilimax/pages/video/video_detail_exit_snapshot.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_transition_timing.dart';
 
@@ -318,13 +316,9 @@ class _VideoPredictiveBackDriver extends StatefulWidget {
 class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     with WidgetsBindingObserver {
   final ValueNotifier<double> _progress = ValueNotifier(0);
-  final SnapshotController _snapshotController = SnapshotController();
-  final GlobalKey _transitionRootKey = GlobalKey();
   late final VideoDetailBackProgressController _backProgress;
   VideoDetailBackPhase _phase = VideoDetailBackPhase.idle;
   VideoReturnTarget? _returnTarget;
-  VideoDetailExitVisual? _exitVisual;
-  Widget? _exitTexture;
   VideoDetailExitMode? _exitMode;
   bool _isPipExit = false;
   bool _routeCompleted = false;
@@ -388,10 +382,9 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   @override
   void didChangeMetrics() {
-    if (!_snapshotController.allowSnapshotting && _returnTarget == null) {
+    if (_returnTarget == null) {
       return;
     }
-    _endSnapshotExit();
     _returnTarget = null;
     _publishBackProgress(_lastProgress);
     if (mounted) {
@@ -599,7 +592,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     _exitMode = null;
     _isPipExit = false;
     _returnTarget = null;
-    _endSnapshotExit();
     if (mounted) {
       setState(() {});
     }
@@ -677,19 +669,12 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
       if (exitMode == VideoDetailExitMode.entryReverse ||
           exitMode == VideoDetailExitMode.errorFallback) {
         _returnTarget = null;
-        _endSnapshotExit();
       } else if (_isPipExit) {
         // PiP has no source-card destination. Keep the page as one reversible
         // live layer until a successful pop starts the mini-window handoff.
         _returnTarget = null;
-        _endSnapshotExit();
       } else {
         _resolveReturnTarget();
-        if (exitMode == VideoDetailExitMode.detail) {
-          _prepareSnapshotExit();
-        } else {
-          _endSnapshotExit();
-        }
       }
     } else if (!_isPipExit &&
         _returnTarget == null &&
@@ -765,38 +750,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     );
   }
 
-  void _prepareSnapshotExit() {
-    // Freeze the expensive page layers once, then keep the decoded video
-    // texture live above that snapshot. If any geometry or capture step is
-    // unavailable, leave the route fully live instead of showing a partial
-    // or stale exit frame.
-    _exitVisual?.dispose();
-    final provider =
-        _arguments?[videoDetailExitVisualProviderKey]
-            as VideoDetailExitVisualProvider?;
-    final transitionRoot = _transitionRootKey.currentContext
-        ?.findRenderObject();
-    final visual = transitionRoot is RenderBox
-        ? provider?.call(transitionRoot)
-        : null;
-    if (visual?.isUsable == true) {
-      _exitVisual = visual;
-    } else {
-      visual?.dispose();
-      _exitVisual = null;
-    }
-    _exitTexture = _exitVisual?.buildLiveTexture();
-    _snapshotController.allowSnapshotting = _exitVisual != null;
-  }
-
-  void _endSnapshotExit() {
-    final visual = _exitVisual;
-    _snapshotController.allowSnapshotting = false;
-    _exitVisual = null;
-    _exitTexture = null;
-    visual?.dispose();
-  }
-
   @override
   void dispose() {
     _discardPendingPredictiveBackProgress();
@@ -805,10 +758,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     widget.animation
       ..removeListener(_handleAnimationTick)
       ..removeStatusListener(_handleAnimationStatus);
-    _exitVisual?.dispose();
-    _exitVisual = null;
-    _exitTexture = null;
-    _snapshotController.dispose();
     _progress.dispose();
     _backProgress.release();
     super.dispose();
@@ -824,14 +773,7 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
         : widget.child;
     return ValueListenableBuilder<double>(
       valueListenable: _progress,
-      child: SnapshotWidget(
-        controller: _snapshotController,
-        mode: SnapshotMode.forced,
-        child: RepaintBoundary(
-          key: _transitionRootKey,
-          child: SizedBox.expand(child: page),
-        ),
-      ),
+      child: SizedBox.expand(child: page),
       builder: (context, progress, child) {
         final reversesWithRouteAnimation =
             _exitMode == VideoDetailExitMode.entryReverse ||
@@ -842,8 +784,6 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
         return VideoPageExitTransition(
           progress: progress,
           returnTarget: _returnTarget,
-          exitVisual: _exitVisual,
-          exitTexture: _exitTexture,
           child: child!,
         );
       },
@@ -856,15 +796,11 @@ class VideoPageExitTransition extends StatelessWidget {
     super.key,
     required this.progress,
     required this.returnTarget,
-    this.exitVisual,
-    this.exitTexture,
     required this.child,
   });
 
   final double progress;
   final VideoReturnTarget? returnTarget;
-  final VideoDetailExitVisual? exitVisual;
-  final Widget? exitTexture;
   final Widget child;
 
   @override
@@ -877,30 +813,11 @@ class VideoPageExitTransition extends StatelessWidget {
         }
         final target = returnTarget;
         final hasSharedTarget = target != null && !target.rect.isEmpty;
-        final visual = exitVisual;
-        final texture = exitTexture;
-        final splitMedia =
-            hasSharedTarget &&
-            target.hasMediaTarget &&
-            visual != null &&
-            texture != null;
         final geometry = hasSharedTarget
             ? target.isResponsiveReflow
                   ? _responsiveReflowGeometry(size)
-                  : _sharedElementGeometry(
-                      size,
-                      target,
-                      splitMedia: splitMedia,
-                    )
+                  : _sharedElementGeometry(size, target)
             : _fallbackGeometry(size);
-        if (splitMedia) {
-          return _splitPageLayers(
-            geometry: geometry,
-            target: target,
-            visual: visual,
-            texture: texture,
-          );
-        }
         return _combinedPageLayer(geometry);
       },
     );
@@ -928,22 +845,21 @@ class VideoPageExitTransition extends StatelessWidget {
 
   _VideoExitGeometry _sharedElementGeometry(
     Size size,
-    VideoReturnTarget target, {
-    required bool splitMedia,
-  }) {
+    VideoReturnTarget target,
+  ) {
     final screenRect = Offset.zero & size;
     final currentRect = Rect.lerp(screenRect, target.rect, progress)!;
     final bodyHandoff = switch (target.layout) {
       VideoTransitionSourceLayout.horizontalRow =>
         _sourceHandoffForExitProgress(progress),
-      VideoTransitionSourceLayout.verticalCard =>
-        splitMedia
-            ? _sourceHandoffForExitProgress(progress)
-            : _geometryHandoff(currentRect, target.rect),
-      VideoTransitionSourceLayout.embedded =>
-        splitMedia
-            ? _sourceHandoffForExitProgress(progress)
-            : _geometryHandoff(currentRect, target.rect),
+      VideoTransitionSourceLayout.verticalCard => _geometryHandoff(
+        currentRect,
+        target.rect,
+      ),
+      VideoTransitionSourceLayout.embedded => _geometryHandoff(
+        currentRect,
+        target.rect,
+      ),
     };
     final radius = _maxRadius(target.borderRadius);
     final contentScale = math.max(
@@ -993,318 +909,11 @@ class VideoPageExitTransition extends StatelessWidget {
             alignment: Alignment.topLeft,
             transform: geometry.contentTransform,
             transformHitTests: false,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                child,
-                if (exitVisual case final visual?)
-                  Positioned.fromRect(
-                    rect: visual.playerRect,
-                    child: const ColoredBox(color: Colors.black),
-                  ),
-                if ((exitVisual, exitTexture) case (
-                  final visual?,
-                  final texture?,
-                ))
-                  ClipRect(
-                    clipper: _VideoExitRectClipper(visual.playerRect),
-                    clipBehavior: Clip.hardEdge,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Positioned.fromRect(
-                          rect: visual.playerRect,
-                          child: texture,
-                        ),
-                      ],
-                    ),
-                  ),
-                if (exitVisual case final visual?)
-                  for (final foreground in visual.foregrounds)
-                    ClipRect(
-                      clipper: _VideoExitRectClipper(foreground.clipRect),
-                      clipBehavior: Clip.hardEdge,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Positioned.fromRect(
-                            rect: foreground.rect,
-                            child: foreground.build(),
-                          ),
-                        ],
-                      ),
-                    ),
-              ],
-            ),
+            child: child,
           ),
         ),
       ),
     );
-  }
-
-  Widget _splitPageLayers({
-    required _VideoExitGeometry geometry,
-    required VideoReturnTarget target,
-    required VideoDetailExitVisual visual,
-    required Widget texture,
-  }) {
-    final targetMediaRect = target.mediaRect!;
-    final targetMediaVisibleRect = target.mediaVisibleRect!;
-    // The player surface can include the status-bar/header inset while the
-    // transition video rect is the actual decoded media. Start the media
-    // morph from the latter so the top inset never becomes part of the live
-    // video surface.
-    final sourceMediaRect = visual.playerRect.isEmpty
-        ? visual.clipRect
-        : visual.playerRect;
-    final transformedPlayerRect = MatrixUtils.transformRect(
-      geometry.contentTransform,
-      sourceMediaRect,
-    );
-    final transformedVisibleRect = transformedPlayerRect.intersect(
-      geometry.visibleClipRect,
-    );
-    final mediaMorph = Curves.easeInOutCubic.transform(
-      _interval(
-        progress,
-        videoDetailMediaMorphStart,
-        videoDetailMediaMorphEnd,
-      ),
-    );
-    final mediaRect = Rect.lerp(
-      transformedPlayerRect,
-      targetMediaRect,
-      mediaMorph,
-    )!;
-    final mediaVisibleRect = Rect.lerp(
-      transformedVisibleRect,
-      targetMediaVisibleRect,
-      mediaMorph,
-    )!.intersect(mediaRect);
-    final mediaBorderRadius = BorderRadius.lerp(
-      BorderRadius.zero,
-      target.mediaBorderRadius ?? BorderRadius.zero,
-      mediaMorph,
-    )!;
-    final mediaHandoff = _mediaHandoff(mediaRect, targetMediaRect);
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        _bodyPageLayer(
-          geometry,
-          visual,
-          // Hide the complete detail player surface from the frozen page.
-          // This Stack is transformed as a whole, so the mask must stay in
-          // the same pre-transform coordinates as the captured page.
-          // The live media rect may be narrower than the poster/player
-          // surface, so masking only that rect leaves a second, misaligned
-          // cover visible behind the decoded texture.
-          maskRect: visual.clipRect,
-          maskColor: target.surfaceColor ?? Colors.black,
-        ),
-        if (!mediaRect.isEmpty && !mediaVisibleRect.isEmpty)
-          _mediaPageLayer(
-            visual: visual,
-            texture: texture,
-            rect: mediaRect,
-            visibleRect: mediaVisibleRect,
-            borderRadius: mediaBorderRadius,
-            handoff: mediaHandoff,
-            surfaceColor: target.surfaceColor ?? Colors.black,
-          ),
-        if (visual.foregrounds.any(
-          (foreground) => foreground.role == VideoDetailExitForegroundRole.body,
-        ))
-          _bodyForegroundLayer(geometry, visual),
-      ],
-    );
-  }
-
-  Widget _bodyPageLayer(
-    _VideoExitGeometry geometry,
-    VideoDetailExitVisual visual, {
-    Rect? maskRect,
-    Color maskColor = Colors.black,
-  }) {
-    return ClipRect(
-      clipper: _VideoExitRectClipper(geometry.visibleClipRect),
-      clipBehavior: progress <= 0 ? Clip.none : Clip.hardEdge,
-      child: ClipRRect(
-        clipper: _VideoExitClipper(geometry.clipRRect),
-        clipBehavior: progress <= 0 ? Clip.none : Clip.antiAlias,
-        child: Opacity(
-          opacity: geometry.bodyOpacity,
-          child: Transform(
-            alignment: Alignment.topLeft,
-            transform: geometry.contentTransform,
-            transformHitTests: false,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                child,
-                Positioned.fromRect(
-                  rect: maskRect ?? visual.clipRect,
-                  child: ColoredBox(color: maskColor),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _bodyForegroundLayer(
-    _VideoExitGeometry geometry,
-    VideoDetailExitVisual visual,
-  ) {
-    return ClipRect(
-      clipper: _VideoExitRectClipper(geometry.visibleClipRect),
-      clipBehavior: progress <= 0 ? Clip.none : Clip.hardEdge,
-      child: ClipRRect(
-        clipper: _VideoExitClipper(geometry.clipRRect),
-        clipBehavior: progress <= 0 ? Clip.none : Clip.antiAlias,
-        child: Opacity(
-          opacity: geometry.bodyOpacity,
-          child: Transform(
-            alignment: Alignment.topLeft,
-            transform: geometry.contentTransform,
-            transformHitTests: false,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                for (final foreground in visual.foregrounds)
-                  if (foreground.role == VideoDetailExitForegroundRole.body)
-                    _foregroundLayer(foreground),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _mediaPageLayer({
-    required VideoDetailExitVisual visual,
-    required Widget texture,
-    required Rect rect,
-    required Rect visibleRect,
-    required BorderRadius borderRadius,
-    required double handoff,
-    required Color surfaceColor,
-  }) {
-    final fallbackCover = visual.fallbackCover;
-    final liveOpacity = 1 - handoff;
-    return ClipRect(
-      clipper: _VideoExitRectClipper(visibleRect),
-      clipBehavior: Clip.hardEdge,
-      child: ClipRRect(
-        clipper: _VideoExitClipper(borderRadius.toRRect(rect)),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Keep the surface behind the decoded frame and its contain
-            // letterbox area. It fades with the live layer at handoff so it
-            // cannot cover the source card after the transition completes.
-            Positioned.fromRect(
-              rect: rect,
-              child: Opacity(
-                opacity: liveOpacity,
-                child: ColoredBox(color: surfaceColor),
-              ),
-            ),
-            if (fallbackCover != null && fallbackCover.isNotEmpty)
-              Positioned.fromRect(
-                rect: rect,
-                child: Opacity(
-                  opacity: handoff,
-                  child: NetworkImgLayer(
-                    key: ValueKey(('video-detail-exit-cover', fallbackCover)),
-                    src: fallbackCover,
-                    width: rect.width,
-                    height: rect.height,
-                    clip: false,
-                    fit: BoxFit.contain,
-                    fadeInDuration: Duration.zero,
-                    fadeOutDuration: Duration.zero,
-                  ),
-                ),
-              ),
-            // The live texture and its controls share this exact rect. The
-            // poster is only allowed to crossfade in the same surface during
-            // the final handoff, never as an independent full-screen layer.
-            Positioned.fromRect(
-              rect: rect,
-              child: Opacity(opacity: liveOpacity, child: texture),
-            ),
-            for (final foreground in visual.foregrounds)
-              if (foreground.role == VideoDetailExitForegroundRole.media)
-                Opacity(
-                  opacity: liveOpacity,
-                  child: _mappedForegroundLayer(
-                    foreground,
-                    from: visual.clipRect,
-                    to: rect,
-                  ),
-                ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _foregroundLayer(VideoDetailExitForeground foreground) {
-    return ClipRect(
-      clipper: _VideoExitRectClipper(foreground.clipRect),
-      clipBehavior: Clip.hardEdge,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned.fromRect(
-            rect: foreground.rect,
-            child: foreground.build(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _mappedForegroundLayer(
-    VideoDetailExitForeground foreground, {
-    required Rect from,
-    required Rect to,
-  }) {
-    final mappedRect = _mapRect(foreground.rect, from: from, to: to);
-    final mappedClipRect = _mapRect(
-      foreground.clipRect,
-      from: from,
-      to: to,
-    ).intersect(to);
-    return ClipRect(
-      clipper: _VideoExitRectClipper(mappedClipRect),
-      clipBehavior: Clip.hardEdge,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned.fromRect(
-            rect: mappedRect,
-            child: foreground.build(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  double _mediaHandoff(Rect current, Rect target) {
-    final timeline = Curves.easeInOutCubic.transform(
-      _interval(progress, videoDetailMediaHandoffStart, 1),
-    );
-    final geometry = Curves.easeInOutCubic.transform(
-      _inverseInterval(_rectError(current, target), 0.08, 0.015),
-    );
-    return math.min(timeline, geometry);
   }
 
   static double _geometryHandoff(Rect current, Rect target) {
@@ -1317,43 +926,6 @@ class VideoPageExitTransition extends StatelessWidget {
     );
     return Curves.easeInOutCubic.transform(
       _inverseInterval(sizeRatio, 1.08, 1.02),
-    );
-  }
-
-  static double _rectError(Rect current, Rect target) {
-    if (target.width <= 0 || target.height <= 0) {
-      return double.infinity;
-    }
-    final horizontal =
-        math.max(
-          (current.left - target.left).abs(),
-          (current.right - target.right).abs(),
-        ) /
-        target.width;
-    final vertical =
-        math.max(
-          (current.top - target.top).abs(),
-          (current.bottom - target.bottom).abs(),
-        ) /
-        target.height;
-    return math.max(horizontal, vertical);
-  }
-
-  static Rect _mapRect(
-    Rect rect, {
-    required Rect from,
-    required Rect to,
-  }) {
-    if (from.width <= 0 || from.height <= 0) {
-      return to;
-    }
-    final scaleX = to.width / from.width;
-    final scaleY = to.height / from.height;
-    return Rect.fromLTRB(
-      to.left + (rect.left - from.left) * scaleX,
-      to.top + (rect.top - from.top) * scaleY,
-      to.left + (rect.right - from.left) * scaleX,
-      to.top + (rect.bottom - from.top) * scaleY,
     );
   }
 

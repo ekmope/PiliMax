@@ -23,27 +23,17 @@ const videoDetailCancelTailMaxDuration = Duration(milliseconds: 240);
 const videoDetailSourceHandoffStart = 0.85;
 const videoDetailSourceHandoffEnd = 0.98;
 
-/// The live player follows the outgoing page first, then separates from the
-/// card body and settles into the source media rectangle.
-const videoDetailMediaMorphStart = 0.70;
-const videoDetailMediaMorphEnd = 0.98;
-
-/// Keep the live frame authoritative until the media geometry is nearly at
-/// rest. The geometry gate in the transition can delay this handoff further.
-const videoDetailMediaHandoffStart = 0.94;
-
 /// Legacy return-cover timing retained for callers compiled against older
-/// transition code. The active exit renderer now performs its handoff inside
-/// the single media surface and does not use these values for a separate
-/// full-screen cover.
-@Deprecated('Use the single media-surface handoff in VideoPageExitTransition')
+/// transition code. The active exit renderer keeps the live detail tree on
+/// one geometry path and does not use these values for a separate cover.
+@Deprecated('Use the shared live-tree exit in VideoPageExitTransition')
 const videoDetailReturnMediaCoverStart = 0.70;
 
-@Deprecated('Use the single media-surface handoff in VideoPageExitTransition')
+@Deprecated('Use the shared live-tree exit in VideoPageExitTransition')
 const videoDetailReturnMediaCoverEnd = 0.95;
 
 /// The real detail subtree owns its reveal timing. Media readiness only
-/// controls when the single media surface can hand off to the source card.
+/// controls when the player can release the entry handoff surface.
 bool videoDetailEntryCanReveal({required bool detailLayoutReady}) =>
     detailLayoutReady;
 
@@ -80,7 +70,7 @@ bool videoDetailFullscreenTransitionObserved({
 
 /// Legacy opacity curve retained for transition timing tests and downstream
 /// callers. It is no longer used to render an independent cover layer.
-@Deprecated('Use the single media-surface handoff in VideoPageExitTransition')
+@Deprecated('Use the shared live-tree exit in VideoPageExitTransition')
 double videoDetailReturnMediaCoverOpacity(double exitProgress) {
   final normalized =
       ((exitProgress - videoDetailReturnMediaCoverStart) /

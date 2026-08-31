@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
-    'keeps a live responsive-reflow exit unscaled when media cannot split out',
+    'keeps a responsive-reflow exit live in one unscaled transform',
     (tester) async {
       const target = VideoReturnTarget(
         rect: Rect.fromLTWH(16, 96, 368, 160),

@@ -25,7 +25,7 @@ enum VideoDetailExitMode {
   /// error page exits independently instead of returning to the launch card.
   errorFallback,
 
-  /// The real detail page is visible and can use the shared/snapshot exit.
+  /// The real detail page is visible and can use the shared live-tree exit.
   detail,
 }
 

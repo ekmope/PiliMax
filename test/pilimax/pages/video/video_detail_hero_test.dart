@@ -270,7 +270,6 @@ void main() {
       final target = VideoTransitionRegistry.resolveReturn(token!);
       expect(target, isNotNull);
       expect(target!.isResponsiveReflow, isTrue);
-      expect(target.hasMediaTarget, isTrue);
 
       token.dispose();
       await tester.pumpWidget(const SizedBox.shrink());
@@ -300,7 +299,6 @@ void main() {
       final target = VideoTransitionRegistry.resolveReturn(token!);
       expect(target, isNotNull);
       expect(target!.isResponsiveReflow, isTrue);
-      expect(target.hasMediaTarget, isTrue);
 
       token.dispose();
       await tester.pumpWidget(const SizedBox.shrink());

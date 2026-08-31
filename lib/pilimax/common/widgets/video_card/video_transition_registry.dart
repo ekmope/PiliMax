@@ -97,10 +97,6 @@ final class VideoReturnTarget {
     required this.borderRadius,
     required this.layout,
     this.isResponsiveReflow = false,
-    this.mediaRect,
-    this.mediaVisibleRect,
-    this.mediaBorderRadius,
-    this.surfaceColor,
   });
 
   final Rect rect;
@@ -109,18 +105,8 @@ final class VideoReturnTarget {
   final VideoTransitionSourceLayout layout;
 
   /// The source card survived, but responsive layout changed its shape while
-  /// the detail page was open. Only its media surface is safe to morph back.
+  /// the detail page was open. The live detail tree fades into this target.
   final bool isResponsiveReflow;
-  final Rect? mediaRect;
-  final Rect? mediaVisibleRect;
-  final BorderRadius? mediaBorderRadius;
-
-  /// Surface color behind the source media. The predictive exit uses this
-  /// instead of a detached black status-bar block while the media morphs.
-  final Color? surfaceColor;
-
-  bool get hasMediaTarget =>
-      mediaRect?.isEmpty == false && mediaVisibleRect?.isEmpty == false;
 }
 
 final class VideoTransitionRegistration {
@@ -545,12 +531,6 @@ abstract final class VideoTransitionRegistry {
       borderRadius: source.resolvedBorderRadius(),
       layout: source.layout,
       isResponsiveReflow: isResponsiveReflow,
-      mediaRect: hasVisibleMediaRect ? mediaRect : null,
-      mediaVisibleRect: hasVisibleMediaRect ? mediaVisibleRect : null,
-      mediaBorderRadius: hasVisibleMediaRect
-          ? source.resolvedMediaBorderRadius()
-          : null,
-      surfaceColor: source.resolvedSurfaceColor(),
     );
   }
 

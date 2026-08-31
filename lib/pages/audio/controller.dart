@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
@@ -18,6 +19,8 @@ import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/video.dart';
+import 'package:PiliMax/models/common/audio_normalization.dart';
+import 'package:PiliMax/models/video/play/url.dart' as http_model show Volume;
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart' as pgc;
 import 'package:PiliMax/models_new/video/video_detail/episode.dart' as ugc;
@@ -83,7 +86,8 @@ class AudioController extends GetxController
         LoadingActionMixin<IntroAction>,
         FavMixin,
         BlockConfigMixin,
-        BlockMixin {
+        BlockMixin,
+        AudioNormalizationMixin {
   late Int64 id;
   late Int64 oid;
   late List<Int64> subId;
@@ -200,7 +204,12 @@ class AudioController extends GetxController
     final hasAudioUrl = audioUrl != null;
     if (hasAudioUrl) {
       _querySponsorBlock();
-      _onOpenMedia(audioUrl, ua: BrowserUa.pc, referer: HttpString.baseUrl);
+      _onOpenMedia(
+        audioUrl,
+        ua: BrowserUa.pc,
+        referer: HttpString.baseUrl,
+        volume: _videoDetailController?.volume,
+      );
     }
     ConnectivityUtils.isWiFi.then((isWiFi) {
       cacheAudioQa = isWiFi ? Pref.defaultAudioQa : Pref.defaultAudioQaCellular;
@@ -855,6 +864,19 @@ class AudioController extends GetxController
   void _onPlay(PlayURLResp data) {
     final PlayInfo? playInfo = data.playerInfo.values.firstOrNull;
     if (playInfo != null) {
+      http_model.Volume? volume;
+      if (playInfo.hasVolume()) {
+        final volumeInfo = playInfo.volume;
+        volume = http_model.Volume(
+          measuredI: volumeInfo.measuredI,
+          measuredLra: volumeInfo.measuredLra,
+          measuredTp: volumeInfo.measuredTp,
+          measuredThreshold: volumeInfo.measuredThreshold,
+          targetOffset: volumeInfo.targetOffset,
+          targetI: volumeInfo.targetI,
+          targetTp: volumeInfo.targetTp,
+        );
+      }
       if (playInfo.hasPlayDash()) {
         final playDash = playInfo.playDash;
         final audios = playDash.audio;
@@ -866,7 +888,7 @@ class AudioController extends GetxController
           (e) => e.id <= cacheAudioQa,
           (a, b) => a.id > b.id ? a : b,
         );
-        _onOpenMedia(VideoUtils.getCdnUrl(audio.playUrls));
+        _onOpenMedia(VideoUtils.getCdnUrl(audio.playUrls), volume: volume);
       } else if (playInfo.hasPlayUrl()) {
         final playUrl = playInfo.playUrl;
         final durls = playUrl.durl;
@@ -875,7 +897,7 @@ class AudioController extends GetxController
         }
         final durl = durls.first;
         position.value = 0;
-        _onOpenMedia(VideoUtils.getCdnUrl(durl.playUrls));
+        _onOpenMedia(VideoUtils.getCdnUrl(durl.playUrls), volume: volume);
       }
     }
   }
@@ -884,6 +906,7 @@ class AudioController extends GetxController
     String url, {
     String ua = Constants.userAgentApp,
     String? referer,
+    http_model.Volume? volume,
   }) async {
     await _initPlayerIfNeeded();
     final currentPlayer = player;
@@ -897,7 +920,9 @@ class AudioController extends GetxController
       // mpv cannot clear referer option
       headers: {'Referer': ?referer},
     );
-    await currentPlayer.open(Media(url, start: start));
+    await currentPlayer.open(
+      Media(url, start: start, extras: audioFilterExtras(volume)),
+    );
     _consumedCompletedIdentity = null;
     final stateDuration = _rawAudioDuration(currentPlayer);
     if (stateDuration > Duration.zero) {
@@ -922,6 +947,7 @@ class AudioController extends GetxController
     player = await Player.create(
       configuration: PlayerConfiguration(
         options: {
+          if (Platform.isAndroid) 'ao': Pref.audioOutput,
           'volume': PlatformUtils.isDesktop
               ? (desktopVolume.value * 100).toString()
               : Pref.playerVolume.toString(),

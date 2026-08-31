@@ -30,7 +30,6 @@ import 'package:PiliMax/pilimax/pages/setting/reply_setting.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
-import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/pilimax/services/route_restore_service.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -693,7 +692,7 @@ Future<void> audioNormalization(
                 Get.back();
                 GStorage.setting.put(key, param);
                 if (!fallback &&
-                    PlPlayerController.loudnormRegExp.hasMatch(param)) {
+                    AudioNormalization.loudnormRegExp.hasMatch(param)) {
                   audioNormalization(context, setState, fallback: true);
                 }
                 setState();

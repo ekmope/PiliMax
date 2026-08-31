@@ -32,23 +32,17 @@ abstract final class ThemeUtils {
     required bool isDynamic,
     bool isDark = false,
   }) {
-    final customFontFamily = Pref.customFontFamily;
-    final appFontWeight = Pref.appFontWeight.clamp(
-      -1,
-      FontWeight.values.length - 1,
-    );
-    final fontWeight = appFontWeight == -1
-        ? null
-        : FontWeight.values[appFontWeight];
+    final fontFamily = Pref.effectiveAppFontFamily;
+    final fontWeight = Pref.appFontWeight;
     late final textStyle = TextStyle(
-      fontWeight: fontWeight,
-      fontFamily: customFontFamily,
+      fontWeight: fontWeight == FontWeight.normal ? null : fontWeight,
+      fontFamily: fontFamily,
     );
     ThemeData themeData = ThemeData(
       colorScheme: colorScheme,
-      fontFamily: customFontFamily,
+      fontFamily: fontFamily,
       useMaterial3: true,
-      textTheme: fontWeight == null && customFontFamily == null
+      textTheme: fontWeight == FontWeight.normal && fontFamily == null
           ? null
           : TextTheme(
               displayLarge: textStyle,
@@ -67,7 +61,7 @@ abstract final class ThemeUtils {
               labelMedium: textStyle,
               labelSmall: textStyle,
             ),
-      tabBarTheme: fontWeight == null && customFontFamily == null
+      tabBarTheme: fontWeight == FontWeight.normal && fontFamily == null
           ? null
           : TabBarThemeData(labelStyle: textStyle),
       appBarTheme: AppBarTheme(
@@ -79,7 +73,7 @@ abstract final class ThemeUtils {
         titleTextStyle: TextStyle(
           fontSize: 16,
           color: colorScheme.onSurface,
-          fontFamily: customFontFamily,
+          fontFamily: fontFamily,
           fontWeight: fontWeight,
         ),
       ),
@@ -92,7 +86,7 @@ abstract final class ThemeUtils {
         closeIconColor: colorScheme.secondary,
         contentTextStyle: TextStyle(
           color: colorScheme.onSecondaryContainer,
-          fontFamily: customFontFamily,
+          fontFamily: fontFamily,
           fontWeight: fontWeight,
         ),
         elevation: 20,
@@ -122,7 +116,7 @@ abstract final class ThemeUtils {
         titleTextStyle: TextStyle(
           fontSize: 18,
           color: colorScheme.onSurface,
-          fontFamily: customFontFamily,
+          fontFamily: fontFamily,
           fontWeight: fontWeight,
         ),
         backgroundColor: colorScheme.surface,
@@ -140,7 +134,7 @@ abstract final class ThemeUtils {
         textStyle: TextStyle(
           color: Colors.white,
           fontSize: 14,
-          fontFamily: customFontFamily,
+          fontFamily: fontFamily,
           fontWeight: fontWeight,
         ),
         decoration: BoxDecoration(
@@ -179,11 +173,11 @@ abstract final class ThemeUtils {
         },
       ),
     );
-    if (customFontFamily != null) {
+    if (fontFamily != null) {
       themeData = themeData.copyWith(
-        textTheme: themeData.textTheme.apply(fontFamily: customFontFamily),
+        textTheme: themeData.textTheme.apply(fontFamily: fontFamily),
         primaryTextTheme: themeData.primaryTextTheme.apply(
-          fontFamily: customFontFamily,
+          fontFamily: fontFamily,
         ),
       );
     }

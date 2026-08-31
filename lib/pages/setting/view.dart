@@ -1,11 +1,12 @@
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
+import 'package:PiliMax/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/http/login.dart';
 import 'package:PiliMax/models/common/setting_type.dart';
 import 'package:PiliMax/pages/about/view.dart';
 import 'package:PiliMax/pages/login/controller.dart';
 import 'package:PiliMax/pages/setting/common_setting.dart';
-import 'package:PiliMax/pilimax/pages/setting/dynamics_setting.dart';
+import 'package:PiliMax/pages/setting/models/setting_section.dart';
 import 'package:PiliMax/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliMax/pages/webdav/view.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
@@ -17,18 +18,6 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
-class _SettingsModel {
-  final SettingType type;
-  final String? subtitle;
-  final Icon icon;
-
-  const _SettingsModel({
-    required this.type,
-    this.subtitle,
-    required this.icon,
-  });
-}
-
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
 
@@ -37,56 +26,10 @@ class SettingPage extends StatefulWidget {
 }
 
 class _SettingPageState extends State<SettingPage> {
-  late SettingType _type = SettingType.privacySetting;
+  SettingType _type = mainSettingSections.first.type;
   final RxBool _noAccount = Accounts.account.isEmpty.obs;
   late bool _isPortrait;
   late ThemeData theme;
-
-  static const List<_SettingsModel> _items = [
-    _SettingsModel(
-      type: SettingType.privacySetting,
-      subtitle: '黑名单',
-      icon: Icon(Icons.privacy_tip_outlined),
-    ),
-    _SettingsModel(
-      type: SettingType.recommendSetting,
-      subtitle: '推荐来源（web/app）、刷新保留内容、过滤器',
-      icon: Icon(Icons.explore_outlined),
-    ),
-    _SettingsModel(
-      type: SettingType.dynamicsSetting,
-      subtitle: '关键词过滤、屏蔽用户、带货动态屏蔽',
-      icon: Icon(Icons.auto_awesome_motion_outlined),
-    ),
-    _SettingsModel(
-      type: SettingType.videoSetting,
-      subtitle: '画质、音质、解码、缓冲、音频输出等',
-      icon: Icon(Icons.video_settings_outlined),
-    ),
-    _SettingsModel(
-      type: SettingType.playSetting,
-      subtitle: '双击/长按、全屏、后台播放、弹幕、字幕、底部进度条等',
-      icon: Icon(Icons.touch_app_outlined),
-    ),
-    _SettingsModel(
-      type: SettingType.styleSetting,
-      subtitle: '横屏适配（平板）、侧栏、列宽、首页、动态红点、主题、字号、图片、帧率等',
-      icon: Icon(Icons.style_outlined),
-    ),
-    _SettingsModel(
-      type: SettingType.extraSetting,
-      subtitle: '震动、搜索、收藏、ai、评论、代理、更新检查等',
-      icon: Icon(Icons.extension_outlined),
-    ),
-    _SettingsModel(
-      type: SettingType.webdavSetting,
-      icon: Icon(MdiIcons.databaseCogOutline),
-    ),
-    _SettingsModel(
-      type: SettingType.about,
-      icon: Icon(Icons.info_outline),
-    ),
-  ];
 
   @override
   void didChangeDependencies() {
@@ -98,8 +41,7 @@ class _SettingPageState extends State<SettingPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
+    return SimpleScaffold(
       appBar: AppBar(
         title: _isPortrait ? const Text('设置') : Text(_type.title),
       ),
@@ -119,24 +61,7 @@ class _SettingPageState extends State<SettingPage> {
                   ),
                   Expanded(
                     flex: 6,
-                    child: switch (_type) {
-                      .privacySetting ||
-                      .recommendSetting ||
-                      .videoSetting ||
-                      .playSetting ||
-                      .styleSetting ||
-                      .extraSetting => CommonSetting(
-                        settingType: _type,
-                        showAppBar: false,
-                      ),
-                      .dynamicsSetting => const DynamicsSetting(
-                        showAppBar: false,
-                      ),
-                      .webdavSetting => const WebDavSettingPage(
-                        showAppBar: false,
-                      ),
-                      .about => const AboutPage(showAppBar: false),
-                    },
+                    child: _buildDestination(_type, showAppBar: false),
                   ),
                 ],
               ),
@@ -152,23 +77,23 @@ class _SettingPageState extends State<SettingPage> {
 
   void _toPage(SettingType type) {
     if (_isPortrait) {
-      Get.to(
-        () => switch (type) {
-          .privacySetting ||
-          .recommendSetting ||
-          .videoSetting ||
-          .playSetting ||
-          .styleSetting ||
-          .extraSetting => CommonSetting(settingType: type),
-          .dynamicsSetting => const DynamicsSetting(),
-          .webdavSetting => const WebDavSettingPage(),
-          .about => const AboutPage(),
-        },
-      );
+      Get.to(() => _buildDestination(type));
     } else {
       _type = type;
       setState(() {});
     }
+  }
+
+  Widget _buildDestination(SettingType type, {bool showAppBar = true}) {
+    final section = maybeSettingSectionFor(type);
+    if (section != null) {
+      return CommonSetting(section: section, showAppBar: showAppBar);
+    }
+    return switch (type) {
+      .webdavSetting => WebDavSettingPage(showAppBar: showAppBar),
+      .about => AboutPage(showAppBar: showAppBar),
+      _ => throw StateError('Unsupported setting destination: $type'),
+    };
   }
 
   Color? _getTileColor(ThemeData theme, SettingType type) {
@@ -189,19 +114,21 @@ class _SettingPageState extends State<SettingPage> {
       padding: EdgeInsets.only(bottom: padding.bottom + 100),
       children: [
         _buildSearchItem(theme),
-        ..._items
-            .take(_items.length - 1)
-            .map(
-              (item) => ListTile(
-                tileColor: _getTileColor(theme, item.type),
-                onTap: () => _toPage(item.type),
-                leading: item.icon,
-                title: Text(item.type.title, style: titleStyle),
-                subtitle: item.subtitle == null
-                    ? null
-                    : Text(item.subtitle!, style: subTitleStyle),
-              ),
-            ),
+        ...mainSettingSections.map(
+          (section) => ListTile(
+            tileColor: _getTileColor(theme, section.type),
+            onTap: () => _toPage(section.type),
+            leading: Icon(section.icon),
+            title: Text(section.type.title, style: titleStyle),
+            subtitle: Text(section.subtitle, style: subTitleStyle),
+          ),
+        ),
+        ListTile(
+          tileColor: _getTileColor(theme, SettingType.webdavSetting),
+          onTap: () => _toPage(SettingType.webdavSetting),
+          leading: const Icon(MdiIcons.databaseCogOutline),
+          title: Text(SettingType.webdavSetting.title, style: titleStyle),
+        ),
         ListTile(
           onTap: () => LoginPageController.switchAccountDialog(context),
           leading: const Icon(Icons.switch_account_outlined),
@@ -217,10 +144,10 @@ class _SettingPageState extends State<SettingPage> {
                 ),
         ),
         ListTile(
-          tileColor: _getTileColor(theme, _items.last.type),
-          onTap: () => _toPage(_items.last.type),
-          leading: _items.last.icon,
-          title: Text(_items.last.type.title, style: titleStyle),
+          tileColor: _getTileColor(theme, SettingType.about),
+          onTap: () => _toPage(SettingType.about),
+          leading: const Icon(Icons.info_outline),
+          title: Text(SettingType.about.title, style: titleStyle),
         ),
       ],
     );

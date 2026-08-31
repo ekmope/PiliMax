@@ -26,7 +26,6 @@ import 'package:PiliMax/pages/home/controller.dart';
 import 'package:PiliMax/pages/main/controller.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/pilimax/pages/setting/pages/danmaku_merge_setting.dart';
-import 'package:PiliMax/pilimax/pages/setting/reply_setting.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
@@ -244,7 +243,7 @@ List<SettingsModel> get extraSettings => [
     title: '评论区过滤设置',
     leading: const Icon(Icons.comment_outlined),
     getSubtitle: () => '关键词、用户屏蔽、等级过滤、屏蔽带货评论',
-    onTap: (context, _) => Get.to(() => const ReplySetting()),
+    onTap: (context, _) => Get.toNamed('/replySetting'),
   ),
   const SwitchModel(
     title: '使用外部浏览器打开链接',

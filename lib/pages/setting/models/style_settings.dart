@@ -28,7 +28,6 @@ import 'package:PiliMax/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
-import 'package:PiliMax/pilimax/utils/app_font.dart';
 import 'package:PiliMax/pilimax/utils/danmaku_font.dart';
 import 'package:PiliMax/utils/extension/file_ext.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
@@ -91,23 +90,20 @@ List<SettingsModel> get styleSettings => [
     setKey: SettingBoxKey.autoSideBar,
     onTap: _showSideBarThresholdDialog,
   ),
-  SplitModel(
-    normalModel: const NormalModel.split(
-      title: 'App字体字重',
-      subtitle: '点击设置',
-      leading: Icon(Icons.text_fields),
-    ),
-    switchModel: SwitchModel.split(
-      setKey: SettingBoxKey.appFontWeight,
-      onChanged: (_) => Get.updateMyAppTheme(),
-      onTap: _showFontWeightDialog,
-    ),
-  ),
   NormalModel(
-    title: '应用字体',
+    title: 'App字体设置',
     leading: const Icon(Icons.font_download_outlined),
-    getSubtitle: () => AppFont.currentFontName ?? '系统字体',
-    onTap: _showCustomFontDialog,
+    getSubtitle: () {
+      final customFontName = Pref.customFontName;
+      if (customFontName != null) {
+        return '自定义：$customFontName';
+      }
+      return Pref.appFont ?? '系统默认';
+    },
+    onTap: (context, setState) async {
+      await Get.toNamed('/fontSetting');
+      if (context.mounted) setState();
+    },
   ),
   SwitchModel(
     title: '自定义弹幕字体',
@@ -378,20 +374,6 @@ List<SettingsModel> get styleSettings => [
     onTap: _showSpringDialog,
   ),
   NormalModel(
-    onTap: (context, setState) async {
-      final res = await Get.toNamed('/fontSizeSetting');
-      if (res != null) {
-        setState();
-      }
-    },
-    title: '字体大小',
-    leading: const Icon(Icons.format_size_outlined),
-    getSubtitle: () {
-      final scale = Pref.defaultTextScale;
-      return scale == 1.0 ? '默认' : scale.toString();
-    },
-  ),
-  NormalModel(
     onTap: (context, setState) => Get.toNamed(
       '/barSetting',
       arguments: {
@@ -469,66 +451,6 @@ void _showQualityDialog({
       onChanged(result.toInt());
     }
   });
-}
-
-Future<void> _showCustomFontDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final pageContext = context;
-  await showDialog<void>(
-    context: pageContext,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('应用字体'),
-      content: Text(
-        AppFont.currentFontName == null
-            ? '当前使用系统字体。'
-            : '当前字体：${AppFont.currentFontName}',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('取消'),
-        ),
-        TextButton(
-          onPressed: () async {
-            Navigator.of(dialogContext).pop();
-            final cleared = await AppFont.clear();
-            if (!pageContext.mounted) {
-              return;
-            }
-            if (cleared) {
-              setState();
-              Get.forceAppUpdate();
-              SmartDialog.showToast('已恢复为系统字体');
-            } else {
-              SmartDialog.showToast('当前已经是系统字体');
-            }
-          },
-          child: const Text('系统字体'),
-        ),
-        FilledButton(
-          onPressed: () async {
-            Navigator.of(dialogContext).pop();
-            try {
-              final changed = await AppFont.pickAndApply();
-              if (!pageContext.mounted) {
-                return;
-              }
-              if (changed) {
-                setState();
-                Get.forceAppUpdate();
-                SmartDialog.showToast('自定义字体已应用');
-              }
-            } catch (e) {
-              SmartDialog.showToast('字体加载失败: $e');
-            }
-          },
-          child: const Text('选择字体'),
-        ),
-      ],
-    ),
-  );
 }
 
 Future<void> _showDanmakuFontDialog(
@@ -826,23 +748,6 @@ void _showSpringDialog(BuildContext context, _) {
       ],
     ),
   );
-}
-
-Future<void> _showFontWeightDialog(BuildContext context) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('App字体字重'),
-      value: Pref.appFontWeight.toDouble() + 1,
-      min: 1,
-      max: FontWeight.values.length.toDouble(),
-      divisions: FontWeight.values.length - 1,
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.appFontWeight, res.toInt() - 1);
-    Get.updateMyAppTheme();
-  }
 }
 
 Future<void> _showTransitionDialog(

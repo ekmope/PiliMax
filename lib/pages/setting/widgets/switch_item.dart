@@ -9,11 +9,10 @@ import 'package:material_ui/material_ui.dart' hide ListTile;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:hive_ce/hive.dart' show BoxEvent;
 
-typedef SwitchChangeGuard =
-    FutureOr<bool> Function(
-      BuildContext context,
-      bool value,
-    );
+typedef SwitchChangeGuard = FutureOr<bool> Function(
+  BuildContext context,
+  bool value,
+);
 
 class SetSwitchItem extends StatefulWidget {
   final String title;
@@ -105,11 +104,7 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
 
     val = nextValue;
 
-    if (widget.setKey == SettingBoxKey.appFontWeight) {
-      await GStorage.setting.put(SettingBoxKey.appFontWeight, val ? 4 : -1);
-    } else {
-      await GStorage.setting.put(widget.setKey, val);
-    }
+    await GStorage.setting.put(widget.setKey, val);
 
     widget.onChanged?.call(val);
     if (widget.needReboot) {

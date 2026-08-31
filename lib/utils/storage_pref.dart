@@ -69,7 +69,6 @@ abstract final class Pref {
         SettingBoxKey.alwaysExpandIntroPanel: () => alwaysExpandIntroPanel,
         SettingBoxKey.antiGoodsDyn: () => antiGoodsDyn,
         SettingBoxKey.antiGoodsReply: () => antiGoodsReply,
-        SettingBoxKey.appFontWeight: () => appFontWeight != -1,
         SettingBoxKey.applyFilterToHotVideos: () => applyFilterToHotVideos,
         SettingBoxKey.applyFilterToRankVideos: () => applyFilterToRankVideos,
         SettingBoxKey.applyFilterToRelatedVideos: () =>
@@ -1049,11 +1048,13 @@ abstract final class Pref {
   static bool get antiGoodsReply =>
       _setting.get(SettingBoxKey.antiGoodsReply, defaultValue: true);
 
-  static int get replyMinLevel =>
-      _setting.get(SettingBoxKey.replyMinLevel, defaultValue: 0);
+  static int get replyMinLevel {
+    final value = _setting.get(SettingBoxKey.replyMinLevel);
+    return value is num ? value.toInt().clamp(0, 6).toInt() : 0;
+  }
 
   static set replyMinLevel(int v) =>
-      _setting.put(SettingBoxKey.replyMinLevel, v);
+      _setting.put(SettingBoxKey.replyMinLevel, v.clamp(0, 6).toInt());
 
   static bool get keepUpOwnerReply =>
       _setting.get(SettingBoxKey.keepUpOwnerReply, defaultValue: true);
@@ -1114,8 +1115,49 @@ abstract final class Pref {
     defaultValue: LiveQuality.superHD.code,
   );
 
-  static int get appFontWeight =>
-      _setting.get(SettingBoxKey.appFontWeight, defaultValue: 4);
+  static FontWeight get appFontWeight {
+    final value = _setting.get(SettingBoxKey.appFontWeightV2);
+    final legacy = _setting.get(SettingBoxKey.appFontWeight);
+    final index = _fontWeightIndex(value);
+    if (index != null) {
+      if (legacy != null) {
+        _setting.delete(SettingBoxKey.appFontWeight);
+      }
+      return FontWeight.values[index];
+    }
+
+    // Migrate the old integer setting once. -1 previously meant "disabled";
+    // the unified font page represents that state with normal weight.
+    if (legacy != null) {
+      _setting.delete(SettingBoxKey.appFontWeight);
+      final legacyIndex =
+          _fontWeightIndex(legacy, allowDisabled: true) ??
+          FontWeight.values.indexOf(FontWeight.normal);
+      _setting.put(SettingBoxKey.appFontWeightV2, legacyIndex);
+      return FontWeight.values[legacyIndex];
+    }
+
+    final normalIndex = FontWeight.values.indexOf(FontWeight.normal);
+    _setting.put(SettingBoxKey.appFontWeightV2, normalIndex);
+    return FontWeight.values[normalIndex];
+  }
+
+  static int? _fontWeightIndex(
+    Object? value, {
+    bool allowDisabled = false,
+  }) {
+    final normalIndex = FontWeight.values.indexOf(FontWeight.normal);
+    if (value is! int) return null;
+    if (allowDisabled && value == -1) return normalIndex;
+    return value >= 0 && value < FontWeight.values.length ? value : null;
+  }
+
+  static String? get appFont {
+    final value = _setting.get(SettingBoxKey.appFont, defaultValue: '');
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  static String? get effectiveAppFontFamily => customFontFamily ?? appFont;
 
   static String? get customFontPath =>
       _setting.get(SettingBoxKey.customFontPath);
@@ -1358,9 +1400,19 @@ abstract final class Pref {
       )];
 
   /// Nested replies default to chronological order so reply chains stay intact.
-  static ReplySortType get replyReplySortType =>
-      ReplySortType.values[_setting.get(SettingBoxKey.replyReplySortType) ??
-          ReplySortType.time.index];
+  /// The legacy key supports settings imported from upstream PiliPlus.
+  static ReplySortType get replyReplySortType {
+    ReplySortType? read(String key) {
+      final value = _setting.get(key);
+      return value is int && value >= 0 && value <= ReplySortType.hot.index
+          ? ReplySortType.values[value]
+          : null;
+    }
+
+    return read(SettingBoxKey.replyReplySortType) ??
+        read(SettingBoxKey.reply2SortType) ??
+        ReplySortType.time;
+  }
 
   static DynamicBadgeMode get dynamicBadgeMode =>
       DynamicBadgeMode.values[_setting.get(

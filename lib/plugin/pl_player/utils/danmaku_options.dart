@@ -29,10 +29,11 @@ abstract final class DanmakuOptions {
     double speed = 1.0,
   }) {
     String? fontFamily;
-    if (!Pref.enableCustomDanmakuFont || Pref.danmakuFontSyncMode == DanmakuFontSyncMode.system) {
+    if (!Pref.enableCustomDanmakuFont ||
+        Pref.danmakuFontSyncMode == DanmakuFontSyncMode.system) {
       fontFamily = null;
     } else if (Pref.danmakuFontSyncMode == DanmakuFontSyncMode.global) {
-      fontFamily = Pref.customFontFamily;
+      fontFamily = Pref.effectiveAppFontFamily;
     } else {
       fontFamily = Pref.customDanmakuFontFamily;
     }

@@ -54,20 +54,15 @@ import 'package:PiliMax/pages/popular_series/view.dart';
 import 'package:PiliMax/pages/search/view.dart';
 import 'package:PiliMax/pages/search_result/view.dart';
 import 'package:PiliMax/pages/search_trending/view.dart';
-import 'package:PiliMax/pilimax/pages/setting/dynamics_setting.dart';
-import 'package:PiliMax/pilimax/pages/setting/extra_setting.dart';
+import 'package:PiliMax/pages/setting/common_setting.dart';
+import 'package:PiliMax/pages/setting/models/setting_section.dart';
 import 'package:PiliMax/pages/setting/pages/bar_set.dart';
 import 'package:PiliMax/pages/setting/pages/color_select.dart';
 import 'package:PiliMax/pages/setting/pages/display_mode.dart';
-import 'package:PiliMax/pages/setting/pages/font_size_select.dart';
+import 'package:PiliMax/pages/setting/pages/font_setting.dart';
 import 'package:PiliMax/pilimax/pages/setting/pages/local_diagnostics.dart';
 import 'package:PiliMax/pages/setting/pages/logs.dart';
 import 'package:PiliMax/pages/setting/pages/play_speed_set.dart';
-import 'package:PiliMax/pilimax/pages/setting/play_setting.dart';
-import 'package:PiliMax/pilimax/pages/setting/privacy_setting.dart';
-import 'package:PiliMax/pilimax/pages/setting/recommend_setting.dart';
-import 'package:PiliMax/pilimax/pages/setting/style_setting.dart';
-import 'package:PiliMax/pilimax/pages/setting/video_setting.dart';
 import 'package:PiliMax/pages/setting/view.dart';
 import 'package:PiliMax/pages/settings_search/view.dart';
 import 'package:PiliMax/pages/space_setting/view.dart';
@@ -123,25 +118,20 @@ class Routes {
     GetPage(name: '/member', page: () => const MemberPage()),
     GetPage(name: '/memberSearch', page: () => const MemberSearchPage()),
 
-    // 推荐流设置
-    GetPage(name: '/recommendSetting', page: () => const RecommendSetting()),
-    // 动态流设置
-    GetPage(name: '/dynamicsSetting', page: () => const DynamicsSetting()),
-    // 音视频设置
-    GetPage(name: '/videoSetting', page: () => const VideoSetting()),
-    // 播放器设置
-    GetPage(name: '/playSetting', page: () => const PlaySetting()),
-    // 外观设置
-    GetPage(name: '/styleSetting', page: () => const StyleSetting()),
-    // 隐私设置
-    GetPage(name: '/privacySetting', page: () => const PrivacySetting()),
-    // 其它设置
-    GetPage(name: '/extraSetting', page: () => const ExtraSetting()),
+    // Keep legacy setting deep links while rendering every section uniformly.
+    ...routableSettingSections.map(
+      (section) => GetPage(
+        name: section.routeName!,
+        page: () => CommonSetting(section: section),
+      ),
+    ),
 
     //
     GetPage(name: '/blackListPage', page: () => const BlackListPage()),
     GetPage(name: '/colorSetting', page: () => const ColorSelectPage()),
-    GetPage(name: '/fontSizeSetting', page: () => const FontSizeSelectPage()),
+    GetPage(name: '/fontSetting', page: () => const FontSettingPage()),
+    // Keep the old route as a compatibility alias for saved/deep links.
+    GetPage(name: '/fontSizeSetting', page: () => const FontSettingPage()),
     // 屏幕帧率
     GetPage(name: '/displayModeSetting', page: () => const SetDisplayMode()),
     //

@@ -77,6 +77,7 @@ abstract final class SettingBoxKey {
       maxCacheSize = 'maxCacheSize',
       defaultShowComment = 'defaultShowComment',
       replySortType = 'replySortType',
+      reply2SortType = 'reply2SortType',
       replyReplySortType = 'replyReplySortType',
       defaultDynamicType = 'defaultDynamicType',
       showDynInteraction = 'showDynInteraction',
@@ -284,6 +285,7 @@ abstract final class SettingBoxKey {
 
   static const String themeMode = 'themeMode',
       defaultTextScale = 'textScale',
+      appFontWeightV2 = 'appFontWeightV2',
       customFontPath = 'customFontPath',
       customFontFamily = 'customFontFamily',
       customFontName = 'customFontName',
@@ -318,7 +320,8 @@ abstract final class SettingBoxKey {
       reduceLuxColor = 'reduceLuxColor',
       liveCdnUrl = 'liveCdnUrl',
       saveReply = 'saveReply',
-      swapReplyLikeDislike = 'swapReplyLikeDislike';
+      swapReplyLikeDislike = 'swapReplyLikeDislike',
+      appFont = 'appFont';
 }
 
 abstract final class LocalCacheKey {

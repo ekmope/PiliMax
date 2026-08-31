@@ -11,10 +11,12 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/reply.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/http/video.dart';
+import 'package:PiliMax/models/common/setting_type.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/dynamics/controller.dart';
 import 'package:PiliMax/pages/save_panel/view.dart';
-import 'package:PiliMax/pilimax/pages/setting/dynamics_setting.dart';
+import 'package:PiliMax/pages/setting/common_setting.dart';
+import 'package:PiliMax/pages/setting/models/setting_section.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/color_utils.dart';
 import 'package:PiliMax/utils/date_utils.dart';
@@ -466,7 +468,12 @@ class AuthorPanel extends StatelessWidget {
                   Get
                     ..back()
                     ..to(
-                      () => const DynamicsSetting(autoOpenKeywordFilter: true),
+                      () => CommonSetting(
+                        section: settingSectionFor(
+                          SettingType.dynamicsSetting,
+                        ),
+                        autoOpenKeywordFilter: true,
+                      ),
                     );
                 },
                 minLeadingWidth: 0,

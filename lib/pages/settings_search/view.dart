@@ -1,13 +1,9 @@
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliMax/common/widgets/view_insets_safe_area.dart';
 import 'package:PiliMax/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliMax/pages/search/controller.dart' show DebounceStreamState;
-import 'package:PiliMax/pages/setting/models/extra_settings.dart';
-import 'package:PiliMax/pages/setting/models/model.dart';
-import 'package:PiliMax/pages/setting/models/play_settings.dart';
-import 'package:PiliMax/pages/setting/models/privacy_settings.dart';
-import 'package:PiliMax/pages/setting/models/recommend_settings.dart';
-import 'package:PiliMax/pages/setting/models/style_settings.dart';
-import 'package:PiliMax/pages/setting/models/video_settings.dart';
+import 'package:PiliMax/pages/setting/models/setting_section.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/waterfall.dart';
 import 'package:material_ui/material_ui.dart';
@@ -25,29 +21,15 @@ class SettingsSearchPage extends StatefulWidget {
 class _SettingsSearchPageState
     extends DebounceStreamState<SettingsSearchPage, String> {
   final _textEditingController = TextEditingController();
-  final RxList<SettingsModel> _list = <SettingsModel>[].obs;
-  late final _settings = [
-    ...extraSettings,
-    ...privacySettings,
-    ...recommendSettings,
-    ...videoSettings,
-    ...playSettings,
-    ...styleSettings,
-  ];
+  final RxList<SettingSearchEntry> _list = <SettingSearchEntry>[].obs;
+  late final _settings = buildSettingSearchIndex();
 
   @override
   void onValueChanged(String value) {
     if (value.isEmpty) {
       _list.clear();
     } else {
-      value = value.toLowerCase();
-      _list.value = _settings
-          .where(
-            (item) =>
-                item.effectiveTitle.toLowerCase().contains(value) ||
-                item.effectiveSubtitle?.toLowerCase().contains(value) == true,
-          )
-          .toList();
+      _list.value = _settings.where((item) => item.matches(value)).toList();
     }
   }
 
@@ -59,7 +41,7 @@ class _SettingsSearchPageState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return SimpleScaffold(
       appBar: AppBar(
         actions: [
           IconButton(
@@ -88,26 +70,54 @@ class _SettingsSearchPageState
           ),
         ),
       ),
-      body: CustomScrollView(
-        slivers: [
-          ViewSliverSafeArea(
-            sliver: Obx(
-              () => _list.isEmpty
-                  ? const HttpError()
-                  : SliverWaterfallFlow(
-                      gridDelegate:
-                          SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: Grid.smallCardWidth * 2,
-                          ),
-                      delegate: SliverChildBuilderDelegate(
-                        (_, index) => _list[index].widget,
-                        childCount: _list.length,
+      body: ViewInsetsSafeArea(
+        child: CustomScrollView(
+          slivers: [
+            ViewSliverSafeArea(
+              sliver: Obx(
+                () => _list.isEmpty
+                    ? const HttpError()
+                    : SliverWaterfallFlow(
+                        gridDelegate:
+                            SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: Grid.smallCardWidth * 2,
+                            ),
+                        delegate: SliverChildBuilderDelegate(
+                          (_, index) => _SearchResult(entry: _list[index]),
+                          childCount: _list.length,
+                        ),
                       ),
-                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchResult extends StatelessWidget {
+  const _SearchResult({required this.entry});
+
+  final SettingSearchEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16, right: 16, top: 8),
+          child: Text(
+            entry.owner,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.outline,
             ),
           ),
-        ],
-      ),
+        ),
+        entry.model.widget,
+      ],
     );
   }
 }

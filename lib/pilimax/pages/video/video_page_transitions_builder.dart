@@ -773,7 +773,9 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
         : widget.child;
     return ValueListenableBuilder<double>(
       valueListenable: _progress,
-      child: SizedBox.expand(child: page),
+      child: RepaintBoundary(
+        child: SizedBox.expand(child: page),
+      ),
       builder: (context, progress, child) {
         final reversesWithRouteAnimation =
             _exitMode == VideoDetailExitMode.entryReverse ||

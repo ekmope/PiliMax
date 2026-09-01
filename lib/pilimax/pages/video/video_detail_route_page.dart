@@ -245,9 +245,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   }
 
   void _handleInitialDetailLayoutReady(VideoDetailSession session) {
-    if (!mounted ||
-        !identical(session, _session) ||
-        !session.matchesLaunchContent) {
+    if (!mounted || !identical(session, _session)) {
       return;
     }
     _initialDetailLayoutReady = true;

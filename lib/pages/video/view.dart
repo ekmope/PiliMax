@@ -1065,10 +1065,12 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted ||
         _initialLayoutReadyReported ||
-        !identical(widget.session, session) ||
-        !session.matchesLaunchContent) {
+        !identical(widget.session, session)) {
       return;
     }
+    // This confirms the mounted route layout, not the active media source.
+    // A chained source switch may change the session content key before these
+    // frames complete, but it must not discard this one-shot route callback.
     _initialLayoutReadyReported = true;
     widget.onInitialLayoutReady!(session);
   }

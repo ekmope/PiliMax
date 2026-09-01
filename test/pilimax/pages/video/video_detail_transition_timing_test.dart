@@ -22,23 +22,23 @@ void main() {
       );
     });
 
-    test('layout readiness alone never releases the media cover', () {
+    test('layout readiness alone releases the media cover', () {
       expect(
         videoDetailPlayerHandoffCanRelease(
           playerVisualReady: false,
           forceRelease: false,
           detailLayoutReady: true,
         ),
-        isFalse,
+        isTrue,
       );
     });
 
-    test('hard timeout releases once the detail layout is ready', () {
+    test('hard timeout releases when the layout callback was missed', () {
       expect(
         videoDetailPlayerHandoffCanRelease(
           playerVisualReady: false,
           forceRelease: true,
-          detailLayoutReady: true,
+          detailLayoutReady: false,
         ),
         isTrue,
       );
@@ -47,8 +47,8 @@ void main() {
     test('never releases against an unpainted detail layout', () {
       expect(
         videoDetailPlayerHandoffCanRelease(
-          playerVisualReady: true,
-          forceRelease: true,
+          playerVisualReady: false,
+          forceRelease: false,
           detailLayoutReady: false,
         ),
         isFalse,

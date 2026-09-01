@@ -32,8 +32,9 @@ const videoDetailReturnMediaCoverStart = 0.70;
 @Deprecated('Use the shared live-tree exit in VideoPageExitTransition')
 const videoDetailReturnMediaCoverEnd = 0.95;
 
-/// The real detail subtree owns its reveal timing. Media readiness only
-/// controls when the player can release the entry handoff surface.
+/// The real detail subtree owns its reveal timing. Once its layout is painted,
+/// release the entry handoff cover and let the player's own fallback handle a
+/// surface that has not stabilized yet.
 bool videoDetailEntryCanReveal({required bool detailLayoutReady}) =>
     detailLayoutReady;
 
@@ -41,7 +42,7 @@ bool videoDetailPlayerHandoffCanRelease({
   required bool playerVisualReady,
   required bool forceRelease,
   required bool detailLayoutReady,
-}) => detailLayoutReady && (playerVisualReady || forceRelease);
+}) => detailLayoutReady || forceRelease;
 
 /// A newly-created desktop video surface can already be advancing while
 /// media-kit's Flutter first-frame Future remains pending beneath the route's

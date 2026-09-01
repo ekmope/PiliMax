@@ -867,13 +867,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   int? get activeSourceGeneration => _activeSourceGeneration;
 
   /// Drop the texture geometry published by the previous source before a
-  /// replacement is opened. The native controller may reuse the same texture
-  /// id, so leaving the old rect in place lets the Flutter surface expose a
-  /// stale frame during the handoff.
+  /// replacement is opened. Keep the native texture id: Android reuses the
+  /// same controller across source changes and does not republish the id when
+  /// only the source parameters change.
   void _clearVideoSurfaceBinding() {
     final controller = _videoController;
     if (controller == null) return;
-    controller.id.value = null;
     controller.rect.value = null;
   }
 

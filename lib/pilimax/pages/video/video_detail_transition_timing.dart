@@ -41,7 +41,7 @@ bool videoDetailPlayerHandoffCanRelease({
   required bool playerVisualReady,
   required bool forceRelease,
   required bool detailLayoutReady,
-}) => detailLayoutReady || forceRelease;
+}) => detailLayoutReady && (playerVisualReady || forceRelease);
 
 /// A newly-created desktop video surface can already be advancing while
 /// media-kit's Flutter first-frame Future remains pending beneath the route's

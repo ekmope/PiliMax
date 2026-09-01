@@ -25,7 +25,7 @@ class AccountManager extends Interceptor {
 
   static final _toastGate = RequestErrorToastGate();
 
-  String blockServer = Pref.blockServer;
+  static String blockServer = Pref.blockServer;
 
   static String getCookies(List<Cookie> cookies) {
     // Sort cookies by path (longer path first).
@@ -47,7 +47,7 @@ class AccountManager extends Interceptor {
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     final path = options.path;
 
-    late final Account account = options.extra['account'] ?? _findAccount(path);
+    final account = _bindRequestAccount(options);
 
     if (account is NoAccount || _skipCookie(path)) return handler.next(options);
 
@@ -96,13 +96,14 @@ class AccountManager extends Interceptor {
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     final options = response.requestOptions;
     final path = options.path;
-    if (options.extra['account'] is NoAccount ||
+    final account = _boundRequestAccount(options);
+    if (account == null ||
         path.startsWith(HttpString.appBaseUrl) ||
         _skipCookie(path)) {
       return handler.next(response);
     }
 
-    unawaited(_saveResponseCookiesAndContinue(response, handler));
+    unawaited(_saveResponseCookiesAndContinue(account, response, handler));
   }
 
   @override
@@ -114,11 +115,12 @@ class AccountManager extends Interceptor {
       toast(err);
     }
     final response = err.response;
-    if (response == null || !_shouldManageCookies(response.requestOptions)) {
+    final account = _boundRequestAccount(err.requestOptions);
+    if (response == null || account == null) {
       return handler.next(err);
     }
 
-    unawaited(_saveErrorCookiesAndContinue(response, err, handler));
+    unawaited(_saveErrorCookiesAndContinue(account, response, err, handler));
   }
 
   static void toast(DioException err) {
@@ -154,10 +156,7 @@ class AccountManager extends Interceptor {
     unawaited(_showToast(err, endpoint, gateKey));
   }
 
-  Future<void> _saveCookies(Response response) async {
-    final Account account =
-        response.requestOptions.extra['account'] ??
-        _findAccount(response.requestOptions.path);
+  static Future<void> _saveCookies(Account account, Response response) async {
     final setCookies = response.headers[HttpHeaders.setCookieHeader];
     if (setCookies == null || setCookies.isEmpty) {
       return;
@@ -254,11 +253,12 @@ class AccountManager extends Interceptor {
   }
 
   Future<void> _saveResponseCookiesAndContinue(
+    Account account,
     Response response,
     ResponseInterceptorHandler handler,
   ) async {
     try {
-      await _saveCookies(response);
+      await _saveCookies(account, response);
     } catch (error, stackTrace) {
       _reportFailure(
         'AccountManager.handleResponseCookies',
@@ -270,12 +270,13 @@ class AccountManager extends Interceptor {
   }
 
   Future<void> _saveErrorCookiesAndContinue(
+    Account account,
     Response response,
     DioException originalError,
     ErrorInterceptorHandler handler,
   ) async {
     try {
-      await _saveCookies(response);
+      await _saveCookies(account, response);
     } catch (error, stackTrace) {
       _reportFailure(
         'AccountManager.handleErrorCookies',
@@ -336,18 +337,13 @@ class AccountManager extends Interceptor {
     }
   }
 
-  bool _skipCookie(String path) {
+  static bool _skipCookie(String path) {
     return path.startsWith(blockServer) ||
         path.contains('hdslb.com') ||
         path.contains('biliimg.com');
   }
 
-  bool _shouldManageCookies(RequestOptions options) =>
-      options.extra['account'] is! NoAccount &&
-      !options.path.startsWith(HttpString.appBaseUrl) &&
-      !_skipCookie(options.path);
-
-  Account _findAccount(String path) => ApiType.loginApi.contains(path)
+  static Account _findAccount(String path) => ApiType.loginApi.contains(path)
       ? AnonymousAccount()
       : Accounts.get(
           AccountType.values.firstWhere(
@@ -355,6 +351,24 @@ class AccountManager extends Interceptor {
             orElse: () => AccountType.main,
           ),
         );
+
+  static Account _bindRequestAccount(RequestOptions options) {
+    final existing = options.extra['account'];
+    if (existing is Account) {
+      return existing;
+    }
+    final account = _findAccount(options.path);
+    options.extra['account'] = account;
+    return account;
+  }
+
+  static Account? _boundRequestAccount(RequestOptions options) {
+    final account = options.extra['account'];
+    if (account is! Account || account is NoAccount) {
+      return null;
+    }
+    return account;
+  }
 
   static Future<String> dioError(DioException error) async {
     final safeLocalMessage = safeLocalNetworkErrorMessage(error.error);

@@ -5,7 +5,6 @@ import 'package:PiliMax/common/widgets/scroll_physics.dart'
     show platformClampingPhysics;
 import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/models/common/publish_panel_type.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:PiliMax/pages/dynamics_mention/controller.dart';
@@ -90,29 +89,27 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
     Widget page([ScrollController? scrollController]) => Column(
       key: _isMax ? _key : null,
       mainAxisSize: _isMax ? MainAxisSize.max : MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (!_isMax) const SizedBox(height: 10),
-        _buildAppBar(theme),
+        _buildAppBar(),
         if (_isMax) ...[
           Expanded(
             child: ListView(
               padding: EdgeInsets.zero,
               controller: scrollController,
               physics: platformClampingPhysics,
-              children: _buildEditPanel(theme),
+              children: _buildEditPanel(),
             ),
           ),
           _buildToolbar,
-          buildPanelContainer(theme, Colors.transparent),
+          buildPanelContainer(Colors.transparent),
         ] else ...[
-          ..._buildEditPanel(theme),
-          ..._buildDismiss(theme),
+          ..._buildEditPanel(),
+          ..._buildDismiss(),
         ],
       ],
     );
@@ -139,11 +136,11 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel> {
           );
   }
 
-  List<Widget> _buildEditPanel(ThemeData theme) => [
+  List<Widget> _buildEditPanel() => [
     Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: _isMax
-          ? _buildEditWidget(theme)
+          ? _buildEditWidget()
           : DecoratedBox(
               decoration: BoxDecoration(
                 border: Border(
@@ -153,14 +150,14 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel> {
                   ),
                 ),
               ),
-              child: _buildEditPlaceHolder(theme),
+              child: _buildEditPlaceHolder(),
             ),
     ),
     const SizedBox(height: 10),
-    _buildRefWidget(theme),
+    _buildRefWidget(),
   ];
 
-  Widget _buildRefWidget(ThemeData theme) => Card(
+  Widget _buildRefWidget() => Card(
     margin: const EdgeInsets.symmetric(horizontal: 16),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -206,7 +203,7 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel> {
     ),
   );
 
-  Widget _buildEditPlaceHolder(ThemeData theme) => GestureDetector(
+  Widget _buildEditPlaceHolder() => GestureDetector(
     behavior: HitTestBehavior.opaque,
     onTap: () {
       setState(() => _isMax = true);
@@ -230,36 +227,30 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel> {
     ),
   );
 
-  Widget _buildEditWidget(ThemeData theme) => Listener(
-    onPointerUp: (event) {
-      if (readOnly.value) {
-        updatePanelType(PanelType.keyboard);
-      }
-    },
-    child: Obx(
-      () => RichTextField(
-        key: key,
-        controller: editController,
-        minLines: 4,
-        maxLines: null,
-        focusNode: focusNode,
-        onSubmitted: onSubmitted,
-        readOnly: readOnly.value,
-        decoration: InputDecoration(
-          hintText: '说点什么吧',
-          hintStyle: TextStyle(color: theme.colorScheme.outline),
-          border: const OutlineInputBorder(
-            borderSide: BorderSide.none,
-            gapPadding: 0,
-          ),
-          contentPadding: EdgeInsets.zero,
+  Widget _buildEditWidget() => Obx(
+    () => RichTextField(
+      key: key,
+      controller: editController,
+      minLines: 4,
+      maxLines: null,
+      autofocus: false,
+      focusNode: focusNode,
+      onSubmitted: onSubmitted,
+      readOnly: readOnly.value,
+      decoration: InputDecoration(
+        hintText: '说点什么吧',
+        hintStyle: TextStyle(color: theme.colorScheme.outline),
+        border: const OutlineInputBorder(
+          borderSide: BorderSide.none,
+          gapPadding: 0,
         ),
-        // inputFormatters: [LengthLimitingTextInputFormatter(1000)],
+        contentPadding: EdgeInsets.zero,
       ),
+      // inputFormatters: [LengthLimitingTextInputFormatter(1000)],
     ),
   );
 
-  Widget _buildAppBar(ThemeData theme) => !_isMax
+  Widget _buildAppBar() => !_isMax
       ? Row(
           children: [
             const SizedBox(width: 16),
@@ -349,7 +340,7 @@ class _RepostPanelState extends CommonRichTextPubPageState<RepostPanel> {
     ),
   );
 
-  List<Widget> _buildDismiss(ThemeData theme) => [
+  List<Widget> _buildDismiss() => [
     const SizedBox(height: 10),
     Divider(
       height: 1,

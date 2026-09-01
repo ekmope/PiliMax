@@ -203,7 +203,16 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           return;
         }
         _playerHandoffForceReleaseTimer = null;
-        _playerHandoffForceRelease = true;
+        // A chained detail navigation can replace the singleton player's
+        // launch content before the one-shot layout callback reports. The
+        // detail subtree has already been mounted for the full bounded hold,
+        // so the timeout must unblock that missing callback as well. Without
+        // this fallback an opaque, non-interactive cover can remain above a
+        // playable native surface forever.
+        setState(() {
+          _playerHandoffForceRelease = true;
+          _initialDetailLayoutReady = true;
+        });
         _scheduleDetailReveal();
         _tryReleasePlayerHandoffCover();
       },

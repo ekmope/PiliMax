@@ -2290,10 +2290,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             ? currentHeight
             : (maxHeight > 0 ? maxHeight : 9.0);
 
-        // Detail-page VODs reveal their poster until the native surface is
-        // stable. Once ready, the same gate paints the player's black fill
-        // outside the gesture transform so contain-fit letterboxing cannot
-        // reveal the poster. Live/PiP surfaces keep their explicit fill.
+        // Detail-page VODs have a black page-level fallback while the native
+        // surface settles. Keep this layer transparent so it does not create
+        // a second opaque fill; live and PiP surfaces keep their explicit
+        // fill because they do not have that page-level fallback.
         final hiddenColor =
             widget.videoDetailController == null ||
                 plPlayerController.isLive ||
@@ -2856,8 +2856,8 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
         sourceChanged ||
         oldWidget.requireFirstFrame != widget.requireFirstFrame) {
       // Keep the native child mounted but hide it until the new source has a
-      // settled texture. Detail VODs reveal their existing poster until the
-      // gate atomically restores the ready background and native surface.
+      // settled texture. Detail VODs expose the page-level black fallback
+      // until the gate atomically restores the native surface.
       _attachController();
     } else if (oldWidget.viewportSize != widget.viewportSize) {
       // didUpdateWidget is part of the parent's build; defer the visual

@@ -6,7 +6,6 @@ import 'package:PiliMax/common/widgets/button/more_btn.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/models/common/follow_order_type.dart';
 import 'package:PiliMax/models_new/follow/list.dart';
 import 'package:PiliMax/pages/common/fab_mixin.dart';
 import 'package:PiliMax/pages/follow/child/child_controller.dart';
@@ -124,13 +123,7 @@ class _FollowChildPageState extends State<FollowChildPage>
                   bottom: kFloatingActionButtonMargin + padding.bottom,
                 ),
                 child: FloatingActionButton.extended(
-                  onPressed: () => _followController
-                    ..setOrderType(
-                      _followController.orderType.value == FollowOrderType.def
-                          ? FollowOrderType.attention
-                          : FollowOrderType.def,
-                    )
-                    ..onReload(),
+                  onPressed: _followController.toggleOrderType,
                   icon: const Icon(Icons.format_list_bulleted, size: 20),
                   label: Obx(
                     () => Text(_followController.orderType.value.title),

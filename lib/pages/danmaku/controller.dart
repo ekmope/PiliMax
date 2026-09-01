@@ -8,6 +8,7 @@ import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/data_source.dart';
 import 'package:PiliMax/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
+import 'package:PiliMax/utils/danmaku_utils.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -31,8 +32,6 @@ class PlDanmakuController {
   bool _shownEmptyHint = false;
   bool _shownErrorHint = false;
 
-  static const int segmentLength = 60 * 6 * 1000;
-
   void dispose() {
     _disposed = true;
     _dmSegMap.clear();
@@ -40,7 +39,7 @@ class PlDanmakuController {
   }
 
   static int calcSegment(int progress) {
-    return progress ~/ segmentLength;
+    return DmUtils.calcSegment(progress);
   }
 
   void _showEmptyHint(String message) {
@@ -128,7 +127,7 @@ class PlDanmakuController {
     if (_isFileSource) {
       initFileDmIfNeeded();
     } else {
-      final int segmentIndex = calcSegment(progress);
+      final int segmentIndex = DmUtils.calcSegment(progress);
       if (!_requestedSeg.contains(segmentIndex)) {
         queryDanmaku(segmentIndex);
         return null;

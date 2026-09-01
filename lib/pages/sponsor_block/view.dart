@@ -1,7 +1,6 @@
 import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/http/constants.dart';
-import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/sponsor_block.dart';
 import 'package:PiliMax/models/common/sponsor_block/segment_type.dart';
@@ -10,6 +9,7 @@ import 'package:PiliMax/models_new/sponsor_block/user_info.dart';
 import 'package:PiliMax/pages/setting/slide_color_picker.dart';
 import 'package:PiliMax/utils/filtering_text.dart';
 import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/accounts/account_manager/account_mgr.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -367,7 +367,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                     Get.back();
                     _blockServer = HttpString.sponsorBlockBaseUrl;
                     setting.put(SettingBoxKey.blockServer, _blockServer);
-                    Request.accountManager.blockServer = _blockServer;
+                    AccountManager.blockServer = _blockServer;
                     (context as Element).markNeedsBuild();
                   },
                   child: const Text('重置'),
@@ -386,7 +386,7 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                     Get.back();
                     _blockServer = _textController.text;
                     setting.put(SettingBoxKey.blockServer, _blockServer);
-                    Request.accountManager.blockServer = _blockServer;
+                    AccountManager.blockServer = _blockServer;
                     _checkServerStatus();
                     _getUserInfo();
                     (context as Element).markNeedsBuild();

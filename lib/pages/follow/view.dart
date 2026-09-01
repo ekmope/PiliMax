@@ -46,7 +46,7 @@ class _FollowPageState extends State<FollowPage> {
   @override
   void initState() {
     super.initState();
-    _followController = Get.put(FollowController(), tag: _tag);
+    _followController = Get.put(FollowController(_tag), tag: _tag);
   }
 
   @override

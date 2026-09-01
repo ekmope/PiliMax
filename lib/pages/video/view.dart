@@ -3486,8 +3486,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           children: [
             const Positioned.fill(child: ColoredBox(color: Colors.black)),
 
-            Positioned.fill(child: ClipRect(child: cover())),
-
             plPlayer(width: width, height: height),
             Positioned.fill(
               child: Stack(
@@ -3496,12 +3494,15 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                 children: [
                   Obx(() {
                     if (!videoDetailController.autoPlay) {
+                      // The poster belongs to manual playback only. Keeping
+                      // it inside this branch prevents it from outliving a
+                      // source switch and covering the native texture.
                       return Positioned.fill(
                         child: _routeFadeTransition(
                           child: GestureDetector(
                             onTap: handlePlay,
                             behavior: .opaque,
-                            child: const SizedBox.expand(),
+                            child: ClipRect(child: cover()),
                           ),
                         ),
                       );

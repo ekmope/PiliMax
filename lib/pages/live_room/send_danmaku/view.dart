@@ -38,6 +38,7 @@ class LiveSendDmPanel extends CommonRichTextPubPage {
 
 class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   LiveRoomController get liveRoomController => widget.liveRoomController;
+  final RxBool _isSending = false.obs;
 
   @override
   void initState() {
@@ -54,6 +55,13 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
       tag: liveRoomController.roomId.toString(),
     );
     super.dispose();
+  }
+
+  @override
+  void onPublishThrottle() {
+    if (_isSending.value || isPublishing) return;
+    _isSending.value = true;
+    super.onPublishThrottle();
   }
 
   Widget get fansMedalButton {
@@ -131,7 +139,6 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return ViewSafeArea(
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -144,8 +151,8 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ...buildInputView(theme),
-              Flexible(child: buildPanelContainer(theme, Colors.transparent)),
+              ...buildInputView(),
+              Flexible(child: buildPanelContainer(Colors.transparent)),
             ],
           ),
         ),
@@ -154,94 +161,84 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   }
 
   @override
-  Widget? get customPanel => LiveEmotePanel(
-    onChoose: onChooseEmote,
-    roomId: liveRoomController.roomId,
-    onSendEmoticonUnique: (emote) {
-      onCustomPublish(
-        message: emote.emoticonUnique!,
-        dmType: 1,
-        emoticonOptions: '[object Object]',
-      );
-    },
+  Widget? get customPanel => DecoratedBox(
+    decoration: BoxDecoration(
+      border: Border(
+        top: BorderSide(
+          color: theme.colorScheme.outline.withValues(alpha: 0.1),
+        ),
+      ),
+    ),
+    child: LiveEmotePanel(
+      onChoose: onChooseEmote,
+      roomId: liveRoomController.roomId,
+      onSendEmoticonUnique: (emote) {
+        onCustomPublish(
+          message: emote.emoticonUnique!,
+          dmType: 1,
+          emoticonOptions: '[object Object]',
+        );
+      },
+    ),
   );
 
-  List<Widget> buildInputView(ThemeData theme) {
-    return [
-      Padding(
-        padding: const EdgeInsets.only(
-          top: 12,
-          right: 15,
-          left: 15,
-          bottom: 10,
+  List<Widget> buildInputView() => [
+    Padding(
+      padding: const EdgeInsets.only(top: 12, right: 15, left: 15, bottom: 10),
+      child: Obx(
+        () => RichTextField(
+          key: key,
+          controller: editController,
+          minLines: 1,
+          maxLines: 2,
+          autofocus: false,
+          readOnly: readOnly.value,
+          textInputAction: TextInputAction.send,
+          onChanged: onChanged,
+          onSubmitted: onSubmitted,
+          focusNode: focusNode,
+          decoration: const InputDecoration(
+            hintText: '输入弹幕内容',
+            border: InputBorder.none,
+            hintStyle: TextStyle(fontSize: 14),
+          ),
+          style: theme.textTheme.bodyLarge,
         ),
-        child: Listener(
-          onPointerUp: (event) {
-            if (readOnly.value) {
-              updatePanelType(PanelType.keyboard);
-            }
-          },
-          child: Obx(
-            () => RichTextField(
-              key: key,
-              controller: editController,
-              minLines: 1,
-              maxLines: 2,
-              autofocus: false,
-              readOnly: readOnly.value,
-              textInputAction: TextInputAction.send,
-              onChanged: onChanged,
-              onSubmitted: onSubmitted,
-              focusNode: focusNode,
-              decoration: const InputDecoration(
-                hintText: "输入弹幕内容",
-                border: InputBorder.none,
-                hintStyle: TextStyle(fontSize: 14),
+      ),
+    ),
+    Divider(height: 1, color: theme.dividerColor.withValues(alpha: 0.1)),
+    Container(
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [emojiBtn, const SizedBox(width: 4), fansMedalButton],
+          ),
+          Obx(
+            () => FilledButton.tonal(
+              onPressed: enablePublish.value && !_isSending.value
+                  ? onPublishThrottle
+                  : null,
+              style: FilledButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
               ),
-              style: theme.textTheme.bodyLarge,
-              // inputFormatters: [LengthLimitingTextInputFormatter(20)],
+              child: LoadingButtonChild(
+                isLoading: _isSending.value,
+                child: const Text('发送'),
+              ),
             ),
           ),
-        ),
+        ],
       ),
-      Divider(
-        height: 1,
-        color: theme.dividerColor.withValues(alpha: 0.1),
-      ),
-      Container(
-        height: 52,
-        padding: const .symmetric(horizontal: 12),
-        child: Row(
-          mainAxisAlignment: .spaceBetween,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                emojiBtn,
-                const SizedBox(width: 4),
-                fansMedalButton,
-              ],
-            ),
-            Obx(
-              () => FilledButton.tonal(
-                onPressed: enablePublish.value && !isPublishing
-                    ? onPublishThrottle
-                    : null,
-                style: FilledButton.styleFrom(
-                  visualDensity: .compact,
-                  padding: const .symmetric(horizontal: 20, vertical: 10),
-                ),
-                child: LoadingButtonChild(
-                  isLoading: isPublishing,
-                  child: const Text('发送'),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ];
-  }
+    ),
+  ];
 
   @override
   Future<void> onCustomPublish({
@@ -250,38 +247,42 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
     int? dmType,
     emoticonOptions,
   }) async {
-    int replyMid = 0;
-    String replyDmid = '';
-    if (message == null) {
-      final buffer = StringBuffer();
-      for (final e in editController.items) {
-        if (e.type == .at) {
-          replyMid = int.parse(e.rawText);
-          replyDmid = e.id!;
-        } else {
-          buffer.write(e.rawText);
+    try {
+      int replyMid = 0;
+      String replyDmid = '';
+      if (message == null) {
+        final buffer = StringBuffer();
+        for (final e in editController.items) {
+          if (e.type == .at) {
+            replyMid = int.parse(e.rawText);
+            replyDmid = e.id!;
+          } else {
+            buffer.write(e.rawText);
+          }
         }
+        message = buffer.toString();
       }
-      message = buffer.toString();
-    }
-    final res = await LiveHttp.sendLiveMsg(
-      roomId: liveRoomController.roomId,
-      msg: message,
-      dmType: dmType,
-      emoticonOptions: emoticonOptions,
-      replyMid: replyMid,
-      replayDmid: replyDmid,
-    );
-    if (res.isSuccess) {
-      hasPub = true;
-      Get.back();
-      liveRoomController
-        ..savedDanmaku?.clear()
-        ..savedDanmaku = null
-        ..markFansMedalStale();
-      SmartDialog.showToast('发送成功');
-    } else {
-      res.toast();
+      final res = await LiveHttp.sendLiveMsg(
+        roomId: liveRoomController.roomId,
+        msg: message,
+        dmType: dmType,
+        emoticonOptions: emoticonOptions,
+        replyMid: replyMid,
+        replayDmid: replyDmid,
+      );
+      if (res.isSuccess) {
+        hasPub = true;
+        Get.back();
+        liveRoomController
+          ..savedDanmaku?.clear()
+          ..savedDanmaku = null
+          ..markFansMedalStale();
+        SmartDialog.showToast('发送成功');
+      } else {
+        res.toast();
+      }
+    } finally {
+      _isSending.value = false;
     }
   }
 

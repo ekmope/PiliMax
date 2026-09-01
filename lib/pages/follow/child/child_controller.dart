@@ -24,11 +24,31 @@ class FollowChildController
   late final Rx<LoadingState<List<FollowItemModel>?>> sameState =
       LoadingState<List<FollowItemModel>?>.loading().obs;
 
-  late final Rx<FollowOrderType> orderType = Pref.followOrderType.obs;
+  // Parent-owned pages share one sort state; standalone contact pages retain
+  // the persisted value for their independent sorting control.
+  late final Rx<FollowOrderType> _standaloneOrderType =
+      Pref.followOrderType.obs;
+
+  Rx<FollowOrderType> get orderType =>
+      controller?.orderType ?? _standaloneOrderType;
 
   void setOrderType(FollowOrderType type) {
-    orderType.value = type;
+    if (controller != null) {
+      controller!.setOrderType(type);
+      return;
+    }
+    _standaloneOrderType.value = type;
     GStorage.setting.put(SettingBoxKey.followOrderType, type.index);
+  }
+
+  void toggleOrderType() {
+    if (controller != null) {
+      controller!.toggleOrderType();
+      return;
+    }
+    final FollowOrderType type = orderType.value == .def ? .attention : .def;
+    setOrderType(type);
+    onReload();
   }
 
   @override
@@ -72,14 +92,20 @@ class FollowChildController
 
   @override
   Future<LoadingState<FollowData>> customGetData() {
+    final order = orderType.value.type;
     if (tagid != null) {
-      return MemberHttp.followUpGroup(mid: mid, tagid: tagid, pn: page);
+      return MemberHttp.followUpGroup(
+        mid: mid,
+        tagid: tagid,
+        pn: page,
+        orderType: order,
+      );
     }
 
     return FollowHttp.followings(
       vmid: mid,
       pn: page,
-      orderType: orderType.value.type,
+      orderType: order,
     );
   }
 

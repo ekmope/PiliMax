@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:PiliMax/utils/accounts.dart';
-import 'package:PiliMax/utils/accounts/account.dart';
-import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -49,7 +49,7 @@ void main() {
 
     await account.delete();
     lateResponse.complete();
-    await persistLateResponse;
+    await expectLater(persistLateResponse, throwsStateError);
 
     expect(Accounts.account.containsKey('123'), isFalse);
   });
@@ -61,7 +61,7 @@ void main() {
       await account.onChange();
 
       final deletion = account.delete();
-      await account.onChange();
+      await expectLater(account.onChange(), throwsStateError);
       await deletion;
 
       expect(Accounts.account.containsKey('123'), isFalse);

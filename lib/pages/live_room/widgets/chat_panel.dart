@@ -432,6 +432,7 @@ class LiveRoomChatPanel extends StatelessWidget {
               type: 1,
             );
             if (res.isSuccess) {
+              liveRoomController.addBlockedUser(item.extra.mid);
               SmartDialog.showToast('屏蔽成功');
             } else {
               res.toast();

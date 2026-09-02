@@ -512,6 +512,20 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   late final bool tempPlayerConf = Pref.tempPlayerConf;
 
+  static const int videoPictureParameterMin = -100;
+  static const int videoPictureParameterMax = 100;
+  static const Duration _videoPictureSaveDelay = Duration(milliseconds: 300);
+
+  late final RxInt videoBrightness =
+      (tempPlayerConf ? 0 : Pref.videoBrightness).obs;
+  late final RxInt videoContrast =
+      (tempPlayerConf ? 0 : Pref.videoContrast).obs;
+  late final RxInt videoSaturation =
+      (tempPlayerConf ? 0 : Pref.videoSaturation).obs;
+  late final RxInt videoGamma = (tempPlayerConf ? 0 : Pref.videoGamma).obs;
+  late final RxInt videoHue = (tempPlayerConf ? 0 : Pref.videoHue).obs;
+  Timer? _videoPictureSaveTimer;
+
   late int? cacheVideoQa = PlatformUtils.isMobile ? null : Pref.defaultVideoQa;
   late int cacheAudioQa = Pref.defaultAudioQa;
   bool enableHeart = true;
@@ -852,6 +866,103 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (_videoPlayerController != null) {
       unawaited(setShader(defaultSuperResolutionType, _videoPlayerController!));
     }
+
+    resetAllVideoPictureParameters(persist: false);
+  }
+
+  int _normalizeVideoPictureParameter(num value) => value
+      .round()
+      .clamp(
+        videoPictureParameterMin,
+        videoPictureParameterMax,
+      )
+      .toInt();
+
+  RxInt? _videoPictureParameterState(String property) => switch (property) {
+    'brightness' => videoBrightness,
+    'contrast' => videoContrast,
+    'saturation' => videoSaturation,
+    'gamma' => videoGamma,
+    'hue' => videoHue,
+    _ => null,
+  };
+
+  void setVideoPictureParameter(String property, num value) {
+    final state = _videoPictureParameterState(property);
+    if (state == null) return;
+
+    final normalized = _normalizeVideoPictureParameter(value);
+    state.value = normalized;
+    _applyVideoPictureProperty(property, normalized);
+    _scheduleVideoPictureSettingsSave();
+  }
+
+  void resetVideoPictureParameter(String property) {
+    setVideoPictureParameter(property, 0);
+  }
+
+  void resetAllVideoPictureParameters({bool persist = true}) {
+    videoBrightness.value = 0;
+    videoContrast.value = 0;
+    videoSaturation.value = 0;
+    videoGamma.value = 0;
+    videoHue.value = 0;
+    applyVideoPictureParameters();
+    if (persist) {
+      _scheduleVideoPictureSettingsSave();
+    }
+  }
+
+  void _applyVideoPictureProperty(String property, int value) {
+    final player = _videoPlayerController;
+    if (player == null || onlyPlayAudio.value) return;
+    try {
+      player.setProperty(property, value.toString());
+    } catch (_) {}
+  }
+
+  void applyVideoPictureParameters([
+    Player? target,
+    bool? onlyPlayAudioForSource,
+  ]) {
+    final player = target ?? _videoPlayerController;
+    if (player == null || (onlyPlayAudioForSource ?? onlyPlayAudio.value)) {
+      return;
+    }
+    final parameters = {
+      'brightness': videoBrightness.value,
+      'contrast': videoContrast.value,
+      'saturation': videoSaturation.value,
+      'gamma': videoGamma.value,
+      'hue': videoHue.value,
+    };
+    for (final entry in parameters.entries) {
+      try {
+        player.setProperty(entry.key, entry.value.toString());
+      } catch (_) {}
+    }
+  }
+
+  void _scheduleVideoPictureSettingsSave() {
+    if (tempPlayerConf) return;
+    _videoPictureSaveTimer?.cancel();
+    _videoPictureSaveTimer = Timer(
+      _videoPictureSaveDelay,
+      persistVideoPictureSettings,
+    );
+  }
+
+  void persistVideoPictureSettings() {
+    _videoPictureSaveTimer?.cancel();
+    _videoPictureSaveTimer = null;
+    if (tempPlayerConf) return;
+    setting.putAllNE({
+      SettingBoxKey.videoBrightness: videoBrightness.value,
+      SettingBoxKey.videoContrast: videoContrast.value,
+      SettingBoxKey.videoSaturation: videoSaturation.value,
+      SettingBoxKey.videoGamma: videoGamma.value,
+      SettingBoxKey.videoHue: videoHue.value,
+    });
   }
 
   late final PlPlayerSourceCoordinator<Player> _sourceCoordinator;
@@ -1091,8 +1202,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         sourceDataSource: dataSource,
         onOpeningError: captureOpeningError,
       ),
-      open: (_) async {
+      open: (lease) async {
         await player.open(media, play: false);
+        if (lease.isCurrent(_videoPlayerController)) {
+          applyVideoPictureParameters(player, sourceOnlyPlayAudio);
+        }
         // media-kit reports some native open failures only through its
         // asynchronous error stream instead of completing open with an
         // error. Give queued error delivery a turn before committing.
@@ -1693,6 +1807,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         if (!lease.isCurrent(_videoPlayerController, requireActive: true)) {
           return false;
         }
+        applyVideoPictureParameters(ctr);
         if (!isLive ||
             (_livePlaybackRequested &&
                 !_livePausedForInterruption &&
@@ -2921,6 +3036,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       AndroidHelper$ToDart.onUserLeaveHint?.release();
       AndroidHelper$ToDart.onUserLeaveHint = null;
     }
+    persistVideoPictureSettings();
     // _position.close();
     // _playerEventSubs?.cancel();
     // _sliderPosition.close();

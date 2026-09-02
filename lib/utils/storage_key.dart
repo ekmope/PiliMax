@@ -34,7 +34,12 @@ abstract final class SettingBoxKey {
       audioPlayMode = 'audioPlayMode',
       showBatteryLevel = 'showBatteryLevel',
       playerVolume = 'playerVolume',
-      maxVolume = 'maxVolume';
+      maxVolume = 'maxVolume',
+      videoBrightness = 'videoBrightness',
+      videoContrast = 'videoContrast',
+      videoSaturation = 'videoSaturation',
+      videoGamma = 'videoGamma',
+      videoHue = 'videoHue';
 
   static const String enableVerticalExpand = 'enableVerticalExpand',
       feedBackEnable = 'feedBackEnable',

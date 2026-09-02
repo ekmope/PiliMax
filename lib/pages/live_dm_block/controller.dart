@@ -2,12 +2,15 @@ import 'package:PiliMax/http/live.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/live/live_dm_silent_type.dart';
 import 'package:PiliMax/models_new/live/live_dm_block/shield_user_list.dart';
+import 'package:PiliMax/pages/live_room/controller.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 class LiveDmBlockController extends GetxController
     with GetSingleTickerProviderStateMixin {
   final roomId = Get.parameters['roomId']!;
+  final LiveRoomController? liveRoomController =
+      Get.arguments is LiveRoomController ? Get.arguments : null;
 
   @override
   void onInit() {
@@ -40,15 +43,19 @@ class LiveDmBlockController extends GetxController
       verify.value = shieldRules?.verify ?? 0;
       updateValue();
 
-      if (response?.keywordList case final keywordList?) {
-        this.keywordList.addAll(keywordList);
-      }
-      if (response?.shieldUserList case final shieldUserList?) {
-        this.shieldUserList.addAll(shieldUserList);
-      }
+      keywordList.assignAll(response?.keywordList ?? const []);
+      shieldUserList.assignAll(response?.shieldUserList ?? const []);
+      updateLiveRoomRules();
     } else {
       res.toast();
     }
+  }
+
+  void updateLiveRoomRules() {
+    liveRoomController?.updateBlockRules(
+      keywordList,
+      shieldUserList.map((e) => e.uid),
+    );
   }
 
   Future<bool> setSilent(
@@ -104,6 +111,7 @@ class LiveDmBlockController extends GetxController
       final res = await LiveHttp.addShieldKeyword(keyword: value);
       if (res.isSuccess) {
         keywordList.insert(0, value);
+        updateLiveRoomRules();
       } else {
         res.toast();
       }
@@ -115,6 +123,7 @@ class LiveDmBlockController extends GetxController
       );
       if (res case Success(:final response)) {
         shieldUserList.insert(0, response);
+        updateLiveRoomRules();
       } else {
         res.toast();
       }
@@ -131,6 +140,7 @@ class LiveDmBlockController extends GetxController
       );
       if (res.isSuccess) {
         shieldUserList.removeAt(index);
+        updateLiveRoomRules();
       } else {
         res.toast();
       }
@@ -138,6 +148,7 @@ class LiveDmBlockController extends GetxController
       final res = await LiveHttp.delShieldKeyword(keyword: item as String);
       if (res.isSuccess) {
         keywordList.removeAt(index);
+        updateLiveRoomRules();
       } else {
         res.toast();
       }
@@ -146,6 +157,7 @@ class LiveDmBlockController extends GetxController
 
   @override
   void onClose() {
+    updateLiveRoomRules();
     tabController.dispose();
     super.onClose();
   }

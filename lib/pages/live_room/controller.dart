@@ -121,6 +121,9 @@ class LiveRoomController extends GetxController {
   Future<void>? _liveMsgInfoRequest;
   int _liveMsgGeneration = 0;
   bool _liveMsgDesired = false;
+  Future<void>? _blockRulesFuture;
+  List<String> keywordList = const [];
+  Set<String> shieldUids = const {};
   late final ScrollController scrollController;
   late final RxInt pageIndex = 0.obs;
   PageController? pageController;
@@ -749,7 +752,9 @@ class LiveRoomController extends GetxController {
     final res = await LiveHttp.liveRoomDmPrefetch(roomId: roomId);
     if (res case Success(:final response)) {
       if (response != null && response.isNotEmpty) {
-        messages.addAll(response);
+        messages.addAll(
+          response.where((item) => !isBlocked(item.text, item.extra.mid)),
+        );
         scrollToBottom();
       }
     } else {
@@ -757,6 +762,63 @@ class LiveRoomController extends GetxController {
         Utils.reportError(res.toString());
       }
     }
+  }
+
+  Future<void> fetchBlockRules() async {
+    try {
+      final res = await LiveHttp.getLiveInfoByUser(roomId);
+      if (isClosed) return;
+      if (res case Success(:final response)) {
+        updateBlockRules(
+          response?.keywordList ?? const [],
+          (response?.shieldUserList ?? const []).map((item) => item.uid),
+        );
+        messages.removeWhere(
+          (item) => item is DanmakuMsg && isBlocked(item.text, item.extra.mid),
+        );
+      }
+    } catch (e, s) {
+      if (kDebugMode) {
+        Utils.reportError(e, s);
+      }
+    }
+  }
+
+  void updateBlockRules(
+    Iterable<String> keywords,
+    Iterable<Object?> uids,
+  ) {
+    keywordList = keywords.toList(growable: false);
+    final normalizedUids = <String>{};
+    for (final uid in uids) {
+      final normalizedUid = _normalizeUid(uid);
+      if (normalizedUid != null) {
+        normalizedUids.add(normalizedUid);
+      }
+    }
+    shieldUids = normalizedUids;
+  }
+
+  void addBlockedUser(Object? uid) {
+    final normalizedUid = _normalizeUid(uid);
+    if (normalizedUid == null) return;
+    shieldUids = {...shieldUids, normalizedUid};
+    messages.removeWhere(
+      (item) =>
+          item is DanmakuMsg && item.extra.mid.toString() == normalizedUid,
+    );
+  }
+
+  String? _normalizeUid(Object? uid) {
+    if (uid == null) return null;
+    final normalizedUid = uid.toString().trim();
+    return normalizedUid.isEmpty ? null : normalizedUid;
+  }
+
+  bool isBlocked(String text, Object? uid) {
+    final normalizedUid = _normalizeUid(uid);
+    return keywordList.any(text.contains) ||
+        (normalizedUid != null && shieldUids.contains(normalizedUid));
   }
 
   Future<void> getSuperChatMsg() async {
@@ -773,6 +835,7 @@ class LiveRoomController extends GetxController {
   void startLiveMsg() {
     if (isClosed) return;
     _liveMsgDesired = true;
+    _blockRulesFuture ??= fetchBlockRules();
     if (messages.isEmpty) {
       prefetch();
       if (showSuperChat) {
@@ -936,6 +999,9 @@ class LiveRoomController extends GetxController {
           final uid = user['uid'];
           final name = user['base']['name'];
           final msg = info[1];
+          if (isBlocked(msg, uid)) {
+            return;
+          }
           BaseEmote? uemote;
           if (first[13] case Map<String, dynamic> map) {
             uemote = BaseEmote.fromJson(map);

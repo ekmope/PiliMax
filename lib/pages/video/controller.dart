@@ -60,7 +60,6 @@ import 'package:PiliMax/pages/video/note/view.dart';
 import 'package:PiliMax/pages/video/post_panel/view.dart';
 import 'package:PiliMax/pages/video/send_danmaku/view.dart';
 import 'package:PiliMax/pilimax/pages/video/video_detail_args.dart';
-import 'package:PiliMax/pilimax/pages/video/video_detail_session.dart';
 import 'package:PiliMax/pilimax/pages/video/video_media_list_coordinator.dart';
 import 'package:PiliMax/pilimax/pages/video/video_playback_session.dart';
 import 'package:PiliMax/pilimax/pages/video/video_subtitle_coordinator.dart';
@@ -104,6 +103,17 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:media_kit/media_kit.dart' hide Subtitle;
 import 'package:path/path.dart' as path;
+
+typedef _VideoUrlQueryKey = ({
+  String bvid,
+  int cid,
+  int? epId,
+  int? seasonId,
+  VideoType videoType,
+  bool tryLook,
+  String? language,
+  bool voiceBalance,
+});
 
 final class _MediaKitVideoSubtitlePlayer implements VideoSubtitlePlayer {
   const _MediaKitVideoSubtitlePlayer(this._player);
@@ -535,13 +545,12 @@ class VideoDetailController extends GetxController
     }
 
     videoType = args['videoType'];
-    final actualVideoType = VideoDetailPlayUrlRequest.actualVideoType(
-      requestedVideoType: videoType,
-      isVideoAccountLoggedIn: isLoginVideo,
-      usePgcApi: args['pgcApi'] == true,
-    );
-    if (actualVideoType != videoType) {
-      _actualVideoType = actualVideoType;
+    if (videoType == VideoType.pgc) {
+      if (!isLoginVideo) {
+        _actualVideoType = VideoType.ugc;
+      }
+    } else if (args['pgcApi'] == true) {
+      _actualVideoType = VideoType.pgc;
     }
 
     bvid = args['bvid'];
@@ -1427,6 +1436,9 @@ class VideoDetailController extends GetxController
   int? _lastQueryCid;
   final VideoPlaybackSession _playbackSession = VideoPlaybackSession();
   int _videoUrlQueryGeneration = 0;
+  Future<void>? _activeVideoUrlQuery;
+  _VideoUrlQueryKey? _activeVideoUrlQueryKey;
+  bool _activeVideoUrlQueryReinitializesPlayer = false;
 
   VideoPlaybackIdentity _currentPlaybackIdentity() => VideoPlaybackIdentity(
     aid: aid,
@@ -1572,6 +1584,25 @@ class VideoDetailController extends GetxController
     }
   }
 
+  _VideoUrlQueryKey _currentVideoUrlQueryKey() => (
+    bvid: bvid,
+    cid: cid.value,
+    epId: epId,
+    seasonId: seasonId,
+    videoType: _actualVideoType ?? videoType,
+    tryLook: plPlayerController.tryLook,
+    language: currLang.value,
+    voiceBalance: plPlayerController.enableAudioNormalization,
+  );
+
+  void _clearActiveVideoUrlQuery(Future<void> query) {
+    if (identical(_activeVideoUrlQuery, query)) {
+      _activeVideoUrlQuery = null;
+      _activeVideoUrlQueryKey = null;
+      _activeVideoUrlQueryReinitializesPlayer = false;
+    }
+  }
+
   // 视频链接
   /// TODO: merge [DownloadHttp.getVideoUrl].
   Future<void> queryVideoUrl({
@@ -1580,23 +1611,76 @@ class VideoDetailController extends GetxController
     bool autoFullScreenFlag = false,
     bool fromSwitch = false,
     bool Function()? isCurrentSwitch,
-  }) async {
+  }) {
     if (isFileSource) {
-      if (isCurrentSwitch?.call() == false) return;
+      if (isCurrentSwitch?.call() == false) return Future<void>.value();
       return _initPlayerIfNeeded(
-        autoFullScreenFlag,
-        isCurrentQuery: isCurrentSwitch,
-      );
+            autoFullScreenFlag,
+            isCurrentQuery: isCurrentSwitch,
+          ) ??
+          Future<void>.value();
     }
-    if (isQuerying && !fromSwitch) {
-      return;
+    final queryKey = _currentVideoUrlQueryKey();
+    if (isQuerying &&
+        !fromReset &&
+        !fromSwitch &&
+        queryKey == _activeVideoUrlQueryKey) {
+      final activeQuery = _activeVideoUrlQuery;
+      if (activeQuery == null || _activeVideoUrlQueryReinitializesPlayer) {
+        return activeQuery ?? Future<void>.value();
+      }
+      return activeQuery.then((_) async {
+        if (isClosed ||
+            _currentVideoUrlQueryKey() != queryKey ||
+            videoUrl == null ||
+            audioUrl == null) {
+          return;
+        }
+        await (_initPlayerIfNeeded(
+              autoFullScreenFlag,
+              isCurrentQuery: isCurrentSwitch,
+            ) ??
+            Future<void>.value());
+      });
     }
+    final query = _queryVideoUrl(
+      fromReset: fromReset,
+      reinitializePlayer: reinitializePlayer,
+      autoFullScreenFlag: autoFullScreenFlag,
+      fromSwitch: fromSwitch,
+      isCurrentSwitch: isCurrentSwitch,
+    );
+    _activeVideoUrlQuery = query;
+    _activeVideoUrlQueryKey = queryKey;
+    _activeVideoUrlQueryReinitializesPlayer = reinitializePlayer;
+    query.then<void>(
+      (_) => _clearActiveVideoUrlQuery(query),
+      onError: (Object error, StackTrace stackTrace) {
+        _clearActiveVideoUrlQuery(query);
+      },
+    );
+    return query;
+  }
+
+  Future<void> _queryVideoUrl({
+    required bool fromReset,
+    required bool reinitializePlayer,
+    required bool autoFullScreenFlag,
+    required bool fromSwitch,
+    required bool Function()? isCurrentSwitch,
+  }) async {
     final queryGeneration = ++_videoUrlQueryGeneration;
     final requestAid = aid;
     final requestBvid = bvid;
     final requestCid = cid.value;
     final requestEpId = epId;
     final requestSeasonId = seasonId;
+    if (fromReset || fromSwitch) {
+      // A reload/episode switch must never let a failed request hand an older
+      // URL back to a caller waiting on the shared query Future.
+      videoUrl = null;
+      _setCurrentAudio(null);
+    }
     bool isCurrentVideoUrlQuery() => _isCurrentVideoUrlQuery(
       generation: queryGeneration,
       bvid: requestBvid,
@@ -1650,21 +1734,16 @@ class VideoDetailController extends GetxController
         isUgc: actualVideoType == VideoType.ugc,
         unlimitedTrialEnabled: Pref.unlimitedQnTrial,
       ).firstOrNull;
-      final playUrlRequest = VideoDetailPlayUrlRequest.forCurrentVideoAccount(
+      final result = await VideoHttp.videoUrl(
         bvid: requestBvid,
         cid: requestCid,
-        epId: requestEpId,
+        epid: requestEpId,
         seasonId: requestSeasonId,
         tryLook: plPlayerController.tryLook,
         videoType: actualVideoType,
         language: currLang.value,
         voiceBalance: plPlayerController.enableAudioNormalization,
       );
-      final prefetched = !fromReset && !fromSwitch
-          ? (args[videoDetailSessionKey] as VideoDetailSession?)
-                ?.takeInitialPlayUrl(playUrlRequest)
-          : null;
-      final result = await (prefetched ?? playUrlRequest.load());
       if (!isCurrentQuery()) return;
 
       if (result case Success(:final response)) {

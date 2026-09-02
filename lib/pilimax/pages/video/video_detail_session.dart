@@ -1,17 +1,11 @@
-import 'dart:io' show Platform;
-
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/video.dart';
-import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models/model_hot_video_item.dart';
-import 'package:PiliMax/models/video/play/url.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/pilimax/pages/video/video_layout_metrics.dart';
-import 'package:PiliMax/pilimax/services/playback/trial_quality_policy.dart';
-import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 
 const videoDetailSessionKey = '_videoDetailSession';
@@ -37,192 +31,6 @@ enum VideoDetailExitMode {
 
 typedef VideoDetailPrepareForExit = VideoDetailExitMode Function();
 typedef VideoDetailPipExitIntent = bool Function();
-typedef VideoDetailPlayUrlLoader =
-    Future<LoadingState<PlayUrlModel>> Function();
-
-final class VideoDetailPlayUrlRequest {
-  const VideoDetailPlayUrlRequest({
-    required this.bvid,
-    required this.cid,
-    required this.epId,
-    required this.seasonId,
-    required this.qn,
-    required this.tryLook,
-    required this.videoType,
-    required this.language,
-    required this.voiceBalance,
-    required this.videoAccountIdentity,
-    required this.videoAccountMid,
-  });
-
-  factory VideoDetailPlayUrlRequest.forCurrentVideoAccount({
-    required String bvid,
-    required int cid,
-    required int? epId,
-    required int? seasonId,
-    int qn = 80,
-    required bool tryLook,
-    required VideoType videoType,
-    required String? language,
-    required bool voiceBalance,
-  }) {
-    final account = Accounts.get(AccountType.video);
-    return VideoDetailPlayUrlRequest(
-      bvid: bvid,
-      cid: cid,
-      epId: epId,
-      seasonId: seasonId,
-      qn: qn,
-      tryLook: tryLook,
-      videoType: videoType,
-      language: language,
-      voiceBalance: voiceBalance,
-      videoAccountIdentity: identityHashCode(account),
-      videoAccountMid: account.mid,
-    );
-  }
-
-  final String bvid;
-  final int cid;
-  final int? epId;
-  final int? seasonId;
-  final int qn;
-  final bool tryLook;
-  final VideoType videoType;
-  final String? language;
-  final bool voiceBalance;
-  final int videoAccountIdentity;
-  final int videoAccountMid;
-
-  static VideoType actualVideoType({
-    required VideoType requestedVideoType,
-    required bool isVideoAccountLoggedIn,
-    required bool usePgcApi,
-  }) {
-    if (requestedVideoType == VideoType.pgc && !isVideoAccountLoggedIn) {
-      return VideoType.ugc;
-    }
-    if (requestedVideoType != VideoType.pgc && usePgcApi) {
-      return VideoType.pgc;
-    }
-    return requestedVideoType;
-  }
-
-  static VideoDetailPlayUrlRequest? fromLaunchArguments(
-    Map<dynamic, dynamic> arguments,
-  ) {
-    if (arguments['fromPip'] == true ||
-        arguments['sourceType'] == SourceType.file) {
-      return null;
-    }
-    final bvid = arguments['bvid'];
-    final cid = arguments['cid'];
-    if (bvid is! String || bvid.isEmpty || cid is! int || cid <= 0) {
-      return null;
-    }
-    final account = Accounts.get(AccountType.video);
-    final requestedVideoType = arguments['videoType'] is VideoType
-        ? arguments['videoType'] as VideoType
-        : VideoType.ugc;
-    return VideoDetailPlayUrlRequest.forCurrentVideoAccount(
-      bvid: bvid,
-      cid: cid,
-      epId: arguments['epId'] as int?,
-      seasonId: arguments['seasonId'] as int?,
-      tryLook: TrialQualityPolicy.shouldRequestWebTryLook(
-        isLoggedIn: account.isLogin,
-        allowAnonymous1080: Pref.p1080,
-      ),
-      videoType: actualVideoType(
-        requestedVideoType: requestedVideoType,
-        isVideoAccountLoggedIn: account.isLogin,
-        usePgcApi: arguments['pgcApi'] == true,
-      ),
-      language: null,
-      voiceBalance: Platform.isAndroid && Pref.audioNormalization != '0',
-    );
-  }
-
-  Future<LoadingState<PlayUrlModel>> load() => VideoHttp.videoUrl(
-    bvid: bvid,
-    cid: cid,
-    qn: qn,
-    epid: epId,
-    seasonId: seasonId,
-    tryLook: tryLook,
-    videoType: videoType,
-    language: language,
-    voiceBalance: voiceBalance,
-  );
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is VideoDetailPlayUrlRequest &&
-          bvid == other.bvid &&
-          cid == other.cid &&
-          epId == other.epId &&
-          seasonId == other.seasonId &&
-          qn == other.qn &&
-          tryLook == other.tryLook &&
-          videoType == other.videoType &&
-          language == other.language &&
-          voiceBalance == other.voiceBalance &&
-          videoAccountIdentity == other.videoAccountIdentity &&
-          videoAccountMid == other.videoAccountMid;
-
-  @override
-  int get hashCode => Object.hash(
-    bvid,
-    cid,
-    epId,
-    seasonId,
-    qn,
-    tryLook,
-    videoType,
-    language,
-    voiceBalance,
-    videoAccountIdentity,
-    videoAccountMid,
-  );
-}
-
-final class VideoDetailPlayUrlPrefetch {
-  VideoDetailPlayUrlPrefetch.start(
-    this.request, {
-    VideoDetailPlayUrlLoader? loader,
-  }) : _result = _loadSafely(loader ?? request.load);
-
-  final VideoDetailPlayUrlRequest request;
-  Future<LoadingState<PlayUrlModel>>? _result;
-  bool _disposed = false;
-
-  static Future<LoadingState<PlayUrlModel>> _loadSafely(
-    VideoDetailPlayUrlLoader loader,
-  ) async {
-    try {
-      return await loader();
-    } catch (error, stackTrace) {
-      return Error('$error\n\n$stackTrace');
-    }
-  }
-
-  Future<LoadingState<PlayUrlModel>>? takeIfMatches(
-    VideoDetailPlayUrlRequest candidate,
-  ) {
-    final result = _result;
-    _result = null;
-    if (_disposed || request != candidate) {
-      return null;
-    }
-    return result;
-  }
-
-  void dispose() {
-    _disposed = true;
-    _result = null;
-  }
-}
 
 final class VideoDetailSkeletonProfile {
   const VideoDetailSkeletonProfile({
@@ -255,7 +63,7 @@ final class VideoDetailSkeletonProfile {
   );
 }
 
-/// Owns launch-time data prefetch without creating GetX or player controllers.
+/// Owns launch-time detail data without creating GetX or player controllers.
 final class VideoDetailSession {
   VideoDetailSession._(
     this._related, {
@@ -264,7 +72,6 @@ final class VideoDetailSession {
     required this.launchOrientationReady,
     required this.skeletonProfileReady,
     required Future<LoadingState<VideoDetailData>>? intro,
-    required this._playUrlPrefetch,
   }) : _intro = intro,
        _currentContentKey = launchContentKey,
        presentationReady = Future.wait<void>([
@@ -282,13 +89,6 @@ final class VideoDetailSession {
         ? snapshot['isVertical'] as bool?
         : null;
     final launchSkeletonProfile = skeletonProfileFor(snapshot);
-
-    final playUrlRequest = VideoDetailPlayUrlRequest.fromLaunchArguments(
-      snapshot,
-    );
-    final playUrlPrefetch = playUrlRequest == null
-        ? null
-        : VideoDetailPlayUrlPrefetch.start(playUrlRequest);
 
     Future<LoadingState<VideoDetailData>>? intro;
     Future<LoadingState<List<HotVideoItemModel>?>>? related;
@@ -329,7 +129,6 @@ final class VideoDetailSession {
       launchOrientationReady: launchOrientationReady,
       skeletonProfileReady: skeletonProfileReady,
       intro: intro,
-      playUrlPrefetch: playUrlPrefetch,
     );
   }
 
@@ -340,7 +139,6 @@ final class VideoDetailSession {
   final Future<void> presentationReady;
   Future<LoadingState<VideoDetailData>>? _intro;
   Future<LoadingState<List<HotVideoItemModel>?>>? _related;
-  VideoDetailPlayUrlPrefetch? _playUrlPrefetch;
   String _currentContentKey;
   bool _disposed = false;
 
@@ -418,18 +216,6 @@ final class VideoDetailSession {
     return value;
   }
 
-  Future<LoadingState<PlayUrlModel>>? takeInitialPlayUrl(
-    VideoDetailPlayUrlRequest request,
-  ) {
-    final prefetch = _playUrlPrefetch;
-    _playUrlPrefetch = null;
-    if (_disposed || !matchesLaunchContent) {
-      prefetch?.dispose();
-      return null;
-    }
-    return prefetch?.takeIfMatches(request);
-  }
-
   void updateCurrentContent({
     required VideoType videoType,
     required int? aid,
@@ -455,8 +241,6 @@ final class VideoDetailSession {
     _disposed = true;
     _intro = null;
     _related = null;
-    _playUrlPrefetch?.dispose();
-    _playUrlPrefetch = null;
   }
 
   static String contentKeyFor(Map<dynamic, dynamic> arguments) => contentKey(

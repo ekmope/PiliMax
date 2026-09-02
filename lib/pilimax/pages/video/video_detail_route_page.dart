@@ -865,8 +865,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         _pendingEntryOrientation != null ||
         _pendingEntryVariant != null ||
         _pendingContentProfile != null ||
-        _orientationSettling ||
-        (!_presentationReady && !_fallbackElapsed)) {
+        _orientationSettling) {
       return;
     }
     _fallbackTimer?.cancel();

@@ -48,6 +48,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
+const int _kMaxDmCount = 500;
+const int _kDmTrimThreshold = _kMaxDmCount + 50;
+
 class LiveRoomController extends GetxController {
   LiveRoomController(this.heroTag, {this.fromPip = false});
   final String heroTag;
@@ -178,6 +181,44 @@ class LiveRoomController extends GetxController {
     }
     return const SizedBox.shrink();
   });
+
+  bool _dmTrimScheduled = false;
+
+  void _scheduleDmTrim() {
+    if (_dmTrimScheduled || messages.length <= _kDmTrimThreshold) return;
+    _dmTrimScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _dmTrimScheduled = false;
+      if (isClosed || messages.length <= _kMaxDmCount) return;
+
+      final controller = scrollController;
+      final hasClients = controller.hasClients;
+      final oldPixels = hasClients ? controller.position.pixels : null;
+      final oldMaxScrollExtent = hasClients
+          ? controller.position.maxScrollExtent
+          : null;
+      final dropCount = messages.length - _kMaxDmCount;
+      // Access the backing list to avoid one notification per removed item.
+      // ignore: invalid_use_of_protected_member
+      final list = messages.value;
+      if (dropCount <= 0 || dropCount > list.length) return;
+
+      // Mutate the backing list once so RxList emits only one refresh.
+      list.removeRange(0, dropCount);
+      messages.refresh();
+
+      if (oldPixels == null || oldMaxScrollExtent == null) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!controller.hasClients) return;
+        final removedExtent =
+            oldMaxScrollExtent - controller.position.maxScrollExtent;
+        final target = (oldPixels - removedExtent)
+            .clamp(0.0, controller.position.maxScrollExtent)
+            .toDouble();
+        controller.jumpTo(target);
+      });
+    });
+  }
 
   StreamSubscription? _sizeSub;
 
@@ -755,6 +796,7 @@ class LiveRoomController extends GetxController {
         messages.addAll(
           response.where((item) => !isBlocked(item.text, item.extra.mid)),
         );
+        _scheduleDmTrim();
         scrollToBottom();
       }
     } else {
@@ -989,12 +1031,14 @@ class LiveRoomController extends GetxController {
       }
       if (autoScroll && !disableAutoScroll.value) {
         messages.add(msg);
+        _scheduleDmTrim();
         scrollToBottom();
         return;
       }
     }
 
     messages.addOnly(msg);
+    _scheduleDmTrim();
   }
 
   @pragma('vm:notify-debugger-on-exception')

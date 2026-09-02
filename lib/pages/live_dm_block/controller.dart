@@ -29,6 +29,7 @@ class LiveDmBlockController extends GetxController
 
   final RxList<String> keywordList = <String>[].obs;
   final RxList<ShieldUserList> shieldUserList = <ShieldUserList>[].obs;
+  bool _rulesLoaded = false;
 
   void updateValue() {
     isEnable.value = level.value != 0 || rank.value != 0 || verify.value != 0;
@@ -45,6 +46,7 @@ class LiveDmBlockController extends GetxController
 
       keywordList.assignAll(response?.keywordList ?? const []);
       shieldUserList.assignAll(response?.shieldUserList ?? const []);
+      _rulesLoaded = true;
       updateLiveRoomRules();
     } else {
       res.toast();
@@ -52,6 +54,7 @@ class LiveDmBlockController extends GetxController
   }
 
   void updateLiveRoomRules() {
+    if (!_rulesLoaded) return;
     liveRoomController?.updateBlockRules(
       keywordList,
       shieldUserList.map((e) => e.uid),

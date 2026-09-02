@@ -121,7 +121,7 @@ class LiveRoomController extends GetxController {
   Future<void>? _liveMsgInfoRequest;
   int _liveMsgGeneration = 0;
   bool _liveMsgDesired = false;
-  Future<void>? _blockRulesFuture;
+  Future<bool>? _blockRulesFuture;
   List<String> keywordList = const [];
   Set<String> shieldUids = const {};
   late final ScrollController scrollController;
@@ -764,10 +764,10 @@ class LiveRoomController extends GetxController {
     }
   }
 
-  Future<void> fetchBlockRules() async {
+  Future<bool> fetchBlockRules() async {
     try {
       final res = await LiveHttp.getLiveInfoByUser(roomId);
-      if (isClosed) return;
+      if (isClosed) return true;
       if (res case Success(:final response)) {
         updateBlockRules(
           response?.keywordList ?? const [],
@@ -776,18 +776,21 @@ class LiveRoomController extends GetxController {
         messages.removeWhere(
           (item) => item is DanmakuMsg && isBlocked(item.text, item.extra.mid),
         );
+        return true;
       }
     } catch (e, s) {
       if (kDebugMode) {
         Utils.reportError(e, s);
       }
     }
+    return false;
   }
 
   void updateBlockRules(
     Iterable<String> keywords,
     Iterable<Object?> uids,
   ) {
+    if (isClosed) return;
     keywordList = keywords.toList(growable: false);
     final normalizedUids = <String>{};
     for (final uid in uids) {
@@ -835,7 +838,17 @@ class LiveRoomController extends GetxController {
   void startLiveMsg() {
     if (isClosed) return;
     _liveMsgDesired = true;
-    _blockRulesFuture ??= fetchBlockRules();
+    if (_blockRulesFuture == null) {
+      final request = fetchBlockRules();
+      _blockRulesFuture = request;
+      unawaited(
+        request.then((succeeded) {
+          if (!succeeded && identical(_blockRulesFuture, request)) {
+            _blockRulesFuture = null;
+          }
+        }),
+      );
+    }
     if (messages.isEmpty) {
       prefetch();
       if (showSuperChat) {

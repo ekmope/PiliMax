@@ -44,8 +44,23 @@ class LiveDmBlockController extends GetxController
       verify.value = shieldRules?.verify ?? 0;
       updateValue();
 
-      keywordList.assignAll(response?.keywordList ?? const []);
-      shieldUserList.assignAll(response?.shieldUserList ?? const []);
+      final remoteKeywords = response?.keywordList ?? const <String>[];
+      final remoteUsers = response?.shieldUserList ?? const <ShieldUserList>[];
+      if (_rulesLoaded) {
+        keywordList.assignAll(remoteKeywords);
+        shieldUserList.assignAll(remoteUsers);
+      } else {
+        for (final keyword in remoteKeywords) {
+          if (!keywordList.contains(keyword)) {
+            keywordList.add(keyword);
+          }
+        }
+        for (final user in remoteUsers) {
+          if (!shieldUserList.any((item) => item.uid == user.uid)) {
+            shieldUserList.add(user);
+          }
+        }
+      }
       _rulesLoaded = true;
       updateLiveRoomRules();
     } else {

@@ -101,26 +101,18 @@ class LiveDmBlockController extends GetxController
   }
 
   Future<void> setEnable(bool enable) async {
-    if (enable == isEnable.value) {
-      return;
-    }
+    if (enable == isEnable.value) return;
     final futures = enable
         ? [
             setSilent(LiveDmSilentType.rank, 1),
             setSilent(LiveDmSilentType.verify, 1),
           ]
-        : [
-            for (final e in LiveDmSilentType.values) setSilent(e, 0),
-          ];
+        : [for (final e in LiveDmSilentType.values) setSilent(e, 0)];
     final res = await Future.wait(futures);
     if (enable) {
-      if (res.any((e) => e)) {
-        isEnable.value = true;
-      }
-    } else {
-      if (res.every((e) => e)) {
-        isEnable.value = false;
-      }
+      if (res.any((e) => e)) isEnable.value = true;
+    } else if (res.every((e) => e)) {
+      isEnable.value = false;
     }
   }
 

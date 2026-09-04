@@ -868,7 +868,7 @@ class LiveRoomController extends GetxController {
 
   Future<void> getSuperChatMsg() async {
     final res = await LiveHttp.superChatMsg(roomId);
-    if (res.dataOrNull?.list case final list?) {
+    if (res.dataOrNull?.list case final list? when list.isNotEmpty) {
       superChatMsg.addAll(list);
     }
   }
@@ -1050,15 +1050,15 @@ class LiveRoomController extends GetxController {
           final info = obj['info'];
           final first = info[0];
           final content = first[15];
-          final Map<String, dynamic> extra = jsonDecode(content['extra']);
           final user = content['user'];
           // final midHash = first[7];
           final uid = user['uid'];
-          final name = user['base']['name'];
           final msg = info[1];
           if (isBlocked(msg, uid)) {
             return;
           }
+          final Map<String, dynamic> extra = jsonDecode(content['extra']);
+          final name = user['base']['name'];
           BaseEmote? uemote;
           if (first[13] case Map<String, dynamic> map) {
             uemote = BaseEmote.fromJson(map);

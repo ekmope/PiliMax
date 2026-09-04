@@ -175,7 +175,7 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
         children: list.mapIndexed(
           (i, e) {
             return SearchText(
-              text: e is ShieldUserList ? e.uname! : e as String,
+              text: e is ShieldUserList ? (e.uname ?? '') : e as String,
               onTap: (value) => showConfirmDialog(
                 context: context,
                 title: const Text('确定删除该规则？'),
@@ -288,7 +288,6 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
     final color = isEnable
         ? theme.colorScheme.primary
         : theme.colorScheme.outline;
-
     Widget top = Container(
       width: 42,
       height: 42,
@@ -301,7 +300,6 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
           : null,
       child: Icon(icon, color: color),
     );
-
     if (isEnable) {
       top = Stack(
         clipBehavior: Clip.none,
@@ -328,7 +326,6 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
         ],
       );
     }
-
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,

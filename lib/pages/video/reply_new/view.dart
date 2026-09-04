@@ -5,7 +5,7 @@ import 'dart:math' show max;
 import 'package:PiliMax/common/widgets/button/toolbar_icon_button.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart'
-    show RichTextType;
+    show RichTextType, RichTextEditingDeltaReplacement;
 import 'package:PiliMax/common/widgets/flutter/text_field/text_field.dart';
 import 'package:PiliMax/pilimax/common/widgets/loading_widget/button_loading.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart'
@@ -25,6 +25,7 @@ import 'package:PiliMax/pages/video/reply_search_item/view.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
+import 'package:PiliMax/utils/latex_to_unicode.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
@@ -63,6 +64,8 @@ class ReplyPage extends CommonRichTextPubPage {
 class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
   final RxBool _syncToDynamic = false.obs;
   final heroTag = Get.arguments?['heroTag'];
+
+  final RxBool _latexOn = false.obs;
 
   @override
   void dispose() {
@@ -184,6 +187,8 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
             ],
             const SizedBox(width: 8),
             atBtn,
+            const SizedBox(width: 8),
+            latexBtn,
             const SizedBox(width: 8),
             moreBtn,
             const SizedBox(width: 8),
@@ -384,7 +389,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
         atNameToMid[e.rawText] ??= int.parse(e.id!);
       }
     }
-    String message = editController.rawText;
+    final message = editController.rawText;
     final res = await VideoHttp.replyAdd(
       type: widget.replyType,
       oid: widget.oid,
@@ -403,6 +408,104 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
       Get.back(result: response);
     } else {
       res.toast();
+    }
+  }
+
+  Widget get latexBtn => Obx(() {
+    final latexOn = _latexOn.value;
+    return ToolbarIconButton(
+      onPressed: latexOn ? _unlatexify : _latexify,
+      icon: const Icon(Icons.functions, size: 22),
+      tooltip: '公式',
+      selected: latexOn,
+    );
+  });
+
+  Future<void> _latexify() async {
+    // value.text is the display space (\uFFFC per emote), the same space
+    // _replaceBlocks applies deltas in; formula spans hold no items, so the
+    // text there is byte-equivalent to rawText.
+    final rawText = editController.value.text;
+    if (rawText.trim().isEmpty) return;
+
+    final (spans, warnings) = LatexToUnicode.convertSpans(rawText);
+    if (spans.isEmpty) {
+      SmartDialog.showToast(
+        warnings.isEmpty
+            ? '未发现用 \$ 括起的公式'
+            : '公式未能识别：${warnings.join('、')}（已保留原文）',
+      );
+      return;
+    }
+
+    _replaceBlocks(spans, rawText);
+    _latexOn.value = true;
+    if (warnings.isNotEmpty) {
+      SmartDialog.showToast(
+        '无法识别：${warnings.join('、')}（已保留原文）',
+      );
+    }
+  }
+
+  void _unlatexify() {
+    // id 'latex' marks blocks created by _latexify.
+    final blocks = editController.items
+        .where((e) => e.type == .latex)
+        .toList(growable: false);
+    if (blocks.isEmpty) {
+      _latexOn.value = false;
+      return;
+    }
+    for (final item in blocks.reversed) {
+      final oldValue = editController.value;
+      final delta = RichTextEditingDeltaReplacement(
+        oldText: oldValue.text,
+        replacementText: item.rawText,
+        replacedRange: TextRange(
+          start: item.range.start,
+          end: item.range.end,
+        ),
+        selection: TextSelection.collapsed(
+          offset: item.range.start + item.rawText.length,
+        ),
+        composing: TextRange.empty,
+        type: RichTextType.text,
+      );
+      final newValue = delta.apply(oldValue);
+      if (oldValue == newValue) continue;
+      editController
+        ..syncRichText(delta)
+        ..value = newValue;
+    }
+    _latexOn.value = false;
+  }
+
+  /// Replaces each formula span with a locked common-type block: the
+  /// rendered Unicode goes into the block text, the LaTeX source into its
+  /// rawText, and id 'latex' marks the block for toggling back.
+  void _replaceBlocks(
+    List<({int start, int end, String converted})> spans,
+    String rawText,
+  ) {
+    for (final span in spans.reversed) {
+      final oldValue = editController.value;
+      final source = rawText.substring(span.start, span.end);
+      final delta = RichTextEditingDeltaReplacement(
+        oldText: oldValue.text,
+        replacementText: span.converted,
+        replacedRange: TextRange(start: span.start, end: span.end),
+        selection: TextSelection.collapsed(
+          offset: span.start + span.converted.length,
+        ),
+        composing: TextRange.empty,
+        type: RichTextType.latex,
+        rawText: source,
+      );
+      final newValue = delta.apply(oldValue);
+      if (oldValue == newValue) continue;
+      editController
+        ..syncRichText(delta)
+        ..value = newValue;
     }
   }
 }

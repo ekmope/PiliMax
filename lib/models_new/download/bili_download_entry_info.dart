@@ -50,7 +50,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
 
   String get pageId => seasonId ?? avid.toString();
 
-  int get sortKey => ep?.sortIndex ?? pageData!.cid;
+  int get sortKey => ep?.sortIndex ?? pageData!.page;
 
   String get heroTag => 'download-entry-$bvid-$cid';
 

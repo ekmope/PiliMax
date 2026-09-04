@@ -53,7 +53,7 @@ class LiveRoomChatPanel extends StatelessWidget {
         Obx(
           () => LiveListView.separated(
             key: const PageStorageKey(LiveRoomChatPanel),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const .symmetric(horizontal: 12),
             controller: liveRoomController.scrollController,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemCount: liveRoomController.builtLength =

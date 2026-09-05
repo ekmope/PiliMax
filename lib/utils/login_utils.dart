@@ -12,6 +12,7 @@ import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:collection/collection.dart';
+import 'package:PiliMax/utils/linux_cookie_manager.dart';
 import 'package:crypto/crypto.dart' show Digest;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as web;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -85,7 +86,9 @@ abstract final class LoginUtils {
       ..isLogin.value = false;
 
     return Future.wait([
-      if (!Platform.isLinux)
+      if (Platform.isLinux)
+        LinuxCookieManager.deleteAllCookies()
+      else
         web.CookieManager.instance(
           webViewEnvironment: webViewEnvironment,
         ).deleteAllCookies(),

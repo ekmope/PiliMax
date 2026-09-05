@@ -3,6 +3,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/live/live_dm_silent_type.dart';
 import 'package:PiliMax/models_new/live/live_dm_block/shield_user_list.dart';
 import 'package:PiliMax/pages/live_room/controller.dart';
+import 'package:PiliMax/utils/extension/rx_ext.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
@@ -71,7 +72,7 @@ class LiveDmBlockController extends GetxController
   void updateLiveRoomRules() {
     if (!_rulesLoaded) return;
     liveRoomController?.updateBlockRules(
-      keywordList,
+      keywordList.rawValue,
       shieldUserList.map((e) => e.uid),
     );
   }

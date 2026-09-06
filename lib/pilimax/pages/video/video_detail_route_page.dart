@@ -1008,10 +1008,13 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   }
 
   Widget _entryMediaHandoffLayer(
-    BuildContext context, {
-    required bool showHeroTarget,
-    required bool showPlayerHandoffCover,
-  }) {
+    BuildContext context,
+  ) {
+    // Every opening/exit media phase uses this one keyed layer. The phase only
+    // changes Hero participation and opacity; it never replaces the cover
+    // subtree while the player is taking ownership.
+    final showHeroTarget = _useHeroTarget && _hasVideoTransition;
+    final showPlayerHandoffCover = _showPlayerHandoffCover && !showHeroTarget;
     final opacity = showPlayerHandoffCover
         ? (_playerHandoffCoverOpaque ? 1.0 : 0.0)
         : 1.0;
@@ -1032,6 +1035,19 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         animateGeometry: !showPlayerHandoffCover,
       ),
     );
+  }
+
+  bool get _showEntryMediaLayer {
+    switch (_entryMediaSurface) {
+      case _VideoEntryMediaSurface.hero:
+        return _hasVideoTransition;
+      case _VideoEntryMediaSurface.staticCover:
+        return _hasVideoTransition && _showEntryLayer;
+      case _VideoEntryMediaSurface.playerHandoff:
+        return true;
+      case _VideoEntryMediaSurface.none:
+        return false;
+    }
   }
 
   Widget _entryShell(BuildContext context) {
@@ -1147,17 +1163,15 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     if (_error case final error?) {
       return _errorFallback(context, error);
     }
-    final showHeroTarget = _useHeroTarget && _hasVideoTransition;
-    final showStaticEntryCover =
-        _showStaticEntryCover && _showEntryLayer && !showHeroTarget;
-    final showPlayerHandoffCover = _showPlayerHandoffCover && !showHeroTarget;
     final hideDetail =
         _hideDetailDuringHeroFlight ||
         _entryReverseInProgress ||
         _routeCompositeOwnsPresentation;
     if (!_showDetail) {
       return Scaffold(
-        backgroundColor: showHeroTarget || _externalEntryOwnsPresentation
+        backgroundColor:
+            (_useHeroTarget && _hasVideoTransition) ||
+                _externalEntryOwnsPresentation
             ? Colors.transparent
             : colorScheme.surface,
         body: Stack(
@@ -1165,15 +1179,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           children: [
             if (!_externalEntryOwnsPresentation)
               IgnorePointer(child: _animatedEntryShell(context)),
-            if (showHeroTarget ||
-                showStaticEntryCover ||
-                showPlayerHandoffCover)
+            if (_showEntryMediaLayer)
               IgnorePointer(
-                child: _entryMediaHandoffLayer(
-                  context,
-                  showHeroTarget: showHeroTarget,
-                  showPlayerHandoffCover: showPlayerHandoffCover,
-                ),
+                child: _entryMediaHandoffLayer(context),
               ),
           ],
         ),
@@ -1206,14 +1214,10 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
               ),
             ),
           ),
-        if (showHeroTarget || showStaticEntryCover || showPlayerHandoffCover)
+        if (_showEntryMediaLayer)
           Positioned.fill(
             child: IgnorePointer(
-              child: _entryMediaHandoffLayer(
-                context,
-                showHeroTarget: showHeroTarget,
-                showPlayerHandoffCover: showPlayerHandoffCover,
-              ),
+              child: _entryMediaHandoffLayer(context),
             ),
           ),
       ],

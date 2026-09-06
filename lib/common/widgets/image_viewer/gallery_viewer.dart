@@ -63,8 +63,6 @@ class GalleryViewer extends StatefulWidget {
     this.onPageChanged,
     this.tag = '',
     this.heroScope,
-    this.backGestureProgress,
-    this.backGestureCommand,
   });
 
   final double minScale;
@@ -77,14 +75,6 @@ class GalleryViewer extends StatefulWidget {
   /// Stable business scope used to match the source image Hero.
   final String? heroScope;
   final String tag;
-
-  /// Android predictive-back gesture progress [0,1]. The owning route uses it
-  /// for lifecycle coordination; the image itself is animated by Hero so it
-  /// can return to its source thumbnail instead of shrinking to screen center.
-  final ValueNotifier<double>? backGestureProgress;
-
-  /// 0 = idle, 1 = commit (pop), 2 = cancel (spring back).
-  final ValueNotifier<int>? backGestureCommand;
 
   @override
   State<GalleryViewer> createState() => _GalleryViewerState();
@@ -195,24 +185,6 @@ class _GalleryViewerState extends State<GalleryViewer>
         end: Colors.transparent,
       ),
     );
-
-    widget.backGestureCommand?.addListener(_onBackGestureCommand);
-  }
-
-  void _onBackGestureCommand() {
-    if (!mounted) return;
-    if (widget.backGestureCommand?.value == 1) {
-      // The owning PageRoute commits the pop. Calling Navigator.pop here too
-      // races that transaction and can pop the underlying page or require a
-      // second swipe on Android.
-      _closing = true;
-    } else if (widget.backGestureCommand?.value == 2) {
-      _dragging = false;
-      _closing = false;
-      if (_animateController.value > 0) {
-        _animateController.reverse();
-      }
-    }
   }
 
   late final bool _hideSystemBar;
@@ -341,7 +313,6 @@ class _GalleryViewerState extends State<GalleryViewer>
 
   @override
   void dispose() {
-    widget.backGestureCommand?.removeListener(_onBackGestureCommand);
     _player?.dispose();
     _player = null;
     _videoController = null;

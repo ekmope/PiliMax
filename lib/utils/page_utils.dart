@@ -82,12 +82,8 @@ abstract final class PageUtils {
     String tag = '',
     String? heroScope,
   }) {
-    final backGestureProgress = ValueNotifier<double>(0.0);
-    final backGestureCommand = ValueNotifier<int>(0);
     return Get.key.currentState!.push<void>(
       HeroDialogRoute(
-        backGestureProgress: backGestureProgress,
-        backGestureCommand: backGestureCommand,
         pageBuilder: (context, animation, secondaryAnimation) => GalleryViewer(
           sources: imgList,
           initIndex: initialPage,
@@ -95,8 +91,6 @@ abstract final class PageUtils {
           onPageChanged: onPageChanged,
           tag: tag,
           heroScope: heroScope,
-          backGestureProgress: backGestureProgress,
-          backGestureCommand: backGestureCommand,
         ),
       ),
     );

@@ -21,6 +21,8 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
+enum _VideoEntryMediaSurface { hero, staticCover, playerHandoff, none }
+
 /// Resolves and preloads video data while the source card expands.
 class VideoDetailRoutePage extends StatefulWidget {
   const VideoDetailRoutePage({super.key});
@@ -66,11 +68,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   bool _fallbackElapsed = false;
   bool _showDetail = false;
   bool _showEntryLayer = true;
-  bool _useHeroTarget = true;
+  _VideoEntryMediaSurface _entryMediaSurface = _VideoEntryMediaSurface.hero;
   bool _revealingDetail = false;
   bool _orientationSettling = false;
-  bool _showStaticEntryCover = false;
-  bool _showPlayerHandoffCover = false;
   bool _playerHandoffCoverOpaque = true;
   bool _initialDetailLayoutReady = false;
   bool _initialPlayerVisualReady = false;
@@ -83,6 +83,14 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   Object? _error;
   Object? _pendingResolutionError;
   VideoDetailExitMode? _preparedExitMode;
+
+  bool get _useHeroTarget => _entryMediaSurface == _VideoEntryMediaSurface.hero;
+
+  bool get _showStaticEntryCover =>
+      _entryMediaSurface == _VideoEntryMediaSurface.staticCover;
+
+  bool get _showPlayerHandoffCover =>
+      _entryMediaSurface == _VideoEntryMediaSurface.playerHandoff;
 
   bool get _hasPendingLaunch =>
       _arguments[PageUtils.videoPendingLaunchKey] is VideoPendingLaunchType;
@@ -308,7 +316,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         _entryExitInProgress) {
       return;
     }
-    setState(() => _showPlayerHandoffCover = false);
+    setState(
+      () => _entryMediaSurface = _VideoEntryMediaSurface.none,
+    );
   }
 
   VideoDetailExitMode _prepareForExit() {
@@ -339,9 +349,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         // route reverses. Otherwise the live page can leak through the
         // skeleton's still-fading regions during a fast back action.
         _showEntryLayer = true;
-        _useHeroTarget = false;
-        _showStaticEntryCover = false;
-        _showPlayerHandoffCover = true;
+        _entryMediaSurface = _VideoEntryMediaSurface.playerHandoff;
         _playerHandoffCoverOpaque = true;
         _revealingDetail = false;
         _orientationSettling = false;
@@ -369,8 +377,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       if (_showEntryLayer && !_revealingDetail) {
         _preparedExitMode = VideoDetailExitMode.routeComposite;
         setState(() {
-          _showStaticEntryCover = _hasVideoTransition;
-          _useHeroTarget = false;
+          _entryMediaSurface = _hasVideoTransition
+              ? _VideoEntryMediaSurface.staticCover
+              : _VideoEntryMediaSurface.none;
         });
         return VideoDetailExitMode.routeComposite;
       }
@@ -387,8 +396,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     setState(() {
       _showDetail = true;
       _showEntryLayer = false;
-      _useHeroTarget = false;
-      _showStaticEntryCover = false;
+      _entryMediaSurface = _VideoEntryMediaSurface.none;
       _revealingDetail = true;
       _orientationSettling = false;
       _pendingEntryOrientation = null;
@@ -415,15 +423,12 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       case VideoDetailExitMode.routeComposite:
         if (preparedExitUsesPlayerHandoff) {
           setState(() {
-            _showStaticEntryCover = false;
-            _useHeroTarget = false;
-            _showPlayerHandoffCover = true;
+            _entryMediaSurface = _VideoEntryMediaSurface.playerHandoff;
             _playerHandoffCoverOpaque = true;
           });
         } else {
           setState(() {
-            _showStaticEntryCover = false;
-            _useHeroTarget = true;
+            _entryMediaSurface = _VideoEntryMediaSurface.hero;
           });
         }
         _resumeDeferredEntryHandoff();
@@ -435,8 +440,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         if (_showEntryLayer || _useHeroTarget || _showStaticEntryCover) {
           setState(() {
             _showEntryLayer = false;
-            _useHeroTarget = false;
-            _showStaticEntryCover = false;
+            _entryMediaSurface = _VideoEntryMediaSurface.none;
           });
         }
         break;
@@ -494,7 +498,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _startSession();
       if (_needsImmediatePipTakeover) {
         _showDetail = true;
-        _useHeroTarget = false;
+        _entryMediaSurface = _VideoEntryMediaSurface.none;
         if (_fromPip) {
           _showEntryLayer = false;
         }
@@ -598,7 +602,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       if (_needsImmediatePipTakeover) {
         setState(() {
           _showDetail = true;
-          _useHeroTarget = false;
+          _entryMediaSurface = _VideoEntryMediaSurface.none;
           if (_fromPip) {
             _showEntryLayer = false;
           }
@@ -878,9 +882,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     final holdCoverForPlayer = _shouldHoldCoverForPlayer;
     setState(() {
       _showDetail = true;
-      _useHeroTarget = false;
-      _showStaticEntryCover = false;
-      _showPlayerHandoffCover = holdCoverForPlayer;
+      _entryMediaSurface = holdCoverForPlayer
+          ? _VideoEntryMediaSurface.playerHandoff
+          : _VideoEntryMediaSurface.none;
       _playerHandoffCoverOpaque = true;
       _playerHandoffForceRelease = false;
     });
@@ -904,8 +908,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     }
     setState(() {
       // Keep this defensive assignment for sessions mounted before reveal.
-      _useHeroTarget = false;
-      _showStaticEntryCover = false;
+      if (_entryMediaSurface != _VideoEntryMediaSurface.playerHandoff) {
+        _entryMediaSurface = _VideoEntryMediaSurface.none;
+      }
       _revealingDetail = true;
     });
     final entryOverlay = _entryOverlay;
@@ -939,9 +944,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     setState(() {
       _error = error;
       _showEntryLayer = false;
-      _useHeroTarget = false;
-      _showStaticEntryCover = false;
-      _showPlayerHandoffCover = false;
+      _entryMediaSurface = _VideoEntryMediaSurface.none;
     });
   }
 

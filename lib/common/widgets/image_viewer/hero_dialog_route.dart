@@ -8,21 +8,9 @@ import 'package:flutter/services.dart' show PredictiveBackEvent;
 /// Similar to calling [showDialog] except it can be used with a [Navigator] to
 /// show a [Hero] animation.
 class HeroDialogRoute<T> extends PageRoute<T> {
-  HeroDialogRoute({
-    required this.pageBuilder,
-    this.backGestureProgress,
-    this.backGestureCommand,
-  });
+  HeroDialogRoute({required this.pageBuilder});
 
   final RoutePageBuilder pageBuilder;
-
-  /// Advances [0,1] as the Android predictive-back gesture moves. Kept for
-  /// callers that need to observe the gesture; the route animation and Hero
-  /// flight now own the visual transition.
-  final ValueNotifier<double>? backGestureProgress;
-
-  /// 0 = idle, 1 = commit (pop), 2 = cancel (spring back).
-  final ValueNotifier<int>? backGestureCommand;
 
   @override
   bool get opaque => false;
@@ -61,8 +49,6 @@ class HeroDialogRoute<T> extends PageRoute<T> {
     final curve = CurvedAnimation(parent: animation, curve: Curves.easeOut);
     return _PredictiveBackDetector(
       route: this,
-      backGestureProgress: backGestureProgress,
-      backGestureCommand: backGestureCommand,
       builder: (context) => FadeTransition(
         opacity: curve,
         child: child,
@@ -95,14 +81,10 @@ class _PredictiveBackDetector extends StatefulWidget {
   const _PredictiveBackDetector({
     required this.route,
     required this.builder,
-    this.backGestureProgress,
-    this.backGestureCommand,
   });
 
   final PageRoute<dynamic> route;
   final WidgetBuilder builder;
-  final ValueNotifier<double>? backGestureProgress;
-  final ValueNotifier<int>? backGestureCommand;
 
   @override
   State<_PredictiveBackDetector> createState() =>
@@ -148,11 +130,9 @@ class _PredictiveBackDetectorState extends State<_PredictiveBackDetector>
       _log('start -> REJECT (return false)');
       return false;
     }
-    widget.backGestureCommand?.value = 0;
-    widget.backGestureProgress?.value = backEvent.progress;
     // This route replaces the framework transition widget, so forward the
-    // lifecycle event to PageRoute as well. Without this, the gallery moves
-    // visually but Navigator never receives the predictive-back transaction.
+    // lifecycle event to PageRoute as well. The viewer itself no longer owns
+    // a separate predictive-back visual animation.
     widget.route.handleStartBackGesture(progress: 1 - backEvent.progress);
     _log('start -> ACCEPT (return true)');
     return true;
@@ -161,7 +141,6 @@ class _PredictiveBackDetectorState extends State<_PredictiveBackDetector>
   @override
   void handleUpdateBackGestureProgress(PredictiveBackEvent backEvent) {
     _log('update: progress=${backEvent.progress}');
-    widget.backGestureProgress?.value = backEvent.progress;
     widget.route.handleUpdateBackGestureProgress(
       progress: 1 - backEvent.progress,
     );
@@ -170,16 +149,13 @@ class _PredictiveBackDetectorState extends State<_PredictiveBackDetector>
   @override
   void handleCancelBackGesture() {
     _log('cancel');
-    widget.backGestureCommand?.value = 2;
     widget.route.handleCancelBackGesture();
   }
 
   @override
   void handleCommitBackGesture() {
     _log('commit');
-    widget.backGestureCommand?.value = 1;
-    // PageRoute performs the single Navigator.pop. GalleryViewer must not
-    // issue a second pop from its command listener.
+    // PageRoute performs the single Navigator.pop for this route.
     widget.route.handleCommitBackGesture();
   }
 

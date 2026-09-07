@@ -68,25 +68,28 @@ void main() {
     _fail('Pref readers without UI switches: ${stale.toList()..sort()}');
   }
 
+  // Keep this review list synchronized with Pref defaults. Values that are
+  // shared with upstream or fall back to PiliNara are intentional here.
   const reviewedDefaults = <String, String>{
     'enableCommAntifraud': 'false',
     'biliSendCommAntifraud': 'false',
     'enableCreateDynAntifraud': 'false',
-    'enableSponsorBlock': 'true',
+    'enableSponsorBlock': 'false',
     'autoUpdate': 'true',
-    'autoPlayEnable': 'true',
-    'enableOnlineTotal': 'true',
-    'enableAi': 'true',
-    'antiGoodsDyn': 'true',
-    'removeBlockedDyn': 'true',
-    'removeOnlyFansVideoDyn': 'true',
-    'antiGoodsReply': 'true',
+    'autoPlayEnable': 'false',
+    'enableOnlineTotal': 'false',
+    'enableAi': 'false',
+    'antiGoodsDyn': 'false',
+    'removeBlockedDyn': 'false',
+    'removeOnlyFansVideoDyn': 'false',
+    'antiGoodsReply': 'false',
     'enableQuickDouble': 'true',
     'autoPiP': 'false',
     'enableInAppPip': 'true',
     'enableInAppPipToSystemPip': 'true',
+    'dynamicsCategoryTabBar': 'false',
     'slideDismissReplyPage': 'Platform.isIOS',
-    'floatingNavBar': 'true',
+    'floatingNavBar': 'false',
     'liquidGlassNavBar': 'false',
   };
   for (final entry in reviewedDefaults.entries) {

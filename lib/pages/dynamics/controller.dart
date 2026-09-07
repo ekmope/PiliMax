@@ -55,6 +55,11 @@ class DynamicsController extends GetxController
 
   DynamicsTabController? get controller {
     try {
+      if (useCategoryTabs) {
+        return Get.find<DynamicsTabController>(
+          tag: DynamicsTabType.values[tabController.index].name,
+        );
+      }
       return Get.find<DynamicsTabController>(
         tag: currentUpTag,
       );
@@ -64,6 +69,8 @@ class DynamicsController extends GetxController
   }
 
   String get currentUpTag => upTagForMid(currentMid.value);
+
+  bool get useCategoryTabs => Pref.dynamicsCategoryTabBar;
 
   static String upTagForMid(int mid) => 'up-$mid';
 
@@ -271,7 +278,14 @@ class DynamicsController extends GetxController
     tabController = TabController(
       length: DynamicsTabType.values.length,
       vsync: this,
-      initialIndex: DynamicsTabType.all.index,
+      initialIndex: useCategoryTabs
+          ? Pref.defaultDynamicTypeIndex
+                .clamp(
+                  0,
+                  DynamicsTabType.values.length - 1,
+                )
+                .toInt()
+          : DynamicsTabType.all.index,
     );
     upPageController = PageController(
       initialPage: indexOfMid(currentMid.value),
@@ -416,6 +430,24 @@ class DynamicsController extends GetxController
   }
 
   void onSelectUp(int mid) {
+    if (useCategoryTabs) {
+      this.mid.value = mid;
+      currentMid.value = mid;
+      final type = mid == -1 ? DynamicsTabType.all : DynamicsTabType.up;
+      tabController.index = type.index;
+      if (mid == -1) {
+        _markAllUpAsRead();
+      } else {
+        _markUpAsRead(mid);
+      }
+      final tab = controller;
+      if (tab != null) {
+        tab.mid = mid == -1 ? null : mid;
+        unawaited(tab.onReload());
+      }
+      return;
+    }
+
     final pageIndex = indexOfMid(mid);
     if (this.mid.value == mid) {
       currentMid.value = mid;

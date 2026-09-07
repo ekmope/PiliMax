@@ -310,6 +310,7 @@ abstract final class SettingBoxKey {
       dynamicsWaterfallFlow = 'dynamicsWaterfallFlow',
       upPanelPosition = 'upPanelPosition',
       dynamicsShowAllFollowedUp = 'dynamicsShowAllFollowedUp',
+      dynamicsCategoryTabBar = 'dynamicsCategoryTabBar',
       useSideBar = 'useSideBar',
       autoSideBar = 'autoSideBar',
       sideBarThreshold = 'sideBarThreshold',

@@ -169,13 +169,19 @@ class DynamicsTabController
   }
 
   @override
-  Future<LoadingState<DynamicsDataModel>> customGetData() =>
-      DynamicsHttp.followDynamic(
-        type: dynamicsType,
-        offset: offset,
-        mid: mid,
-        tempBannedList: dynamicsController.tempBannedList,
-      );
+  Future<LoadingState<DynamicsDataModel>> customGetData() {
+    final selectedMid = dynamicsType == DynamicsTabType.up && mid == null
+        ? dynamicsController.currentMid.value > 0
+              ? dynamicsController.currentMid.value
+              : null
+        : mid;
+    return DynamicsHttp.followDynamic(
+      type: dynamicsType,
+      offset: offset,
+      mid: selectedMid,
+      tempBannedList: dynamicsController.tempBannedList,
+    );
+  }
 
   Future<void> onRemove(int index, dynamic dynamicId) async {
     final res = await MsgHttp.removeDynamic(dynIdStr: dynamicId);

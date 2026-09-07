@@ -217,6 +217,12 @@ List<SettingsModel> get styleSettings => [
     setKey: SettingBoxKey.dynamicsWaterfallFlow,
     needReboot: true,
   ),
+  const SwitchModel(
+    title: '动态页顶部分类栏',
+    subtitle: '显示全部、投稿、番剧、专栏和UP分类；关闭后保留当前UP主页面布局',
+    leading: Icon(Icons.tab_outlined),
+    setKey: SettingBoxKey.dynamicsCategoryTabBar,
+  ),
   NormalModel(
     title: '动态页UP主显示位置',
     leading: const Icon(Icons.person_outlined),

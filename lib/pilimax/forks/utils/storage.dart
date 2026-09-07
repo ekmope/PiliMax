@@ -13,6 +13,7 @@ import 'package:PiliMax/pilimax/utils/cache_policy.dart';
 import 'package:PiliMax/pilimax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
+import 'package:PiliMax/pilimax/services/settings_transfer_service.dart';
 import 'package:PiliMax/utils/accounts/account_adapter.dart';
 import 'package:PiliMax/pilimax/utils/accounts/account_storage.dart';
 import 'package:PiliMax/utils/accounts/account_type_adapter.dart';
@@ -36,15 +37,9 @@ abstract final class GStorage {
   static late final Box<String> _androidMmkvMigrationState;
   static late final Box<int> watchProgress;
   static late final WatchProgressStore watchProgressStore;
-  static const exportableLocalCacheKeys = [
-    'historyPause',
-    'blackMids',
-    'dynamicsBlockedMids',
-    'whitelistMids',
-    'recommendBlockedMids',
-    'replyBlockedMids',
-    'danmakuFilterRules',
-  ];
+  static const exportableLocalCacheKeys =
+      SettingsTransferService.exportableLocalCacheKeys;
+  static SettingsImportReport? lastSettingsImportReport;
   static late final Box<Uint8List>? reply;
   static late final ReplyCacheStore replyCacheStore;
   static Future<void>? _initFuture;
@@ -287,7 +282,7 @@ abstract final class GStorage {
     _hiveConfigured = true;
   }
 
-  static String exportAllSettings() {
+  static String exportAllSettings({bool includeSensitive = false}) {
     // 导出需要保存的 localCache 数据，排除临时数据
     final localCacheData = <String, dynamic>{};
     for (final key in exportableLocalCacheKeys) {
@@ -297,85 +292,87 @@ abstract final class GStorage {
       }
     }
 
-    return Utils.jsonEncoder.convert({
-      setting.name: setting.toMap(),
-      video.name: video.toMap(),
-      localCache.name: localCacheData,
-    });
+    return Utils.jsonEncoder.convert(
+      SettingsTransferService.buildExportMap(
+        setting: setting.toMap(),
+        video: video.toMap(),
+        localCache: localCacheData,
+        includeSensitive: includeSensitive,
+      ),
+    );
   }
 
   static Future<void> importAllSettings(String data) =>
-      importAllJsonSettings(jsonDecode(data));
+      _importDecodedSettings(jsonDecode(data));
 
-  static Future<void> importAllJsonSettings(
-    Map<String, dynamic> map,
-  ) async {
-    final importedSetting = map[setting.name];
-    final importedVideo = map[video.name];
-    if (importedSetting is! Map || importedVideo is! Map) {
+  static Future<void> _importDecodedSettings(dynamic decoded) {
+    if (decoded is! Map) {
       throw const FormatException('设置文件格式无效');
     }
-    final settingValues = CacheAutoClearPeriod.normalizedSettingsCopy(
-      importedSetting,
-      periodKey: SettingBoxKey.autoClearCachePeriod,
-    );
-    try {
-      FilterPatternCompiler.validateStoredSettings(settingValues, const [
-        SettingBoxKey.banWordForRecommend,
-        SettingBoxKey.banWordForRecommendUpName,
-        SettingBoxKey.banWordForReply,
-        SettingBoxKey.banWordForZone,
-        SettingBoxKey.banWordForDyn,
-      ]);
-    } on FilterPatternException catch (error) {
-      throw FormatException(error.message);
-    }
-    final videoValues = Map<dynamic, dynamic>.from(importedVideo);
+    return importAllJsonSettings(Map<String, dynamic>.from(decoded));
+  }
 
+  static Future<void> importAllJsonSettings(
+    Map<String, dynamic> map, {
+    bool replaceExisting = false,
+  }) async {
+    final payload = SettingsTransferService.normalize(map);
+    final settingValues = Map<dynamic, dynamic>.from(payload.setting);
+    if (settingValues.containsKey(SettingBoxKey.autoClearCachePeriod)) {
+      settingValues[SettingBoxKey.autoClearCachePeriod] =
+          CacheAutoClearPeriod.normalize(
+            settingValues[SettingBoxKey.autoClearCachePeriod],
+          );
+    }
+
+    for (final key in const [
+      SettingBoxKey.banWordForRecommend,
+      SettingBoxKey.banWordForRecommendUpName,
+      SettingBoxKey.banWordForReply,
+      SettingBoxKey.banWordForZone,
+      SettingBoxKey.banWordForDyn,
+    ]) {
+      if (!settingValues.containsKey(key)) {
+        continue;
+      }
+      try {
+        FilterPatternCompiler.validateStoredSettings(
+          <dynamic, dynamic>{key: settingValues[key]},
+          [key],
+        );
+      } on FilterPatternException {
+        settingValues.remove(key);
+        payload.report.skippedInvalidFilterKeys.add(key);
+      }
+    }
+
+    final videoValues = Map<dynamic, dynamic>.from(payload.video);
     final localCacheValues = <String, dynamic>{};
-
-    // 导入 localCache 数据（如果存在）
-    if (map.containsKey(localCache.name)) {
-      final localCacheMap = map[localCache.name];
-      if (localCacheMap is! Map) {
-        throw const FormatException('设置文件格式无效');
-      }
-      for (final entry in localCacheMap.entries) {
-        if (entry.key is! String) {
-          throw const FormatException('设置文件格式无效');
-        }
-        final key = entry.key as String;
-        if (!exportableLocalCacheKeys.contains(key)) {
-          continue;
-        }
-        localCacheValues[key] = _decodeLocalCacheValue(key, entry.value);
-      }
+    for (final entry in payload.localCache.entries) {
+      localCacheValues[entry.key] = _decodeLocalCacheValue(
+        entry.key,
+        entry.value,
+      );
     }
-
     final settingSnapshot = setting.toMap();
     final videoSnapshot = video.toMap();
-    final localCacheSnapshot = {
-      for (final key in localCacheValues.keys)
-        key: (
-          exists: localCache.containsKey(key),
-          value: localCache.get(key),
-        ),
-    };
+    final localCacheSnapshot = localCache.toMap();
     try {
-      await _replaceBox(setting, settingValues);
-      await _replaceBox(video, videoValues);
-      await localCache.putAll(localCacheValues);
+      if (replaceExisting) {
+        await _replaceBox(setting, settingValues);
+        await _replaceBox(video, videoValues);
+        await _replaceBox(localCache, localCacheValues);
+      } else {
+        await setting.putAll(settingValues);
+        await video.putAll(videoValues);
+        await localCache.putAll(localCacheValues);
+      }
+      lastSettingsImportReport = payload.report;
     } catch (error, stackTrace) {
       try {
         await _replaceBox(setting, settingSnapshot);
         await _replaceBox(video, videoSnapshot);
-        for (final entry in localCacheSnapshot.entries) {
-          if (entry.value.exists) {
-            await localCache.put(entry.key, entry.value.value);
-          } else {
-            await localCache.delete(entry.key);
-          }
-        }
+        await _replaceBox(localCache, localCacheSnapshot);
       } catch (rollbackError, rollbackStackTrace) {
         try {
           Utils.reportError(
@@ -422,7 +419,10 @@ abstract final class GStorage {
     return switch (key) {
       'blackMids' ||
       'dynamicsBlockedMids' => value is Set ? value.toList() : value,
-      'whitelistMids' || 'recommendBlockedMids' || 'replyBlockedMids' =>
+      'whitelistMids' ||
+      'recommendBlockedMids' ||
+      'replyBlockedMids' ||
+      'remarkMids' =>
         value is Map ? value.map((k, v) => MapEntry(k.toString(), v)) : value,
       'danmakuFilterRules' =>
         value is RuleFilter
@@ -440,7 +440,10 @@ abstract final class GStorage {
     return switch (key) {
       'blackMids' || 'dynamicsBlockedMids' =>
         value is List ? value.whereType<int>().toSet() : value,
-      'whitelistMids' || 'recommendBlockedMids' || 'replyBlockedMids' =>
+      'whitelistMids' ||
+      'recommendBlockedMids' ||
+      'replyBlockedMids' ||
+      'remarkMids' =>
         value is Map
             ? value.map(
                 (k, v) =>

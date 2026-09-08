@@ -1165,6 +1165,22 @@ class LiveRoomController extends GetxController {
     likeClickTimer = null;
   }
 
+  void toastNotLogin() {
+    SmartDialog.showToast('账号未登录');
+  }
+
+  void onAtUser(DanmakuMsg item) {
+    savedDanmaku = [
+      RichTextItem.fromStart(
+        '@${item.name} ',
+        rawText: item.extra.mid.toString(),
+        type: .at,
+        id: item.extra.id.toString(),
+      ),
+    ];
+    onSendDanmaku();
+  }
+
   void onLikeTapDown([_]) {
     cancelLikeTimer();
     likeClickTime.value++;
@@ -1198,7 +1214,7 @@ class LiveRoomController extends GetxController {
 
   void onSendDanmaku([bool fromEmote = false]) {
     if (kReleaseMode && !isLogin) {
-      SmartDialog.showToast('账号未登录');
+      toastNotLogin();
       return;
     }
     Get.key.currentState!.push(
@@ -1234,7 +1250,7 @@ class LiveRoomController extends GetxController {
 
   void reportSC(SuperChatItem item) {
     if (!isLogin) {
-      SmartDialog.showToast('账号未登录');
+      toastNotLogin();
       return;
     }
     autoWrapReportDialog(

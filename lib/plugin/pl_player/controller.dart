@@ -95,6 +95,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   final RxBool isSeeking = false.obs;
 
   final RxInt position = RxInt(0);
+  final RxInt seekPosition = RxInt(0);
+  int get progress => isSeeking.value ? seekPosition.value : position.value;
 
   int get positionInMilliseconds =>
       videoPlayerController?.state.position.inMilliseconds ?? 0;
@@ -1203,6 +1205,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         onOpeningError: captureOpeningError,
       ),
       open: (lease) async {
+        assert(!isLive || seekTo == null);
         await player.open(media, play: false);
         if (lease.isCurrent(_videoPlayerController)) {
           applyVideoPictureParameters(player, sourceOnlyPlayAudio);
@@ -1227,6 +1230,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         _syncPlayerStateAfterOpen(lease);
         updateDuration(duration ?? player.state.duration);
         position.value = buffered.value = seekTo?.inSeconds ?? 0;
+        seekPosition.value = position.value;
+        isSeeking.value = false;
         for (final error in openingErrors.deferredErrors) {
           if (!lease.isCurrent(
             _videoPlayerController,
@@ -1299,6 +1304,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     cancelLongPressTimer();
     _cancelSubForSeek();
     _dismissSourceScopedScreenshot();
+    seekToPos = null;
+    isSeeking.value = false;
+    seekPosition.value = position.value;
   }
 
   void _startLiveStallMonitor(PlPlayerSourceLease<Player> lease) {
@@ -1757,6 +1765,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
     final state = player.state;
     position.value = state.position.inSeconds;
+    seekPosition.value = position.value;
     updateDuration(state.duration);
     playerStatus.value = state.completed
         ? PlayerStatus.completed
@@ -2007,9 +2016,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         final posInSeconds = position.inSeconds;
 
         if (posInSeconds != this.position.value) {
-          if (!isSeeking.value) {
-            this.position.value = posInSeconds;
-          }
+          this.position.value = posInSeconds;
 
           videoPlayerServiceHandler?.onPositionChange(position);
 
@@ -2451,6 +2458,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _timer = _sourceCoordinator.trackSourceTimer(timer);
   }
 
+  void onSeekStart(int seekFrom) {
+    seekPosition.value = seekFrom;
+    isSeeking.value = true;
+  }
+
   void onSeekEnd() {
     if (seekToPos != null) {
       feedBack();
@@ -2460,6 +2472,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
     hasToasted = false;
     isSeeking.value = false;
+    seekPosition.value = position.value;
     hideTaskControls();
   }
 
@@ -3211,9 +3224,6 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
     _dismissSourceScopedScreenshot();
     SmartDialog.showToast('截图中');
-    final time = DurationUtils.formatDuration(
-      positionInMilliseconds / 1000,
-    ).replaceAll(':', '-');
     final image = await player.screenshot();
     if (!_sourceCoordinator.isActive(generation) ||
         !identical(videoPlayerController, player)) {
@@ -3247,6 +3257,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
                   format: ui.ImageByteFormat.png,
                 );
                 if (bytes != null && _sourceCoordinator.isActive(generation)) {
+                  final time = DurationUtils.formatDuration(
+                    positionInMilliseconds / 1000,
+                  ).replaceAll(':', '-');
                   ImageUtils.saveByteImg(
                     bytes: bytes.buffer.asUint8List(),
                     fileName: 'screenshot_${sourceCid}_$time',

@@ -25,8 +25,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
 enum DynType implements EnumWithLabel {
+  repost('转发'),
   reply('评论'),
-  reaction('赞与转发');
+  like('赞');
 
   @override
   final String label;
@@ -52,7 +53,11 @@ abstract class CommonDynPageMultiState<T extends StatefulWidget>
   @override
   void initState() {
     super.initState();
-    tabController = TabController(length: DynType.values.length, vsync: this);
+    tabController = TabController(
+      length: DynType.values.length,
+      initialIndex: DynType.reply.index,
+      vsync: this,
+    );
   }
 
   @override

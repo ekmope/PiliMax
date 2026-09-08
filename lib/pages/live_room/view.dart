@@ -11,7 +11,6 @@ import 'package:PiliMax/common/widgets/extra_hittest_stack.dart';
 import 'package:PiliMax/pilimax/common/widgets/flutter/page/page_view.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
-import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/keep_alive_wrapper.dart';
@@ -1103,16 +1102,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       isPP: isPP,
       roomId: _liveRoomController.roomId,
       liveRoomController: _liveRoomController,
-      onAtUser: (item) => _liveRoomController
-        ..savedDanmaku = [
-          RichTextItem.fromStart(
-            '@${item.name} ',
-            rawText: item.extra.mid.toString(),
-            type: .at,
-            id: item.extra.id.toString(),
-          ),
-        ]
-        ..onSendDanmaku(),
+      onAtUser: _liveRoomController.onAtUser,
     );
     return Padding(
       padding: .only(bottom: 12, top: isPortrait ? 12 : 0),
@@ -1198,7 +1188,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                 ),
                 Builder(
                   builder: (context) {
-                    final colorScheme = Theme.of(context).colorScheme;
+                    final isLogin = kDebugMode || _liveRoomController.isLogin;
+                    final colorScheme = ColorScheme.of(context);
                     return Material(
                       type: MaterialType.transparency,
                       child: Stack(
@@ -1207,9 +1198,18 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                           InkWell(
                             overlayColor: overlayColor(colorScheme),
                             customBorder: const CircleBorder(),
-                            onTapDown: _liveRoomController.onLikeTapDown,
-                            onTapUp: _liveRoomController.onLikeTapUp,
-                            onTapCancel: _liveRoomController.onLikeTapUp,
+                            onTap: isLogin
+                                ? null
+                                : _liveRoomController.toastNotLogin,
+                            onTapDown: isLogin
+                                ? _liveRoomController.onLikeTapDown
+                                : null,
+                            onTapUp: isLogin
+                                ? _liveRoomController.onLikeTapUp
+                                : null,
+                            onTapCancel: isLogin
+                                ? _liveRoomController.onLikeTapUp
+                                : null,
                             child: const SizedBox.square(
                               dimension: 34,
                               child: Icon(

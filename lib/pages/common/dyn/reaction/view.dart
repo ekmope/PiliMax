@@ -5,7 +5,6 @@ import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/common/widgets/pendant_avatar.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_reaction/item.dart';
-import 'package:PiliMax/pages/common/dyn/common_dyn_page.dart';
 import 'package:PiliMax/pages/common/dyn/reaction/controller.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 import 'package:get/get.dart';
@@ -77,7 +76,9 @@ class DynReactPage extends StatelessWidget {
     }
 
     final child = CustomScrollView(
-      key: const PageStorageKey(DynType.reaction),
+      // Kept for callers outside the detail page; reaction is now split into
+      // dedicated repost and like tabs.
+      key: const PageStorageKey('dynReaction'),
       slivers: [
         SliverPadding(
           padding: .only(

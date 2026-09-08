@@ -17,8 +17,10 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/reply/reply_option_type.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/common/dyn/common_dyn_page.dart';
-import 'package:PiliMax/pages/common/dyn/reaction/controller.dart';
-import 'package:PiliMax/pages/common/dyn/reaction/view.dart';
+import 'package:PiliMax/pages/common/dyn/like_list/controller.dart';
+import 'package:PiliMax/pages/common/dyn/like_list/view.dart';
+import 'package:PiliMax/pages/common/dyn/repost_list/controller.dart';
+import 'package:PiliMax/pages/common/dyn/repost_list/view.dart';
 import 'package:PiliMax/pages/dynamics/widgets/author_panel.dart';
 import 'package:PiliMax/pages/dynamics/widgets/dynamic_panel.dart';
 import 'package:PiliMax/pages/dynamics_create/view.dart';
@@ -53,7 +55,8 @@ class _DynamicDetailPageState
     extends CommonDynPageMultiState<DynamicDetailPage> {
   @override
   late final DynamicDetailController controller;
-  late final DynReactController _reactController;
+  late final DynRepostController _repostController;
+  late final DynLikeController _likeController;
 
   late final RxBool _isRefreshing = false.obs;
 
@@ -82,10 +85,17 @@ class _DynamicDetailPageState
     controller = Get.putOrFind(DynamicDetailController.new, tag: id);
     final stat = item.modules.moduleStat;
     controller.count.value = stat?.comment?.count ?? -1;
-    _reactController = Get.put(
-      DynReactController(
+    _repostController = Get.putOrFind<DynRepostController>(
+      () => DynRepostController(
         id,
-        count: (stat?.like?.count ?? -1) + (stat?.forward?.count ?? -1),
+        count: stat?.forward?.count ?? -1,
+      ),
+      tag: id,
+    );
+    _likeController = Get.putOrFind<DynLikeController>(
+      () => DynLikeController(
+        id,
+        count: stat?.like?.count ?? -1,
       ),
       tag: id,
     );
@@ -313,33 +323,33 @@ class _DynamicDetailPageState
               }
               switch (value) {
                 case 0:
-                  _onRefresh(controller.onRefresh());
+                  _onRefresh(_repostController.onRefresh());
                 case 1:
-                  _onRefresh(_reactController.onRefresh());
+                  _onRefresh(controller.onRefresh());
+                case 2:
+                  _onRefresh(_likeController.onRefresh());
               }
             } else if (positions.length > 1) {
               positions.elementAt(1).jumpTo(0);
             }
           }
         },
-        tabs: [
-          Tab(
-            child: Obx(() {
-              final count = controller.count.value;
-              return Text(
-                '${DynType.reply.label}${count < 0 ? '' : ' ${NumUtils.numFormat(count)}'}',
-              );
-            }),
-          ),
-          Tab(
-            child: Obx(() {
-              final count = _reactController.count.value;
-              return Text(
-                '${DynType.reaction.label}${count < 0 ? '' : ' ${NumUtils.numFormat(count)}'}',
-              );
-            }),
-          ),
-        ],
+        tabs: DynType.values
+            .map(
+              (e) => Tab(
+                child: Obx(() {
+                  final count = switch (e) {
+                    .repost => _repostController.count.value,
+                    .reply => controller.count.value,
+                    .like => _likeController.count.value,
+                  };
+                  return Text(
+                    '${e.label}${count < 0 ? '' : ' ${NumUtils.numFormat(count)}'}',
+                  );
+                }),
+              ),
+            )
+            .toList(),
       ),
     );
   }
@@ -356,13 +366,18 @@ class _DynamicDetailPageState
     final child = tabBarView(
       controller: tabController,
       children: [
+        DynRepostPage(
+          isPortrait: isPortrait,
+          id: controller.dynItem.idStr,
+          controller: _repostController,
+        ),
         isPortrait
             ? reply
             : refreshIndicator(onRefresh: controller.onRefresh, child: reply),
-        DynReactPage(
+        DynLikePage(
           isPortrait: isPortrait,
           id: controller.dynItem.idStr,
-          controller: _reactController,
+          controller: _likeController,
         ),
       ],
     );

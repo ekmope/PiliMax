@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:PiliPlus/pages/member_video/video_filter.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/num_utils.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 // 用户空间视频列表过滤设置弹窗：触控滑块设置播放量区间 + 显式确认按钮应用。
 // 非确认关闭（下滑 / 遮罩 / 返回）撤销草稿，不写回 filter。
@@ -38,49 +38,13 @@ abstract final class MemberVideoFilterDialog {
             final initial = isMin
                 ? (current <= 0 ? '' : NumUtils.numFormat(current.round()))
                 : (current >= max ? '' : NumUtils.numFormat(current.round()));
-            final controller = TextEditingController(text: initial);
             final result = await showDialog<int>(
               context: context,
-              builder: (dialogContext) => AlertDialog(
-                title: Text(isMin ? '最小播放量' : '最大播放量'),
-                content: TextField(
-                  controller: controller,
-                  autofocus: true,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: '万为单位，如 10.5万 / 2亿；0 或「不限」表示不限制',
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('取消'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      final text = controller.text.trim();
-                      int value;
-                      if (text.isEmpty || text == '不限') {
-                        value = isMin ? 0 : MemberVideoFilter.playSliderMax;
-                      } else {
-                        value = NumUtils.parseNum(text);
-                        if (value <= 0) {
-                          value = isMin ? 0 : MemberVideoFilter.playSliderMax;
-                        } else if (value >
-                            MemberVideoFilter.playSliderMax) {
-                          value = MemberVideoFilter.playSliderMax;
-                        }
-                      }
-                      Navigator.of(dialogContext).pop(value);
-                    },
-                    child: const Text('确定'),
-                  ),
-                ],
+              builder: (dialogContext) => _NumberInputDialog(
+                isMin: isMin,
+                initial: initial,
               ),
             );
-            controller.dispose();
             if (result == null) return;
             setState(() {
               final clamped = _clampInput(
@@ -216,6 +180,70 @@ abstract final class MemberVideoFilterDialog {
       if (value > max) return max;
       return value.clamp(other, max);
     }
+  }
+}
+
+// 数字输入弹窗：控制器由本 State 持有，路由退出动画结束卸载时才释放，
+// 避免 pop 瞬间 dispose 导致 exit 动画重建 TextField 时 used-after-disposed。
+class _NumberInputDialog extends StatefulWidget {
+  const _NumberInputDialog({required this.isMin, required this.initial});
+
+  final bool isMin;
+  final String initial;
+
+  @override
+  State<_NumberInputDialog> createState() => _NumberInputDialogState();
+}
+
+class _NumberInputDialogState extends State<_NumberInputDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initial,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  // 解析万为单位（兼容 10.5万 / 2亿），越界/不限按端点语义处理。
+  int _parse(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty || text == '不限') {
+      return widget.isMin ? 0 : MemberVideoFilter.playSliderMax;
+    }
+    final value = NumUtils.parseNum(text);
+    if (value <= 0) {
+      return widget.isMin ? 0 : MemberVideoFilter.playSliderMax;
+    }
+    return min(value, MemberVideoFilter.playSliderMax);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.isMin ? '最小播放量' : '最大播放量'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        keyboardType: const TextInputType.numberWithOptions(
+          decimal: true,
+        ),
+        decoration: const InputDecoration(
+          hintText: '万为单位，如 10.5万 / 2亿；0 或「不限」表示不限制',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_parse(_controller.text)),
+          child: const Text('确定'),
+        ),
+      ],
+    );
   }
 }
 

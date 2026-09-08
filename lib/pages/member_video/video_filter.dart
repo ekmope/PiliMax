@@ -1,5 +1,5 @@
 import 'package:PiliPlus/models_new/space/space_archive/item.dart';
-import 'package:flutter/material.dart' show RangeValues;
+import 'package:material_ui/material_ui.dart' show RangeValues;
 
 // 用户空间视频列表的客户端本地过滤条件
 class MemberVideoFilter {

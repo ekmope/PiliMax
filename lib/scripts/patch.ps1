@@ -63,6 +63,11 @@ $GetxLifecyclePatch = "lib/scripts/getx_lifecycle.patch"
 # Restore Android predictive-back for standard GetPageRoute transitions.
 $GetxPredictiveBackPatch = "lib/scripts/getx_predictive_back.patch"
 
+# Keep PiliMax's bilingual subtitle API compatible with the native media-kit
+# fork used by CI. The fork's native branch contains the platform fixes but
+# does not include the secondary subtitle API used by the app.
+$MediaKitSecondarySubtitlePatch = "lib/scripts/media_kit_secondary_subtitle.patch"
+
 $RefreshIndicatorPatch = "lib/scripts/refresh_indicator.patch"
 
 # TODO: remove
@@ -150,6 +155,12 @@ try {
     $GetPackage = $PackageConfig.packages |
         Where-Object { $_.name -eq "get" } |
         Select-Object -First 1
+    $MediaKitPackage = $PackageConfig.packages |
+        Where-Object { $_.name -eq "media_kit" } |
+        Select-Object -First 1
+    $MediaKitVideoPackage = $PackageConfig.packages |
+        Where-Object { $_.name -eq "media_kit_video" } |
+        Select-Object -First 1
     if ($null -eq $MaterialPackage) {
         throw "material_ui is missing from package_config.json"
     }
@@ -163,6 +174,31 @@ try {
     $GetRoot = ([System.Uri]$GetPackage.rootUri).LocalPath
     if (-not (Test-Path $GetRoot)) {
         throw "get directory does not exist: $GetRoot"
+    }
+    if ($null -eq $MediaKitPackage) {
+        throw "media_kit is missing from package_config.json"
+    }
+    $MediaKitRoot = ([System.Uri]$MediaKitPackage.rootUri).LocalPath
+    if (-not (Test-Path $MediaKitRoot)) {
+        throw "media_kit directory does not exist: $MediaKitRoot"
+    }
+    if ($null -eq $MediaKitVideoPackage) {
+        throw "media_kit_video is missing from package_config.json"
+    }
+    $MediaKitVideoRoot = ([System.Uri]$MediaKitVideoPackage.rootUri).LocalPath
+    if (-not (Test-Path $MediaKitVideoRoot)) {
+        throw "media_kit_video directory does not exist: $MediaKitVideoRoot"
+    }
+    $MediaKitRepoRoot = (& git -C $MediaKitRoot rev-parse --show-toplevel 2>$null).Trim()
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($MediaKitRepoRoot)) {
+        throw "failed to locate media-kit git repository root"
+    }
+    $MediaKitVideoRepoRoot = (& git -C $MediaKitVideoRoot rev-parse --show-toplevel 2>$null).Trim()
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($MediaKitVideoRepoRoot)) {
+        throw "failed to locate media-kit video git repository root"
+    }
+    if (-not [string]::Equals($MediaKitRepoRoot, $MediaKitVideoRepoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "media_kit and media_kit_video are not from the same git repository"
     }
 } catch {
     Write-Error "failed to locate required dependency package: $($_.Exception.Message)"
@@ -288,6 +324,11 @@ if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $GetxLifecycleP
     exit 1
 }
 if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $GetxPredictiveBackPatch) -Description "$GetxPredictiveBackPatch to get")) {
+    exit 1
+}
+
+Set-Location $MediaKitRepoRoot
+if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $MediaKitSecondarySubtitlePatch) -Description "$MediaKitSecondarySubtitlePatch to media-kit packages")) {
     exit 1
 }
 

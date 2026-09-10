@@ -166,6 +166,7 @@ class _PopupListTileState<T> extends State<PopupListTile<T>> {
             ),
             leading: widget.leading,
             title: title,
+            titleTextStyle: widget.titleStyle ?? theme.textTheme.titleMedium,
             subtitle: subtitle,
             trailing: trailing,
           ),

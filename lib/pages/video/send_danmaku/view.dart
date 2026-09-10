@@ -111,7 +111,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
                 onTap: _showColorPicker,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: themeData.colorScheme.secondaryContainer,
+                    color: theme.colorScheme.secondaryContainer,
                     borderRadius: const BorderRadius.all(
                       Radius.circular(8),
                     ),
@@ -121,7 +121,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
                   child: Icon(
                     size: 22,
                     Icons.edit,
-                    color: themeData.colorScheme.onSecondaryContainer,
+                    color: theme.colorScheme.onSecondaryContainer,
                   ),
                 ),
               );
@@ -136,14 +136,6 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
   );
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    themeData = Theme.of(context);
-  }
-
-  late ThemeData themeData;
-
-  @override
   Widget build(BuildContext context) {
     return ViewSafeArea(
       child: Align(
@@ -152,13 +144,13 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
           constraints: const BoxConstraints(maxWidth: 450),
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            color: themeData.colorScheme.surface,
+            color: theme.colorScheme.surface,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildInputView(),
-              buildPanelContainer(themeData, Colors.transparent),
+              buildPanelContainer(Colors.transparent),
             ],
           ),
         ),
@@ -172,7 +164,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
     decoration: BoxDecoration(
       border: Border(
         top: BorderSide(
-          color: themeData.colorScheme.outline.withValues(alpha: 0.1),
+          color: theme.colorScheme.outline.withValues(alpha: 0.1),
         ),
       ),
     ),
@@ -189,7 +181,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
               '弹幕字号',
               style: TextStyle(
                 fontSize: 15,
-                color: themeData.colorScheme.onSurface,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(width: 16),
@@ -205,7 +197,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
               '弹幕样式',
               style: TextStyle(
                 fontSize: 15,
-                color: themeData.colorScheme.onSurface,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(width: 16),
@@ -224,7 +216,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
               '弹幕颜色',
               style: TextStyle(
                 fontSize: 15,
-                color: themeData.colorScheme.onSurface,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(width: 16),
@@ -246,7 +238,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
               ? null
               : Border.all(
                   width: 2,
-                  color: themeData.colorScheme.primary,
+                  color: theme.colorScheme.primary,
                 ),
         ),
         child: DecoratedBox(
@@ -294,8 +286,8 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: _mode.value == mode
-                  ? themeData.colorScheme.secondaryContainer
-                  : themeData.colorScheme.onInverseSurface,
+                  ? theme.colorScheme.secondaryContainer
+                  : theme.colorScheme.onInverseSurface,
               borderRadius: const BorderRadius.all(Radius.circular(8)),
             ),
             padding: const EdgeInsets.symmetric(vertical: 5),
@@ -303,8 +295,8 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
               title,
               style: TextStyle(
                 color: _mode.value == mode
-                    ? themeData.colorScheme.onSecondaryContainer
-                    : themeData.colorScheme.outline,
+                    ? theme.colorScheme.onSecondaryContainer
+                    : theme.colorScheme.outline,
               ),
             ),
           ),
@@ -322,8 +314,8 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: _fontSize.value == fontSize
-                  ? themeData.colorScheme.secondaryContainer
-                  : themeData.colorScheme.onInverseSurface,
+                  ? theme.colorScheme.secondaryContainer
+                  : theme.colorScheme.onInverseSurface,
               borderRadius: const BorderRadius.all(Radius.circular(8)),
             ),
             padding: const EdgeInsets.symmetric(vertical: 5),
@@ -331,8 +323,8 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
               title,
               style: TextStyle(
                 color: _fontSize.value == fontSize
-                    ? themeData.colorScheme.onSecondaryContainer
-                    : themeData.colorScheme.outline,
+                    ? theme.colorScheme.onSecondaryContainer
+                    : theme.colorScheme.outline,
               ),
             ),
           ),
@@ -351,49 +343,38 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
               final isEmoji = panelType.value == PanelType.emoji;
               return iconButton(
                 tooltip: '弹幕样式',
-                onPressed: () {
-                  updatePanelType(
-                    isEmoji ? PanelType.keyboard : PanelType.emoji,
-                  );
-                },
                 iconSize: 24,
+                onPressed: () => updatePanelType(isEmoji ? .keyboard : .emoji),
                 icon: const Icon(Icons.text_format),
                 iconColor: isEmoji
-                    ? themeData.colorScheme.primary
-                    : themeData.colorScheme.onSurfaceVariant,
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
               );
             },
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Listener(
-              onPointerUp: (event) {
-                if (readOnly.value) {
-                  updatePanelType(PanelType.keyboard);
-                }
-              },
-              child: Obx(
-                () => TextField(
-                  controller: editController,
-                  autofocus: false,
-                  readOnly: readOnly.value,
-                  inputFormatters: [
-                    LengthLimitingTextInputFormatter(100),
-                  ],
-                  onChanged: onChanged,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: onSubmitted,
-                  focusNode: focusNode,
-                  decoration: InputDecoration(
-                    hintText: "输入弹幕内容",
-                    border: InputBorder.none,
-                    hintStyle: TextStyle(
-                      fontSize: 15,
-                      color: themeData.colorScheme.outline,
-                    ),
+            child: Obx(
+              () => TextField(
+                controller: editController,
+                autofocus: false,
+                readOnly: readOnly.value,
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(100),
+                ],
+                onChanged: onChanged,
+                textInputAction: TextInputAction.send,
+                onSubmitted: onSubmitted,
+                focusNode: focusNode,
+                decoration: InputDecoration(
+                  hintText: "输入弹幕内容",
+                  border: InputBorder.none,
+                  hintStyle: TextStyle(
+                    fontSize: 15,
+                    color: theme.colorScheme.outline,
                   ),
-                  style: themeData.textTheme.bodyLarge,
                 ),
+                style: theme.textTheme.bodyLarge,
               ),
             ),
           ),
@@ -401,7 +382,7 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
             () => enablePublish.value
                 ? iconButton(
                     iconSize: 22,
-                    iconColor: themeData.colorScheme.onSurfaceVariant,
+                    iconColor: theme.colorScheme.onSurfaceVariant,
                     onPressed: () {
                       editController.clear();
                       enablePublish.value = false;
@@ -416,8 +397,8 @@ class _SendDanmakuPanelState extends CommonTextPubPageState<SendDanmakuPanel> {
               tooltip: '发送',
               iconSize: 22,
               iconColor: enablePublish.value
-                  ? themeData.colorScheme.primary
-                  : themeData.colorScheme.outline,
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outline,
               onPressed: enablePublish.value ? onPublishThrottle : null,
               icon: const Icon(Icons.send),
             ),

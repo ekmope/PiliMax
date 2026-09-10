@@ -40,8 +40,12 @@ class _FontSettingPageState extends State<FontSettingPage> {
     .linux => Typography.whiteHelsinki,
   }).bodyMedium?.fontFamily;
 
+  // ignore: deprecated_member_use
+  static final _normalFontWeight = FontWeight.normal.index;
+
   String? _selectedFont = Pref.appFont;
-  int _selectedWeight = Pref.appFontWeight;
+  // ignore: deprecated_member_use
+  int _selectedWeight = Pref.appFontWeight.index;
   double _selectedScale = Pref.defaultTextScale;
 
   /// 弹幕字体选择：DanmakuFontSource 或已导入字体的池 key
@@ -108,7 +112,7 @@ class _FontSettingPageState extends State<FontSettingPage> {
 
     GStorage.setting.putAllNE({
       SettingBoxKey.appFont: _selectedFont,
-      SettingBoxKey.appFontWeight: _selectedWeight,
+      SettingBoxKey.appFontWeightV2: _selectedWeight,
       SettingBoxKey.defaultTextScale: _selectedScale,
       SettingBoxKey.enableCustomDanmakuFont: enable,
       SettingBoxKey.danmakuFontSyncMode: mode.index,
@@ -193,7 +197,7 @@ class _FontSettingPageState extends State<FontSettingPage> {
           TextButton(
             onPressed: () => setState(() {
               _selectedFont = null;
-              _selectedWeight = -1;
+              _selectedWeight = _normalFontWeight;
               _selectedScale = 1;
             }),
             child: const Text('重置'),
@@ -227,9 +231,7 @@ class _FontSettingPageState extends State<FontSettingPage> {
                       '注：部分字体可能无法应用',
                       style: TextStyle(
                         fontFamily: _selectedFont ?? _kDefaultFontFamily,
-                        fontWeight: _selectedWeight == -1
-                            ? null
-                            : FontWeight.values[_selectedWeight],
+                        fontWeight: FontWeight.values[_selectedWeight],
                         fontSize: 14 * _selectedScale,
                       ),
                     ),
@@ -305,28 +307,20 @@ class _FontSettingPageState extends State<FontSettingPage> {
                   const Text('字重：', style: TextStyle(fontWeight: .bold)),
                   const SizedBox(
                     width: 40,
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(text: '默认/\n'),
-                          TextSpan(
-                            text: 'w100',
-                            style: TextStyle(fontWeight: .w100),
-                          ),
-                        ],
-                      ),
+                    child: Text(
+                      'w100',
+                      style: TextStyle(fontWeight: .w100),
                     ),
                   ),
                   Expanded(
                     child: Slider(
                       padding: .zero,
                       value: _selectedWeight.toDouble(),
-                      min: -1,
+                      min: 0,
                       max: 8,
-                      divisions: 9,
-                      label: _selectedWeight == -1
-                          ? '默认'
-                          : 'w${(_selectedWeight + 1) * 100}',
+                      divisions: 8,
+                      secondaryTrackValue: _normalFontWeight.toDouble(),
+                      label: 'w${(_selectedWeight + 1) * 100}',
                       onChanged: (value) {
                         setState(() => _selectedWeight = value.toInt());
                       },

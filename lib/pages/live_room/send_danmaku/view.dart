@@ -108,7 +108,6 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return ViewSafeArea(
       child: Align(
         alignment: Alignment.bottomCenter,
@@ -122,7 +121,7 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ...buildInputView(theme),
-              Flexible(child: buildPanelContainer(theme, Colors.transparent)),
+              Flexible(child: buildPanelContainer(Colors.transparent)),
             ],
           ),
         ),
@@ -131,16 +130,25 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   }
 
   @override
-  Widget? get customPanel => LiveEmotePanel(
-    onChoose: onChooseEmote,
-    roomId: liveRoomController.roomId,
-    onSendEmoticonUnique: (emote) {
-      onCustomPublish(
-        message: emote.emoticonUnique!,
-        dmType: 1,
-        emoticonOptions: '[object Object]',
-      );
-    },
+  Widget? get customPanel => DecoratedBox(
+    decoration: BoxDecoration(
+      border: Border(
+        top: BorderSide(
+          color: theme.colorScheme.outline.withValues(alpha: 0.1),
+        ),
+      ),
+    ),
+    child: LiveEmotePanel(
+      onChoose: onChooseEmote,
+      roomId: liveRoomController.roomId,
+      onSendEmoticonUnique: (emote) {
+        onCustomPublish(
+          message: emote.emoticonUnique!,
+          dmType: 1,
+          emoticonOptions: '[object Object]',
+        );
+      },
+    ),
   );
 
   List<Widget> buildInputView(ThemeData theme) {
@@ -175,8 +183,6 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
                 border: InputBorder.none,
                 hintStyle: TextStyle(fontSize: 14),
               ),
-              style: theme.textTheme.bodyLarge,
-              // inputFormatters: [LengthLimitingTextInputFormatter(20)],
             ),
           ),
         ),

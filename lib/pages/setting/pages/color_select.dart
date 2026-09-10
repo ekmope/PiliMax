@@ -197,7 +197,7 @@ class _ColorSelectPageState extends State<ColorSelectPage> {
                   height: size.height / 2,
                   width: size.width,
                   color: theme.colorScheme.surface,
-                  child: const HomePage(),
+                  child: const HomePage(preview: true),
                 ),
               ),
             ),

@@ -766,7 +766,7 @@ class LoginPageController extends GetxController
   }
 
   Future<void> _saveAccount(LoginAccount account) async {
-    await Future.wait([account.onChange(), AnonymousAccount().delete()]);
+    await Future.wait([?account.onChange(), AnonymousAccount().delete()]);
     for (int i = 0; i < AccountType.values.length; i++) {
       if (Accounts.accountMode[i].mid == account.mid) {
         Accounts.accountMode[i] = account;

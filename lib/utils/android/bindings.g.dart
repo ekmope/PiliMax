@@ -695,7 +695,73 @@ extension type AndroidHelper._(jni$_.JObject _$this) implements jni$_.JObject {
     return _fontFamilies(
       _$$classRef.pointer,
       _id_fontFamilies.pointer,
-    ).object<jni$_.JArray<jni$_.JString?>?>();
+      ).object<jni$_.JArray<jni$_.JString?>?>();
+  }
+
+  static final _id_isDomainVerified = _class.staticMethodId(
+    r'isDomainVerified',
+    r'(Ljava/lang/String;)Z',
+  );
+
+  static final _isDomainVerified =
+      jni$_.ProtectedJniExtensions.lookup<
+            jni$_.NativeFunction<
+              jni$_.JniResult Function(
+                jni$_.Pointer<jni$_.Void>,
+                jni$_.JMethodIDPtr,
+                jni$_.VarArgs<(jni$_.Pointer<jni$_.Void>,)>,
+              )
+            >
+          >('globalEnv_CallStaticBooleanMethod')
+          .asFunction<
+            jni$_.JniResult Function(
+              jni$_.Pointer<jni$_.Void>,
+              jni$_.JMethodIDPtr,
+              jni$_.Pointer<jni$_.Void>,
+            )
+          >();
+
+  static core$_.bool isDomainVerified(jni$_.JString? domain) {
+    final classRef = _class.reference;
+    final domainRef = domain?.reference ?? jni$_.jNullReference;
+    return _isDomainVerified(
+      classRef.pointer,
+      _id_isDomainVerified.pointer,
+      domainRef.pointer,
+    ).boolean;
+  }
+
+  static final _id_openUrl = _class.staticMethodId(
+    r'openUrl',
+    r'(Ljava/lang/String;)Ljava/lang/String;',
+  );
+
+  static final _openUrl =
+      jni$_.ProtectedJniExtensions.lookup<
+            jni$_.NativeFunction<
+              jni$_.JniResult Function(
+                jni$_.Pointer<jni$_.Void>,
+                jni$_.JMethodIDPtr,
+                jni$_.VarArgs<(jni$_.Pointer<jni$_.Void>,)>,
+              )
+            >
+          >('globalEnv_CallStaticObjectMethod')
+          .asFunction<
+            jni$_.JniResult Function(
+              jni$_.Pointer<jni$_.Void>,
+              jni$_.JMethodIDPtr,
+              jni$_.Pointer<jni$_.Void>,
+            )
+          >();
+
+  static jni$_.JString? openUrl(jni$_.JString? url) {
+    final classRef = _class.reference;
+    final urlRef = url?.reference ?? jni$_.jNullReference;
+    return _openUrl(
+      classRef.pointer,
+      _id_openUrl.pointer,
+      urlRef.pointer,
+    ).object<jni$_.JString?>();
   }
 }
 

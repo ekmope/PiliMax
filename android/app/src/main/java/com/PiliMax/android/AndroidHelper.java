@@ -10,6 +10,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.pm.ShortcutInfo;
 import android.content.pm.ShortcutManager;
 import android.graphics.Bitmap;
@@ -119,6 +120,45 @@ public final class AndroidHelper {
             Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, uri);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.S)
+    public static boolean isDomainVerified(String domain) {
+        try {
+            Context context = getContext();
+            android.content.pm.verify.domain.DomainVerificationManager manager =
+                    context.getSystemService(android.content.pm.verify.domain.DomainVerificationManager.class);
+            android.content.pm.verify.domain.DomainVerificationUserState userState =
+                    manager.getDomainVerificationUserState(context.getPackageName());
+            if (userState == null) return false;
+            Integer stateValue = userState.getHostToStateMap().get(domain);
+            return stateValue != null &&
+                    (stateValue == android.content.pm.verify.domain.DomainVerificationUserState.DOMAIN_STATE_VERIFIED ||
+                            stateValue == android.content.pm.verify.domain.DomainVerificationUserState.DOMAIN_STATE_SELECTED);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    public static String openUrl(String url) {
+        Context context = getContext();
+        String pkg = context.getPackageName();
+        PackageManager pm = context.getPackageManager();
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            for (ResolveInfo info : pm.queryIntentActivities(intent, 0)) {
+                String packageName = info.activityInfo.packageName;
+                if (!packageName.equals(pkg)) {
+                    intent.setPackage(packageName);
+                    context.startActivity(intent);
+                    return null;
+                }
+            }
+            return "package not found";
+        } catch (Exception e) {
+            return e.toString();
         }
     }
 

@@ -74,7 +74,7 @@ void main() {
     'enableCommAntifraud': 'false',
     'biliSendCommAntifraud': 'false',
     'enableCreateDynAntifraud': 'false',
-    'enableSponsorBlock': 'false',
+    'enableSponsorBlock': 'true',
     'autoUpdate': 'true',
     'autoPlayEnable': 'false',
     'enableOnlineTotal': 'false',

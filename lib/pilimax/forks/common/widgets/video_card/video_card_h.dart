@@ -8,7 +8,9 @@ import 'package:PiliMax/pilimax/common/widgets/video_card/video_card_h_layout_me
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/watch_later_button.dart';
 import 'package:PiliMax/common/widgets/video_popup_menu.dart';
+import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/horizontal_video_model.dart';
+import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -38,6 +40,47 @@ class VideoCardH extends StatefulWidget {
 
   @override
   State<VideoCardH> createState() => _VideoCardHState();
+}
+
+Future<void> pushVideoH(HorizontalVideoModel videoItem) async {
+  if (videoItem.isPugv ?? false) {
+    PageUtils.viewPugv(seasonId: videoItem.seasonId);
+    return;
+  }
+
+  if (videoItem.isLive ?? false) {
+    if (videoItem.roomId case final roomId?) {
+      PageUtils.toLiveRoom(roomId);
+    }
+    return;
+  }
+
+  if (videoItem.redirectUrl?.isNotEmpty == true &&
+      PageUtils.viewPgcFromUri(videoItem.redirectUrl!)) {
+    return;
+  }
+
+  int? cid = videoItem.cid;
+  Dimension? dimension = videoItem.dimension;
+  if (cid == null) {
+    if (await SearchHttp.ab2cWithDimension(
+          aid: videoItem.aid,
+          bvid: videoItem.bvid,
+        )
+        case final res?) {
+      cid = res.cid;
+      dimension = res.dimension;
+    }
+  }
+  if (cid != null) {
+    PageUtils.toVideoPage(
+      bvid: videoItem.bvid,
+      cid: cid,
+      cover: videoItem.cover,
+      title: videoItem.title,
+      dimension: dimension,
+    );
+  }
 }
 
 class _VideoCardHState extends State<VideoCardH> {

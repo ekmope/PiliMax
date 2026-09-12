@@ -50,20 +50,13 @@ class MemberVideoCtr
 
   @override
   Future<void> onRefresh() async {
-    if (isLocating.value) {
-      if (hasPrev == true) {
-        isLoadPrevious = true;
-        await queryData();
-      }
-    } else {
-      isLoadPrevious = false;
-      firstAid = null;
-      lastAid = null;
-      next = null;
-      isEnd = false;
-      page = 0;
-      await queryData();
-    }
+    isLoadPrevious = false;
+    firstAid = null;
+    lastAid = null;
+    next = null;
+    isEnd = false;
+    page = 0;
+    await queryData();
   }
 
   @override

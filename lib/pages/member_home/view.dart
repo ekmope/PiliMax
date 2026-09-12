@@ -19,6 +19,8 @@ import 'package:PiliMax/pages/member_pgc/widgets/pgc_card_v_member_pgc.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart'
+    show platformAlwaysClampingPhysics;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -72,6 +74,7 @@ class _MemberHomeState extends State<MemberHome>
       Success(response: final res) =>
         res != null
             ? CustomScrollView(
+                physics: platformAlwaysClampingPhysics,
                 slivers: [
                   if (res.archive?.item?.isNotEmpty == true) ...[
                     _header(

@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/member/contribute_type.dart';
@@ -45,6 +46,7 @@ class _SeasonSeriesPageState extends State<SeasonSeriesPage>
   Widget build(BuildContext context) {
     super.build(context);
     return CustomScrollView(
+      physics: platformAlwaysClampingPhysics,
       slivers: [
         SliverPadding(
           padding: EdgeInsets.only(

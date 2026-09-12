@@ -361,7 +361,6 @@ List<SettingsModel> get extraSettings => [
     title: '点击表情显示 Tooltip',
     leading: const Icon(Icons.emoji_emotions_outlined),
     setKey: SettingBoxKey.enableEmoteTooltip,
-    defaultVal: false,
     onChanged: (value) => enableEmoteTooltip = value,
   ),
   SwitchModel(

@@ -59,6 +59,7 @@ class _MemberOpusState extends State<MemberOpus>
       clipBehavior: .none,
       children: [
         refreshIndicator(
+          isClampingScrollPhysics: true,
           onRefresh: _controller.onRefresh,
           child: fabAnimWrapper(
             child: CustomScrollView(

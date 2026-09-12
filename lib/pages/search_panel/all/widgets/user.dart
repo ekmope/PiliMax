@@ -5,7 +5,7 @@ import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/pendant_avatar.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
-import 'package:PiliMax/common/widgets/video_card/video_card_h.dart'
+import 'package:PiliMax/pilimax/forks/common/widgets/video_card/video_card_h.dart'
     show pushVideoH;
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/utils/bili_utils.dart';

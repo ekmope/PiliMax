@@ -108,6 +108,7 @@ abstract final class Pref {
         SettingBoxKey.enableCreateDynAntifraud: () => enableCreateDynAntifraud,
         SettingBoxKey.enableCustomDanmakuFont: () => enableCustomDanmakuFont,
         SettingBoxKey.enableDragSubtitle: () => enableDragSubtitle,
+        SettingBoxKey.enableEmoteTooltip: () => enableEmoteTooltip,
         SettingBoxKey.enableHA: () => enableHA,
         SettingBoxKey.enableHotKey: () => enableTrending,
         SettingBoxKey.enableHttp2: () => enableHttp2,
@@ -1496,7 +1497,7 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.enableAndroidRouteRestore, defaultValue: true);
 
   static bool get enableSponsorBlock =>
-      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: false);
+      _setting.get(SettingBoxKey.enableSponsorBlock, defaultValue: true);
 
   static bool get enableHA =>
       _setting.get(SettingBoxKey.enableHA, defaultValue: true);
@@ -1872,6 +1873,12 @@ abstract final class Pref {
   static int get videoGamma => _videoPictureParameter(SettingBoxKey.videoGamma);
 
   static int get videoHue => _videoPictureParameter(SettingBoxKey.videoHue);
+
+  static int get audioDelayMs {
+    final value = _setting.get(SettingBoxKey.audioDelayMs, defaultValue: 0);
+    final number = value is num ? value.round() : int.tryParse('$value') ?? 0;
+    return number.clamp(-1000, 1000).toInt();
+  }
 
   static List? get liveStream => _setting.get(SettingBoxKey.liveStream);
 

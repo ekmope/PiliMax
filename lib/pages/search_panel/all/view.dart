@@ -69,17 +69,8 @@ class _SearchAllPanelState
             child: SearchAllUserItem(item: e),
           );
         }),
-        if (controller.searchMediaBgm != null) ...[
-          _buildPgc(controller.searchMediaBgm!),
-          SliverToBoxAdapter(
-            child: Divider(
-              height: 14,
-              color: theme.colorScheme.outline.withValues(alpha: 0.1),
-            ),
-          ),
-        ],
-        if (controller.searchMediaFt != null) ...[
-          _buildPgc(controller.searchMediaFt!),
+        if (controller.searchMedia != null) ...[
+          _buildPgc(controller.searchMedia!),
           SliverToBoxAdapter(
             child: Divider(
               height: 14,
@@ -122,21 +113,22 @@ class _SearchAllPanelState
   }
 
   static Widget _buildPgc(List<SearchPgcItemModel> list) {
-    return SliverToBoxAdapter(
-      child: SizedBox(
-        height: 158,
-        child: ListView.builder(
-          padding: .zero,
-          itemExtent: 350,
-          itemCount: list.length,
-          scrollDirection: .horizontal,
-          physics: const AlwaysScrollableScrollPhysics(),
-          itemBuilder: (context, index) {
-            return SearchPgcItem(item: list[index]);
-          },
-        ),
-      ),
-    );
+    final Widget child;
+    if (list.length == 1) {
+      child = SearchPgcItem(item: list.first);
+    } else {
+      child = ListView.builder(
+        padding: .zero,
+        itemExtent: 340,
+        itemCount: list.length,
+        scrollDirection: .horizontal,
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemBuilder: (context, index) {
+          return SearchPgcItem(item: list[index]);
+        },
+      );
+    }
+    return SliverToBoxAdapter(child: SizedBox(height: 158, child: child));
   }
 
   late final pgcGridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(

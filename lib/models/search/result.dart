@@ -33,8 +33,7 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
   }
 
   List<SearchUser>? searchUser;
-  List<SearchPgcItemModel>? searchMediaBgm;
-  List<SearchPgcItemModel>? searchMediaFt;
+  List<SearchPgcItemModel>? searchMedia;
   List<SearchActivity>? searchActivity;
 
   SearchVideoData.fromSearchAll(Map<String, dynamic> json) {
@@ -50,17 +49,11 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
             if (item['data'] case List users when users.isNotEmpty) {
               searchUser = users.map((e) => SearchUser.fromJson(e)).toList();
             }
-          case 'media_bangumi':
+          case 'media_bangumi' || 'media_ft':
             if (item['data'] case List medias when medias.isNotEmpty) {
-              searchMediaBgm = medias
-                  .map((e) => SearchPgcItemModel.fromJson(e))
-                  .toList();
-            }
-          case 'media_ft':
-            if (item['data'] case List medias when medias.isNotEmpty) {
-              searchMediaFt = medias
-                  .map((e) => SearchPgcItemModel.fromJson(e))
-                  .toList();
+              (searchMedia ??= <SearchPgcItemModel>[]).addAll(
+                medias.map((e) => SearchPgcItemModel.fromJson(e)),
+              );
             }
           case 'activity':
             if (item['data'] case List activities when activities.isNotEmpty) {

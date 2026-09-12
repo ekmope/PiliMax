@@ -27,6 +27,7 @@ Widget emoteTooltipBuilder({
       type: .emote,
       width: size,
       height: size,
+      fit: .contain,
     );
     if (emote != null) {
       overlay = Column(

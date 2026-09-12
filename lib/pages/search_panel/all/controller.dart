@@ -14,8 +14,7 @@ class SearchAllController extends SearchVideoController {
   });
 
   List<SearchUser>? searchUser;
-  List<SearchPgcItemModel>? searchMediaBgm;
-  List<SearchPgcItemModel>? searchMediaFt;
+  List<SearchPgcItemModel>? searchMedia;
   List<SearchActivity>? searchActivity;
 
   @override
@@ -23,8 +22,7 @@ class SearchAllController extends SearchVideoController {
     final res = response.response;
     if (isRefresh) {
       searchUser = res.searchUser;
-      searchMediaBgm = res.searchMediaBgm;
-      searchMediaFt = res.searchMediaFt;
+      searchMedia = res.searchMedia;
       searchActivity = res.searchActivity;
       _actualSearchType = SearchType.video;
     }
@@ -80,8 +78,7 @@ class SearchAllController extends SearchVideoController {
   Future<void> onRefresh() {
     _computeActualSearchType();
     searchUser = null;
-    searchMediaBgm = null;
-    searchMediaFt = null;
+    searchMedia = null;
     searchActivity = null;
     return super.onRefresh();
   }

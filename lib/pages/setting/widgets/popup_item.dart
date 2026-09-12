@@ -50,7 +50,11 @@ class PopupListTile<T> extends StatefulWidget {
 class _PopupListTileState<T> extends State<PopupListTile<T>> {
   final _key = PlatformUtils.isDesktop ? null : GlobalKey();
 
-  void _showButtonMenu(TapUpDetails details, T value) {
+  void _showButtonMenu(
+    BuildContext menuContext,
+    TapUpDetails details,
+    T value,
+  ) {
     final thisOffset = details.globalPosition - details.localPosition;
     final double dx;
     if (PlatformUtils.isDesktop) {
@@ -62,9 +66,9 @@ class _PopupListTileState<T> extends State<PopupListTile<T>> {
       dx = thisOffset.dx + titleOffset.dx;
     }
     showMenu<T>(
-      context: context,
+      context: menuContext,
       position: RelativeRect.fromLTRB(dx, thisOffset.dy + 5, dx, 0),
-      items: widget.itemBuilder(context),
+      items: widget.itemBuilder(menuContext),
       initialValue: value,
       requestFocus: false,
     ).then<void>((newValue) {

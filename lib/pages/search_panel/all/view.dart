@@ -6,13 +6,15 @@ import 'package:PiliMax/pilimax/common/widgets/video_card/video_card_h_layout_me
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pages/search_panel/all/controller.dart';
+import 'package:PiliMax/pages/search_panel/video/view.dart';
 import 'package:PiliMax/pilimax/forks/pages/search_panel/all/widgets/pgc_card_v_search.dart';
 import 'package:PiliMax/pilimax/forks/pages/search_panel/pgc/widgets/item.dart';
 import 'package:PiliMax/pages/search_panel/user/widgets/item.dart';
 import 'package:PiliMax/pilimax/forks/pages/search_panel/view.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/waterfall.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart'
+    hide SliverGridDelegateWithMaxCrossAxisExtent;
 import 'package:get/get.dart';
 import 'package:waterfall_flow/waterfall_flow.dart'
     hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;

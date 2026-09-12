@@ -39,6 +39,7 @@ import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/pilimax/utils/filter_pattern_compiler.dart';

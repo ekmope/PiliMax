@@ -107,16 +107,29 @@ class _PopupListTileState<T> extends State<PopupListTile<T>> {
       case DescPosType.trailing:
         trailing = desc;
     }
-    return ListTile(
-      dense: widget.dense,
-      safeArea: widget.safeArea,
-      enabled: widget.enabled,
-      onTapUp: (details) => _showButtonMenu(details, value),
-      leading: widget.leading,
-      title: title,
-      titleTextStyle: widget.titleStyle ?? theme.textTheme.titleMedium,
-      subtitle: subtitle,
-      trailing: trailing,
+    final menuTheme = theme.copyWith(highlightColor: Colors.transparent);
+    return Theme(
+      data: menuTheme,
+      child: Builder(
+        builder: (menuContext) => Theme(
+          data: theme,
+          child: ListTile(
+            dense: widget.dense,
+            safeArea: widget.safeArea,
+            enabled: widget.enabled,
+            onTapUp: (details) => _showButtonMenu(
+              menuContext,
+              details,
+              value,
+            ),
+            leading: widget.leading,
+            title: title,
+            titleTextStyle: widget.titleStyle ?? theme.textTheme.titleMedium,
+            subtitle: subtitle,
+            trailing: trailing,
+          ),
+        ),
+      ),
     );
   }
 }

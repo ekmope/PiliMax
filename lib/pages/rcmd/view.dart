@@ -7,6 +7,7 @@ import 'package:PiliMax/common/widgets/video_card/video_card_v.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/rcmd/controller.dart';
+import 'package:PiliMax/pages/home/home_preview_scope.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
@@ -35,7 +36,7 @@ class _RcmdPageState extends State<RcmdPage>
       margin: const .symmetric(horizontal: Style.safeSpace),
       decoration: const BoxDecoration(borderRadius: Style.mdRadius),
       child: refreshIndicator(
-        key: controller.refreshKey,
+        key: HomePreviewScope.of(context) ? null : controller.refreshKey,
         onRefresh: controller.onRefresh,
         child: CustomScrollView(
           controller: controller.scrollController,

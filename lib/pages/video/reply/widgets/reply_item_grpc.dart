@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:PiliMax/common/widgets/emote_tooltip.dart';
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/style.dart';
@@ -846,23 +847,31 @@ class ReplyItemGrpc extends StatelessWidget {
       onMatch: (Match match) {
         String matchStr = match[0]!;
         late final name = matchStr.substring(1);
-        late final topic = matchStr.substring(1, matchStr.length - 1);
+        late final topic = matchStr.substring1;
         if (content.emotes.containsKey(matchStr)) {
           // 处理表情
           final emote = content.emotes[matchStr]!;
           final size = emote.size.toInt() * 20.0;
+          final url = emote.hasWebpUrl()
+              ? emote.webpUrl
+              : emote.hasGifUrl()
+              ? emote.gifUrl
+              : emote.url;
           spanChildren.add(
             WidgetSpan(
               rawText: matchStr,
-              child: NetworkImgLayer(
-                src: emote.hasWebpUrl()
-                    ? emote.webpUrl
-                    : emote.hasGifUrl()
-                    ? emote.gifUrl
-                    : emote.url,
-                type: ImageType.emote,
-                width: size,
-                height: size,
+              child: emoteTooltipBuilder(
+                url: url,
+                emote: matchStr,
+                triggerMode: .tap,
+                jumpUrl: emote.hasJumpUrl() ? emote.jumpUrl : null,
+                colorScheme: colorScheme,
+                child: NetworkImgLayer(
+                  src: url,
+                  type: .emote,
+                  width: size,
+                  height: size,
+                ),
               ),
             ),
           );

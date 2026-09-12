@@ -8,6 +8,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/main.dart';
 import 'package:PiliMax/pilimax/pages/login/geetest/geetest_security.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
+import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:dio/dio.dart';
 import 'package:material_ui/material_ui.dart';
@@ -83,13 +84,11 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
       if (data == null ||
           data.length > GeetestSecurity.maxConfigResponseLength ||
           !data.startsWith('(') ||
-          !data.endsWith(')')) {
-        return const Error('极验配置响应无效');
-      }
+          !data.endsWith(')')) {}
 
       final Object? decoded;
       try {
-        decoded = jsonDecode(data.substring(1, data.length - 1));
+        decoded = jsonDecode(data.substring1);
       } on FormatException {
         return const Error('极验配置 JSON 无效');
       }
@@ -147,8 +146,7 @@ class _GeetestWebviewDialogState extends State<GeetestWebviewDialog> {
       unawaited(webview.onClose.whenComplete(_finish));
 
       final html = _buildHtml(
-        bridge:
-            "(n,o)=>webkit.messageHandlers.msgToNative.postMessage(n+':'+JSON.stringify(o))",
+        bridge: "(n,o)=>webkit.messageHandlers.msgToNative.postMessage(n+':'+JSON.stringify(o))",
         response: response,
       );
       webview.launch(

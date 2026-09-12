@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:PiliMax/common/widgets/emote_tooltip.dart';
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
@@ -856,14 +857,21 @@ class ChatItem extends StatelessWidget {
           final emoji = emojiMap[matchStr];
           if (emoji != null) {
             final size = emoji['size'];
+            final url = emoji['url'];
             children.add(
               WidgetSpan(
                 rawText: matchStr,
-                child: NetworkImgLayer(
-                  width: size,
-                  height: size,
-                  src: emoji['url'],
-                  type: ImageType.emote,
+                child: emoteTooltipBuilder(
+                  url: url,
+                  emote: matchStr,
+                  triggerMode: .tap,
+                  colorScheme: theme.colorScheme,
+                  child: NetworkImgLayer(
+                    width: size,
+                    height: size,
+                    src: url,
+                    type: .emote,
+                  ),
                 ),
               ),
             );

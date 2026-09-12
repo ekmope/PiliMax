@@ -1874,4 +1874,10 @@ abstract final class Pref {
   static int get videoHue => _videoPictureParameter(SettingBoxKey.videoHue);
 
   static List? get liveStream => _setting.get(SettingBoxKey.liveStream);
+
+  static bool get enableDocProvider =>
+      _setting.get(SettingBoxKey.enableDocProvider, defaultValue: false);
+
+  static bool get enableEmoteTooltip =>
+      _setting.get(SettingBoxKey.enableEmoteTooltip, defaultValue: false);
 }

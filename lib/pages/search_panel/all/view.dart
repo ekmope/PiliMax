@@ -16,8 +16,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 import 'package:waterfall_flow/waterfall_flow.dart'
     hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
+import 'package:PiliMax/pages/search_panel/all/widgets/activity.dart';
+import 'package:PiliMax/pages/search_panel/all/widgets/user.dart';
 
-class SearchAllPanel extends CommonSearchPanel {
+class SearchAllPanel extends SearchVideoPanel {
   const SearchAllPanel({
     super.key,
     required super.keyword,
@@ -30,7 +32,13 @@ class SearchAllPanel extends CommonSearchPanel {
 }
 
 class _SearchAllPanelState
-    extends CommonSearchPanelState<SearchAllPanel, SearchAllData, dynamic> {
+    extends
+        CommonSearchPanelState<
+          SearchAllPanel,
+          SearchVideoData,
+          SearchVideoItemModel
+        >
+    with GridMixin, SearchVideoPanelMixin<SearchAllPanel> {
   @override
   late final SearchAllController controller;
 
@@ -48,7 +56,43 @@ class _SearchAllPanelState
   }
 
   @override
-  Widget buildList(ThemeData theme, List<dynamic> list) {
+  Widget buildList(ThemeData theme, List<SearchVideoItemModel> list) {
+    return SliverMainAxisGroup(
+      slivers: [
+        ...?controller.searchActivity?.map((e) {
+          return SliverToBoxAdapter(
+            child: SearchActivityItem(item: e),
+          );
+        }),
+        ...?controller.searchUser?.map((e) {
+          return SliverToBoxAdapter(
+            child: SearchAllUserItem(item: e),
+          );
+        }),
+        if (controller.searchMediaBgm != null) ...[
+          _buildPgc(controller.searchMediaBgm!),
+          SliverToBoxAdapter(
+            child: Divider(
+              height: 14,
+              color: theme.colorScheme.outline.withValues(alpha: 0.1),
+            ),
+          ),
+        ],
+        if (controller.searchMediaFt != null) ...[
+          _buildPgc(controller.searchMediaFt!),
+          SliverToBoxAdapter(
+            child: Divider(
+              height: 14,
+              color: theme.colorScheme.outline.withValues(alpha: 0.1),
+            ),
+          ),
+        ],
+        _buildVideoResults(list),
+      ],
+    );
+  }
+
+  Widget _buildVideoResults(List<SearchVideoItemModel> list) {
     return SliverWaterfallFlow(
       gridDelegate: SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: Grid.smallCardWidth * 2,
@@ -56,81 +100,47 @@ class _SearchAllPanelState
       ),
       delegate: SliverChildBuilderDelegate(
         (_, index) {
-          if (index == list.length - 1) {
-            controller.onLoadMore();
-          }
-          return switch (list[index]) {
-            SearchVideoItemModel e => () {
-              final heroTag = VideoHeroTag.forItem(
-                scope: 'search-all-video-${widget.tag}',
-                item: e,
-                contentId: e.bvid ?? e.aid ?? e.cid ?? 'unknown',
-              );
-              return SizedBox(
-                height: VideoCardHLayoutMetrics.itemHeight,
-                child: VideoCardH(
-                  key: ValueKey(heroTag),
-                  videoItem: e,
-                  heroTag: heroTag,
-                ),
-              );
-            }(),
-            List<SearchPgcItemModel> e =>
-              e.length == 1
-                  ? SizedBox(
-                      height: 160,
-                      child: SearchPgcItem(
-                        item: e.first,
-                        heroTagPrefix: 'search-all-pgc-${widget.tag}',
-                        index: index,
-                      ),
-                    )
-                  : SizedBox(
-                      height:
-                          Grid.smallCardWidth / 2 / 0.75 +
-                          MediaQuery.textScalerOf(context).scale(60),
-                      child: ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 7),
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        scrollDirection: Axis.horizontal,
-                        itemCount: e.length,
-                        itemBuilder: (context, itemIndex) {
-                          return Container(
-                            width: Grid.smallCardWidth / 2,
-                            margin: EdgeInsets.only(
-                              left: Style.safeSpace,
-                              right: itemIndex == e.length - 1
-                                  ? Style.safeSpace
-                                  : 0,
-                            ),
-                            child: PgcCardVSearch(
-                              item: e[itemIndex],
-                              heroTagPrefix:
-                                  'search-all-pgc-v-${widget.tag}-$index',
-                              index: itemIndex,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-            SearchUserItemModel e => Padding(
-              padding: const EdgeInsets.only(bottom: 5),
-              child: SearchUserItem(item: e),
+          if (index == list.length - 1) controller.onLoadMore();
+          final item = list[index];
+          final heroTag = VideoHeroTag.forItem(
+            scope: 'search-all-video-${widget.tag}',
+            item: item,
+            contentId: item.bvid ?? item.aid ?? item.cid ?? 'unknown',
+          );
+          return SizedBox(
+            height: VideoCardHLayoutMetrics.itemHeight,
+            child: VideoCardH(
+              key: ValueKey(heroTag),
+              videoItem: item,
+              heroTag: heroTag,
             ),
-            _ => const SizedBox.shrink(),
-          };
+          );
         },
         childCount: list.length,
       ),
     );
   }
 
-  @override
-  Widget get buildLoading => SliverGrid(
-    gridDelegate: Grid.videoCardHDelegate(),
-    delegate: const SliverSingleChildDelegate(
-      count: 10,
-      child: VideoCardHSkeleton(),
-    ),
+  static Widget _buildPgc(List<SearchPgcItemModel> list) {
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 158,
+        child: ListView.builder(
+          padding: .zero,
+          itemExtent: 350,
+          itemCount: list.length,
+          scrollDirection: .horizontal,
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemBuilder: (context, index) {
+            return SearchPgcItem(item: list[index]);
+          },
+        ),
+      ),
+    );
+  }
+
+  late final pgcGridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
+    maxCrossAxisExtent: Grid.smallCardWidth * 2,
+    mainAxisExtent: 160,
   );
 }

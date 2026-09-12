@@ -29,7 +29,7 @@ class _SearchVideoPanelState
           SearchVideoData,
           SearchVideoItemModel
         >
-    with GridMixin {
+    with GridMixin, SearchVideoPanelMixin<SearchVideoPanel> {
   @override
   late final SearchVideoController controller;
 
@@ -48,6 +48,14 @@ class _SearchVideoPanelState
       tag: widget.searchType.name + widget.tag,
     );
   }
+}
+
+mixin SearchVideoPanelMixin<S extends SearchVideoPanel>
+    on
+        CommonSearchPanelState<S, SearchVideoData, SearchVideoItemModel>,
+        GridMixin {
+  @override
+  SearchVideoController get controller;
 
   @override
   Widget buildHeader(ThemeData theme) {
@@ -72,7 +80,7 @@ class _SearchVideoPanelState
                               ? theme.colorScheme.primary
                               : theme.colorScheme.outline,
                           onTap: (_) => controller
-                            ..order = e.name
+                            ..order = e == .totalrank ? '' : e.name
                             ..selectedType.value = e
                             ..onSortSearch(getBack: false),
                         ),

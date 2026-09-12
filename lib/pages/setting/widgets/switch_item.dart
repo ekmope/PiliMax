@@ -100,6 +100,7 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
         content: const Text('禁用容易受到中间人攻击'),
       );
       if (!mounted) return;
+      if (!nextValue) return;
     }
 
     val = nextValue;

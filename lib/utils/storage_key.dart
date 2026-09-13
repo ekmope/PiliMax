@@ -39,7 +39,8 @@ abstract final class SettingBoxKey {
       videoContrast = 'videoContrast',
       videoSaturation = 'videoSaturation',
       videoGamma = 'videoGamma',
-      videoHue = 'videoHue';
+      videoHue = 'videoHue',
+      audioDelayMs = 'audioDelayMs';
 
   static const String enableVerticalExpand = 'enableVerticalExpand',
       feedBackEnable = 'feedBackEnable',
@@ -203,7 +204,9 @@ abstract final class SettingBoxKey {
       mixWithOthers = 'mixWithOthers',
       removeSafeArea = 'removeSafeArea',
       angleDegrees = 'angleDegrees',
-      liveStream = 'liveStream';
+      liveStream = 'liveStream',
+      enableDocProvider = 'enableDocProvider',
+      enableEmoteTooltip = 'enableEmoteTooltip';
 
   static const String enableAiChat = 'enableAiChat',
       aiApiUrl = 'aiApiUrl',

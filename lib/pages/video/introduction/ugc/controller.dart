@@ -32,6 +32,7 @@ import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
+import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
@@ -386,7 +387,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
             title: const Text('其它app打开', style: TextStyle(fontSize: 14)),
             onTap: () {
               Get.back();
-              PageUtils.launchURL(videoUrl);
+              PiliAndroidHelper.openUrl(videoUrl);
             },
           ),
           if (PlatformUtils.isMobile)

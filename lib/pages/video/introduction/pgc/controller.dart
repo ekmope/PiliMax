@@ -20,6 +20,7 @@ import 'package:PiliMax/pages/dynamics_repost/view.dart';
 import 'package:PiliMax/pages/video/reply/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliMax/services/service_locator.dart';
+import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/id_utils.dart';
@@ -155,7 +156,7 @@ class PgcIntroController extends CommonIntroController {
             child: const Text('其它app打开', style: TextStyle(fontSize: 14)),
             onPressed: () {
               Get.back();
-              PageUtils.launchURL(videoUrl);
+              PiliAndroidHelper.openUrl(videoUrl);
             },
           ),
           if (PlatformUtils.isMobile)

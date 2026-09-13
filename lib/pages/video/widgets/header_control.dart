@@ -65,7 +65,7 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show compute, kDebugMode;
 import 'package:material_ui/material_ui.dart' hide showBottomSheet;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -1011,7 +1011,7 @@ class HeaderControlState extends State<HeaderControl>
                     !plPlayerController.onlyPlayAudio.value)
                   ListTile(
                     dense: true,
-                    title: const Text('视频画面参数', style: titleStyle),
+                    title: const Text('视频参数', style: titleStyle),
                     leading: const Icon(Icons.tune, size: 20),
                     onTap: () {
                       Get.back();
@@ -2159,7 +2159,7 @@ class HeaderControlState extends State<HeaderControl>
                   );
                 }),
               if (!isFileSource) ...[
-                if (plPlayerController.enableSponsorBlock)
+                if (kDebugMode || plPlayerController.enableSponsorBlock)
                   SizedBox(
                     width: btnWidth,
                     height: btnHeight,

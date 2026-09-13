@@ -8,6 +8,7 @@ import 'package:PiliMax/models/common/home_tab_type.dart';
 import 'package:PiliMax/models/model_hot_video_item.dart';
 import 'package:PiliMax/pages/home/controller.dart';
 import 'package:PiliMax/pages/hot/controller.dart';
+import 'package:PiliMax/pages/home/home_preview_scope.dart';
 import 'package:PiliMax/pages/rank/view.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -51,7 +52,7 @@ class _HotPageState extends State<HotPage>
   Widget build(BuildContext context) {
     super.build(context);
     return refreshIndicator(
-      key: controller.refreshKey,
+      key: HomePreviewScope.of(context) ? null : controller.refreshKey,
       onRefresh: controller.onRefresh,
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),

@@ -1,69 +1,60 @@
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/search/search_type.dart';
 import 'package:PiliMax/models/search/result.dart';
-import 'package:PiliMax/pilimax/forks/pages/search_panel/controller.dart';
-import 'package:PiliMax/utils/app_scheme.dart';
+import 'package:PiliMax/models/search/search_esports.dart';
+import 'package:PiliMax/pages/search_panel/video/controller.dart';
 import 'package:PiliMax/utils/id_utils.dart';
+import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/url_utils.dart';
 
-class SearchAllController
-    extends SearchPanelController<SearchAllData, dynamic> {
+class SearchAllController extends SearchVideoController {
   SearchAllController({
     required super.keyword,
     required super.searchType,
     required super.tag,
   });
 
-  late bool hasJump2Video = false;
+  List<SearchUser>? searchUser;
+  List<SearchPgcItemModel>? searchMedia;
+  List<SearchActivity>? searchActivity;
+  SearchEsports? searchEsports;
 
   @override
-  void onInit() {
-    super.onInit();
-    jump2Video();
-  }
-
-  @override
-  List? getDataList(response) {
-    return response.list;
-  }
-
-  @override
-  bool customHandleResponse(bool isRefresh, Success response) {
-    searchResultController?.count[searchType.index] =
-        response.response.numResults ?? 0;
-    if (searchType == SearchType.video && !hasJump2Video && isRefresh) {
-      hasJump2Video = true;
-      onPushDetail(response.response.list);
+  bool customHandleResponse(bool isRefresh, Success<SearchVideoData> response) {
+    final res = response.response;
+    if (isRefresh) {
+      searchUser = res.searchUser;
+      searchMedia = res.searchMedia;
+      searchActivity = res.searchActivity;
+      searchEsports = res.searchEsports;
+      _actualSearchType = SearchType.video;
     }
-    return false;
+    return super.customHandleResponse(isRefresh, response);
   }
 
+  SearchType _actualSearchType = SearchType.all;
+
   @override
-  Future<LoadingState<SearchAllData>> customGetData() => SearchHttp.searchAll(
-    keyword: keyword,
-    page: page,
-    order: order,
-    duration: null,
-    tids: videoZoneType?.tids,
-    orderSort: userOrderType?.value.orderSort,
-    userType: userType?.value.index,
-    categoryId: articleZoneType?.value.categoryId,
-    pubBegin: pubBegin,
-    pubEnd: pubEnd,
+  SearchType get searchType_ => _actualSearchType;
+
+  void _computeActualSearchType() {
+    if (order.isNotEmpty ||
+        videoDurationType != .all ||
+        videoZoneType != .all ||
+        pubBegin != null ||
+        pubEnd != null) {
+      _actualSearchType = SearchType.video;
+      return;
+    }
+    _actualSearchType = SearchType.all;
+  }
+
+  static final _b23Regex = RegExp(
+    r'b23\.tv/[A-Za-z0-9]{7}$',
+    caseSensitive: false,
   );
 
-  void onPushDetail(dynamic resultList) {
-    try {
-      int? aid = int.tryParse(keyword);
-      if (aid != null && resultList.first.aid == aid) {
-        PiliScheme.videoPush(aid, null, showDialog: false);
-      }
-    } catch (_) {}
-  }
-
-  static final _b23Regex = RegExp(r'b23\.tv/[A-Za-z0-9]{7}$', caseSensitive: false);
-
+  @override
   Future<void> jump2Video() async {
     if (IdUtils.avRegexExact.hasMatch(keyword)) {
       hasJump2Video = true;
@@ -88,5 +79,15 @@ class SearchAllController
         }
       }
     }
+  }
+
+  @override
+  Future<void> onRefresh() {
+    _computeActualSearchType();
+    searchUser = null;
+    searchMedia = null;
+    searchActivity = null;
+    searchEsports = null;
+    return super.onRefresh();
   }
 }

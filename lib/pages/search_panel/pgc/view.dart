@@ -48,7 +48,7 @@ class _SearchPgcPanelState
 
   late final gridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
     maxCrossAxisExtent: Grid.smallCardWidth * 2,
-    mainAxisExtent: 160,
+    mainAxisExtent: 158,
   );
 
   @override
@@ -71,11 +71,7 @@ class _SearchPgcPanelState
 
   @override
   Widget get buildLoading => SliverGrid(
-    gridDelegate: SliverGridDelegateWithExtentAndRatio(
-      mainAxisSpacing: 2,
-      maxCrossAxisExtent: Grid.smallCardWidth * 2,
-      childAspectRatio: Style.aspectRatio * 1.5,
-    ),
+    gridDelegate: gridDelegate,
     delegate: const SliverSingleChildDelegate(
       count: 10,
       child: MediaPgcSkeleton(),

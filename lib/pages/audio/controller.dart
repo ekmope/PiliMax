@@ -41,6 +41,7 @@ import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/services/shutdown_timer_service.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
+import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/connectivity_utils.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -1133,7 +1134,7 @@ class AudioController extends GetxController
             child: const Text('其它app打开', style: TextStyle(fontSize: 14)),
             onPressed: () {
               Get.back();
-              PageUtils.launchURL(audioUrl);
+              PiliAndroidHelper.openUrl(audioUrl);
             },
           ),
           if (PlatformUtils.isMobile)

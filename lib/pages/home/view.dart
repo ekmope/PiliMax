@@ -4,6 +4,7 @@ import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/pages/common/common_page.dart';
 import 'package:PiliMax/pages/home/controller.dart';
+import 'package:PiliMax/pages/home/home_preview_scope.dart';
 import 'package:PiliMax/pages/main/controller.dart';
 import 'package:PiliMax/pages/mine/controller.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
@@ -14,7 +15,9 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.preview = false});
+
+  final bool preview;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -75,21 +78,24 @@ class _HomePageState extends CommonPageState<HomePage>
     } else {
       tabBar = const SizedBox(height: 6);
     }
-    return Column(
-      children: [
-        if (!_mainController.useSideBar &&
-            MediaQuery.sizeOf(context).isPortrait)
-          customAppBar(),
-        tabBar,
-        Expanded(
-          child: onBuild(
-            tabBarView(
-              controller: _homeController.tabController,
-              children: _homeController.tabs.map((e) => e.page).toList(),
+    return HomePreviewScope(
+      enabled: widget.preview,
+      child: Column(
+        children: [
+          if (!_mainController.useSideBar &&
+              MediaQuery.sizeOf(context).isPortrait)
+            customAppBar(),
+          tabBar,
+          Expanded(
+            child: onBuild(
+              tabBarView(
+                controller: _homeController.tabController,
+                children: _homeController.tabs.map((e) => e.page).toList(),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

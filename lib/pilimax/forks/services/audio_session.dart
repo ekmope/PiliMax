@@ -126,6 +126,9 @@ class AudioSessionHandler {
             unawaited(PlPlayerController.pauseIfExists(isInterrupt: true));
             break;
           case AudioInterruptionType.unknown:
+            // Android unknown means permanent audio-focus loss; iOS unknown
+            // represents the start of an interruption.
+            if (Platform.isAndroid && mixWithOthers) return;
             _playInterrupted = true;
             unawaited(PlPlayerController.pauseIfExists(isInterrupt: true));
             break;

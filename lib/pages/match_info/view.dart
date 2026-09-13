@@ -120,6 +120,7 @@ class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
                             style: const TextStyle(
                               fontSize: 25,
                               fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
                             ),
                           )
                         else if (response.season?.logo != null)

@@ -4,6 +4,7 @@ import 'package:PiliMax/pilimax/forks/common/widgets/video_card/video_card_h.dar
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/model_hot_video_item.dart';
 import 'package:PiliMax/pages/rank/zone/controller.dart';
+import 'package:PiliMax/pages/home/home_preview_scope.dart';
 import 'package:PiliMax/pages/rank/zone/widget/pgc_rank_item.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:material_ui/material_ui.dart';
@@ -39,7 +40,7 @@ class _ZonePageState extends State<ZonePage>
   Widget build(BuildContext context) {
     super.build(context);
     return refreshIndicator(
-      key: controller.refreshKey,
+      key: HomePreviewScope.of(context) ? null : controller.refreshKey,
       onRefresh: controller.onRefresh,
       child: CustomScrollView(
         controller: controller.scrollController,

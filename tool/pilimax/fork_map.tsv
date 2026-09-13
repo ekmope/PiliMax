@@ -23,7 +23,6 @@ fork	lib/pages/pgc/widgets/pgc_card_v.dart	lib/pilimax/forks/pages/pgc/widgets/p
 fork	lib/pages/pgc_index/widgets/pgc_card_v_pgc_index.dart	lib/pilimax/forks/pages/pgc_index/widgets/pgc_card_v_pgc_index.dart
 fork	lib/pages/pgc/widgets/pgc_card_v_timeline.dart	lib/pilimax/forks/pages/pgc/widgets/pgc_card_v_timeline.dart
 fork	lib/services/audio_session.dart	lib/pilimax/forks/services/audio_session.dart
-fork	lib/pages/search_panel/all/widgets/pgc_card_v_search.dart	lib/pilimax/forks/pages/search_panel/all/widgets/pgc_card_v_search.dart
 fork	lib/pages/dynamics_mention/view.dart	lib/pilimax/forks/pages/dynamics_mention/view.dart
 fork	lib/common/widgets/flutter/vertical_tabs.dart	lib/pilimax/forks/common/widgets/flutter/vertical_tabs.dart
 modified	.github/workflows/build.yml	-

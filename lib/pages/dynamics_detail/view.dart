@@ -5,6 +5,7 @@ import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
+import 'package:PiliMax/common/widgets/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/scroll_behavior.dart'
     show NoOverscrollIndicator;
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
@@ -27,7 +28,6 @@ import 'package:PiliMax/pages/dynamics_create/view.dart';
 import 'package:PiliMax/pages/dynamics_detail/controller.dart';
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
-import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
@@ -391,7 +391,7 @@ class _DynamicDetailPageState
             right: 0,
             top: displacement,
             child: Obx(
-              () => _RefreshIndicator(isRefreshing: _isRefreshing.value),
+              () => RefreshIndicator_(isRefreshing: _isRefreshing.value),
             ),
           ),
         ],
@@ -678,90 +678,5 @@ class _DynamicDetailPageState
       final position = PrimaryScrollController.of(context).position;
       position.jumpTo(position.maxScrollExtent);
     } catch (_) {}
-  }
-}
-
-class _RefreshIndicator extends StatefulWidget {
-  const _RefreshIndicator({required this.isRefreshing});
-
-  final bool isRefreshing;
-
-  @override
-  State<_RefreshIndicator> createState() => _RefreshIndicatorState();
-}
-
-class _RefreshIndicatorState extends State<_RefreshIndicator>
-    with TickerProviderStateMixin {
-  late final AnimationController _scaleController;
-  late final AnimationController _progressController;
-  late Color _color;
-
-  @override
-  void initState() {
-    super.initState();
-    _scaleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    );
-    _progressController = AnimationController(
-      vsync: this,
-      duration: CircularProgressIndicator.defaultAnimationDuration,
-    );
-  }
-
-  @override
-  void dispose() {
-    _scaleController.dispose();
-    _progressController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(_RefreshIndicator oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.isRefreshing != widget.isRefreshing) {
-      if (widget.isRefreshing) {
-        _scaleController.value = 1;
-        _progressController
-          ..value = 0.0
-          ..repeat();
-      } else {
-        _scaleController.reverse();
-        _progressController.stop();
-      }
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final colorScheme = ColorScheme.of(context);
-    _color = colorScheme.isDark
-        ? colorScheme.onInverseSurface
-        : colorScheme.surface;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scaleController,
-      child: Center(
-        child: SizedBox.square(
-          dimension: 40,
-          child: Material(
-            type: .circle,
-            elevation: 2.0,
-            color: _color,
-            child: Padding(
-              padding: const .all(6),
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                controller: _progressController,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }

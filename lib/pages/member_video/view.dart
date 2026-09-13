@@ -13,7 +13,6 @@ import 'package:PiliMax/pilimax/forks/pages/member_video/widgets/video_card_h_me
 import 'package:PiliMax/utils/grid.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 
 class MemberVideo extends StatefulWidget {
@@ -73,6 +72,7 @@ class _MemberVideoState extends State<MemberVideo>
     super.initState();
     _controller = Get.put(
       MemberVideoCtr(
+        heroTag: widget.heroTag,
         type: widget.type,
         mid: widget.mid,
         seasonId: widget.seasonId,
@@ -85,43 +85,75 @@ class _MemberVideoState extends State<MemberVideo>
     );
   }
 
+  Future<void> _loadPrevAndKeepPos() async {
+    assert(_controller.hasPrev! && _controller.isLoadPrevious);
+    final lastCount = _controller.loadingState.value.dataOrNull?.length;
+    await _controller.queryData();
+    if (mounted) {
+      final newCount = _controller.loadingState.value.dataOrNull?.length;
+      if (lastCount != null && newCount != null && newCount > lastCount) {
+        _jumpToIndex(newCount - lastCount);
+      }
+    }
+  }
+
+  Future<void> _onRefresh() {
+    if (_controller.isLoadPrevious) {
+      return _loadPrevAndKeepPos();
+    }
+    return _controller.onRefresh();
+  }
+
+  @override
+  Widget fabAnimWrapper({required Widget child}) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: onNotification,
+      child: child,
+    );
+  }
+
+  @override
+  bool onNotification(ScrollNotification notification) {
+    if (notification is UserScrollNotification) {
+      return super.onNotification(notification);
+    }
+    if (_controller.isLocating) {
+      if (notification is ScrollEndNotification &&
+          notification.metrics.pixels == 0) {
+        if (_controller.hasPrev == true && !_controller.isLoading) {
+          _controller
+            ..isLoadPrevious = true
+            ..refreshKey.currentState?.show();
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
     final padding = MediaQuery.viewPaddingOf(context);
-    final child = refreshIndicator(
-      onRefresh: () async {
-        final count = _controller.loadingState.value.dataOrNull?.length;
-        await _controller.onRefresh();
-        if (_controller.isLocating.value && mounted) {
-          final newCount = _controller.loadingState.value.dataOrNull?.length;
-          if (count != null && newCount != null && newCount > count) {
-            SchedulerBinding.instance.addPostFrameCallback((_) {
-              _jumpToIndex(newCount - count);
-            });
-          }
-        }
-      },
-      child: CustomScrollView(
-        physics: ReloadScrollPhysics(controller: _controller),
-        slivers: [
-          SliverPadding(
-            padding: EdgeInsets.only(bottom: padding.bottom + 100),
-            sliver: Obx(
-              () => _buildBody(theme, _controller.loadingState.value),
-            ),
+    Widget child = CustomScrollView(
+      physics: ReloadScrollPhysics(controller: _controller),
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.only(bottom: padding.bottom + 100),
+          sliver: Obx(
+            () => _buildBody(theme, _controller.loadingState.value),
           ),
-        ],
-      ),
+        ),
+      ],
     );
     if (_controller.isVideo && _controller.fromViewAid?.isNotEmpty == true) {
-      return Stack(
+      child = Stack(
         clipBehavior: Clip.none,
         children: [
           fabAnimWrapper(child: child),
           Obx(
-            () => !_controller.isLocating.value
+            () => !_controller.isLocating
                 ? Positioned(
                     right: kFloatingActionButtonMargin,
                     bottom: 0,
@@ -134,7 +166,6 @@ class _MemberVideoState extends State<MemberVideo>
                         child: FloatingActionButton.extended(
                           onPressed: () {
                             final fromViewAid = _controller.fromViewAid;
-                            _controller.isLocating.value = true;
                             final locatedIndex =
                                 _controller.loadingState.value.dataOrNull
                                     ?.indexWhere(
@@ -143,12 +174,17 @@ class _MemberVideoState extends State<MemberVideo>
                                 -1;
                             if (locatedIndex == -1) {
                               _controller
+                                ..setIsLocating(true)
                                 ..lastAid = fromViewAid
                                 ..reload = true
                                 ..page = 0
                                 ..loadingState.value = LoadingState.loading()
                                 ..queryData();
                             } else {
+                              _controller.setIsLocating(
+                                true,
+                                isOnlyInnerScroll: false,
+                              );
                               _jumpToIndex(locatedIndex);
                             }
                           },
@@ -162,7 +198,12 @@ class _MemberVideoState extends State<MemberVideo>
         ],
       );
     }
-    return child;
+    return refreshIndicator(
+      key: _controller.refreshKey,
+      isClampingScrollPhysics: true,
+      onRefresh: _onRefresh,
+      child: child,
+    );
   }
 
   @override

@@ -287,6 +287,32 @@ abstract final class SettingBoxKey {
   static const String systemProxyHost = 'systemProxyHost',
       systemProxyPort = 'systemProxyPort';
 
+  static const String bufferSizeCellular = 'bufferSizeCellular',
+      bufferSecCellular = 'bufferSecCellular',
+      bufferSizeWeak = 'bufferSizeWeak',
+      bufferSecWeak = 'bufferSecWeak',
+      bufferWeakSync = 'bufferWeakSync',
+      CDNServices = 'CDNServices',
+      CDNServicesCellular = 'CDNServicesCellular';
+
+  static const String wiredNetworkPolicy = 'wiredNetworkPolicy',
+      wiredMinLinkSpeed = 'wiredMinLinkSpeed',
+      wiredNonstandardLinkSpeed = 'wiredNonstandardLinkSpeed',
+      wifiNetworkPolicy = 'wifiNetworkPolicy',
+      wifiNetworkPolicyMode = 'wifiNetworkPolicyMode',
+      wifiRssiThreshold = 'wifiRssiThreshold',
+      wifiMinLinkSpeed = 'wifiMinLinkSpeed',
+      networkPeakPeriods = 'networkPeakPeriods',
+      networkPeakCodecs = 'networkPeakCodecs',
+      cellularQualityMode = 'cellularQualityMode',
+      cellularQualityMatch = 'cellularQualityMatch',
+      cellularQualityJudgeMode = 'cellularQualityJudgeMode',
+      cellularDownstreamThresholdMbps = 'cellularDownstreamThresholdMbps',
+      cellularDbmThreshold = 'cellularDbmThreshold',
+      cellularSignalLevelThreshold = 'cellularSignalLevelThreshold',
+      webdavBackupCdnDiagnostics = 'webdavBackupCdnDiagnostics',
+      subtitleFollowerThreshold = 'subtitleFollowerThreshold';
+
   static const String themeMode = 'themeMode',
       defaultTextScale = 'textScale',
       appFontWeightV2 = 'appFontWeightV2',
@@ -355,5 +381,6 @@ abstract final class VideoBoxKey {
       longPressSpeedDefault = 'longPressSpeedDefault',
       speedsList = 'speedsList',
       authorPlaySpeeds = 'authorPlaySpeeds',
+      trafficStats = 'trafficStats',
       cacheVideoFit = 'cacheVideoFit';
 }

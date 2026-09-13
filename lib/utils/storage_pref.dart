@@ -425,6 +425,11 @@ abstract final class Pref {
         defaultValue: SubtitlePrefType.off.index,
       )];
 
+  static int get subtitleFollowerThreshold => _setting.get(
+    SettingBoxKey.subtitleFollowerThreshold,
+    defaultValue: 1000,
+  );
+
   static bool get useRelativeSlide =>
       _setting.get(SettingBoxKey.useRelativeSlide, defaultValue: false);
 
@@ -494,6 +499,39 @@ abstract final class Pref {
       return CDNService.values.byName(cdnName);
     }
     return CDNService.backupUrl;
+  }
+
+  static List<CDNService> get defaultCDNServices =>
+      _readCDNServices(SettingBoxKey.CDNServices);
+
+  static List<CDNService> get defaultCDNServicesCellular =>
+      _readCDNServices(SettingBoxKey.CDNServicesCellular);
+
+  static List<CDNService> _readCDNServices(String key) {
+    if (_setting.get(key) case final List stored) {
+      final result = <CDNService>[];
+      for (final name in stored.whereType<String>()) {
+        for (final cdn in CDNService.values) {
+          if (cdn.name == name && !result.contains(cdn)) {
+            result.add(cdn);
+            break;
+          }
+        }
+      }
+      if (result.isNotEmpty) return result;
+    }
+    final legacy = defaultCDNService;
+    return [
+      legacy,
+      for (final cdn in const [
+        CDNService.backupUrl,
+        CDNService.baseUrl,
+        CDNService.ali,
+        CDNService.cos,
+        CDNService.hw,
+      ])
+        if (cdn != legacy) cdn,
+    ];
   }
 
   static String? get customCDNUrl {
@@ -1364,9 +1402,37 @@ abstract final class Pref {
   static double get bufferSec =>
       _setting.get(SettingBoxKey.bufferSec, defaultValue: 16.0);
 
-  static Map<String, String> initBuffer([double playbackSpeed = 1.0]) {
-    final bufSec = Pref.bufferSec * playbackSpeed;
-    final bufSiz = (Pref.bufferSize * 0x100000).toStringAsFixed(0);
+  // 真蜂窝专用：即使蜂窝被质量策略判为“等效宽带”，仍使用这里的
+  // 缓冲参数，以免高质量蜂窝因为大缓存额外消耗流量。
+  static double get bufferSizeCellular =>
+      _setting.get(SettingBoxKey.bufferSizeCellular, defaultValue: 4.0);
+
+  static double get bufferSecCellular =>
+      _setting.get(SettingBoxKey.bufferSecCellular, defaultValue: 16.0);
+
+  static bool get bufferWeakSync =>
+      _setting.get(SettingBoxKey.bufferWeakSync, defaultValue: false);
+
+  static double get bufferSizeWeak => bufferWeakSync
+      ? bufferSize
+      : _setting.get(SettingBoxKey.bufferSizeWeak, defaultValue: 211.0);
+
+  static double get bufferSecWeak => bufferWeakSync
+      ? bufferSec
+      : _setting.get(SettingBoxKey.bufferSecWeak, defaultValue: 985.0);
+
+  // bufferProfile: 0=宽带，1=非蜂窝弱网，2=真蜂窝。
+  static Map<String, String> initBuffer([
+    double playbackSpeed = 1.0,
+    int bufferProfile = 0,
+  ]) {
+    final (sizeMiB, seconds) = switch (bufferProfile) {
+      2 => (bufferSizeCellular, bufferSecCellular),
+      1 => (bufferSizeWeak, bufferSecWeak),
+      _ => (bufferSize, bufferSec),
+    };
+    final bufSec = seconds * playbackSpeed;
+    final bufSiz = (sizeMiB * 0x100000).toStringAsFixed(0);
     return {
       'cache': 'yes',
       'cache-secs': bufSec.toStringAsFixed(3),
@@ -1376,10 +1442,15 @@ abstract final class Pref {
     };
   }
 
-  static Map<String, String> initLiveBuffer() {
+  static Map<String, String> initLiveBuffer([int bufferProfile = 0]) {
+    final sizeMiB = switch (bufferProfile) {
+      2 => bufferSizeCellular,
+      1 => bufferSizeWeak,
+      _ => bufferSize,
+    };
     return {
       'cache': 'yes',
-      'demuxer-max-bytes': (Pref.bufferSize * 0x200000).toStringAsFixed(0),
+      'demuxer-max-bytes': (sizeMiB * 0x200000).toStringAsFixed(0),
       'demuxer-max-back-bytes': '0',
     };
   }

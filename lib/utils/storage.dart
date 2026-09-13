@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:PiliPlus/models/model_owner.dart';
@@ -10,6 +12,7 @@ import 'package:PiliPlus/utils/accounts/account_type_adapter.dart';
 import 'package:PiliPlus/utils/accounts/cookie_jar_adapter.dart';
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:PiliPlus/utils/set_int_adapter.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:hive_ce/hive.dart';
@@ -32,6 +35,180 @@ abstract final class GStorage {
     'remarkMids',
   ];
   static late final Box<Uint8List>? reply;
+
+  static File get trafficStatsFile =>
+      File(path.join(appSupportDirPath, 'traffic_stats.json'));
+
+  static File get cdnDiagnosticsFile =>
+      File(path.join(appSupportDirPath, 'cdn_diagnostic_latest.json'));
+
+  static File get cdnDiagnosticsHistoryFile =>
+      File(path.join(appSupportDirPath, 'cdn_diagnostic_history_v3.jsonl'));
+
+  static Map<String, dynamic>? readJsonMapSync(File file) {
+    if (!file.existsSync()) return null;
+    try {
+      final decoded = jsonDecode(file.readAsStringSync());
+      if (decoded is Map) {
+        return decoded.map((key, value) => MapEntry(key.toString(), value));
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<void> writeJsonFile(File file, Object? value) async {
+    await file.parent.create(recursive: true);
+    await file.writeAsString(jsonEncode(value), flush: true);
+  }
+
+  static Future<void> _deleteFileIfExists(File file) async {
+    if (await file.exists()) await file.delete();
+  }
+
+  static List<({String id, Map<String, dynamic> record})>
+  readCdnDiagnosticsSync() {
+    if (!cdnDiagnosticsFile.existsSync()) return const [];
+    // 最新结果快照本就极小；过大的文件是历史遗留的逐块记录，绝不同步解码。
+    if (cdnDiagnosticsFile.lengthSync() > 1 << 23) {
+      unawaited(_deleteFileIfExists(cdnDiagnosticsFile));
+      return const [];
+    }
+    final result = <({String id, Map<String, dynamic> record})>[];
+    try {
+      final decoded = jsonDecode(cdnDiagnosticsFile.readAsStringSync());
+      if (decoded is! Map || decoded['schemaVersion'] != 3) {
+        unawaited(_deleteFileIfExists(cdnDiagnosticsFile));
+        return const [];
+      }
+      for (final raw in (decoded['records'] as List? ?? const [])) {
+        if (raw is! Map) continue;
+        final record = raw.map(
+          (key, value) => MapEntry(key.toString(), value),
+        );
+        final id =
+            '${record['testRunStartedAtUs']}:'
+            '${record['cdn'] is Map ? (record['cdn'] as Map)['index'] : result.length}';
+        result.add((id: id, record: record));
+      }
+    } catch (_) {
+      unawaited(_deleteFileIfExists(cdnDiagnosticsFile));
+    }
+    return result;
+  }
+
+  static Future<void> replaceCdnDiagnostics(
+    List<({String id, Map<String, dynamic> record})> entries,
+  ) async {
+    if (entries.isEmpty) {
+      await _deleteFileIfExists(cdnDiagnosticsFile);
+      return;
+    }
+    var latestRun = 0;
+    for (final entry in entries) {
+      final record = entry.record;
+      final run =
+          (record['testRunStartedAtUs'] as num?)?.toInt() ??
+          (record['recordedAtUs'] as num?)?.toInt() ??
+          0;
+      if (run > latestRun) latestRun = run;
+    }
+    final latest = [
+      for (final entry in entries)
+        if (((entry.record['testRunStartedAtUs'] as num?)?.toInt() ??
+                    (entry.record['recordedAtUs'] as num?)?.toInt() ??
+                    0) ==
+                latestRun)
+          entry.record,
+    ];
+    await cdnDiagnosticsFile.parent.create(recursive: true);
+    final temp = File('${cdnDiagnosticsFile.path}.tmp');
+    await temp.writeAsString(
+      jsonEncode({'schemaVersion': 3, 'records': latest}),
+      flush: true,
+    );
+    if (await cdnDiagnosticsFile.exists()) await cdnDiagnosticsFile.delete();
+    await temp.rename(cdnDiagnosticsFile.path);
+  }
+
+  static List<({String id, Map<String, dynamic> record})>
+  readCdnDiagnosticsHistorySync() {
+    if (!cdnDiagnosticsHistoryFile.existsSync()) return const [];
+    final result = <({String id, Map<String, dynamic> record})>[];
+    try {
+      for (final line in cdnDiagnosticsHistoryFile.readAsLinesSync()) {
+        if (line.trim().isEmpty) continue;
+        final decoded = jsonDecode(line);
+        if (decoded is! Map || decoded['schemaVersion'] != 3) {
+          throw const FormatException('unsupported CDN history schema');
+        }
+        for (final raw in (decoded['records'] as List? ?? const [])) {
+          if (raw is! Map) continue;
+          final record = raw.map(
+            (key, value) => MapEntry(key.toString(), value),
+          );
+          final id =
+              '${record['testRunStartedAtUs']}:'
+              '${record['cdn'] is Map ? (record['cdn'] as Map)['index'] : result.length}';
+          result.add((id: id, record: record));
+        }
+      }
+    } catch (_) {
+      unawaited(_deleteFileIfExists(cdnDiagnosticsHistoryFile));
+      return const [];
+    }
+    return result;
+  }
+
+  static Future<void> appendCdnDiagnosticsHistory(
+    List<({String id, Map<String, dynamic> record})> entries,
+  ) async {
+    if (entries.isEmpty) return;
+    await cdnDiagnosticsHistoryFile.parent.create(recursive: true);
+    await cdnDiagnosticsHistoryFile.writeAsString(
+      '${jsonEncode({
+        'schemaVersion': 3,
+        'records': [for (final entry in entries) entry.record],
+      })}\n',
+      mode: FileMode.append,
+      flush: true,
+    );
+  }
+
+  static Future<void> replaceCdnDiagnosticsHistory(
+    List<({String id, Map<String, dynamic> record})> entries,
+  ) async {
+    if (entries.isEmpty) {
+      await _deleteFileIfExists(cdnDiagnosticsHistoryFile);
+      return;
+    }
+
+    final grouped = <int, List<Map<String, dynamic>>>{};
+    for (final entry in entries) {
+      final record = entry.record;
+      final run =
+          (record['testRunStartedAtUs'] as num?)?.toInt() ??
+          (record['recordedAtUs'] as num?)?.toInt() ??
+          0;
+      (grouped[run] ??= []).add(record);
+    }
+
+    final runs = grouped.keys.toList()..sort();
+    await cdnDiagnosticsHistoryFile.parent.create(recursive: true);
+    final temp = File('${cdnDiagnosticsHistoryFile.path}.tmp');
+    final sink = temp.openWrite();
+    try {
+      for (final run in runs) {
+        sink.writeln(jsonEncode({'schemaVersion': 3, 'records': grouped[run]}));
+      }
+    } finally {
+      await sink.flush();
+      await sink.close();
+    }
+    if (await cdnDiagnosticsHistoryFile.exists()) {
+      await cdnDiagnosticsHistoryFile.delete();
+    }
+    await temp.rename(cdnDiagnosticsHistoryFile.path);
+  }
 
   static Future<void> init() async {
     Hive.init(path.join(appSupportDirPath, 'hive'));

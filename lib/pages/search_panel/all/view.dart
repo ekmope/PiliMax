@@ -1,15 +1,12 @@
-import 'package:PiliMax/common/skeleton/video_card_h.dart';
-import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/video_card/video_card_h.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_card_h_layout_metrics.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/search/result.dart';
+import 'package:PiliMax/models/search/search_esports.dart';
 import 'package:PiliMax/pages/search_panel/all/controller.dart';
 import 'package:PiliMax/pages/search_panel/video/view.dart';
-import 'package:PiliMax/pilimax/forks/pages/search_panel/all/widgets/pgc_card_v_search.dart';
 import 'package:PiliMax/pilimax/forks/pages/search_panel/pgc/widgets/item.dart';
-import 'package:PiliMax/pages/search_panel/user/widgets/item.dart';
 import 'package:PiliMax/pilimax/forks/pages/search_panel/view.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/waterfall.dart';
@@ -20,6 +17,7 @@ import 'package:waterfall_flow/waterfall_flow.dart'
     hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
 import 'package:PiliMax/pages/search_panel/all/widgets/activity.dart';
 import 'package:PiliMax/pages/search_panel/all/widgets/user.dart';
+import 'package:PiliMax/pages/search_panel/all/widgets/esports.dart';
 
 class SearchAllPanel extends SearchVideoPanel {
   const SearchAllPanel({
@@ -61,6 +59,15 @@ class _SearchAllPanelState
   Widget buildList(ThemeData theme, List<SearchVideoItemModel> list) {
     return SliverMainAxisGroup(
       slivers: [
+        if (controller.searchEsports case final esports?) ...[
+          _buildEsports(esports),
+          SliverToBoxAdapter(
+            child: Divider(
+              height: 14,
+              color: theme.colorScheme.outline.withValues(alpha: 0.1),
+            ),
+          ),
+        ],
         ...?controller.searchActivity?.map((e) {
           return SliverToBoxAdapter(
             child: SearchActivityItem(item: e),
@@ -84,6 +91,9 @@ class _SearchAllPanelState
       ],
     );
   }
+
+  static Widget _buildEsports(SearchEsports item) =>
+      SliverToBoxAdapter(child: SearchEsportsItem(item: item));
 
   Widget _buildVideoResults(List<SearchVideoItemModel> list) {
     return SliverWaterfallFlow(

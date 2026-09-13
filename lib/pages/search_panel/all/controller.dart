@@ -1,6 +1,7 @@
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/search/search_type.dart';
 import 'package:PiliMax/models/search/result.dart';
+import 'package:PiliMax/models/search/search_esports.dart';
 import 'package:PiliMax/pages/search_panel/video/controller.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
@@ -16,6 +17,7 @@ class SearchAllController extends SearchVideoController {
   List<SearchUser>? searchUser;
   List<SearchPgcItemModel>? searchMedia;
   List<SearchActivity>? searchActivity;
+  SearchEsports? searchEsports;
 
   @override
   bool customHandleResponse(bool isRefresh, Success<SearchVideoData> response) {
@@ -24,6 +26,7 @@ class SearchAllController extends SearchVideoController {
       searchUser = res.searchUser;
       searchMedia = res.searchMedia;
       searchActivity = res.searchActivity;
+      searchEsports = res.searchEsports;
       _actualSearchType = SearchType.video;
     }
     return super.customHandleResponse(isRefresh, response);
@@ -40,14 +43,18 @@ class SearchAllController extends SearchVideoController {
         videoZoneType != .all ||
         pubBegin != null ||
         pubEnd != null) {
-    _actualSearchType = SearchType.video;
+      _actualSearchType = SearchType.video;
       return;
     }
     _actualSearchType = SearchType.all;
   }
 
-  static final _b23Regex = RegExp(r'b23\.tv/[A-Za-z0-9]{7}$', caseSensitive: false);
+  static final _b23Regex = RegExp(
+    r'b23\.tv/[A-Za-z0-9]{7}$',
+    caseSensitive: false,
+  );
 
+  @override
   Future<void> jump2Video() async {
     if (IdUtils.avRegexExact.hasMatch(keyword)) {
       hasJump2Video = true;
@@ -80,6 +87,7 @@ class SearchAllController extends SearchVideoController {
     searchUser = null;
     searchMedia = null;
     searchActivity = null;
+    searchEsports = null;
     return super.onRefresh();
   }
 }

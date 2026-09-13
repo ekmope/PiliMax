@@ -461,14 +461,16 @@ class _VideoCardHState extends State<VideoCardH> {
               overflow: .clip,
             ),
           ),
-          const SizedBox(height: 3),
-          Row(
-            spacing: 8,
-            children: [
-              StatWidget(type: .play, value: videoItem.stat.view),
-              StatWidget(type: .danmaku, value: videoItem.stat.danmu),
-            ],
-          ),
+          if (videoItem.isLive != true) ...[
+            const SizedBox(height: 3),
+            Row(
+              spacing: 8,
+              children: [
+                StatWidget(type: .play, value: videoItem.stat.view),
+                StatWidget(type: .danmaku, value: videoItem.stat.danmu),
+              ],
+            ),
+          ],
         ],
       ),
     );

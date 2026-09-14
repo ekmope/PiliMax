@@ -1,5 +1,6 @@
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:PiliPlus/models_new/pgc/pgc_info_model/episode.dart';
 import 'package:PiliPlus/models_new/pgc/pgc_info_model/result.dart';
@@ -83,9 +84,12 @@ class BackupSourceService {
     String? url;
     try {
       final html = await engine.fetchPageHtml(cand.episode.pageUrl);
-      if (html != null && engine.matchVideoUrl case final pattern?) {
+      final pattern = engine.matchVideoUrl;
+      if (html != null && pattern != null && pattern.isNotEmpty) {
         final m = RegExp(pattern).firstMatch(html);
-        if (m != null) url = m.group(0) ?? m.group(1);
+        if (m != null) {
+          url = m.group(0) ?? m.group(1);
+        }
       }
       url ??= await VideoUrlSniffer.sniff(
         pageUrl: cand.episode.pageUrl,
@@ -135,7 +139,7 @@ class BackupSourceLauncher {
     required PgcInfoModel pgcItem,
     EpisodeItem? episode,
   }) async {
-    final title = pgcItem.title.trim();
+    final title = (pgcItem.title ?? '').trim();
     if (title.isEmpty) return;
     final seasonNumber = episode?.showTitle == null
         ? null

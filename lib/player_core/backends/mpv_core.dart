@@ -58,9 +58,9 @@ class MpvCorePlayer implements CorePlayer {
       Media(
         url,
         start: source.startPosition,
-        extras: {
+        extras: <String, dynamic>{
           if (source.headers.isNotEmpty || _extraHeaders.isNotEmpty)
-            'headers': {
+            'headers': <String, String>{
               ...source.headers,
               ..._extraHeaders,
             },

@@ -157,7 +157,7 @@ class SelectorEngine {
     }
     final cfg = _map('selectorChannelFormatNoChannel');
     final episodes = _parseEpisodeList(
-      doc,
+      doc.documentElement,
       subjectUrl,
       cfg?['selectEpisodes'] as String?,
       _str('matchEpisodeSortFromName'),
@@ -229,6 +229,9 @@ class SelectorEngine {
   ) {
     final episodes = <SourceEpisode>[];
     if (select == null || select.isEmpty) return episodes;
+    // Document implements Element but Dart's covariant inheritance doesn't
+    // always permit passing Document where Element is expected; the
+    // caller resolves to documentElement before invoking us.
     for (final el in rootEl.querySelectorAll(select)) {
       final anchor = el.text.trim();
       final href =

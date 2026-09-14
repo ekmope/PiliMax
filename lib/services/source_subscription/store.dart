@@ -20,11 +20,11 @@ class SourceSubscriptionStore {
   final RxList<SourceInstance> instances = RxList();
 
   File get _subscriptionsFile => File(
-    path.join(GStorage.appSupportDirPath, 'source_subscriptions.json'),
+    path.join(appSupportDirPath, 'source_subscriptions.json'),
   );
 
   File get _instancesFile => File(
-    path.join(GStorage.appSupportDirPath, 'source_instances.json'),
+    path.join(appSupportDirPath, 'source_instances.json'),
   );
 
   void _load() {

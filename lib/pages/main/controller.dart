@@ -31,7 +31,7 @@ class MainController extends GetxController
   @override
   final AccountService accountService = Get.find<AccountService>();
 
-  List<NavigationBarType> navigationBars = <NavigationBarType>[];
+  late List<NavigationBarType> navigationBars;
 
   RxDouble? barOffset;
   RxBool? showBottomBar;
@@ -188,22 +188,22 @@ class MainController extends GetxController
   void setNavBarConfig() {
     List<int>? navBarSort =
         (GStorage.setting.get(SettingBoxKey.navBarSort) as List?)?.fromCast();
-    late final List<NavigationBarType> navigationBars;
+    List<NavigationBarType> bars;
     if (navBarSort == null || navBarSort.isEmpty) {
-      navigationBars = NavigationBarType.values;
+      bars = NavigationBarType.values;
     } else {
-      navigationBars = navBarSort
+      bars = navBarSort
           .map(NavigationBarType.values.getOrNull)
           .whereType<NavigationBarType>()
           .toList();
     }
     // 若用户存的旧排序过滤后为空，回退到默认
-    if (navigationBars.isEmpty) {
-      navigationBars = NavigationBarType.values;
+    if (bars.isEmpty) {
+      bars = NavigationBarType.values;
     }
-    this.navigationBars = navigationBars;
+    navigationBars = bars;
     final defPage = Pref.defaultHomePage;
-    selectedIndex.value = math.max(0, navigationBars.indexOf(defPage));
+    selectedIndex.value = math.max(0, bars.indexOf(defPage));
   }
 
   void checkDefaultSearch([bool shouldCheck = false]) {
@@ -293,7 +293,7 @@ class MainController extends GetxController
               Get.putOrFind(() => DynamicsController()).onRefresh();
               break;
             case NavigationBarType.history:
-              Get.putOrFind(() => HistoryController()).onReload();
+              Get.putOrFind(() => HistoryController(null)).onReload();
               break;
             case NavigationBarType.mine:
               Get.putOrFind(() => MineController()).onRefresh();
@@ -310,7 +310,7 @@ class MainController extends GetxController
           Get.putOrFind(() => DynamicsController()).onRefresh();
           break;
         case NavigationBarType.history:
-          Get.putOrFind(() => HistoryController()).onReload();
+          Get.putOrFind(() => HistoryController(null)).onReload();
           break;
         case NavigationBarType.mine:
           Get.putOrFind(() => MineController()).toTopOrRefresh();
@@ -329,7 +329,7 @@ class MainController extends GetxController
         Get.putOrFind(() => DynamicsController()).onRefresh();
         break;
       case NavigationBarType.history:
-        Get.putOrFind(() => HistoryController()).onReload();
+        Get.putOrFind(() => HistoryController(null)).onReload();
         break;
       case NavigationBarType.mine:
         Get.putOrFind(() => MineController()).toTopAndRefresh();

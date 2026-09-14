@@ -21,7 +21,7 @@ on:
       target_platforms:
         description: "Flutter target platforms"
         required: false
-        default: "android-arm,android-arm64,android-x64"
+        default: "android-arm64"
         type: string
       upload_arm64_v8a:
         description: "Upload arm64-v8a artifact"

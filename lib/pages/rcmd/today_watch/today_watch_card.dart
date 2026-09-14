@@ -257,6 +257,9 @@ class TodayWatchCard extends StatelessWidget {
     int index,
     BaseRcmdVideoItemModel video,
   ) {
+    final ownerName = video.owner.name?.trim();
+    final displayName =
+        (ownerName != null && ownerName.isNotEmpty) ? ownerName : 'UP主';
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () => controller.onVideoTap(video),
@@ -324,7 +327,7 @@ class TodayWatchCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${video.owner.name} · ${DurationUtils.formatDuration(video.duration)}',
+                    '$displayName · ${video.duration > 0 ? DurationUtils.formatDuration(video.duration) : '时长未知'}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

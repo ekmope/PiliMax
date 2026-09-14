@@ -12,7 +12,7 @@ enum NavigationBarType implements EnumWithLabel {
     HomePage(),
   ),
   history(
-    '历史',
+    '历史记录',
     Icon(Icons.history_outlined),
     Icon(Icons.history),
     HistoryPage(),

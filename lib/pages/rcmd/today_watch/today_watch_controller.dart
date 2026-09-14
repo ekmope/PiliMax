@@ -5,6 +5,7 @@ import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/model_rec_video_item.dart';
 import 'package:PiliPlus/models_new/history/list.dart';
 import 'package:PiliPlus/pages/rcmd/today_watch/today_watch_policy.dart';
+import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -18,7 +19,8 @@ class TodayWatchController extends GetxController {
       SettingBoxKey.todayWatchMode,
       defaultValue: TodayWatchMode.relax.index,
     );
-    mode.value = TodayWatchMode.values[modeIndex];
+    mode.value =
+        TodayWatchMode.values.getOrNull(modeIndex) ?? TodayWatchMode.relax;
   }
 
   final Rxn<TodayWatchPlan> plan = Rxn();
@@ -41,17 +43,15 @@ class TodayWatchController extends GetxController {
 
   bool get canGenerate =>
       !_autoGenerating &&
-      !_loading &&
+      !loading.value &&
       DateTime.now().difference(_lastGeneratedAt ?? DateTime(2000)) >
           _minRegenerateInterval;
 
-  bool _loading = false;
   bool _autoGenerating = false;
 
   Future<void> generate({bool force = false}) async {
-    if (_loading) return;
+    if (loading.value) return;
     if (!force && !canGenerate) return;
-    _loading = true;
     _lastGeneratedAt = DateTime.now();
     loading.value = true;
     error.value = null;
@@ -76,7 +76,6 @@ class TodayWatchController extends GetxController {
       error.value = e.toString();
       plan.value = null;
     } finally {
-      _loading = false;
       loading.value = false;
     }
   }

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:PiliPlus/models/home/rcmd/result.dart';
 import 'package:PiliPlus/models/model_rec_video_item.dart';
 import 'package:PiliPlus/models_new/history/list.dart';
 
@@ -221,7 +222,10 @@ TodayWatchPlan buildTodayWatchPlan({
 
   final scoredCandidates = <_ScoredCandidate>[];
   for (final (index, video) in eligibleCandidates.indexed) {
-    final topics = _resolveTopicKeys(video.title, '');
+    final topics = _resolveTopicKeys(
+      video.title,
+      video is RcmdVideoItemAppModel ? (video.tname ?? '') : '',
+    );
     final creatorScore = creatorAffinity[video.owner.mid ?? 0] ?? 0.0;
     final topicScore = topics.isEmpty
         ? 0.0
@@ -513,6 +517,8 @@ Set<String> _resolveTopicKeys(String title, String tname) {
 double _estimateCompletionRatio(HistoryItemModel item) {
   final progress = item.progress ?? 0;
   final duration = item.duration ?? 0;
+  // 历史接口用 -1 表示已看完（见 HistoryItemModel.playbackProgress 注释）
+  if (progress == -1) return 1.0;
   if (progress < 0) return 0.35;
   if (duration <= 0) return (progress / 600).clamp(0.0, 1.0);
   return (progress / duration).clamp(0.0, 1.0);

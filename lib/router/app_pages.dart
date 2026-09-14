@@ -1,4 +1,6 @@
 import 'package:PiliPlus/pages/about/view.dart';
+import 'package:PiliPlus/pages/core_video/controller.dart';
+import 'package:PiliPlus/pages/source_search/source_search_page.dart';
 import 'package:PiliPlus/pages/setting/ai_setting/view.dart';
 import 'package:PiliPlus/pages/article/view.dart';
 import 'package:PiliPlus/pages/article_list/view.dart';
@@ -55,12 +57,16 @@ import 'package:PiliPlus/pages/search/view.dart';
 import 'package:PiliPlus/pages/search_result/view.dart';
 import 'package:PiliPlus/pages/search_trending/view.dart';
 import 'package:PiliPlus/pages/setting/pages/bar_set.dart';
+import 'package:PiliPlus/pages/setting/pages/cdn_settings.dart';
 import 'package:PiliPlus/pages/setting/pages/color_select.dart';
+import 'package:PiliPlus/pages/setting/pages/source_subscription_page.dart';
 import 'package:PiliPlus/pages/setting/pages/display_mode.dart';
 import 'package:PiliPlus/pages/setting/pages/double_tap_seek_zone_setting.dart';
 import 'package:PiliPlus/pages/setting/pages/font_setting.dart';
 import 'package:PiliPlus/pages/setting/pages/logs.dart';
+import 'package:PiliPlus/pages/setting/pages/network_policy.dart';
 import 'package:PiliPlus/pages/setting/pages/play_speed_set.dart';
+import 'package:PiliPlus/pages/setting/pages/traffic_stats.dart';
 import 'package:PiliPlus/pages/setting/view.dart';
 import 'package:PiliPlus/pages/settings_search/view.dart';
 import 'package:PiliPlus/pages/space_setting/view.dart';
@@ -167,6 +173,12 @@ class Routes {
     GetPage(name: '/dynTopic', page: () => const DynTopicPage()),
     GetPage(name: '/articleList', page: () => const ArticleListPage()),
     GetPage(name: '/barSetting', page: () => const BarSetPage()),
+    GetPage(name: '/cdnSettings', page: () => const CdnSettingsPage()),
+    GetPage(name: '/networkPolicy', page: () => const NetworkPolicyPage()),
+    GetPage(name: '/trafficStats', page: () => const TrafficStatsPage()),
+    GetPage(name: '/sourceSubscription', page: () => const SourceSubscriptionPage()),
+    GetPage(name: '/coreVideo', page: () => const CoreVideoPage()),
+    GetPage(name: '/sourceSearch', page: () => const SourceSearchPage()),
     GetPage(name: '/upowerRank', page: () => const UpowerRankPage()),
     GetPage(name: '/spaceSetting', page: () => const SpaceSettingPage()),
     GetPage(name: '/dynTopicRcmd', page: () => const DynTopicRcmdPage()),

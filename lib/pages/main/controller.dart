@@ -2,14 +2,13 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
-import 'package:PiliPlus/grpc/dyn.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/msg.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
-import 'package:PiliPlus/pages/dynamics/controller.dart';
+import 'package:PiliPlus/pages/history/controller.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/mine/view.dart';
@@ -40,14 +39,6 @@ class MainController extends GetxController
   bool useBottomNav = false;
   late dynamic controller;
   final RxInt selectedIndex = 0.obs;
-
-  final RxInt dynCount = 0.obs;
-  late DynamicBadgeMode dynamicBadgeMode;
-  late bool checkDynamic = Pref.checkDynamic;
-  late int dynamicPeriod = Pref.dynamicPeriod * 60 * 1000;
-  late int _lastCheckDynamicAt = 0;
-  late bool hasDyn = false;
-  late final dynamicController = Get.putOrFind(DynamicsController.new);
 
   late bool hasHome = false;
   late final homeController = Get.putOrFind(HomeController.new);
@@ -97,18 +88,6 @@ class MainController extends GetxController
           showBottomBar = RxBool(true);
         case .sync:
           barOffset ??= RxDouble(0.0);
-      }
-    }
-
-    dynamicBadgeMode = Pref.dynamicBadgeMode;
-
-    hasDyn = navigationBars.contains(NavigationBarType.dynamics);
-    if (dynamicBadgeMode != DynamicBadgeMode.hidden) {
-      if (hasDyn && navigationBars[selectedIndex.value] != .dynamics) {
-        if (checkDynamic) {
-          _lastCheckDynamicAt = DateTime.now().millisecondsSinceEpoch;
-        }
-        getUnreadDynamic();
       }
     }
 
@@ -197,36 +176,6 @@ class MainController extends GetxController
     }
   }
 
-  void getUnreadDynamic() {
-    if (!accountService.isLogin.value || !hasDyn) {
-      return;
-    }
-    DynGrpc.dynRed().then((res) {
-      if (res != null) {
-        setDynCount(res);
-      }
-    });
-  }
-
-  void setDynCount([int count = 0]) {
-    if (!hasDyn) return;
-    dynCount.value = count;
-  }
-
-  void checkUnreadDynamic() {
-    if (!hasDyn ||
-        !accountService.isLogin.value ||
-        dynamicBadgeMode == DynamicBadgeMode.hidden ||
-        !checkDynamic) {
-      return;
-    }
-    int now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastCheckDynamicAt >= dynamicPeriod) {
-      _lastCheckDynamicAt = now;
-      getUnreadDynamic();
-    }
-  }
-
   void setNavBarConfig() {
     List<int>? navBarSort =
         (GStorage.setting.get(SettingBoxKey.navBarSort) as List?)?.fromCast();
@@ -305,8 +254,6 @@ class MainController extends GetxController
       if (currentNav == NavigationBarType.home) {
         checkDefaultSearch();
         checkUnread();
-      } else if (currentNav == NavigationBarType.dynamics) {
-        setDynCount();
       }
     } else {
       if (Pref.enableCurrentPageRefresh) {
@@ -328,8 +275,8 @@ class MainController extends GetxController
             case NavigationBarType.home:
               homeController.onRefresh();
               break;
-            case NavigationBarType.dynamics:
-              dynamicController.onRefresh();
+            case NavigationBarType.history:
+              Get.putOrFind(HistoryController.new).onReload();
               break;
             case NavigationBarType.mine:
               Get.putOrFind(MineController.new).onRefresh();
@@ -342,8 +289,8 @@ class MainController extends GetxController
         case NavigationBarType.home:
           homeController.toTopOrRefresh();
           break;
-        case NavigationBarType.dynamics:
-          dynamicController.toTopOrRefresh();
+        case NavigationBarType.history:
+          Get.putOrFind(HistoryController.new).onReload();
           break;
         case NavigationBarType.mine:
           Get.putOrFind(MineController.new).toTopOrRefresh();
@@ -358,8 +305,8 @@ class MainController extends GetxController
       case NavigationBarType.home:
         homeController.toTopAndRefresh();
         break;
-      case NavigationBarType.dynamics:
-        dynamicController.toTopAndRefresh();
+      case NavigationBarType.history:
+        Get.putOrFind(HistoryController.new).onReload();
         break;
       case NavigationBarType.mine:
         Get.putOrFind(MineController.new).toTopAndRefresh();
@@ -394,9 +341,6 @@ class MainController extends GetxController
   void onChangeAccount(bool isLogin) {
     if (isLogin) {
       queryUnreadMsg();
-      getUnreadDynamic();
-    } else {
-      setDynCount();
     }
   }
 }

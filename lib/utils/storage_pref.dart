@@ -360,12 +360,6 @@ abstract final class Pref {
   static int get picQuality =>
       _setting.get(SettingBoxKey.defaultPicQa, defaultValue: 10);
 
-  static DynamicBadgeMode get dynamicBadgeType =>
-      DynamicBadgeMode.values[_setting.get(
-        SettingBoxKey.dynamicBadgeMode,
-        defaultValue: DynamicBadgeMode.number.index,
-      )];
-
   static DynamicBadgeMode get msgBadgeMode =>
       DynamicBadgeMode.values[_setting.get(
         SettingBoxKey.msgBadgeMode,
@@ -618,12 +612,6 @@ abstract final class Pref {
 
   static bool get blockTrack =>
       _setting.get(SettingBoxKey.blockTrack, defaultValue: !kDebugMode);
-
-  static bool get checkDynamic =>
-      _setting.get(SettingBoxKey.checkDynamic, defaultValue: true);
-
-  static int get dynamicPeriod =>
-      _setting.get(SettingBoxKey.dynamicPeriod, defaultValue: 5);
 
   static FlexSchemeVariant get schemeVariant =>
       FlexSchemeVariant.values[_setting.get(
@@ -1318,12 +1306,6 @@ abstract final class Pref {
         defaultValue: ReplySortType.time.index,
       )];
 
-  static DynamicBadgeMode get dynamicBadgeMode =>
-      DynamicBadgeMode.values[_setting.get(
-        SettingBoxKey.dynamicBadgeMode,
-        defaultValue: DynamicBadgeMode.number.index,
-      )];
-
   static bool get enableMYBar =>
       _setting.get(SettingBoxKey.enableMYBar, defaultValue: true);
 
@@ -1526,6 +1508,12 @@ abstract final class Pref {
 
   static bool get enableSaveLastData =>
       _setting.get(SettingBoxKey.enableSaveLastData, defaultValue: true);
+
+  static bool get showTodayWatch =>
+      _setting.get(SettingBoxKey.showTodayWatch, defaultValue: true);
+
+  static String get defaultPlayerBackend =>
+      _setting.get(SettingBoxKey.defaultPlayerBackend, defaultValue: 'mpv');
 
   static double get defaultToastOp =>
       _setting.get(SettingBoxKey.defaultToastOp, defaultValue: 1.0);

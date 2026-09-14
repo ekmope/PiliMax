@@ -5,6 +5,7 @@ import 'package:PiliPlus/models/common/super_chat_time_type.dart';
 import 'package:PiliPlus/models/common/super_chat_type.dart';
 import 'package:PiliPlus/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
+import 'package:PiliPlus/player_core/core_player.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/pages/fullscreen_sc_size.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
@@ -26,6 +27,17 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:material_ui/material_ui.dart';
 
 List<SettingsModel> get playSettings => [
+  PopupModel(
+    title: '默认播放内核',
+    leading: const Icon(Icons.memory),
+    value: () => PlayerBackend.fromName(Pref.defaultPlayerBackend),
+    items: PlayerBackend.values,
+    onSelected: (value, setState) {
+      GStorage.setting
+          .put(SettingBoxKey.defaultPlayerBackend, value.name)
+          .whenComplete(setState);
+    },
+  ),
   const SwitchModel(
     title: '弹幕开关',
     subtitle: '是否展示弹幕',

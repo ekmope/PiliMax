@@ -148,6 +148,8 @@ void main() async {
   Request.setCookie();
   RequestUtils.syncHistoryStatus();
 
+  SubscriptionUpdater.instance.start();
+
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
 
   // ESC 全平台注册：平板/手机外接键盘也可用（PageRoute 默认不消费 escape）

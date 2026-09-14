@@ -20,6 +20,7 @@ enum HomeTabType implements EnumWithLabel {
   rank('分区'),
   bangumi('番剧'),
   cinema('影视'),
+  subscribe('订阅'),
   ;
 
   @override
@@ -31,6 +32,7 @@ enum HomeTabType implements EnumWithLabel {
     HomeTabType.rcmd => Get.find<RcmdController>,
     HomeTabType.hot => Get.find<HotController>,
     HomeTabType.rank => Get.find<RankController>,
+    HomeTabType.subscribe => Get.find<SourceSearchController>,
     HomeTabType.bangumi ||
     HomeTabType.cinema => () => Get.find<PgcController>(tag: name),
   };
@@ -40,6 +42,7 @@ enum HomeTabType implements EnumWithLabel {
     HomeTabType.rcmd => const RcmdPage(),
     HomeTabType.hot => const HotPage(),
     HomeTabType.rank => const RankPage(),
+    HomeTabType.subscribe => const SourceSearchPage(),
     HomeTabType.bangumi => const PgcPage(tabType: HomeTabType.bangumi),
     HomeTabType.cinema => const PgcPage(tabType: HomeTabType.cinema),
   };

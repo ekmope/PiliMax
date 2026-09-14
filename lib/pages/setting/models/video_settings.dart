@@ -1,17 +1,16 @@
 import 'dart:io';
 
 import 'package:PiliPlus/models/common/video/audio_quality.dart';
+import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/live_quality.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/common/video/video_quality.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
-import 'package:PiliPlus/pages/setting/widgets/cdn_node_dialog.dart';
-import 'package:PiliPlus/pages/setting/widgets/cdn_select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/ordered_multi_select_dialog.dart';
+import 'package:PiliPlus/pages/setting/widgets/cdn_speed_setup_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
-import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/filtering_text.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -26,15 +25,15 @@ import 'package:material_ui/material_ui.dart';
 
 List<SettingsModel> get videoSettings => [
   const SwitchModel(
-    title: '开启硬解',
-    subtitle: '以较低功耗播放视频，若异常卡死请关闭',
+    title: '开启专用硬件加速解码',
+    subtitle: '以较低功耗播放视频，若无增益请关闭',
     leading: Icon(Icons.flash_on_outlined),
     setKey: SettingBoxKey.enableHA,
     defaultVal: true,
   ),
   const SwitchModel(
     title: '免登录1080P',
-    subtitle: '免登录查看1080P视频',
+    subtitle: '免登录观看1080P视频',
     leading: Icon(Icons.hd_outlined),
     setKey: SettingBoxKey.p1080,
     defaultVal: true,
@@ -61,8 +60,17 @@ List<SettingsModel> get videoSettings => [
     title: 'CDN 设置',
     leading: const Icon(MdiIcons.cloudPlusOutline),
     getSubtitle: () =>
-        '当前使用：${VideoUtils.effectiveCdnDesc()}，部分 CDN 可能失效，如无法播放请尝试切换',
-    onTap: _showCDNDialog,
+        '依次使用：${Pref.defaultCDNServices.map((item) => item.desc).join(" → ")}',
+    onTap: (context, setState) =>
+        _showCDNDialog(context, setState, cellular: false),
+  ),
+  NormalModel(
+    title: '蜂窝网络 CDN 设置',
+    leading: const Icon(MdiIcons.cloudPlusOutline),
+    getSubtitle: () =>
+        '依次使用：${Pref.defaultCDNServicesCellular.map((item) => item.desc).join(" → ")}',
+    onTap: (context, setState) =>
+        _showCDNDialog(context, setState, cellular: true),
   ),
   NormalModel(
     title: '直播 CDN 设置',
@@ -85,40 +93,15 @@ List<SettingsModel> get videoSettings => [
     defaultVal: false,
     onChanged: (value) => VideoUtils.disableAudioCDN = value,
   ),
-  if (Platform.isAndroid || Platform.isIOS)
-    NormalModel(
-      title: '半屏默认画质',
-      leading: const Icon(Icons.video_settings_outlined),
-      getSubtitle: () {
-        final qa = Pref.defaultVideoQaHalfScreen;
-        if (qa == null) {
-          return '跟随全屏画质'
-              '（WiFi ${VideoQuality.fromCode(Pref.defaultVideoQa).desc}'
-              '｜蜂窝 ${VideoQuality.fromCode(Pref.defaultVideoQaCellular).desc}）';
-        }
-        // 半屏实际画质 = min(半屏设置, 当前网络的全屏画质)，被夹持时提示实际值
-        final clamped = [
-          if (Pref.defaultVideoQa < qa)
-            'WiFi 下实际 ${VideoQuality.fromCode(Pref.defaultVideoQa).desc}',
-          if (Pref.defaultVideoQaCellular < qa)
-            '蜂窝下实际 ${VideoQuality.fromCode(Pref.defaultVideoQaCellular).desc}',
-        ];
-        final desc = VideoQuality.fromCode(qa).desc;
-        return clamped.isEmpty
-            ? '当前画质：$desc'
-            : '当前画质：$desc（${clamped.join('｜')}）';
-      },
-      onTap: _showVideoQaHalfScreenDialog,
-    ),
   NormalModel(
-    title: '全屏默认画质',
+    title: '默认画质',
     leading: const Icon(Icons.video_settings_outlined),
     getSubtitle: () =>
         '当前画质：${VideoQuality.fromCode(Pref.defaultVideoQa).desc}',
     onTap: _showVideoQaDialog,
   ),
   NormalModel(
-    title: '全屏蜂窝网络画质',
+    title: '蜂窝网络画质',
     leading: const Icon(Icons.video_settings_outlined),
     getSubtitle: () =>
         '当前画质：${VideoQuality.fromCode(Pref.defaultVideoQaCellular).desc}',
@@ -165,6 +148,12 @@ List<SettingsModel> get videoSettings => [
         '首选解码格式：${(Pref.preferCodecsCellular.map((i) => i.name).join(","))}，请根据设备支持情况与需求调整',
     onTap: _showCellularCodecsDialog,
   ),
+  NormalModel(
+    title: 'PC 网络状态联动判断',
+    subtitle: '按有线或 Wi-Fi 状态联动画质、音质与编码偏好，并可设置网络高峰期',
+    leading: const Icon(Icons.lan_outlined),
+    onTap: (_, _) => Get.toNamed('/networkPolicy'),
+  ),
   if (kDebugMode || Platform.isAndroid)
     NormalModel(
       title: '音频输出设备',
@@ -172,23 +161,11 @@ List<SettingsModel> get videoSettings => [
       getSubtitle: () => '当前：${Pref.audioOutput}',
       onTap: _showAudioOutputDialog,
     ),
-  SwitchModel(
-    title: '允许与其他应用同时播放',
-    subtitle:
-        '开启后支持与其他应用的音频同时播放。'
-        '${Platform.isIOS ? '\n开启后锁屏/通知栏/控制中心/车载不会显示正在播放的歌曲且不支持线控和Siri切歌（测试功能）' : ''}',
-    leading: const Icon(Icons.compare_arrows_outlined),
-    setKey: SettingBoxKey.mixWithOthers,
-    defaultVal: false,
-    onChanged: (value) {
-      audioSessionHandler?.reconfigure();
-    },
-  ),
   NormalModel(
     title: '缓冲大小',
     leading: const Icon(Icons.storage_outlined),
     getSubtitle: () =>
-        '当前：${Pref.bufferSize}MB。同时为前向和后向缓冲区大小。对于直播流，无后向缓冲大小，全部转给前向（此选项即mpv的--demuxer-max-bytes，--demuxer-max-back-bytes）',
+        '当前：${Pref.bufferSize}MiB。同时为前向和后向缓冲区大小。对于直播流，无后向缓冲大小，全部转给前向（此选项即mpv的--demuxer-max-bytes，--demuxer-max-back-bytes）',
     onTap: _showBufferSizeDialog,
   ),
   NormalModel(
@@ -199,9 +176,48 @@ List<SettingsModel> get videoSettings => [
     onTap: _showBufferSecDialog,
   ),
   NormalModel(
+    title: '真蜂窝缓冲大小',
+    leading: const Icon(Icons.signal_cellular_alt),
+    getSubtitle: () =>
+        '当前：${Pref.bufferSizeCellular}MiB。只要实际接入是真蜂窝就使用，与等效宽带/移网判定无关',
+    onTap: _showCellularBufferSizeDialog,
+  ),
+  NormalModel(
+    title: '真蜂窝缓冲时长',
+    leading: const Icon(Icons.av_timer),
+    getSubtitle: () =>
+        '当前：${Pref.bufferSecCellular}s。只要实机接入是真蜂窝就使用，与缓冲大小取先达到的一项',
+    onTap: _showCellularBufferSecDialog,
+  ),
+  const SwitchModel(
+    title: '弱网缓冲区和宽带缓冲区同步',
+    subtitle: '默认关闭。开启后弱网直接使用宽带缓冲大小和时长',
+    leading: Icon(Icons.sync_alt),
+    setKey: SettingBoxKey.bufferWeakSync,
+    defaultVal: false,
+  ),
+  NormalModel(
+    title: '弱网缓冲大小',
+    leading: const Icon(Icons.network_check),
+    getSubtitle: () => Pref.bufferWeakSync
+        ? '已与宽带同步：${Pref.bufferSizeWeak}MiB'
+        : '当前：${Pref.bufferSizeWeak}MiB。仅非蜂窝网络被判断为弱网/等效移网时使用',
+    onTap: _showWeakBufferSizeDialog,
+  ),
+  NormalModel(
+    title: '弱网缓冲时长',
+    leading: const Icon(Icons.timer_outlined),
+    getSubtitle: () => Pref.bufferWeakSync
+        ? '已与宽带同步：${Pref.bufferSecWeak}s'
+        : '当前：${Pref.bufferSecWeak}s。仅非蜂窝网络被判断为弱网/等效移网时使用',
+    onTap: _showWeakBufferSecDialog,
+  ),
+  NormalModel(
     title: '自动同步',
     leading: const Icon(Icons.sync_rounded),
-    getSubtitle: () => '当前：${Pref.autosync}（此项即mpv的--autosync）',
+    getSubtitle: () => Pref.autosync == '0'
+        ? '当前：0，不向 mpv 传递 --autosync'
+        : '当前：${Pref.autosync}（此项即mpv的--autosync）',
     onTap: _showAutoSyncDialog,
   ),
   NormalModel(
@@ -218,13 +234,30 @@ List<SettingsModel> get videoSettings => [
   ),
 ];
 
-Future<void> _showCDNDialog(BuildContext context, VoidCallback setState) async {
-  final res = await showDialog<CdnSelectResult>(
+Future<void> _showCDNDialog(
+  BuildContext context,
+  VoidCallback setState, {
+  required bool cellular,
+}) async {
+  final speedSetup = Pref.cdnSpeedTest
+      ? await showCdnSpeedSetupDialog(context)
+      : null;
+  if (!context.mounted) return;
+  final res = await showDialog<List<CDNService>>(
     context: context,
-    builder: (context) => const CdnSelectDialog(),
+    builder: (context) => CdnSelectDialog(
+      sample: speedSetup?.sample,
+      initValues: cellular
+          ? Pref.defaultCDNServicesCellular
+          : Pref.defaultCDNServices,
+      speedConfig: speedSetup?.config,
+    ),
   );
-  if (res != null) {
-    await applyCdnSelectResult(res);
+  if (res != null && res.isNotEmpty) {
+    await GStorage.setting.put(
+      cellular ? SettingBoxKey.CDNServicesCellular : SettingBoxKey.CDNServices,
+      res.map((item) => item.name).toList(),
+    );
     setState();
   }
 }
@@ -238,30 +271,10 @@ Future<void> _showLiveCDNDialog(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('输入CDN host'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextFormField(
-            initialValue: host,
-            autofocus: true,
-            onChanged: (value) => host = value,
-          ),
-          const SizedBox(height: 4),
-          TextButton.icon(
-            icon: const Icon(Icons.travel_explore_outlined, size: 18),
-            label: const Text('从节点列表选择'),
-            onPressed: () async {
-              final node = await showDialog<String>(
-                context: context,
-                builder: (context) => const CdnNodeDialog(isLive: true),
-              );
-              if (node != null && context.mounted) {
-                Navigator.pop(context, node);
-              }
-            },
-          ),
-        ],
+      content: TextFormField(
+        initialValue: host,
+        autofocus: true,
+        onChanged: (value) => host = value,
       ),
       actions: [
         TextButton(
@@ -300,35 +313,13 @@ Future<void> _showVideoQaDialog(
   final res = await showDialog<int>(
     context: context,
     builder: (context) => SelectDialog<int>(
-      title: '全屏默认画质',
+      title: '默认画质',
       value: Pref.defaultVideoQa,
       values: VideoQuality.values.map((e) => (e.code, e.desc)).toList(),
     ),
   );
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.defaultVideoQa, res);
-    setState();
-  }
-}
-
-Future<void> _showVideoQaHalfScreenDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final currentQa = Pref.defaultVideoQaHalfScreen;
-  final res = await showDialog<int>(
-    context: context,
-    builder: (context) => SelectDialog<int>(
-      title: '半屏默认画质',
-      value: currentQa ?? -1,
-      values: [
-        (-1, '跟随全屏画质'),
-        ...VideoQuality.values.map((e) => (e.code, e.desc)),
-      ],
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.defaultVideoQaHalfScreen, res);
     setState();
   }
 }
@@ -340,7 +331,7 @@ Future<void> _showVideoCellularQaDialog(
   final res = await showDialog<int>(
     context: context,
     builder: (context) => SelectDialog<int>(
-      title: '全屏蜂窝网络画质',
+      title: '蜂窝网络画质',
       value: Pref.defaultVideoQaCellular,
       values: VideoQuality.values.map((e) => (e.code, e.desc)).toList(),
     ),
@@ -639,7 +630,7 @@ void _showBufferSizeDialog(BuildContext context, VoidCallback setState) =>
       key: SettingBoxKey.bufferSize,
       defVal: Pref.bufferSize,
       title: '缓冲大小',
-      suffix: 'MB',
+      suffix: 'MiB',
     );
 
 void _showBufferSecDialog(BuildContext context, VoidCallback setState) =>
@@ -651,3 +642,64 @@ void _showBufferSecDialog(BuildContext context, VoidCallback setState) =>
       title: '缓冲时长',
       suffix: 's',
     );
+
+void _showCellularBufferSizeDialog(
+  BuildContext context,
+  VoidCallback setState,
+) => _showDecimalDialog(
+  context,
+  setState,
+  key: SettingBoxKey.bufferSizeCellular,
+  defVal: Pref.bufferSizeCellular,
+  title: '真蜂窝缓冲大小',
+  suffix: 'MiB',
+);
+
+void _showCellularBufferSecDialog(
+  BuildContext context,
+  VoidCallback setState,
+) => _showDecimalDialog(
+  context,
+  setState,
+  key: SettingBoxKey.bufferSecCellular,
+  defVal: Pref.bufferSecCellular,
+  title: '真蜂窝缓冲时长',
+  suffix: 's',
+);
+
+
+void _showWeakBufferSizeDialog(
+  BuildContext context,
+  VoidCallback setState,
+) {
+  if (Pref.bufferWeakSync) {
+    SmartDialog.showToast('当前与宽带缓冲区同步，请先关闭同步');
+    return;
+  }
+  _showDecimalDialog(
+    context,
+    setState,
+    key: SettingBoxKey.bufferSizeWeak,
+    defVal: Pref.bufferSizeWeak,
+    title: '弱网缓冲大小',
+    suffix: 'MiB',
+  );
+}
+
+void _showWeakBufferSecDialog(
+  BuildContext context,
+  VoidCallback setState,
+) {
+  if (Pref.bufferWeakSync) {
+    SmartDialog.showToast('当前与宽带缓冲区同步，请先关闭同步');
+    return;
+  }
+  _showDecimalDialog(
+    context,
+    setState,
+    key: SettingBoxKey.bufferSecWeak,
+    defVal: Pref.bufferSecWeak,
+    title: '弱网缓冲时长',
+    suffix: 's',
+  );
+}

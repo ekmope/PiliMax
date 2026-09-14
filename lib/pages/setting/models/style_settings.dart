@@ -203,13 +203,6 @@ List<SettingsModel> get styleSettings => [
     needReboot: true,
   ),
   PopupModel(
-    title: '动态未读标记',
-    leading: const Icon(Icons.motion_photos_on_outlined),
-    value: () => Pref.dynamicBadgeType,
-    items: DynamicBadgeMode.values,
-    onSelected: _setDynBadge,
-  ),
-  PopupModel(
     title: '消息未读标记',
     leading: const Icon(MdiIcons.bellBadgeOutline),
     value: () => Pref.msgBadgeMode,
@@ -779,14 +772,6 @@ void _showSideBarThresholdDialog(BuildContext context) {
       ),
     ),
   );
-}
-
-void _setDynBadge(DynamicBadgeMode value, VoidCallback setState) {
-  final mainController = Get.find<MainController>()..dynamicBadgeMode = value;
-  if (value != DynamicBadgeMode.hidden) mainController.getUnreadDynamic();
-  GStorage.setting
-      .put(SettingBoxKey.dynamicBadgeMode, value.index)
-      .whenComplete(setState);
 }
 
 Future<void> _setMsgBadge(DynamicBadgeMode value, VoidCallback setState) async {

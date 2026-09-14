@@ -102,7 +102,6 @@ class _MainAppState extends PopScopeState<MainApp>
   void didPopNext() {
     addObserverMobile(this);
     _mainController
-      ..checkUnreadDynamic()
       ..checkDefaultSearch(true)
       ..checkUnread(_mainController.useBottomNav);
     super.didPopNext();
@@ -118,7 +117,6 @@ class _MainAppState extends PopScopeState<MainApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _mainController
-        ..checkUnreadDynamic()
         ..checkDefaultSearch(true)
         ..checkUnread(_mainController.useBottomNav);
     }
@@ -554,22 +552,7 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Widget _buildIcon({required NavigationBarType type, bool selected = false}) {
-    final icon = selected ? type.selectIcon : type.icon;
-    return type == .dynamics
-        ? Obx(
-            () {
-              final dynCount = _mainController.dynCount.value;
-              return Badge(
-                isLabelVisible: dynCount > 0,
-                label: _mainController.dynamicBadgeMode == .number
-                    ? Text(dynCount.toString())
-                    : null,
-                padding: const .symmetric(horizontal: 6),
-                child: icon,
-              );
-            },
-          )
-        : icon;
+    return selected ? type.selectIcon : type.icon;
   }
 
   Widget userAndSearchVertical() {

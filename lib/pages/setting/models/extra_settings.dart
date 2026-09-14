@@ -110,18 +110,11 @@ List<SettingsModel> get extraSettings => [
     getSubtitle: () => '配置 OpenAI 兼容 API 和提示词模板',
     onTap: (context, _) => Get.toNamed('/aiSetting'),
   ),
-  SplitModel(
-    normalModel: const NormalModel.split(
-      title: '检查未读动态',
-      subtitle: '点击设置检查周期(min)',
-      leading: Icon(Icons.notifications_none),
-    ),
-    switchModel: SwitchModel.split(
-      defaultVal: true,
-      setKey: SettingBoxKey.checkDynamic,
-      onChanged: (value) => Get.find<MainController>().checkDynamic = value,
-      onTap: _showDynDialog,
-    ),
+  NormalModel(
+    title: '源订阅',
+    leading: const Icon(Icons.subscriptions_outlined),
+    getSubtitle: () => '添加 animeko 兼容订阅，观看订阅内的视频',
+    onTap: (context, _) => Get.toNamed('/sourceSubscription'),
   ),
   const SwitchModel(
     title: '显示视频分段信息',
@@ -807,46 +800,6 @@ void _showDownPathDialog(BuildContext context, VoidCallback setState) {
             GStorage.setting.put(SettingBoxKey.downloadPath, path);
           },
           child: const Text('设置新路径', style: TextStyle(fontSize: 14)),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showDynDialog(BuildContext context) {
-  String dynamicPeriod = Pref.dynamicPeriod.toString();
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('检查周期'),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: dynamicPeriod,
-        keyboardType: TextInputType.number,
-        onChanged: (value) => dynamicPeriod = value,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(suffixText: 'min'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () {
-            try {
-              final val = int.parse(dynamicPeriod);
-              Get.back();
-              GStorage.setting.put(SettingBoxKey.dynamicPeriod, val);
-              Get.find<MainController>().dynamicPeriod = val * 60 * 1000;
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('确定'),
         ),
       ],
     ),

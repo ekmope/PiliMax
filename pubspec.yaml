@@ -171,6 +171,8 @@ dependencies:
   url_launcher: ^6.3.1
   uuid: ^4.5.1
   vector_math: ^2.2.0
+  video_player: ^2.10.0
+  vlc_player: ^2.1.2
   wakelock_plus: ^1.2.8
   waterfall_flow: ^3.1.0
   web_socket_channel: ^3.0.3

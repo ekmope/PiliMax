@@ -23,6 +23,14 @@ List<SettingsModel> get recommendSettings => [
     onTap: _showRcmdModeDialog,
   ),
   SwitchModel(
+    title: '显示今日推荐单',
+    subtitle: '基于本地观看历史在首页生成个性化推荐队列',
+    leading: const Icon(Icons.auto_awesome),
+    setKey: SettingBoxKey.showTodayWatch,
+    defaultVal: true,
+    needReboot: true,
+  ),
+  SwitchModel(
     title: '保留首页推荐刷新',
     subtitle: '下拉刷新时保留上次内容',
     leading: const Icon(Icons.refresh),

@@ -7,7 +7,10 @@ import 'package:PiliPlus/common/widgets/scroll_physics.dart';
 import 'package:PiliPlus/common/widgets/video_card/video_card_v.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/pages/rcmd/controller.dart';
+import 'package:PiliPlus/pages/rcmd/today_watch/today_watch_card.dart';
+import 'package:PiliPlus/pages/rcmd/today_watch/today_watch_controller.dart';
 import 'package:PiliPlus/pages/home/home_preview_scope.dart';
+import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:get/get.dart';
@@ -23,6 +26,18 @@ class RcmdPage extends StatefulWidget {
 class _RcmdPageState extends State<RcmdPage>
     with AutomaticKeepAliveClientMixin {
   final controller = Get.put(RcmdController());
+
+  late final bool showTodayWatch =
+      Pref.showTodayWatch && Get.find<AccountService>().isLogin.value;
+  final todayWatchController = Get.putOrFind(TodayWatchController.new);
+
+  @override
+  void initState() {
+    super.initState();
+    if (showTodayWatch) {
+      todayWatchController.autoGenerate();
+    }
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -44,6 +59,13 @@ class _RcmdPageState extends State<RcmdPage>
             parent: AlwaysScrollableScrollPhysics(),
           ),
           slivers: [
+            if (showTodayWatch)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const .only(top: Style.cardSpace),
+                  child: TodayWatchCard(controller: todayWatchController),
+                ),
+              ),
             SliverPadding(
               padding: const .only(top: Style.cardSpace, bottom: 100),
               sliver: Obx(

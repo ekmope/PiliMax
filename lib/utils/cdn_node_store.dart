@@ -48,14 +48,6 @@ abstract final class CdnNodeStore {
   static Future<Map<String, List<String>>>? _loading;
 
   static Map<String, List<String>>? get nodesOrNull => _nodes;
-  
-  /// 获取CDN节点列表（如果未加载则自动加载）
-  static Future<Map<String, List<String>>> get nodes async {
-    if (_nodes != null) return _nodes!;
-    if (_loading != null) return await _loading!;
-    _loading = _loadNodes();
-    return await _loading!;
-  }
 
   static DateTime? get updateTime {
     final ts = GStorage.localCache.get(LocalCacheKey.cdnNodeListTime);

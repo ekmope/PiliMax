@@ -81,7 +81,6 @@ List<SettingsModel> get extraSettings => [
       leading: const Icon(Icons.storage),
       setKey: SettingBoxKey.enableDocProvider,
       defaultVal: Pref.enableDocProvider,
-      onChanged: AndroidHelper.updateDocProvider,
     ),
   SplitModel(
     normalModel: const NormalModel.split(

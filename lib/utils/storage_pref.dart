@@ -474,6 +474,55 @@ abstract final class Pref {
     return preferCodecs;
   }
 
+  // --- bilispeed 网络策略偏好（默认全部保守关闭） ---
+
+  static bool get wiredNetworkPolicy =>
+      _setting.get(SettingBoxKey.wiredNetworkPolicy, defaultValue: false);
+  static int get wiredMinLinkSpeed =>
+      _setting.get(SettingBoxKey.wiredMinLinkSpeed, defaultValue: 1000);
+  static bool get wiredNonstandardLinkSpeed =>
+      _setting.get(SettingBoxKey.wiredNonstandardLinkSpeed, defaultValue: false);
+
+  static bool get wifiNetworkPolicy =>
+      _setting.get(SettingBoxKey.wifiNetworkPolicy, defaultValue: false);
+  static int get wifiNetworkPolicyMode =>
+      _setting.get(SettingBoxKey.wifiNetworkPolicyMode, defaultValue: 0);
+  static int get wifiRssiThreshold =>
+      _setting.get(SettingBoxKey.wifiRssiThreshold, defaultValue: -70);
+  static int get wifiMinLinkSpeed =>
+      _setting.get(SettingBoxKey.wifiMinLinkSpeed, defaultValue: 100);
+
+  static int get cellularQualityMode =>
+      _setting.get(SettingBoxKey.cellularQualityMode, defaultValue: 0);
+  static int get cellularQualityJudgeMode =>
+      _setting.get(SettingBoxKey.cellularQualityJudgeMode, defaultValue: 3);
+  static int get cellularDownstreamThresholdMbps => _setting.get(
+        SettingBoxKey.cellularDownstreamThresholdMbps,
+        defaultValue: 100,
+      );
+  static int get cellularDbmThreshold =>
+      _setting.get(SettingBoxKey.cellularDbmThreshold, defaultValue: -105);
+  static int get cellularSignalLevelThreshold =>
+      _setting.get(SettingBoxKey.cellularSignalLevelThreshold, defaultValue: 3);
+  static String get cellularQualityMatch =>
+      _setting.get(SettingBoxKey.cellularQualityMatch, defaultValue: '');
+
+  static List<Map<String, dynamic>> get networkPeakPeriods {
+    final raw = _setting.get(SettingBoxKey.networkPeakPeriods);
+    if (raw is List) {
+      return raw.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+    }
+    return const [];
+  }
+
+  static List<VideoDecodeFormatType> get networkPeakCodecs {
+    final raw = _setting.get(SettingBoxKey.networkPeakCodecs);
+    if (raw is List) {
+      return raw.map((i) => VideoDecodeFormatType.values.byName(i)).toList();
+    }
+    return const <VideoDecodeFormatType>[];
+  }
+
   static String get hardwareDecoding => _setting.get(
     SettingBoxKey.hardwareDecoding,
     defaultValue: Platform.isAndroid

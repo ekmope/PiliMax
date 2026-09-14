@@ -15,8 +15,14 @@ class MpvCorePlayer implements CorePlayer {
   VideoController? _videoController;
   final _stateController = StreamController<CorePlayerState>.broadcast();
   CorePlayerState _state = const CorePlayerState();
-  StreamSubscription? _sub;
+  Timer? _pollTimer;
   double _speed = 1.0;
+
+  void _ensurePolling() {
+    _pollTimer ??= Timer.periodic(const Duration(milliseconds: 250), (_) {
+      _stateController.add(state);
+    });
+  }
 
   @override
   PlayerBackend get backend => PlayerBackend.mpv;
@@ -27,20 +33,11 @@ class MpvCorePlayer implements CorePlayer {
     final player = await Player.create();
     _videoController = await VideoController.create(player);
     _player = player;
-    _sub = player.streams.log.listen((log) {
-      if (log.level.name.toLowerCase().contains('error')) {
-        _state = CorePlayerState(
-          position: _state.position,
-          duration: _state.duration,
-          error: log.text,
-        );
-        _stateController.add(_state);
-      }
-    });
   }
 
   @override
   Future<void> setDataSource(CoreMediaSource source) async {
+    _ensurePolling();
     final player = _player;
     if (player == null) return;
 
@@ -61,9 +58,12 @@ class MpvCorePlayer implements CorePlayer {
       Media(
         url,
         start: source.startPosition,
-        httpHeaders: {
-          ...source.headers,
-          ..._extraHeaders,
+        extras: {
+          if (source.headers.isNotEmpty || _extraHeaders.isNotEmpty)
+            'headers': {
+              ...source.headers,
+              ..._extraHeaders,
+            },
         },
       ),
       play: false,
@@ -109,14 +109,7 @@ class MpvCorePlayer implements CorePlayer {
   }
 
   @override
-  Stream<CorePlayerState> get stateStream {
-    final player = _player;
-    if (player == null) return const Stream.empty();
-    return player.streams.playing
-        .map((_) => state)
-        .merge(player.streams.completed.map((_) => state))
-        .merge(player.streams.buffering.map((_) => state));
-  }
+  Stream<CorePlayerState> get stateStream => _stateController.stream;
 
   @override
   Widget buildView({BoxFit fit = BoxFit.contain}) {
@@ -126,17 +119,18 @@ class MpvCorePlayer implements CorePlayer {
     }
     return Video(
       controller: controller,
-      fit: fit == BoxFit.contain
-          ? BoxFit.fitContain
-          : fit == BoxFit.cover
-          ? BoxFit.fitCover
-          : BoxFit.fitFill,
+      fit: switch (fit) {
+        BoxFit.cover => BoxFit.cover,
+        BoxFit.fill => BoxFit.fill,
+        _ => BoxFit.contain,
+      },
     );
   }
 
   @override
   Future<void> dispose() async {
-    await _sub?.cancel();
+    _pollTimer?.cancel();
+    _pollTimer = null;
     await _player?.dispose();
     _player = null;
     _videoController = null;

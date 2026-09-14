@@ -369,6 +369,7 @@ class _CdnSelectDialogState extends State<CdnSelectDialog> {
     final result = await VideoHttp.videoUrl(
       cid: 196018899,
       bvid: 'BV1fK4y1t7hj',
+      qn: 80,
       tryLook: false,
       videoType: VideoType.ugc,
     );

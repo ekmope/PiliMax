@@ -24,9 +24,8 @@ class DashManifestServer {
   }
 
   Future<HttpServer> _ensureServer() async {
-    if (_server case final s? when !s.isClosed) {
-      return s;
-    }
+    final s = _server;
+    if (s != null) return s;
     _server = await HttpServer.bind(
       InternetAddress.loopbackIPv4,
       0,

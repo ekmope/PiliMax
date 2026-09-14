@@ -4,6 +4,8 @@ import 'package:PiliPlus/player_core/core_player.dart';
 import 'package:PiliPlus/player_core/dash_manifest.dart';
 import 'package:flutter/widgets.dart';
 import 'package:video_player/video_player.dart';
+import 'package:video_player_platform_interface/video_player_platform_interface.dart'
+    show DurationRange;
 
 /// Media3/ExoPlayer 内核（video_player）：
 /// DASH 分离流经合成 MPD + 本地 HTTP 服务播放（bv 方案的 Dart 移植）。
@@ -36,7 +38,7 @@ class Media3CorePlayer implements CorePlayer {
 
     final controller = VideoPlayerController.networkUrl(
       uri,
-      httpHeaders: headers.isEmpty ? null : headers,
+      httpHeaders: headers,
     );
     _controller = controller;
 
@@ -46,10 +48,7 @@ class Media3CorePlayer implements CorePlayer {
         CorePlayerState(
           position: v.position,
           duration: v.duration,
-          buffered: v.buffered.where((r) => r.end > v.position.inMilliseconds).fold(
-            Duration.zero,
-            (p, r) => Duration(milliseconds: r.end),
-          ),
+          buffered: _maxBufferedEnd(v.buffered, v.position),
           isPlaying: v.isPlaying,
           isBuffering: v.isBuffering,
           isCompleted: v.position >= v.duration && v.duration > Duration.zero,
@@ -66,6 +65,14 @@ class Media3CorePlayer implements CorePlayer {
     if (source.startPosition case final pos? when pos > Duration.zero) {
       await controller.seekTo(pos);
     }
+  }
+
+  Duration _maxBufferedEnd(List<DurationRange> ranges, Duration current) {
+    Duration max = Duration.zero;
+    for (final r in ranges) {
+      if (r.end > current && r.end > max) max = r.end;
+    }
+    return max;
   }
 
   @override

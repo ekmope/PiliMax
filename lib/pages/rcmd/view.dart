@@ -11,6 +11,7 @@ import 'package:PiliPlus/pages/rcmd/today_watch/today_watch_card.dart';
 import 'package:PiliPlus/pages/rcmd/today_watch/today_watch_controller.dart';
 import 'package:PiliPlus/pages/home/home_preview_scope.dart';
 import 'package:PiliPlus/services/account_service.dart';
+import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/grid.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:get/get.dart';

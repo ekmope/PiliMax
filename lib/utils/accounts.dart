@@ -14,6 +14,9 @@ abstract final class Accounts {
   static bool get mainEqVideo => main == video;
   static Account get main => accountMode[AccountType.main.index];
   static Account get video => accountMode[AccountType.video.index];
+
+  /// 开发者模式开关（默认关闭，CDN 测速提示与上传量限制以此为依据）。
+  static bool get x => false;
   static Account get heartbeat => accountMode[AccountType.heartbeat.index];
   static Account get history {
     final heartbeat = Accounts.heartbeat;

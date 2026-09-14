@@ -116,6 +116,24 @@ List<SettingsModel> get extraSettings => [
     getSubtitle: () => '添加 animeko 兼容订阅，观看订阅内的视频',
     onTap: (context, _) => Get.toNamed('/sourceSubscription'),
   ),
+  NormalModel(
+    title: 'CDN设置',
+    leading: const Icon(Icons.cloud_outlined),
+    getSubtitle: () => '选择CDN节点、手动测速、网络策略',
+    onTap: (context, _) => Get.toNamed('/cdnSettings'),
+  ),
+  NormalModel(
+    title: '网络策略',
+    leading: const Icon(Icons.network_check),
+    getSubtitle: () => '自动/手动切换CDN节点',
+    onTap: (context, _) => Get.toNamed('/networkPolicy'),
+  ),
+  NormalModel(
+    title: '流量统计',
+    leading: const Icon(Icons.data_usage),
+    getSubtitle: () => '实时/历史流量统计',
+    onTap: (context, _) => Get.toNamed('/trafficStats'),
+  ),
   const SwitchModel(
     title: '显示视频分段信息',
     leading: Icon(CustomIcons.view_headline_rotate_90),

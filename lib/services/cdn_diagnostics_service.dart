@@ -12,6 +12,24 @@ abstract final class CdnDiagnosticsService {
   static final List<Map<String, dynamic>> _activeLatestRecords = [];
   static Future<void> _writeChain = Future.value();
 
+  /// 初始化CDN诊断服务
+  static Future<void> initialize() async {
+    // 初始化诊断数据存储
+    await _loadDiagnosticData();
+  }
+
+  /// 加载诊断数据
+  static Future<void> _loadDiagnosticData() async {
+    try {
+      final data = GStorage.localCache.get('cdn_diagnostics_data');
+      if (data is List) {
+        // 这里可以加载历史诊断数据
+      }
+    } catch (e) {
+      // 忽略加载错误
+    }
+  }
+
   static void append({
     required Map<String, dynamic> historyRecord,
     required Map<String, dynamic> latestRecord,

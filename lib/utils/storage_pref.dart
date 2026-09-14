@@ -373,7 +373,8 @@ abstract final class Pref {
       MsgUnReadType.values.toSet();
 
   static NavigationBarType get defaultHomePage =>
-      NavigationBarType.values[defaultHomePageIndex];
+      NavigationBarType.values.getOrNull(defaultHomePageIndex) ??
+      NavigationBarType.home;
 
   static int get defaultHomePageIndex => _setting.get(
     SettingBoxKey.defaultHomePage,

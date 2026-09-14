@@ -8,6 +8,7 @@ import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
+import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/history/controller.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
@@ -184,8 +185,13 @@ class MainController extends GetxController
       navigationBars = NavigationBarType.values;
     } else {
       navigationBars = navBarSort
-          .map(NavigationBarType.values.elementAt)
+          .map(NavigationBarType.values.getOrNull)
+          .whereType<NavigationBarType>()
           .toList();
+    }
+    // 若用户存的旧排序过滤后为空，回退到默认
+    if (navigationBars.isEmpty) {
+      navigationBars = NavigationBarType.values;
     }
     this.navigationBars = navigationBars;
     final defPage = Pref.defaultHomePage;
@@ -275,6 +281,9 @@ class MainController extends GetxController
             case NavigationBarType.home:
               homeController.onRefresh();
               break;
+            case NavigationBarType.dynamics:
+              Get.putOrFind(DynamicsController.new).onRefresh();
+              break;
             case NavigationBarType.history:
               Get.putOrFind(HistoryController.new).onReload();
               break;
@@ -288,6 +297,9 @@ class MainController extends GetxController
       switch (currentNav) {
         case NavigationBarType.home:
           homeController.toTopOrRefresh();
+          break;
+        case NavigationBarType.dynamics:
+          Get.putOrFind(DynamicsController.new).onRefresh();
           break;
         case NavigationBarType.history:
           Get.putOrFind(HistoryController.new).onReload();
@@ -304,6 +316,9 @@ class MainController extends GetxController
     switch (currentNav) {
       case NavigationBarType.home:
         homeController.toTopAndRefresh();
+        break;
+      case NavigationBarType.dynamics:
+        Get.putOrFind(DynamicsController.new).onRefresh();
         break;
       case NavigationBarType.history:
         Get.putOrFind(HistoryController.new).onReload();

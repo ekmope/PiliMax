@@ -179,3 +179,9 @@ test*
 /.comet/*
 !/.comet/config.yaml
 # <<< Comet managed project state <<<
+
+# External sibling project (not part of this repo)
+/LxBox/
+
+# AiCode runtime state (container-side, not part of the repo)
+/.aicode/

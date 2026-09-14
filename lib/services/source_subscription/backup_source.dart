@@ -197,7 +197,7 @@ class BackupSourceLauncher {
                   child: Text(
                     entry.key.name,
                     style: TextStyle(
-                      color: Get.context!.theme.colorScheme.primary,
+                      color: Theme.of(Get.context!).colorScheme.primary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

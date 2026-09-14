@@ -58,16 +58,21 @@ class MpvCorePlayer implements CorePlayer {
       Media(
         url,
         start: source.startPosition,
-        extras: <String, String>{
-          if (source.headers.isNotEmpty || _extraHeaders.isNotEmpty)
-            'headers': <String, String>{
-              ...source.headers,
-              ..._extraHeaders,
-            },
-        },
       ),
       play: false,
     );
+    // Starfallan's media_kit fork has no Media.httpHeaders; mpv supports
+    // 'http-header-fields' as a node array of 'Key: Value' strings.
+    if (source.headers.isNotEmpty || _extraHeaders.isNotEmpty) {
+      final merged = <String, String>{
+        ...source.headers,
+        ..._extraHeaders,
+      };
+      final fields = merged.entries.map((e) => '${e.key}: ${e.value}').join(',');
+      try {
+        player.setProperty('http-header-fields', fields);
+      } catch (_) {}
+    }
   }
 
   @override

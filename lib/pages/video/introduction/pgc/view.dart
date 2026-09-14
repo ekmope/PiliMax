@@ -446,6 +446,13 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
             semanticsLabel: '转发',
             text: NumUtils.numFormat(stat.share),
           ),
+          ActionItem(
+            icon: const Icon(Icons.alternate_email_outlined),
+            onTap: introController.searchBackupSource,
+            selectStatus: false,
+            semanticsLabel: '备用源',
+            text: '备用源',
+          ),
         ],
       ),
     );

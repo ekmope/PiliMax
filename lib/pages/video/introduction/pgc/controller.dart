@@ -21,6 +21,7 @@ import 'package:PiliPlus/pages/video/reply/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/services/logger.dart';
 import 'package:PiliPlus/services/service_locator.dart';
+import 'package:PiliPlus/services/source_subscription/backup_source.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
@@ -498,5 +499,23 @@ class PgcIntroController extends CommonIntroController {
     } else {
       res.toast();
     }
+  }
+
+  /// 跨订阅源搜索与本番剧同名的条目，作为 B 站无版权剧集的备用播放源。
+  Future<void> searchBackupSource() async {
+    EpisodeItem? current;
+    for (final s in pgcItem.section ?? const []) {
+      for (final ep in s.episodes ?? const <EpisodeItem>[]) {
+        if (ep.epId == epId) {
+          current = ep;
+          break;
+        }
+      }
+      if (current != null) break;
+    }
+    await BackupSourceLauncher.launchForPgc(
+      pgcItem: pgcItem,
+      episode: current,
+    );
   }
 }

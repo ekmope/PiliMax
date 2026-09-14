@@ -29,7 +29,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.pilinara"
-        minSdk = flutter.minSdkVersion
+        minSdk = 29
         targetSdk = 37
         versionCode = flutter.versionCode
         versionName = flutter.versionName

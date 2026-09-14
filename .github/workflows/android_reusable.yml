@@ -126,8 +126,18 @@ jobs:
           flutter "${args[@]}" 2>&1 | tee build-output.log
           exit "${PIPESTATUS[0]}"
 
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log-${{ github.run_number }}-${{ github.run_attempt }}
+          path: build-output.log
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Surface build errors as annotations
         if: failure()
+        continue-on-error: true
         shell: bash
         run: |
           if [ ! -f build-output.log ]; then
@@ -143,17 +153,16 @@ jobs:
                 ln=$(echo "$line" | sed -E 's|^.*lib/[^:]+:([0-9]+):.*|\1|')
                 msg=$(echo "$line" | sed -E 's|^.* Error: ||')
                 echo "::error file=${file},line=${ln},title=Dart::${msg}"
-              done
-          echo "::warning title=Build summary::$(grep -c 'Error:' build-output.log || true) error lines found; full log in artifacts"
-
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: build-log-${{ github.run_number }}-${{ github.run_attempt }}
-          path: build-output.log
-          if-no-files-found: ignore
-          retention-days: 7
+              done || true
+          # Also surface non-Dart failures (gradle, native) as plain errors
+          grep -E 'FAILURE:|error:|Error:' build-output.log \
+            | grep -v '^lib/\|/lib/' \
+            | tail -10 \
+            | while IFS= read -r line; do
+                echo "::error title=Build::${line}"
+              done || true
+          echo "::warning title=Build summary::$(grep -c 'Error:' build-output.log || echo 0) error lines found; full log in artifacts"
+          exit 0
 
       - name: Rename APKs
         shell: bash

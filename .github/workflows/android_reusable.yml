@@ -144,8 +144,7 @@ jobs:
             echo "::error title=Build failed without log::No build-output.log produced"
             exit 0
           fi
-          # Emit each Dart analyzer error as a GitHub annotation so it is
-          # visible on the run summary page without downloading artifacts.
+          # Emit each Dart analyzer error as a GitHub annotation.
           grep -E '(^|/)lib/[^:]+:[0-9]+:[0-9]+: Error:' build-output.log \
             | head -50 \
             | while IFS= read -r line; do
@@ -154,12 +153,17 @@ jobs:
                 msg=$(echo "$line" | sed -E 's|^.* Error: ||')
                 echo "::error file=${file},line=${ln},title=Dart::${msg}"
               done || true
-          # Also surface non-Dart failures (gradle, native) as plain errors
-          grep -E 'FAILURE:|error:|Error:' build-output.log \
-            | grep -v '^lib/\|/lib/' \
-            | tail -10 \
-            | while IFS= read -r line; do
-                echo "::error title=Build::${line}"
+          # Surface non-Dart failures with 3 lines of context.
+          # This catches manifest errors, gradle errors, etc.
+          grep -n -E 'FAILURE:|Error:|error:|Exception' build-output.log \
+            | grep -v 'package_config\|dart_tool' \
+            | tail -20 \
+            | while IFS= read -r match; do
+                ln=$(echo "$match" | cut -d: -f1)
+                line=$(echo "$match" | cut -d: -f2-)
+                # Grab 2 lines after the match for context
+                ctx=$(sed -n "$((ln+1)),$((ln+2))p" build-output.log | tr '\n' ' ')
+                echo "::error title=Build::${line} ${ctx}"
               done || true
           echo "::warning title=Build summary::$(grep -c 'Error:' build-output.log || echo 0) error lines found; full log in artifacts"
           exit 0

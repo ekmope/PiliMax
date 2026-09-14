@@ -157,7 +157,7 @@ class SelectorEngine {
     }
     final cfg = _map('selectorChannelFormatNoChannel');
     final episodes = _parseEpisodeList(
-      doc.documentElement,
+      doc.documentElement ?? doc,
       subjectUrl,
       cfg?['selectEpisodes'] as String?,
       _str('matchEpisodeSortFromName'),

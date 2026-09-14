@@ -48,6 +48,14 @@ class MainController extends GetxController
   late Set<MsgUnReadType> msgUnReadTypes = Pref.msgUnReadTypeV2;
   late final RxnString msgUnReadCount = RxnString(null);
   late int lastCheckUnreadAt = 0;
+  late int dynCount = 0;
+
+  /// 动态未读数刷新入口（被 DynamicsTabController.onRefresh 调用）。
+  /// 当前以日志驱动徽标；具体计数逻辑待扩展为私信/动态全量。
+  void setDynCount() {
+    dynCount++;
+    msgUnReadCount.value = dynCount > 0 ? dynCount.toString() : null;
+  }
 
   final enableMYBar = Pref.enableMYBar;
   final floatingNavBar = Pref.floatingNavBar;
@@ -282,13 +290,13 @@ class MainController extends GetxController
               homeController.onRefresh();
               break;
             case NavigationBarType.dynamics:
-              Get.putOrFind(DynamicsController.new).onRefresh();
+              Get.putOrFind(() => DynamicsController()).onRefresh();
               break;
             case NavigationBarType.history:
-              Get.putOrFind(HistoryController.new).onReload();
+              Get.putOrFind(() => HistoryController()).onReload();
               break;
             case NavigationBarType.mine:
-              Get.putOrFind(MineController.new).onRefresh();
+              Get.putOrFind(() => MineController()).onRefresh();
               break;
           }
         },
@@ -299,13 +307,13 @@ class MainController extends GetxController
           homeController.toTopOrRefresh();
           break;
         case NavigationBarType.dynamics:
-          Get.putOrFind(DynamicsController.new).onRefresh();
+          Get.putOrFind(() => DynamicsController()).onRefresh();
           break;
         case NavigationBarType.history:
-          Get.putOrFind(HistoryController.new).onReload();
+          Get.putOrFind(() => HistoryController()).onReload();
           break;
         case NavigationBarType.mine:
-          Get.putOrFind(MineController.new).toTopOrRefresh();
+          Get.putOrFind(() => MineController()).toTopOrRefresh();
           break;
       }
     }
@@ -318,13 +326,13 @@ class MainController extends GetxController
         homeController.toTopAndRefresh();
         break;
       case NavigationBarType.dynamics:
-        Get.putOrFind(DynamicsController.new).onRefresh();
+        Get.putOrFind(() => DynamicsController()).onRefresh();
         break;
       case NavigationBarType.history:
-        Get.putOrFind(HistoryController.new).onReload();
+        Get.putOrFind(() => HistoryController()).onReload();
         break;
       case NavigationBarType.mine:
-        Get.putOrFind(MineController.new).toTopAndRefresh();
+        Get.putOrFind(() => MineController()).toTopAndRefresh();
         break;
     }
   }

@@ -10,6 +10,7 @@ import 'package:PiliPlus/pages/rank/controller.dart';
 import 'package:PiliPlus/pages/rank/view.dart';
 import 'package:PiliPlus/pages/rcmd/controller.dart';
 import 'package:PiliPlus/pages/rcmd/view.dart';
+import 'package:PiliPlus/pages/source_search/source_search_page.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 

@@ -226,7 +226,7 @@ class CoreVideoPage extends StatelessWidget {
                 color: Colors.white70,
                 icon: Icon(
                   s.isBuffering
-                      ? Icons.progress_indicator
+                      ? Icons.hourglass_top
                       : s.isPlaying
                       ? Icons.pause_circle_filled
                       : Icons.play_circle_filled,

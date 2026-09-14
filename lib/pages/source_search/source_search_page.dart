@@ -97,7 +97,8 @@ class SourceSearchController extends GetxController
     try {
       // 先尝试页面源码正则直接匹配，失败再走 WebView 嗅探
       final html = await engine.fetchPageHtml(episode.pageUrl);
-      if (html != null && engine.matchVideoUrl case final pattern?) {
+      final pattern = engine.matchVideoUrl;
+      if (html != null && pattern != null && pattern.isNotEmpty) {
         final m = RegExp(pattern).firstMatch(html);
         if (m != null) {
           url = m.group(0) ?? m.group(1);

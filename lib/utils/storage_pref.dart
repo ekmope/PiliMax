@@ -483,6 +483,18 @@ abstract final class Pref {
   static bool get wiredNonstandardLinkSpeed =>
       _setting.get(SettingBoxKey.wiredNonstandardLinkSpeed, defaultValue: false);
 
+  // 桌面端高码率 HEVC 偏好（默认关闭，桌面平台才生效）。
+  static bool get desktopHighBitrateHevc =>
+      _setting.get(SettingBoxKey.desktopHighBitrateHevc, defaultValue: false);
+  static int get desktopHighBitrateHevcQuality => _setting.get(
+        SettingBoxKey.desktopHighBitrateHevcQuality,
+        defaultValue: 80,
+      );
+  static int get desktopHighBitrateHevcThresholdBps => _setting.get(
+        SettingBoxKey.desktopHighBitrateHevcThresholdBps,
+        defaultValue: 6000000,
+      );
+
   static bool get wifiNetworkPolicy =>
       _setting.get(SettingBoxKey.wifiNetworkPolicy, defaultValue: false);
   static int get wifiNetworkPolicyMode =>

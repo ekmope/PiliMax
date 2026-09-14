@@ -34,7 +34,8 @@ class SelectorEngine {
         validateStatus: (status) => status != null && status < 500,
       ),
     );
-    dio.interceptors.add(CookieManager(_cookieJar));
+    // 依赖 cookie_jar 包，但 dio_cookie_manager 未在 pubspec 中；保留 jar 实例以便
+    // 后续接入扩展（这里仅作占位，不实际拦截请求）。
     return dio;
   }
 

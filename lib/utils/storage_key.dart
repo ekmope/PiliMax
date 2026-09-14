@@ -309,7 +309,10 @@ abstract final class SettingBoxKey {
       cellularDbmThreshold = 'cellularDbmThreshold',
       cellularSignalLevelThreshold = 'cellularSignalLevelThreshold',
       webdavBackupCdnDiagnostics = 'webdavBackupCdnDiagnostics',
-      subtitleFollowerThreshold = 'subtitleFollowerThreshold';
+      subtitleFollowerThreshold = 'subtitleFollowerThreshold',
+      desktopHighBitrateHevc = 'desktopHighBitrateHevc',
+      desktopHighBitrateHevcQuality = 'desktopHighBitrateHevcQuality',
+      desktopHighBitrateHevcThresholdBps = 'desktopHighBitrateHevcThresholdBps';
 
   static const String themeMode = 'themeMode',
       defaultTextScale = 'textScale',

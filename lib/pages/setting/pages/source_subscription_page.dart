@@ -98,7 +98,7 @@ class _SourceSubscriptionPageState extends State<SourceSubscriptionPage> {
         children: [
           if (sub.lastUpdateAt != null)
             Text(
-              '上次更新 ${DateUtils.dateFormat(sub.lastUpdateAt!.millisecondsSinceEpoch ~/ 1000)}'
+              '上次更新 ${DateFormatUtils.dateFormat(sub.lastUpdateAt!.millisecondsSinceEpoch ~/ 1000)}'
               '${sub.mediaSourceCount != null ? ' · ${sub.mediaSourceCount} 个源' : ''}',
               style: const TextStyle(fontSize: 12),
             ),

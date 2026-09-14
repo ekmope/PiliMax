@@ -1,6 +1,12 @@
 name: Android
 
 on:
+    push:
+        branches:
+            - master@
+            - main
+        paths-ignore:
+            - "**.md"
     pull_request:
         types:
             - opened
@@ -25,7 +31,7 @@ on:
 
 jobs:
     android:
-        if: ${{ github.event_name == 'pull_request' || github.event.inputs.build_android == 'true' }}
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' || github.event.inputs.build_android == 'true' }}
         uses: ./.github/workflows/android_reusable.yml
         permissions: write-all
         with:

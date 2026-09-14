@@ -40,7 +40,6 @@ import 'package:dynamic_color/dynamic_color.dart' show DynamicColorPlugin;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -94,7 +93,11 @@ Future<void> _initAppPath() async {
 
 void main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
+  try {
+    MediaKit.ensureInitialized();
+  } catch (e) {
+    if (kDebugMode) debugPrint('MediaKit init error: $e');
+  }
   await _initAppPath();
   try {
     await GStorage.init();
@@ -148,8 +151,6 @@ void main() async {
   Request();
   Request.setCookie();
   RequestUtils.syncHistoryStatus();
-
-  SubscriptionUpdater.instance.start();
 
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
 
@@ -288,6 +289,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 延迟启动订阅更新器，不阻塞应用启动
+    Future.microtask(() => SubscriptionUpdater.instance.start());
+    
     final (light, dark) = getAllTheme();
     return GetMaterialApp(
       title: Constants.appName,

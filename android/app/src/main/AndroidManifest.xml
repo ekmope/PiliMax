@@ -104,7 +104,7 @@
             <intent-filter android:label="PiliNara">
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.SEARCH" />
-                <action android:name="com.example.pilinara.SHORTCUT" />
+                <action android:name="com.piliAI.SHORTCUT" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />

@@ -18,7 +18,7 @@ if (!isBuiltInKotlinEnabled) {
 }
 
 android {
-    namespace = "com.example.pilinara"
+    namespace = "com.piliAI"
     compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
@@ -28,7 +28,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.pilinara"
+        applicationId = "com.piliAI"
         minSdk = 29
         targetSdk = 37
         versionCode = flutter.versionCode

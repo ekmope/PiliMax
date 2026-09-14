@@ -104,9 +104,10 @@ jobs:
         run: lib/scripts/build.ps1 android
 
       - name: Build Android APKs
+        id: build
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
 
           args=(
             build apk
@@ -121,7 +122,38 @@ jobs:
             args+=(--android-project-arg dev=1)
           fi
 
-          flutter "${args[@]}"
+          set -o pipefail
+          flutter "${args[@]}" 2>&1 | tee build-output.log
+          exit "${PIPESTATUS[0]}"
+
+      - name: Surface build errors as annotations
+        if: failure()
+        shell: bash
+        run: |
+          if [ ! -f build-output.log ]; then
+            echo "::error title=Build failed without log::No build-output.log produced"
+            exit 0
+          fi
+          # Emit each Dart analyzer error as a GitHub annotation so it is
+          # visible on the run summary page without downloading artifacts.
+          grep -E '(^|/)lib/[^:]+:[0-9]+:[0-9]+: Error:' build-output.log \
+            | head -50 \
+            | while IFS= read -r line; do
+                file=$(echo "$line" | sed -E 's|^.*?([^ ]+lib/[^:]+):[0-9]+:[0-9]+:.*|\1|')
+                ln=$(echo "$line" | sed -E 's|^.*lib/[^:]+:([0-9]+):.*|\1|')
+                msg=$(echo "$line" | sed -E 's|^.* Error: ||')
+                echo "::error file=${file},line=${ln},title=Dart::${msg}"
+              done
+          echo "::warning title=Build summary::$(grep -c 'Error:' build-output.log || true) error lines found; full log in artifacts"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-log-${{ github.run_number }}-${{ github.run_attempt }}
+          path: build-output.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Rename APKs
         shell: bash

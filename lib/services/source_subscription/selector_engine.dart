@@ -156,7 +156,10 @@ class SelectorEngine {
       return _parseGroupedChannels(doc, subjectUrl, cfg ?? const {}, tierOf);
     }
     final cfg = _map('selectorChannelFormatNoChannel');
-    final dom.Element rootEl = doc.documentElement ?? doc;
+    final rootEl = doc.documentElement;
+    if (rootEl == null) {
+      return const [];
+    }
     final episodes = _parseEpisodeList(
       rootEl,
       subjectUrl,

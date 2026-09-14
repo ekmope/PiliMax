@@ -30,24 +30,6 @@ class CdnLastVideoSnapshot {
 abstract final class CdnLastVideoService {
   static const _key = 'cdn:lastPlayedVideo';
 
-  /// 初始化CDN最后视频服务
-  static Future<void> initialize() async {
-    // 初始化最后视频数据存储
-    await _loadLastVideoData();
-  }
-
-  /// 加载最后视频数据
-  static Future<void> _loadLastVideoData() async {
-    try {
-      final data = GStorage.video.get(_key);
-      if (data is Map<String, dynamic>) {
-        // 这里可以加载最后播放的视频数据
-      }
-    } catch (e) {
-      // 忽略加载错误
-    }
-  }
-
   static Future<void> remember({
     required String bvid,
     required int cid,

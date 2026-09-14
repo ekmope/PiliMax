@@ -1,7 +1,6 @@
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models_new/live/live_room_play_info/codec.dart';
-import 'package:PiliPlus/services/cdn_service.dart';
 import 'package:PiliPlus/utils/cdn_node_store.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -12,19 +11,6 @@ abstract final class VideoUtils {
   static String? customCDNUrl = Pref.customCDNUrl;
   static String? liveCdnUrl = Pref.liveCdnUrl;
   static bool disableAudioCDN = Pref.disableAudioCDN;
-
-  /// 初始化CDN服务
-  static Future<void> initializeCdnService() async {
-    try {
-      await CdnService.instance.initialize();
-      cdnService = CdnService.instance.currentService;
-      debugPrint('CDN服务初始化完成: ${cdnService.desc}');
-    } catch (e) {
-      debugPrint('CDN服务初始化失败: $e');
-      // 使用默认CDN服务
-      cdnService = Pref.defaultCDNService;
-    }
-  }
 
   static const _proxyTf = 'proxy-tf-all-ws.bilivideo.com';
 

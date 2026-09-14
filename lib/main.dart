@@ -149,9 +149,6 @@ void main() async {
   RequestUtils.syncHistoryStatus();
 
   SubscriptionUpdater.instance.start();
-  
-  // 初始化CDN服务
-  await VideoUtils.initializeCdnService();
 
   SmartDialog.config.toast = SmartConfigToast(displayType: .onlyRefresh);
 

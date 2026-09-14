@@ -1400,19 +1400,6 @@ abstract final class Pref {
       ? bufferSize
       : _setting.get(SettingBoxKey.bufferSizeWeak, defaultValue: 211.0);
 
-  // CDN相关偏好设置
-  static String get currentCdnService =>
-      _setting.get(SettingBoxKey.currentCdnService, defaultValue: 'default');
-
-  static String? get customCDNUrl =>
-      _setting.get(SettingBoxKey.customCdnUrl);
-
-  static String? get liveCdnUrl =>
-      _setting.get(SettingBoxKey.liveCdnUrl);
-
-  static bool get disableAudioCDN =>
-      _setting.get(SettingBoxKey.disableAudioCDN, defaultValue: false);
-
   static double get bufferSecWeak => bufferWeakSync
       ? bufferSec
       : _setting.get(SettingBoxKey.bufferSecWeak, defaultValue: 985.0);

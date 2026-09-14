@@ -3,80 +3,7 @@
 //https://github.com/yujincheng08/BiliRoaming/blob/master/app/src/main/res/values/strings_raw.xml
 //https://github.com/yujincheng08/BiliRoaming/blob/master/app/src/main/res/values/arrays.xml
 
-enum CdnType {
-  upos,
-  custom,
-  region,
-}
-
-class CDNService {
-  final String id;
-  final String name;
-  final String desc;
-  final CdnType type;
-  final int priority;
-  final bool enabled;
-  final String? customUrl;
-  final String? region;
-  final List<String>? hosts;
-
-  CDNService({
-    required this.id,
-    required this.name,
-    required this.desc,
-    required this.type,
-    required this.priority,
-    required this.enabled,
-    this.customUrl,
-    this.region,
-    this.hosts,
-  });
-
-  CDNService copyWith({
-    String? id,
-    String? name,
-    String? desc,
-    CdnType? type,
-    int? priority,
-    bool? enabled,
-    String? customUrl,
-    String? region,
-    List<String>? hosts,
-  }) {
-    return CDNService(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      desc: desc ?? this.desc,
-      type: type ?? this.type,
-      priority: priority ?? this.priority,
-      enabled: enabled ?? this.enabled,
-      customUrl: customUrl ?? this.customUrl,
-      region: region ?? this.region,
-      hosts: hosts ?? this.hosts,
-    );
-  }
-}
-
-// 默认CDN服务
-final Pref = _Pref();
-
-class _Pref {
-  CDNService get defaultCDNService => CDNService(
-    id: 'default',
-    name: '默认CDN',
-    desc: '使用B站默认CDN',
-    type: CdnType.upos,
-    priority: 0,
-    enabled: true,
-  );
-  
-  String? get customCDNUrl => null;
-  String? get liveCdnUrl => null;
-  bool get disableAudioCDN => false;
-}
-
-// 旧的CDN服务枚举（保持兼容）
-enum CDNServiceLegacy {
+enum CDNService {
   baseUrl('基础URL（不推荐）'),
   backupUrl('备用URL'),
   ali('ali（阿里云）', 'upos-sz-mirrorali.bilivideo.com'),
@@ -103,7 +30,7 @@ enum CDNServiceLegacy {
   final String desc;
   final String? host;
 
-  const CDNServiceLegacy(this.desc, [this.host]);
+  const CDNService(this.desc, [this.host]);
 }
 
 // from https://rec.danmuji.org/dev/cdn-info/

@@ -32,7 +32,7 @@ class CoreVideoController extends GetxController {
 
   @override
   void onInit() {
-    super.initState();
+    super.onInit();
     backend.value =
         startBackend ?? PlayerBackend.fromName(Pref.defaultPlayerBackend);
     player = CorePlayerFactory.create(backend.value).obs;

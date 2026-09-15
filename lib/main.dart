@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:PiliPlus/build_config.dart';
@@ -94,18 +95,29 @@ Future<void> _initAppPath() async {
 
 void main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized();
-  try {
-    MediaKit.ensureInitialized();
-  } catch (e) {
-    if (kDebugMode) debugPrint('MediaKit init error: $e');
+  
+  // MediaKit 只在 Android/iOS 上初始化（桌面平台在各自分支里处理）
+  if (PlatformUtils.isMobile) {
+    try {
+      MediaKit.ensureInitialized();
+    } catch (e) {
+      if (kDebugMode) debugPrint('MediaKit init error: $e');
+    }
   }
+  
   await _initAppPath();
   try {
-    await GStorage.init();
+    await GStorage.init().timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        if (kDebugMode) debugPrint('GStorage init timeout');
+        throw TimeoutException('GStorage init timeout');
+      },
+    );
   } catch (e) {
     await Utils.copyText(e.toString());
     if (kDebugMode) debugPrint('GStorage init error: $e');
-    exit(0);
+    // 不退出，显示错误页面而不是白屏
   }
   ScaledWidgetsFlutterBinding.instance.scaleFactor = Pref.uiScale;
   await Future.wait([

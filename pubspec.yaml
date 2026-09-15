@@ -188,6 +188,10 @@ dependencies:
       ref: main
 
 dependency_overrides:
+  # objective_c 的 hook/build.dart 在 Android 上引用 iOS-only 的 Architecture.arm64e，
+  # 导致 Android 构建失败。用空实现覆盖它，禁用其 hook。
+  objective_c:
+    path: tool/stubs/objective_c
   clipboard:
     git:
       url: https://github.com/dongfengweixiao/flutter_clipboard.git

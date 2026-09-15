@@ -188,6 +188,11 @@ dependencies:
       ref: main
 
 dependency_overrides:
+  # nm (NetworkManager client) is Linux-only; its transitive dependency
+  # objective_c references iOS-only Architecture.arm64e in its hook.
+  # Stub it out for Android builds.
+  nm:
+    path: tool/stubs/nm
   # objective_c 的 hook/build.dart 在 Android 上引用 iOS-only 的 Architecture.arm64e，
   # 导致 Android 构建失败。用空实现覆盖它，禁用其 hook。
   objective_c:

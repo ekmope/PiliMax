@@ -1,0 +1,6 @@
+name: nm
+description: Stub for nm (NetworkManager client) to prevent Linux-only hook from running on Android.
+version: 0.0.1
+publish_to: none
+environment:
+  sdk: ">=3.0.0 <4.0.0"

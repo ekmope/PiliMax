@@ -1,4 +1,4 @@
-package com.example.pilinara
+package com.piliAI
 
 import android.os.Build
 import android.os.Bundle

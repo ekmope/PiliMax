@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.pilinara;
+package com.piliAI;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;

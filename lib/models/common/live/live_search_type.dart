@@ -1,1 +1,0 @@
-enum LiveSearchType { room, user }

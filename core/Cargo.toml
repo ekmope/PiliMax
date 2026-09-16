@@ -1,0 +1,24 @@
+[package]
+name = "pilinara_core"
+version = "0.1.0"
+edition = "2021"
+description = "PiliNara native core: today-watch recommendation + animeko source subscription (Rust)"
+
+# 产出 JNI 动态库（libpilinara_core.so）供 Android 加载，同时保留 rlib 便于单元测试。
+[lib]
+name = "pilinara_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+jni = "0.21"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# HTML 解析（对应 animeko SelectorMediaSource 的 CSS 选择器抓取）
+scraper = "0.20"
+regex = "1.10"
+# URL 解析/合并（源订阅相对链接解析根部）
+url = "2.5"
+
+[profile.release]
+lto = true
+strip = "symbols"

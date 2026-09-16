@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.pilinara"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.pilinara"
-        minSdk = 24
-        targetSdk = 35
+        minSdk = 26
+        targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
 
@@ -27,9 +27,18 @@ android {
         }
     }
 
+    packaging {
+        jniLibs {
+            // MPV 与 VLC 两者都自带 libc++_shared.so，任取其一即可避免合并冲突。
+            pickFirsts += "**/libc++_shared.so"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            // 演示发布的 0.1 版本使用 debug 签名，保证 APK 可直接安装。
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -48,5 +57,12 @@ android {
 }
 
 dependencies {
-    // 最小壳不依赖第三方 Android 库；Kotlin 标准库由 Kotlin 插件自动引入。
+    // 播放内核：Media3（默认）。
+    implementation("androidx.media3:media3-exoplayer:1.11.0")
+
+    // 播放内核：VLC（org.videolan.android，自拉取内核）。
+    implementation("org.videolan.android:libvlc-all:3.7.0")
+
+    // 播放内核：MPV（dev.jdtech.mpv，自拉取内核）。
+    implementation("dev.jdtech.mpv:libmpv:1.0.0")
 }

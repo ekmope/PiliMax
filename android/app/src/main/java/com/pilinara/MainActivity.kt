@@ -1,39 +1,69 @@
 package com.pilinara
 
 import android.app.Activity
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.view.Gravity
+import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.pilinara.core.NativeCore
+import com.pilinara.player.PlayerActivity
+import com.pilinara.player.PlayerBackend
+import com.pilinara.vip.VipTrialService
 
 /**
  * 最小壳：验证 JNI 桥与 Rust 核心在 arm64-v8a 设备上可正常加载与调用。
  *
  * 网络接入（B 站首页/历史抓取、animeko 源订阅抓取）是「逐步迁移」的后续工作；
- * 此处以样例数据演示「今日推荐单」与「源订阅/选择器」两套核心解析能力。
+ * 此处以样例数据演示「今日推荐单」「源订阅/选择器」「大会员无限试用」三套核心能力，
+ * 并提供三大播放内核（Media3 / VLC / MPV）的启动入口。
  */
 class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val text = TextView(this).apply {
-            setTextColor(Color.parseColor("#1A1A1A"))
-            textSize = 13f
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.WHITE)
             setPadding(48, 48, 48, 48)
-            text = buildDemoReport()
         }
 
-        setContentView(
-            ScrollView(this).apply {
-                setBackgroundColor(Color.WHITE)
-                addView(text)
-            },
+        val report = TextView(this).apply {
+            setTextColor(Color.parseColor("#1A1A1A"))
+            textSize = 13f
+            text = buildDemoReport()
+        }
+        content.addView(report)
+
+        content.addView(
+            TextView(this).apply { text = "—— 播放内核 ——"; setPadding(0, 32, 0, 8) },
         )
+        addPlayerButton(content, "Media3（默认）", PlayerBackend.MEDIA3)
+        addPlayerButton(content, "VLC", PlayerBackend.VLC)
+        addPlayerButton(content, "MPV", PlayerBackend.MPV)
+
+        setContentView(ScrollView(this).apply { addView(content) })
+    }
+
+    private fun addPlayerButton(parent: LinearLayout, label: String, backend: PlayerBackend) {
+        val button = Button(this).apply {
+            text = "播放内核：$label"
+            gravity = Gravity.START
+            setOnClickListener {
+                startActivity(
+                    Intent(this@MainActivity, PlayerActivity::class.java)
+                        .putExtra(PlayerActivity.EXTRA_BACKEND, backend.name),
+                )
+            }
+        }
+        parent.addView(button)
     }
 
     private fun buildDemoReport(): String = buildString {
-        appendLine("PiliNara 核心自检 (arm64-v8a)")
+        appendLine("piliAI 核心自检 (arm64-v8a)")
         appendLine(repeat("-", 40))
         appendLine()
 
@@ -50,6 +80,11 @@ class MainActivity : Activity() {
         runCatching { demoSelector() }
             .onSuccess { appendLine(it) }
             .onFailure { appendLine("选择器: 失败 -> ${it.message}") }
+        appendLine()
+
+        runCatching { demoVipTrial() }
+            .onSuccess { appendLine(it) }
+            .onFailure { appendLine("大会员试用: 失败 -> ${it.message}") }
         appendLine()
         appendLine("全部自检完成。")
     }
@@ -111,6 +146,12 @@ class MainActivity : Activity() {
             appendLine("线路集数 -> $channels")
             appendLine("视频直链 -> $video")
         }
+    }
+
+    private fun demoVipTrial(): String {
+        val body = """{"code":0,"data":{"isLogin":true,"vipStatus":0,"vipType":0,"vipDueDate":1600000000000,"vipLabel":{"text":"","label_theme":""},"uname":"test"}}"""
+        val out = VipTrialService.apply(body)
+        return "大会员试用 -> $out"
     }
 
     private fun StringBuilder.appendLine(line: String = "") {

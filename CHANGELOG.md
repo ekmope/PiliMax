@@ -10,6 +10,22 @@
 ### Changed
 - 播放器三点菜单入口与面板标题由「视频画面参数」更名为「视频参数」，以涵盖新增的音频延迟项。
 
+## [0.1.0] - 2026-09-16
+
+piliAI（原 PiliNara）首个重构预览版：从 Flutter 迁移到 Rust 核心 + Kotlin Android 壳，仅保留 Android ARMv8。
+
+### Added
+- **项目更名 piliAI**：应用名与根项目统一为 piliAI。
+- **三大播放内核**：集成 Media3（默认）/ VLC / MPV，统一 `CorePlayer` 抽象与 `CorePlayerFactory` 工厂，支持动态切换后端。
+- **大会员无限试用**：本地改写 B 站 API 会员字段（`vipStatus` / `vipType` / `vipDueDate` / `vipLabel`），滚动顺延到期时间模拟无限试用（参考哔哩漫游思路）。
+- **今日推荐单**：根据历史与候选视频生成推荐单（来自 bilipai 内置插件）。
+- **animeko 源订阅**：源订阅清单解析、多源聚合、源实例选择器与搜索 / 详情 / 视频直链解析。
+
+### Changed
+- 技术栈由 Flutter 迁移为 Rust 核心（`libpilinara_core.so`）+ Kotlin Android 壳，核心纯逻辑通过 JNI 桥接。
+- 仅面向 Android ARMv8（arm64-v8a），删除 iOS / Linux / macOS / Windows 及其它 ABI 代码。
+- 编译目标升级至 SDK 36（AGP 8.9.2、Kotlin 2.2.10），minSdk 26。
+
 ## 2.1.3 -[Remielle] - 2026-09-10
 
 本版的重点是**后台自动只听音频**——进入后台 10 秒自动断开视频流只保留声音，回到前台自动恢复画面。视频播放器新增**画面参数调节面板**（亮度、对比度、饱和度、伽马、色相），AI 对话补全了 Markdown 渲染全面修复。评论输入框支持 LaTeX 转 Unicode，定时关机终于会报时了。Side 项目重构了直播弹幕屏蔽的实现，删掉了大量冗余代码。同时修复了一批弹窗字体、小窗手势、看完人数残留等问题。

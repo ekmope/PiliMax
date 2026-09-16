@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "pilinara"
+rootProject.name = "piliAI"
 include(":app")

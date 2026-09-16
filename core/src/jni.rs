@@ -9,6 +9,7 @@ use jni::objects::{JClass, JString};
 use jni::sys::jstring;
 use jni::JNIEnv;
 
+use crate::bili_vip::{apply_vip_trial, VipTrialConfig};
 use crate::source_subscription::selector::SelectorEngine;
 use crate::source_subscription::{apply_manifest, SourceInstance, SubscriptionManifest};
 use crate::today_watch::{build_today_watch_plan, TodayWatchMode, TodayWatchStrategy};
@@ -255,4 +256,29 @@ pub extern "system" fn Java_com_pilinara_core_NativeCore_videoHeaders<'local>(
     let engine = SelectorEngine::new(&instance);
     let headers: HashMap<String, String> = engine.video_headers();
     serialize(&mut env, &headers)
+}
+
+/// 应用「大会员无限试用」改写：对 B 站 API 返回的 JSON 做本地会员字段改写。
+///
+/// - `body`：原始 JSON 字符串；
+/// - `config_json`：`VipTrialConfig` 的 JSON（解析失败时回退到默认配置）；
+/// - `now_ms`：当前时间（Unix 毫秒），用于滚动顺延到期时间。
+#[no_mangle]
+pub extern "system" fn Java_com_pilinara_core_NativeCore_applyVipTrial<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    body: JString<'local>,
+    config_json: JString<'local>,
+    now_ms: jni::sys::jlong,
+) -> jstring {
+    let body = match get_string(&mut env, &body) {
+        Ok(s) => s,
+        Err(e) => return throw(&mut env, e),
+    };
+    let config = match get_string(&mut env, &config_json) {
+        Ok(s) => serde_json::from_str::<VipTrialConfig>(&s).unwrap_or_default(),
+        Err(_) => VipTrialConfig::default(),
+    };
+    let out = apply_vip_trial(&body, &config, now_ms as i64);
+    to_jstring(&mut env, out)
 }

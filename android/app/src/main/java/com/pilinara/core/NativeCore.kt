@@ -61,5 +61,15 @@ class NativeCore private constructor() {
         /** 视频直链追加请求头 → JSON object。 */
         @JvmStatic
         external fun videoHeaders(instanceJson: String): String
+
+        /**
+         * 应用「大会员无限试用」改写：对 B 站 API 返回 JSON 的会员字段做本地改写。
+         *
+         * @param body 原始 JSON 字符串
+         * @param configJson [VipTrialConfig] 的 JSON，解析失败时回退默认配置
+         * @param nowMs 当前时间（Unix 毫秒），用于滚动顺延到期时间
+         */
+        @JvmStatic
+        external fun applyVipTrial(body: String, configJson: String, nowMs: Long): String
     }
 }

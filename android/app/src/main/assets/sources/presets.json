@@ -1,0 +1,14 @@
+{
+  "presets": [
+    {
+      "name": "Animeko 社区源合集",
+      "description": "社区维护的 animeko 兼容源合集（web-selector 抓取），含多条线路，开箱即用。",
+      "url": "https://raw.githubusercontent.com/MajoSissi/animeko-source/main/dist/all.json"
+    },
+    {
+      "name": "Animeko 社区源合集（jsDelivr 镜像）",
+      "description": "同一合集的 CDN 镜像，主地址无法访问时使用。",
+      "url": "https://cdn.jsdelivr.net/gh/MajoSissi/animeko-source@main/dist/all.json"
+    }
+  ]
+}

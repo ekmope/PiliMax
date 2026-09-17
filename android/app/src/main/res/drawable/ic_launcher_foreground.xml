@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PiliNara 启动图标：圆角播放三角 + 弹幕轨道，全部位于自适应图标安全区内。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 播放三角（稍偏上，视觉居中） -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,38 L72,54 L46,70 Z" />
+    <!-- 三条弹幕轨道 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.55"
+        android:pathData="M30,78 h36 a3,3 0 0 1 0,6 h-36 a3,3 0 0 1 0,-6 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.32"
+        android:pathData="M30,24 h24 a3,3 0 0 1 0,6 h-24 a3,3 0 0 1 0,-6 Z" />
+</vector>

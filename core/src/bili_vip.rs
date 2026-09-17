@@ -76,6 +76,7 @@ fn rewrite(value: &mut Value, cfg: &VipTrialConfig, now_ms: i64, in_vip: bool) {
         }
         Value::Object(map) => {
             patch_vip_specific(map, cfg, now_ms);
+            patch_playurl_trial(map);
             if in_vip {
                 patch_vip_generic(map, cfg, now_ms);
             }
@@ -120,6 +121,16 @@ fn patch_vip_specific(map: &mut Map<String, Value>, cfg: &VipTrialConfig, now_ms
         if let Some(label) = map.get_mut(key) {
             set_vip_label(label);
         }
+    }
+}
+
+/// playurl 响应：携带 `dash`/`durl` 的对象若带 `trial: true`（试看片段标记），
+/// 清除该标记，使客户端按完整正片播放（无限试用：试看限制只在本地字段层生效）。
+fn patch_playurl_trial(map: &mut Map<String, Value>) {
+    if map.contains_key("trial")
+        && (map.contains_key("dash") || map.contains_key("durl"))
+    {
+        map.insert("trial".to_string(), Value::Bool(false));
     }
 }
 
@@ -193,6 +204,18 @@ mod tests {
         };
         let body = r#"{"vipStatus":0}"#;
         assert_eq!(apply_vip_trial(body, &cfg, NOW), body);
+    }
+
+    #[test]
+    fn clears_playurl_trial_flag() {
+        let body = r#"{"code":0,"data":{"quality":127,"trial":true,"dash":{"video":[],"audio":[]}}}"#;
+        let out = apply_vip_trial(body, &VipTrialConfig::default(), NOW);
+        let v: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["data"]["trial"], json!(false));
+        // 非 playurl 上下文里的同名字段不受影响
+        let body2 = r#"{"trial":true}"#;
+        let out2 = apply_vip_trial(body2, &VipTrialConfig::default(), NOW);
+        assert!(out2.contains(r#""trial":true"#));
     }
 
     #[test]

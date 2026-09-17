@@ -1,0 +1,9 @@
+# 交叉编译参数：仅作用于 Android arm64 目标，不影响主机上的 `cargo test`。
+#
+# 目标设备：第五代高通骁龙 8 至尊版（Oryon v3，Armv9.2-A，128-bit SVE2）。
+# LLVM 已内置 oryon-1 调度模型（骁龙 X / 8 至尊版家族初代），其启用的指令集
+# （Armv9 + SVE2/SVE-AES/SHA3 + i8mm/bf16/dotprod/LSE/RCPC3 等）是 Oryon v3
+# 的严格子集，因此以 oryon-1 为目标既拿到 Oryon 原生指令调度，又保证前向兼容；
+# 应用唯一目标设备即该机型，不做运行时多档分发（用户明确不考虑其他设备）。
+[target.aarch64-linux-android]
+rustflags = ["-C", "target-cpu=oryon-1"]

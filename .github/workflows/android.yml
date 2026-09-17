@@ -51,21 +51,16 @@ jobs:
       - name: Setup Android SDK + NDK
         uses: android-actions/setup-android@v3
         with:
-          # compileSdk 36 需要 android-36 平台；AGP 8.9.2 默认使用 build-tools 35.0.0。
-          packages: "platform-tools platforms;android-36 build-tools;35.0.0 ndk;26.3.11579264"
+          # Android 17（compileSdk 37）+ NDK r28（Armv9/Oryon LLVM 调度）。
+          packages: "platform-tools platforms;android-37 build-tools;37.0.0 ndk;28.0.13004108"
 
       - name: Setup Rust (aarch64-linux-android)
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
 
-      - name: Cross-compile Rust core (arm64-v8a)
-        working-directory: core
-        run: |
-          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/26.3.11579264"
-          cargo install cargo-ndk --locked
-          cargo ndk -t arm64-v8a -o ../android/app/src/main/jniLibs build --release
-
+      # Rust 交叉编译由 Gradle 的 cargoBuildArm/copyRustSo 任务自动完成，
+      # 链接器直接指向 NDK r28 clang（API 26），无需 cargo-ndk。
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 

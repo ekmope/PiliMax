@@ -1,0 +1,106 @@
+package com.pilinara.net
+
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * 持久化 CookieJar：按域名内存缓存 + JSON 落盘。
+ *
+ * B 站登录态（SESSDATA / bili_jct / buvid3 等）需要跨进程重启保留，且 Media3/Coil
+ * 共用同一 OkHttp 客户端以携带登录 Cookie 与防盗链 Referer。
+ */
+class PersistentCookieJar(private val file: File) : CookieJar {
+
+    @Serializable
+    private data class CookieData(
+        val name: String,
+        val value: String,
+        val domain: String,
+        val path: String,
+        val expiresAt: Long,
+        val secure: Boolean,
+        val hostOnly: Boolean,
+    )
+
+    // host -> (name -> Cookie)
+    private val store = ConcurrentHashMap<String, MutableMap<String, Cookie>>()
+    private val json = Json { ignoreUnknownKeys = true }
+
+    init {
+        load()
+    }
+
+    @Synchronized
+    private fun load() {
+        if (!file.exists()) return
+        runCatching {
+            val list = json.decodeFromString<List<CookieData>>(file.readText())
+            val now = System.currentTimeMillis()
+            for (c in list) {
+                if (c.expiresAt <= now) continue
+                val cookie = Cookie.Builder()
+                    .name(c.name)
+                    .value(c.value)
+                    .path(c.path)
+                    .expiresAt(c.expiresAt)
+                    .apply {
+                        if (c.hostOnly) hostOnlyDomain(c.domain) else domain(c.domain)
+                        if (c.secure) secure()
+                    }
+                    .build()
+                store.computeIfAbsent(c.domain) { ConcurrentHashMap() }[c.name] = cookie
+            }
+        }
+    }
+
+    @Synchronized
+    private fun persist() {
+        val now = System.currentTimeMillis()
+        val all = store.values.flatMap { it.values }
+            .filter { it.expiresAt >= now }
+            .map {
+                CookieData(
+                    name = it.name,
+                    value = it.value,
+                    domain = it.domain,
+                    path = it.path,
+                    expiresAt = it.expiresAt,
+                    secure = it.secure,
+                    hostOnly = it.hostOnly,
+                )
+            }
+        runCatching { file.writeText(json.encodeToString(all)) }
+    }
+
+    override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+        for (cookie in cookies) {
+            store.computeIfAbsent(cookie.domain) { ConcurrentHashMap() }[cookie.name] = cookie
+        }
+        persist()
+    }
+
+    override fun loadForRequest(url: HttpUrl): List<Cookie> {
+        val now = System.currentTimeMillis()
+        val out = ArrayList<Cookie>()
+        for ((domain, cookies) in store) {
+            if (!domainMatch(url.host, domain)) continue
+            for (cookie in cookies.values) {
+                if (cookie.expiresAt < now) continue
+                if (cookie.secure && url.scheme != "https") continue
+                if (url.encodedPath.startsWith(cookie.path)) out.add(cookie)
+            }
+        }
+        return out
+    }
+
+    /** OkHttp 的 domain 匹配语义：hostOnly 全等，否则以 `.domain` 为后缀。 */
+    private fun domainMatch(host: String, domain: String): Boolean {
+        val base = domain.removePrefix(".")
+        return host == base || host.endsWith(".$base")
+    }
+}

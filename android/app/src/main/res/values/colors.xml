@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 品牌主色（PiliNara 玫瑰粉），同时作为动态取色不可用时的种子色。 -->
+    <color name="brand">#FF5C8A</color>
+    <color name="brand_dark">#FF7FA3</color>
+    <color name="window_background">#FFF7F8FA</color>
+    <color name="window_background_dark">#FF0E0E11</color>
+    <color name="ic_launcher_background">#FF5C8A</color>
+</resources>

@@ -1,8 +1,8 @@
 [package]
 name = "pilinara_core"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "PiliNara native core: today-watch recommendation + animeko source subscription (Rust)"
+description = "piliAI native core: today-watch recommendation, animeko source subscription, danmaku, feed filter and sniffer (Rust)"
 
 # 产出 JNI 动态库（libpilinara_core.so）供 Android 加载，同时保留 rlib 便于单元测试。
 [lib]
@@ -20,5 +20,9 @@ regex = "1.10"
 url = "2.5"
 
 [profile.release]
-lto = true
+# 面向唯一目标设备（第五代骁龙 8 至尊版）做激进体积/性能优化：
+# fat LTO + 单 codegen unit 让弹幕解析/合并热路径获得更好的内联与布局。
+lto = "fat"
+codegen-units = 1
+panic = "abort"
 strip = "symbols"

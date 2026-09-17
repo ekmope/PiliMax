@@ -258,6 +258,106 @@ pub extern "system" fn Java_com_pilinara_core_NativeCore_videoHeaders<'local>(
     serialize(&mut env, &headers)
 }
 
+/// 解析旧版 XML 弹幕并（可选）合并。window_ms <= 0 表示不合并。
+#[no_mangle]
+pub extern "system" fn Java_com_pilinara_core_NativeCore_parseDanmakuXml<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    body: JString<'local>,
+    window_ms: jni::sys::jlong,
+) -> jstring {
+    let body = match get_string(&mut env, &body) {
+        Ok(s) => s,
+        Err(e) => return throw(&mut env, e),
+    };
+    to_jstring(&mut env, crate::danmaku::parse_xml_json(&body, window_ms as i64))
+}
+
+/// 解析 seg.so protobuf 弹幕（body 需经 base64 编码传入）并（可选）合并。
+#[no_mangle]
+pub extern "system" fn Java_com_pilinara_core_NativeCore_parseDanmakuSegSo<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    base64_body: JString<'local>,
+    window_ms: jni::sys::jlong,
+) -> jstring {
+    let b64 = match get_string(&mut env, &base64_body) {
+        Ok(s) => s,
+        Err(e) => return throw(&mut env, e),
+    };
+    match crate::danmaku::parse_seg_so_base64_json(&b64, window_ms as i64) {
+        Ok(json) => to_jstring(&mut env, json),
+        Err(e) => throw(&mut env, format!("danmaku seg.so: {}", e)),
+    }
+}
+
+/// 信息流规则过滤：输入视频数组 JSON 与规则 JSON，返回过滤后的数组 JSON。
+#[no_mangle]
+pub extern "system" fn Java_com_pilinara_core_NativeCore_applyFeedFilter<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    videos_json: JString<'local>,
+    rules_json: JString<'local>,
+) -> jstring {
+    let videos = match get_string(&mut env, &videos_json) {
+        Ok(s) => s,
+        Err(e) => return throw(&mut env, e),
+    };
+    let rules = match get_string(&mut env, &rules_json) {
+        Ok(s) => s,
+        Err(e) => return throw(&mut env, e),
+    };
+    to_jstring(&mut env, crate::feed_filter::apply(&videos, &rules))
+}
+
+/// 嗅探视频直链。config_json 为空串或 "null" 时使用内置兜底规则。
+/// 命中返回 URL 字符串（非 JSON），未命中返回 "null"。
+#[no_mangle]
+pub extern "system" fn Java_com_pilinara_core_NativeCore_sniffVideo<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    html: JString<'local>,
+    config_json: JString<'local>,
+) -> jstring {
+    let html = match get_string(&mut env, &html) {
+        Ok(s) => s,
+        Err(e) => return throw(&mut env, e),
+    };
+    let cfg = get_string(&mut env, &config_json).ok().and_then(optional_arg);
+    match crate::sniffer::sniff(&html, cfg.as_deref()) {
+        Some(url) => to_jstring(&mut env, url),
+        None => to_jstring(&mut env, "null"),
+    }
+}
+
+/// 嗅探嵌套页地址（iframe / 跳转），规则同 `sniffVideo`。
+#[no_mangle]
+pub extern "system" fn Java_com_pilinara_core_NativeCore_sniffNested<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    html: JString<'local>,
+    config_json: JString<'local>,
+) -> jstring {
+    let html = match get_string(&mut env, &html) {
+        Ok(s) => s,
+        Err(e) => return throw(&mut env, e),
+    };
+    let cfg = get_string(&mut env, &config_json).ok().and_then(optional_arg);
+    match crate::sniffer::sniff_nested(&html, cfg.as_deref()) {
+        Some(url) => to_jstring(&mut env, url),
+        None => to_jstring(&mut env, "null"),
+    }
+}
+
+/// 空串 / "null" 视为未提供可选配置。
+fn optional_arg(s: String) -> Option<String> {
+    if s.is_empty() || s == "null" {
+        None
+    } else {
+        Some(s)
+    }
+}
+
 /// 应用「大会员无限试用」改写：对 B 站 API 返回的 JSON 做本地会员字段改写。
 ///
 /// - `body`：原始 JSON 字符串；

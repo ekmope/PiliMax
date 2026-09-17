@@ -71,5 +71,36 @@ class NativeCore private constructor() {
          */
         @JvmStatic
         external fun applyVipTrial(body: String, configJson: String, nowMs: Long): String
+
+        /**
+         * 解析旧版 XML 弹幕并合并。
+         * @param windowMs 合并时间窗（毫秒），<= 0 表示只排序不合并
+         * @return 弹幕 JSON 数组 `[{t,mode,color,text,count}]`
+         */
+        @JvmStatic
+        external fun parseDanmakuXml(body: String, windowMs: Long): String
+
+        /**
+         * 解析 seg.so protobuf 弹幕。
+         * @param base64Body 原始二进制响应经 Base64 编码后的字符串
+         */
+        @JvmStatic
+        external fun parseDanmakuSegSo(base64Body: String, windowMs: Long): String
+
+        /** 信息流规则过滤：视频数组 JSON + 规则 JSON → 过滤后的数组 JSON。 */
+        @JvmStatic
+        external fun applyFeedFilter(videosJson: String, rulesJson: String): String
+
+        /**
+         * 嗅探视频直链。
+         * @param configJson SnifferConfig JSON；空串或 "null" 使用内置规则
+         * @return 命中的 URL；未命中返回 "null"
+         */
+        @JvmStatic
+        external fun sniffVideo(html: String, configJson: String): String
+
+        /** 嗅探嵌套页地址（iframe / JS 跳转）。 */
+        @JvmStatic
+        external fun sniffNested(html: String, configJson: String): String
     }
 }

@@ -11,8 +11,8 @@ android {
         applicationId = "com.pilinara"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
 
         // 仅在 ARMv8（arm64-v8a）架构上运行。
         ndk {

@@ -58,14 +58,21 @@ suspend fun buildBiliPlayRequest(
     title: String,
     qn: Int,
     cdnNodeId: String,
+    roamingServer: String = "",
+    hiResAudio: Boolean = false,
 ): PlayRequest {
-    val data = api.playurl(bvid, cid, qn = qn)
+    val data = api.playurl(
+        bvid = bvid,
+        cid = cid,
+        qn = qn,
+        roamingServer = roamingServer.ifBlank { null },
+    )
     val node = CdnNode.of(cdnNodeId)
     val headers = mapOf(
         "Referer" to "https://www.bilibili.com/video/$bvid",
         "User-Agent" to com.pilinara.net.Http.UA_WEB,
     )
-    return mapPlayData(data, title, cid, headers, node, qn)
+    return mapPlayData(data, title, cid, headers, node, qn, hiResAudio)
 }
 
 fun mapPlayData(
@@ -75,15 +82,16 @@ fun mapPlayData(
     headers: Map<String, String>,
     node: CdnNode,
     preferQn: Int,
+    hiResAudio: Boolean = false,
 ): PlayRequest {
     data.dash?.let { dash ->
         val video = pickVideoTrack(dash.video, preferQn) ?: error("播放地址中没有视频轨")
-        // 30251=Hi-Res FLAC、30255=杜比全景声：Media3 默认无对应解码器，优先普通 AAC
-        // （30250/30280/30232/30216），都没有时再退回最高带宽轨。
-        val audio = dash.audio
-            .filter { it.id in AAC_AUDIO_IDS }
-            .maxByOrNull { it.bandwidth }
-            ?: dash.audio.maxByOrNull { it.bandwidth }
+        // 默认普通 AAC；开启高解析度后依次尝试 Hi-Res FLAC、杜比全景声。
+        val audio = if (hiResAudio) {
+            dash.flac?.flac ?: dash.dolby?.audio ?: pickAudioTrack(dash)
+        } else {
+            pickAudioTrack(dash)
+        }
         return PlayRequest(
             title = title,
             videoUrl = node.pick(video.baseUrl, video.backupUrl),
@@ -135,3 +143,14 @@ private fun codecRank(codecs: String): Int = when {
 }
 
 private val AAC_AUDIO_IDS = setOf(30250, 30280, 30232, 30216)
+
+/**
+ * 选择音轨：
+ * 1. 普通 AAC 音轨里取最高码率（兼容性最好，Media3 原生解码、低功耗）；
+ * 2. 没有可识别 AAC 时退回最高码率轨；
+ * 3. Hi-Res FLAC / 杜比全景声需要用户显式开启（见设置页），默认不选——杜比在无对应
+ *    解码器的设备上会无声。
+ */
+fun pickAudioTrack(dash: com.pilinara.api.Dash): Track? =
+    dash.audio.filter { it.id in AAC_AUDIO_IDS }.maxByOrNull { it.bandwidth }
+        ?: dash.audio.maxByOrNull { it.bandwidth }

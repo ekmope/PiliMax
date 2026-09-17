@@ -40,6 +40,17 @@ class SettingsStore(private val context: Context) {
         val PREFER_QN = intPreferencesKey("prefer_qn")
         val CDN_NODE = stringPreferencesKey("cdn_node")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+
+        // 播放内核：media3（默认）/ vlc / mpv（后两者按需下载插件）。
+        val PLAYER_CORE = stringPreferencesKey("player_core")
+        // 解码模式：auto（硬解优先） / hard / soft。
+        val DECODE_MODE = stringPreferencesKey("decode_mode")
+        // 缓冲时长（毫秒）。
+        val BUFFER_MS = intPreferencesKey("buffer_ms")
+        // 是否允许 Hi-Res FLAC / 杜比音轨（默认关闭，避免无解码器设备无声）。
+        val HIRES_AUDIO = booleanPreferencesKey("hires_audio")
+        // 哔哩漫游式解析服务器（空=不启用）。
+        val ROAMING_SERVER = stringPreferencesKey("roaming_server")
     }
 
     private fun <T> pref(key: Preferences.Key<T>, default: T): Flow<T> =
@@ -60,6 +71,12 @@ class SettingsStore(private val context: Context) {
     val preferQn = pref(Keys.PREFER_QN, 127)
     val cdnNode = pref(Keys.CDN_NODE, "auto")
     val dynamicColor = pref(Keys.DYNAMIC_COLOR, true)
+
+    val playerCore = pref(Keys.PLAYER_CORE, "media3")
+    val decodeMode = pref(Keys.DECODE_MODE, "auto")
+    val bufferMs = pref(Keys.BUFFER_MS, 50_000)
+    val hiResAudio = pref(Keys.HIRES_AUDIO, false)
+    val roamingServer = pref(Keys.ROAMING_SERVER, "")
 
     suspend fun bootstrap() {
         VipTrialGate.config = VipTrialConfig(
@@ -87,6 +104,11 @@ class SettingsStore(private val context: Context) {
     suspend fun setPreferQn(v: Int) = edit { it[Keys.PREFER_QN] = v }
     suspend fun setCdnNode(v: String) = edit { it[Keys.CDN_NODE] = v }
     suspend fun setDynamicColor(v: Boolean) = edit { it[Keys.DYNAMIC_COLOR] = v }
+    suspend fun setPlayerCore(v: String) = edit { it[Keys.PLAYER_CORE] = v }
+    suspend fun setDecodeMode(v: String) = edit { it[Keys.DECODE_MODE] = v }
+    suspend fun setBufferMs(v: Int) = edit { it[Keys.BUFFER_MS] = v }
+    suspend fun setHiResAudio(v: Boolean) = edit { it[Keys.HIRES_AUDIO] = v }
+    suspend fun setRoamingServer(v: String) = edit { it[Keys.ROAMING_SERVER] = v }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
         context.dataStore.edit(block)

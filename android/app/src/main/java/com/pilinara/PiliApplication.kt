@@ -40,6 +40,9 @@ class AppContainer(application: Application) {
     val sourceRepository: SourceRepository = SourceRepository(http, sources)
 
     val searchHistory: SearchHistoryStore = SearchHistoryStore(files)
+
+    val playerCores: com.pilinara.player.external.PlayerCoreManager =
+        com.pilinara.player.external.PlayerCoreManager(application)
 }
 
 class PiliApplication : Application() {

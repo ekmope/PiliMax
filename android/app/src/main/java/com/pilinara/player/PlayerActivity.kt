@@ -61,6 +61,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -102,6 +103,36 @@ class PlayerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val request = requireNotNull(parseRequest(intent)) { "缺少播放参数" }
+
+        // 外部内核分支：用户选择 VLC/MPV 且插件已安装时，直接挂载外部播放界面，
+        // 不启动 MediaSession；未安装或加载失败则静默回落到内置 Media3。
+        val piliApp = application as PiliApplication
+        val selectedCore = kotlinx.coroutines.runBlocking {
+            com.pilinara.player.external.PlayerCoreManager.CoreId.ofSetting(
+                piliApp.container.settings.playerCore.first(),
+            )
+        }
+        if (selectedCore != com.pilinara.player.external.PlayerCoreManager.CoreId.MEDIA3 &&
+            piliApp.container.playerCores.isInstalled(selectedCore)
+        ) {
+            setContent {
+                com.pilinara.player.external.ExternalPlayerScreen(
+                    container = piliApp.container,
+                    coreId = selectedCore,
+                    request = request,
+                    onBack = { finish() },
+                    onFallbackMedia3 = {
+                        lifecycleScope.launch {
+                            piliApp.container.settings.setPlayerCore("media3")
+                        }
+                        recreate()
+                    },
+                    onBrightness = { v -> setBrightness(v) },
+                    onSetVolumeRatio = { v -> setVolume(v) },
+                )
+            }
+            return
+        }
 
         val token = SessionToken(this, android.content.ComponentName(this, PlaybackService::class.java))
         val future = MediaController.Builder(this, token).buildAsync()

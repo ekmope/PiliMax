@@ -67,7 +67,7 @@ fun SourceDetailScreen(
     var resolving by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(subjectUrl) {
-        runCatching {
+        com.pilinara.ui.common.runSuspendCatching {
             withContext(Dispatchers.IO) {
                 val instance = container.sources.instances()
                     .firstOrNull { it.name == sourceName && it.enabled }
@@ -113,7 +113,7 @@ fun SourceDetailScreen(
                                 ) {
                                     scope.launch {
                                         resolving = ep.pageUrl
-                                        runCatching {
+                                        com.pilinara.ui.common.runSuspendCatching {
                                             withContext(Dispatchers.IO) {
                                                 val instance = container.sources.instances()
                                                     .first { it.name == sourceName && it.enabled }

@@ -18,10 +18,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -55,6 +57,10 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
     val preferQn by s.preferQn.collectAsState(127)
     val cdnNode by s.cdnNode.collectAsState("auto")
     val dynamicColor by s.dynamicColor.collectAsState(true)
+    val decodeMode by s.decodeMode.collectAsState("auto")
+    val bufferMs by s.bufferMs.collectAsState(30_000)
+    val hiResAudio by s.hiResAudio.collectAsState(false)
+    val roamingServer by s.roamingServer.collectAsState("")
 
     Scaffold(
         topBar = {
@@ -95,6 +101,30 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
 
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
             SectionTitle("播放")
+            PlayerCoreRow(container)
+            LabeledDropdown(
+                label = "解码方式",
+                current = when (decodeMode) {
+                    "hard" -> "强制硬解"
+                    "soft" -> "强制软解"
+                    else -> "自动（推荐）"
+                },
+                options = listOf(
+                    "自动（推荐）" to "auto",
+                    "强制硬解（省电）" to "hard",
+                    "强制软解（兼容性）" to "soft",
+                ),
+            ) { v -> scope.launch { s.setDecodeMode(v) } }
+            LabeledDropdown(
+                label = "缓冲时长",
+                current = "${bufferMs / 1000} 秒",
+                options = listOf(
+                    "15 秒（省流）" to 15_000,
+                    "30 秒（默认）" to 30_000,
+                    "50 秒" to 50_000,
+                    "90 秒（弱网）" to 90_000,
+                ),
+            ) { v -> scope.launch { s.setBufferMs(v) } }
             LabeledDropdown(
                 label = "默认清晰度",
                 current = Quality.PRESETS.firstOrNull { it.qn == preferQn }?.label ?: "1080P 高清",
@@ -105,6 +135,11 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                 current = CdnNode.of(cdnNode).label,
                 options = CdnNode.entries.map { it.label to it.id },
             ) { id -> scope.launch { s.setCdnNode(id) } }
+            SwitchRow(
+                title = "高解析度音轨",
+                subtitle = "允许 Hi-Res FLAC / 杜比全景声音轨（设备无对应解码器时可能无声）",
+                checked = hiResAudio,
+            ) { en -> scope.launch { s.setHiResAudio(en) } }
             SliderRow(
                 label = "默认倍速",
                 value = defaultSpeed,
@@ -116,6 +151,26 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                 subtitle = "进入播放即关闭视频轨，仅后台音频（省电）",
                 checked = audioOnly,
             ) { en -> scope.launch { s.setAudioOnly(en) } }
+
+            HorizontalDivider(Modifier.padding(vertical = 10.dp))
+            SectionTitle("解析服务")
+            var roamingText by remember(roamingServer) { mutableStateOf(roamingServer) }
+            OutlinedTextField(
+                value = roamingText,
+                onValueChange = { roamingText = it },
+                label = { Text("自定义解析服务器（留空关闭）") },
+                placeholder = { Text("https://example.com 或 https://example.com/?url=") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = {
+                    scope.launch { s.setRoamingServer(roamingText.trim()) }
+                }) { Text("保存") }
+            }
 
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
             SectionTitle("弹幕")

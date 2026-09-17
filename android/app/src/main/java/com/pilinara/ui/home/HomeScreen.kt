@@ -30,6 +30,7 @@ import com.pilinara.ui.bili.VideoDetailScreen
 import com.pilinara.ui.common.ErrorBox
 import com.pilinara.ui.common.LoadingBox
 import com.pilinara.ui.common.VideoGrid
+import com.pilinara.ui.common.runSuspendCatching
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -108,9 +109,13 @@ private fun PagedFeed(
         if (loading) return
         loading = true
         scope.launch {
-            runCatching { withContext(Dispatchers.IO) { fetchPage(page) } }
+            runSuspendCatching { withContext(Dispatchers.IO) { fetchPage(page) } }
                 .onSuccess {
-                    videos.addAll(it)
+                    // 跨页重复的卡片不再重复加入。
+                    val known = videos.map { it.bvid.ifEmpty { "aid_${it.aid}" } }.toHashSet()
+                    videos.addAll(it.filter { v ->
+                        known.add(v.bvid.ifEmpty { "aid_${v.aid}" })
+                    })
                     page++
                     error = null
                 }
@@ -140,7 +145,7 @@ private fun TodayFeed(container: AppContainer, onOpen: (BiliVideo) -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        runCatching {
+        runSuspendCatching {
             withContext(Dispatchers.IO) {
                 val history = container.api.history(50)
                 val candidates = container.api.popular(1, 50) + container.api.recommend(1)
@@ -219,7 +224,7 @@ private fun HistoryFeed(container: AppContainer, onOpen: (BiliVideo) -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        runCatching { withContext(Dispatchers.IO) { container.api.history(100) } }
+        runSuspendCatching { withContext(Dispatchers.IO) { container.api.history(100) } }
             .onSuccess { list ->
                 videos.addAll(
                     list.map { h ->

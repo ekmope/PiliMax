@@ -6,6 +6,23 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// 内核插件下载地址需要指向本仓库 Release 资产：
+// CI 上读 GITHUB_REPOSITORY，本地从 git remote 解析。
+val repoSlug: String = run {
+    System.getenv("GITHUB_REPOSITORY")?.takeIf { it.isNotBlank() }?.let { return@run it }
+    val remote = runCatching {
+        ProcessBuilder("git", "remote", "get-url", "origin")
+            .directory(rootDir)
+            .redirectErrorStream(false)
+            .start()
+            .also { it.waitFor() }
+            .inputStream.bufferedReader().readText().trim()
+    }.getOrDefault("")
+    Regex("[:/]([^/]+/[^/]+?)(?:\\.git)?$").find(remote)?.groupValues?.get(1)
+        ?: "qwerzxcva/PiliNara"
+}
+val coreDownloadBase = "https://github.com/$repoSlug/releases/latest/download"
+
 android {
     namespace = "com.pilinara"
     // Android 17（本应用唯一目标平台）。
@@ -18,17 +35,21 @@ android {
         applicationId = "com.pilinara"
         minSdk = 26
         targetSdk = 37
-        versionCode = 5
-        versionName = "0.3.0"
+        versionCode = 6
+        versionName = "0.4.0"
 
         // 仅在 ARMv8（arm64-v8a）架构上运行：面向第五代骁龙 8 至尊版（Oryon / Armv9.2）。
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
+
+        buildConfigField("String", "CORE_URL_VLC", "\"$coreDownloadBase/vlc-core.apk\"")
+        buildConfigField("String", "CORE_URL_MPV", "\"$coreDownloadBase/mpv-core.apk\"")
     }
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     buildTypes {
@@ -97,6 +118,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.11.1")
     implementation("androidx.media3:media3-session:1.11.1")
+
+    // 外部播放器内核插件契约（实现以独立 APK 按需下载，见 PlayerCoreManager）。
+    implementation(project(":plugin-api"))
 
     // 二维码（登录）
     implementation("com.google.zxing:core:3.5.3")

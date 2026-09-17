@@ -19,6 +19,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +30,19 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.pilinara.api.BiliApi
 import com.pilinara.api.BiliVideo
+import kotlinx.coroutines.CancellationException
+
+/**
+ * 协程版 runCatching：[CancellationException] 必须原样抛出（否则旧搜索被取消时，
+ * “the coroutine scope left the composition”会被当成真实错误显示在 UI 上）。
+ */
+inline fun <R> runSuspendCatching(block: () -> R): Result<R> = try {
+    Result.success(block())
+} catch (ce: CancellationException) {
+    throw ce
+} catch (e: Throwable) {
+    Result.failure(e)
+}
 
 fun Long.toWan(): String = when {
     this >= 100_000_000 -> String.format("%.1f亿", this / 100_000_000.0)
@@ -70,6 +84,10 @@ fun VideoGrid(
     contentPadding: PaddingValues = PaddingValues(12.dp),
     onLoadMore: (() -> Unit)? = null,
 ) {
+    // 信息流跨页会出现重复卡片，重复 key 会让 LazyGrid 直接崩溃；渲染前去重。
+    val deduped = remember(videos) {
+        videos.distinctBy { it.bvid.ifEmpty { "aid_${it.aid}" } }
+    }
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = modifier.fillMaxSize(),
@@ -77,10 +95,10 @@ fun VideoGrid(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(videos, key = { it.bvid.ifEmpty { it.aid.toString() } }) { v ->
+        items(deduped, key = { it.bvid.ifEmpty { it.aid.toString() } }) { v ->
             VideoCard(v, onClick = { onItemClick(v) })
         }
-        if (onLoadMore != null && videos.isNotEmpty()) {
+        if (onLoadMore != null && deduped.isNotEmpty()) {
             item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
                 Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(modifier = Modifier.padding(8.dp))

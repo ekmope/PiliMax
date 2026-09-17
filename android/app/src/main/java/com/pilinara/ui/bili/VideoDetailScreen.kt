@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -65,8 +66,12 @@ fun VideoDetailScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var loadingCid by remember { mutableStateOf<Long?>(null) }
 
-    LaunchedEffect(video.bvid) {
-        runCatching { withContext(Dispatchers.IO) { container.api.view(video.bvid) } }
+    // 详情加载重试通过递增 retryKey 触发。
+    var retryKey by remember { mutableStateOf(0) }
+
+    LaunchedEffect(video.bvid, retryKey) {
+        error = null
+        com.pilinara.ui.common.runSuspendCatching { withContext(Dispatchers.IO) { container.api.view(video.bvid) } }
             .onSuccess { detail = it }
             .onFailure { error = it.message ?: "加载失败" }
     }
@@ -86,11 +91,28 @@ fun VideoDetailScreen(
         val d = detail
         if (d == null) {
             if (error != null) {
-                Text(
-                    text = "加载失败：$error",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(24.dp),
-                )
+                Column(
+                    Modifier.fillMaxSize().padding(padding).padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "详情加载失败：$error",
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    Button(onClick = { retryKey++ }) { Text("重试") }
+                    // 热门卡片自带 cid 时，详情接口故障也不挡播放。
+                    if (video.cid > 0) {
+                        Button(onClick = {
+                            scope.launch {
+                                play(
+                                    container, video.bvid, video.cid,
+                                    video.title.ifEmpty { "未知标题" },
+                                ) { loadingCid = it }
+                            }
+                        }) { Text("直接播放") }
+                    }
+                }
             } else {
                 LoadingBox(Modifier.padding(padding))
             }
@@ -190,11 +212,13 @@ private suspend fun play(
     loadingCid: (Long?) -> Unit,
 ) {
     loadingCid(cid)
-    runCatching {
+    com.pilinara.ui.common.runSuspendCatching {
         val qn = container.settings.preferQn.first()
         val cdn = container.settings.cdnNode.first()
+        val roaming = container.settings.roamingServer.first()
+        val hiRes = container.settings.hiResAudio.first()
         withContext(Dispatchers.IO) {
-            buildBiliPlayRequest(container.api, bvid, cid, title, qn, cdn)
+            buildBiliPlayRequest(container.api, bvid, cid, title, qn, cdn, roaming, hiRes)
         }
     }.onSuccess { req: PlayRequest ->
         PlayerActivity.start(container.appContext, req)

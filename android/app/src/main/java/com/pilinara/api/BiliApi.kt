@@ -4,6 +4,7 @@ import com.pilinara.net.Http
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.HttpUrl.Companion.toHttpUrl
 
 /**
  * B 站 web 接口封装。所有响应均为 JSON；大会员字段改写在 OkHttp 拦截器层透明完成。
@@ -143,7 +144,9 @@ class BiliApi(private val http: Http) {
         val body = http.getString(
             "https://api.bilibili.com/x/web-interface/popular?pn=$pn&ps=$ps",
         )
+        // 热门流偶尔混入专栏/广告卡（没有 bvid），点了只会 -404，直接过滤。
         return decode<PopularData>(body).data?.list.orEmpty()
+            .filter { it.bvid.isNotEmpty() }
     }
 
     suspend fun recommend(freshIdx: Int = 1): List<BiliVideo> {
@@ -200,26 +203,28 @@ class BiliApi(private val http: Http) {
     }
 
     /**
-     * 获取播放地址。
+     * 获取播放地址（多端 + 多策略，2026-09 逆向实测）：
      *
-     * 逆向结论（2026-09 实测，Windows Chrome 伪装 + buvid 指纹）：
-     * 1. 旧版 [/x/player/playurl] 比 wbi 端点风控宽松：不签名也稳定 200，携带 buvid3 时
-     *    返回完整 DASH（音视频分离），是首选；
-     * 2. wbi 端点缺指纹 Cookie 时直接 HTTP 412，仅留给「大会员专享」的 try_look 试看场景；
-     * 3. 匿名 web DASH 上限 480P；而 platform=html5 给的是合流 MP4、匿名可取 720P，
-     *    未登录时作为后备（登录后 DASH 清晰度更高，不走该后备）。
+     * 1. 桌面 Chrome 伪装的旧版 [/x/player/playurl]：匿名稳定 200，DASH 实际给到 480P；
+     * 2. 安卓 appkey 签名（无 access_key 即匿名）：同样稳定，作为 DASH 第二来源；
+     * 3. [platform=html5]：合流 MP4，匿名可拿完整 720P 单文件；
+     * 4. ①~③均报权限错误时，wbi 端点 + try_look=1 拿试看流（试看标记由 VIP 拦截器本地清除）；
+     * 5. 用户配置了哔哩漫游式解析服务器时，播放接口的主机名替换为该服务器，并手动带上
+     *    B 站 Cookie（OkHttp 的 CookieJar 不会跨域发送），由代理解锁大会员清晰度。
      *
-     * 大会员错误码自动带 try_look=1 走 wbi 重试（试看标记由本地 VIP 拦截器清除）。
+     * 最终从多个成功响应里挑选「实际下发的最高视频轨 / 最高 durl 画质」，避免被 accept_quality
+     * 的广告位数值骗到（接口声称支持 1080P，匿名实际只下发 480P 轨）。
      */
     suspend fun playurl(
         bvid: String,
         cid: Long,
         qn: Int = 127,
         forceTryLook: Boolean = false,
+        roamingServer: String? = null,
     ): PlayUrlData {
         ensureBuvid()
         val referer = "https://www.bilibili.com/video/$bvid"
-        val params = linkedMapOf(
+        val baseParams = linkedMapOf(
             "bvid" to bvid,
             "cid" to cid.toString(),
             "qn" to qn.toString(),
@@ -228,53 +233,171 @@ class BiliApi(private val http: Http) {
             "fourk" to "1",
             "otype" to "json",
         )
+        val candidates = ArrayList<PlayUrlData>()
+        var lastErr = "播放地址获取失败"
+        var vipDenied = false
 
-        // ① 大会员专享：wbi + try_look（试看流由 VipTrialInterceptor 本地转正）。
+        fun roamingOf(original: String): String =
+            if (!roamingServer.isNullOrBlank()) applyRoaming(original, roamingServer) else original
+
+        // 大会员专享：优先走试看解锁链（wbi → 安卓老 build），本地拦截器清试看标记。
         if (forceTryLook) {
-            params["try_look"] = "1"
-            val body = signedGet(
-                "https://api.bilibili.com/x/player/wbi/playurl",
-                params,
-                referer = referer,
-                origin = "https://www.bilibili.com",
-            )
-            val resp = decode<PlayUrlData>(body)
-            return resp.data ?: error(resp.errMsg)
+            fetchVipTrialCandidate(baseParams, referer, ::roamingOf)
+                ?.let { return it }
+            error("该视频需要大会员")
         }
 
-        // ② 首选：旧版端点 DASH（带桌面浏览器 Referer/Origin + 指纹 Cookie）。
-        var body = http.getString(
-            "https://api.bilibili.com/x/player/playurl?${encode(params)}",
+        // ① web 旧版端点 DASH
+        runCatching {
+            fetchPlayurl(
+                url = roamingOf("https://api.bilibili.com/x/player/playurl"),
+                params = baseParams,
+                referer = referer,
+            )
+        }.onSuccess { d ->
+            if (d.code == 0 && d.data != null) candidates += d.data else {
+                if (d.code in NEEDS_VIP_CODES) vipDenied = true
+                lastErr = d.errMsg
+            }
+        }.onFailure { lastErr = it.message ?: lastErr }
+
+        // ② 安卓 appkey 签名 DASH（匿名），与 web 端互补风控
+        runCatching {
+            val signed = appSign(
+                baseParams + mapOf("mobi_app" to "android", "platform" to "android"),
+                ANDROID_APPKEY, ANDROID_APPSEC,
+            )
+            val body = http.getString(
+                roamingOf("https://api.bilibili.com/x/player/playurl") + "?" + encode(signed),
+                headers = mapOf("User-Agent" to UA_ANDROID),
+                referer = referer,
+            )
+            decode<PlayUrlData>(body)
+        }.onSuccess { r ->
+            if (r.code == 0 && r.data != null) candidates += r.data
+            else if (r.code in NEEDS_VIP_CODES) vipDenied = true
+        }
+
+        // ③ 权限错误：依次尝试 wbi try_look 与安卓老 build try_look（社区经典解锁手法）
+        if (vipDenied) {
+            val unlocked = fetchVipTrialCandidate(baseParams, referer, ::roamingOf)
+            if (unlocked != null) return unlocked
+            error("该视频需要大会员：$lastErr")
+        }
+
+        // ④ 匿名 html5 合流 720P（作为候选参与画质 PK；登录用户的 DASH 通常更高，不会被选中）
+        val loggedIn = http.cookieJar.has(BILI_DOMAIN, "SESSDATA")
+        if (!loggedIn) {
+            runCatching {
+                val body = http.getString(
+                    roamingOf("https://api.bilibili.com/x/player/playurl") + "?" +
+                        encode(baseParams + mapOf("platform" to "html5", "high_quality" to "1")),
+                    referer = referer,
+                )
+                decode<PlayUrlData>(body)
+            }.onSuccess { r -> if (r.code == 0 && r.data != null) candidates += r.data }
+        }
+
+        if (candidates.isEmpty()) error(lastErr)
+        return candidates.maxByOrNull(::scorePlayData) ?: error(lastErr)
+    }
+
+    /**
+     * 大会员内容试看解锁候选链：
+     * 1) wbi/playurl + try_look（web 试看，字段被拦截器改写）；
+     * 2) 安卓 v2/playurl + 老 build(6260000) appkey 签名 + try_look
+     *    （社区逆向验证的经典完整流手法，部分番剧可直接拿到非截断 DASH）。
+     * 返回首个 code==0 的 data；均失败返回 null。
+     */
+    private suspend fun fetchVipTrialCandidate(
+        baseParams: Map<String, String>,
+        referer: String,
+        roamingOf: (String) -> String,
+    ): PlayUrlData? {
+        runCatching {
+            fetchPlayurl(
+                url = roamingOf("https://api.bilibili.com/x/player/wbi/playurl"),
+                params = baseParams + ("try_look" to "1"),
+                signed = true,
+                referer = referer,
+            )
+        }.getOrNull()?.let { if (it.code == 0 && it.data != null) return it.data }
+
+        runCatching {
+            val p = baseParams + mapOf(
+                "platform" to "android",
+                "mobi_app" to "android",
+                "build" to "6260000",
+                "try_look" to "1",
+            )
+            val signed = appSign(p, ANDROID_APPKEY, ANDROID_APPSEC)
+            val url = roamingOf("https://api.bilibili.com/x/v2/playurl") + "?" + encode(signed)
+            val body = http.getString(
+                url,
+                headers = mapOf("User-Agent" to UA_ANDROID),
+                referer = referer,
+            )
+            decode<PlayUrlData>(body)
+        }.getOrNull()?.let { if (it.code == 0 && it.data != null) return it.data }
+
+        return null
+    }
+
+    /** 拉一次 playurl 并解码。[signed] 为 true 时走 WBI 签名。 */
+    private suspend fun fetchPlayurl(
+        url: String,
+        params: Map<String, String>,
+        referer: String,
+        signed: Boolean = false,
+    ): ApiResp<PlayUrlData> {
+        val query = if (signed) {
+            val key = ensureWbiKey()
+            if (key != null) Wbi.sign(params, key) else encode(params)
+        } else {
+            encode(params)
+        }
+        val body = http.getString(
+            "$url?$query",
             referer = referer,
             origin = "https://www.bilibili.com",
+            headers = if (url.contains("api.bilibili.com")) emptyMap() else roamingCookieHeaders(url),
         )
-        var resp = decode<PlayUrlData>(body)
-        var data = resp.data
+        return decode(body)
+    }
 
-        // ③ 权限错误：转 wbi try_look。
-        if (data?.dash == null && resp.code in NEEDS_VIP_CODES) {
-            return playurl(bvid, cid, qn, forceTryLook = true)
-        }
-        if (data == null) error(resp.errMsg)
+    /** 安卓端 appkey 签名：参数排序拼接 + MD5(appsec)。 */
+    private fun appSign(
+        params: Map<String, String>,
+        appkey: String,
+        appsec: String,
+    ): Map<String, String> {
+        val p = LinkedHashMap(params)
+        p["appkey"] = appkey
+        p["ts"] = (System.currentTimeMillis() / 1000).toString()
+        // 部分接口要求；带上无害。
+        p.putIfAbsent("build", "8010000")
+        val raw = p.toSortedMap().entries.joinToString("&") { "${it.key}=${it.value}" }
+        val md5 = java.security.MessageDigest.getInstance("MD5")
+            .digest((raw + appsec).toByteArray())
+            .joinToString("") { "%02x".format(it) }
+        p["sign"] = md5
+        return p
+    }
 
-        // ④ 匿名且 DASH 最高只有 480P 时，尝试 html5 合流 720P MP4（登录用户清晰度更高，跳过）。
-        val loggedIn = http.cookieJar.has(BILI_DOMAIN, "SESSDATA")
-        val dashMaxQn = data.dash?.video?.maxOfOrNull { it.id } ?: 0
-        if (!loggedIn && data.durl.isEmpty() && dashMaxQn in 1..<64) {
-            val html5 = params + mapOf("platform" to "html5", "high_quality" to "1")
-            runCatching {
-                val hb = http.getString(
-                    "https://api.bilibili.com/x/player/playurl?${encode(html5)}",
-                    referer = referer,
-                    origin = "https://www.bilibili.com",
-                )
-                val hd = decode<PlayUrlData>(hb).data
-                if (hd != null && hd.durl.isNotEmpty() && hd.quality >= 64 && hd.quality > dashMaxQn) {
-                    return hd
-                }
-            }
-        }
-        return data
+    /** 主机名替换（哔哩漫游风格）。 */
+    private fun applyRoaming(original: String, server: String): String {
+        val base = server.trim().trimEnd('/')
+        val host = original.substringAfter("://").substringBefore('/')
+        return original.replaceFirst(host, base.substringAfter("://"))
+    }
+
+    /** 给第三方解析服务器的请求手动附加 bilibili.com 的 Cookie（SESSDATA 等）。 */
+    private fun roamingCookieHeaders(requestUrl: String): Map<String, String> {
+        val cookies = http.cookieJar.loadForRequest(
+            "https://api.bilibili.com/".toHttpUrl(),
+        )
+        if (cookies.isEmpty()) return emptyMap()
+        return mapOf("Cookie" to cookies.joinToString("; ") { "${it.name}=${it.value}" })
     }
 
     /** seg.so protobuf 弹幕单段（返回原始二进制）。 */
@@ -293,8 +416,25 @@ class BiliApi(private val http: Http) {
         private const val BILI_DOMAIN = ".bilibili.com"
         private const val ONE_YEAR_SECS = 365L * 24 * 3600
 
+        // 安卓官方客户端匿名 appkey（社区逆向公开常量；无 access_key 时只能取免费内容）。
+        private const val ANDROID_APPKEY = "1d8b6e7d45233436"
+        private const val ANDROID_APPSEC = "560c52ccd288fed045859ed18bffd973"
+        private const val UA_ANDROID =
+            "Mozilla/5.0 BiliDroid/8.10.0 (bbcallen@gmail.com) os/android model/PiliNara"
+
         // -10403: 大会员专享；100: 需要登录/无权限；-10404: 地区限制等。
         private val NEEDS_VIP_CODES = setOf(-10403, 100, -10404)
+
+        /**
+         * 候选播放地址打分：以**实际下发**的最高视频轨/分段画质为准（×10），
+         * 同画质下 DASH（可分离音轨）+1，分高者胜。
+         */
+        private fun scorePlayData(d: PlayUrlData): Int {
+            val vQn = d.dash?.video?.maxOfOrNull { it.id } ?: 0
+            if (vQn > 0) return vQn * 10 + 1
+            if (d.durl.isNotEmpty()) return d.quality * 10
+            return 0
+        }
 
         /** 协议相对图片地址补全。 */
         fun image(url: String): String =

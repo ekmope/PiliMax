@@ -22,3 +22,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "piliAI"
 include(":app")
+include(":plugin-api")
+include(":plugin-vlc")

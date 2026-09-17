@@ -295,19 +295,28 @@ data class Dash(
     @Serializable(with = FlexLong::class) val duration: Long = 0,
     val video: List<Track> = emptyList(),
     val audio: List<Track> = emptyList(),
-    // 杜比全景声轨：{"audio": Track 或 null}，结构一致，单独接收。
+    // 杜比全景声轨：{"type":1, "audio": Track 单个对象或 null}。
     val dolby: Dolby? = null,
+    // Hi-Res 无损：{"display":true, "flac": Track 或 null}。
+    val flac: FlacInfo? = null,
 )
 
 @Serializable
-data class Dolby(val audio: List<Track> = emptyList())
+data class Dolby(val audio: Track? = null)
+
+@Serializable
+data class FlacInfo(
+    val display: Boolean = false,
+    val flac: Track? = null,
+)
 
 @Serializable
 data class Track(
     @Serializable(with = FlexInt::class) val id: Int = 0,
     @SerialName("baseUrl") val baseUrl: String = "",
     @SerialName("backupUrl") val backupUrl: List<String> = emptyList(),
-    @Serializable(with = FlexInt::class) val bandwidth: Int = 0,
+    // 带宽是 bps，高码率轨可达 2.5 亿+，必须用 Long（Int 溢出会导致选轨排序错乱）。
+    @Serializable(with = FlexLong::class) val bandwidth: Long = 0,
     @SerialName("mimeType") val mimeType: String = "",
     val codecs: String = "",
     @Serializable(with = FlexInt::class) val width: Int = 0,

@@ -72,15 +72,24 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build release APK
+      - name: Build release APKs
         working-directory: android
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: |
+          ./gradlew :app:assembleRelease :plugin-vlc:assembleRelease --no-daemon
+
+      - name: Stage release assets
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/release/app-release.apk dist/piliAI-latest-arm64-v8a.apk
+          # 宿主按该固定资产名做内核插件的版本无关下载（releases/latest/download/vlc-core.apk）。
+          cp android/plugin-vlc/build/outputs/apk/release/plugin-vlc-release.apk dist/vlc-core.apk
+          ls -lh dist
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: piliAI-android-arm64-v8a-release
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: dist/*.apk
 
   release:
     name: Publish GitHub Release
@@ -94,8 +103,15 @@ jobs:
           name: piliAI-android-arm64-v8a-release
           path: dist
 
+      - name: Rename app APK with tag
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          cp dist/piliAI-latest-arm64-v8a.apk "dist/piliAI-${TAG}-arm64-v8a.apk"
+          ls -lh dist
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.apk
+          files: |
+            dist/*.apk
           generate_release_notes: true

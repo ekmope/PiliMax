@@ -19,7 +19,12 @@ class VipTrialInterceptor : Interceptor {
         if (!VipTrialGate.enabled) return response
 
         val host = chain.request().url.host
-        if (!host.endsWith("bilibili.com")) return response
+        val path = chain.request().url.encodedPath
+        // 哔哩漫游式解析服务器不在 bilibili.com 域名下，但它返回的 playurl 同样需要
+        // 清除 trial 标记 / 改写会员字段。
+        val isBili = host.endsWith("bilibili.com")
+        val isPlayurlProxy = path.contains("playurl")
+        if (!isBili && !isPlayurlProxy) return response
 
         val body = response.body ?: return response
         val contentType = body.contentType()

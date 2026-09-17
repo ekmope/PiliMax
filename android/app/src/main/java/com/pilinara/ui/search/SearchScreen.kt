@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -30,8 +31,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pilinara.AppContainer
 import com.pilinara.api.BiliVideo
 import com.pilinara.source.SourceSearchResult
@@ -50,7 +50,6 @@ import com.pilinara.ui.common.VideoCard
 import com.pilinara.ui.source.SourceDetailScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private enum class SearchTab(val label: String) {
     BILI("哔哩哔哩"),
@@ -64,6 +63,8 @@ fun SearchScreen(container: AppContainer) {
     var keyword by remember { mutableStateOf("") }
     var biliSelected by remember { mutableStateOf<BiliVideo?>(null) }
     var sourceSelected by remember { mutableStateOf<SourceSearchResult?>(null) }
+
+    val vm: SearchViewModel = viewModel(factory = SearchViewModel.factory(container))
 
     sourceSelected?.let { sel ->
         SourceDetailScreen(
@@ -80,6 +81,14 @@ fun SearchScreen(container: AppContainer) {
         return
     }
 
+    // 只把当前 Tab 的输入喂给 VM（内部 450ms 防抖；切 Tab 不丢另一 Tab 结果）。
+    LaunchedEffect(keyword, tab) {
+        when (tab) {
+            SearchTab.BILI -> vm.biliInput(keyword)
+            SearchTab.SOURCE -> vm.sourceInput(keyword)
+        }
+    }
+
     Scaffold(
         topBar = {
             Column {
@@ -94,9 +103,6 @@ fun SearchScreen(container: AppContainer) {
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         imeAction = ImeAction.Search,
                     ),
-                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                        onSearch = { tab = tab /* 触发子组件通过 keyword 变化自动搜索 */ },
-                    ),
                 )
                 PrimaryTabRow(selectedTabIndex = tab.ordinal) {
                     SearchTab.entries.forEach { t ->
@@ -108,8 +114,16 @@ fun SearchScreen(container: AppContainer) {
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (tab) {
-                SearchTab.BILI -> BiliSearchTab(container, keyword, { keyword = it }) { biliSelected = it }
-                SearchTab.SOURCE -> SourceSearchTab(container, keyword, { keyword = it }) { sourceSelected = it }
+                SearchTab.BILI -> BiliSearchTab(
+                    container, vm,
+                    onOpen = { biliSelected = it },
+                    onFillKeyword = { kw -> keyword = kw },
+                )
+                SearchTab.SOURCE -> SourceSearchTab(
+                    container, vm,
+                    onOpen = { sourceSelected = it },
+                    onFillKeyword = { kw -> keyword = kw },
+                )
             }
         }
     }
@@ -118,102 +132,82 @@ fun SearchScreen(container: AppContainer) {
 @Composable
 private fun BiliSearchTab(
     container: AppContainer,
-    keyword: String,
-    onKeywordChange: (String) -> Unit,
+    vm: SearchViewModel,
     onOpen: (BiliVideo) -> Unit,
+    onFillKeyword: (String) -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-    val videos = remember { mutableStateListOf<BiliVideo>() }
-    var page by remember { mutableIntStateOf(1) }
-    var loading by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
 
-    // 输入停顿 500ms 后自动发起搜索。
-    LaunchedEffect(keyword) {
-        if (keyword.isBlank()) return@LaunchedEffect
-        kotlinx.coroutines.delay(500)
-        if (query != keyword.trim()) {
-            query = keyword.trim()
-            videos.clear()
-            page = 1
-            error = null
-        }
-    }
-
-    LaunchedEffect(query) {
-        if (query.isEmpty()) return@LaunchedEffect
-        loading = true
-        // 记录历史（两个 Tab 共用一份 LRU）。
-        launch(Dispatchers.IO) { container.searchHistory.add(query) }
-        runCatching { withContext(Dispatchers.IO) { container.api.searchVideo(query, page) } }
-            .onSuccess { videos.addAll(it) }
-            .onFailure { error = it.message }
-        loading = false
+    // 接近底部自动翻页。
+    LaunchedEffect(listState, vm.biliVideos.size, vm.biliHasMore, vm.biliLoading) {
+        snapshotAtEnd(listState) { vm.biliLoadMore() }
     }
 
     when {
-        query.isEmpty() -> EmptyHistory(container, "输入关键词搜索哔哩哔哩", onKeywordChange)
-        loading && videos.isEmpty() -> LoadingBox()
-        error != null && videos.isEmpty() -> ErrorBox("搜索失败：$error")
-        videos.isEmpty() -> Hint("没有找到「$query」相关视频")
+        vm.biliQuery.isEmpty() ->
+            EmptyHistory(container, "输入关键词搜索哔哩哔哩", onFillKeyword)
+        vm.biliLoading && vm.biliVideos.isEmpty() -> LoadingBox()
+        vm.biliError != null && vm.biliVideos.isEmpty() -> ErrorBox("搜索失败：${vm.biliError}")
+        vm.biliVideos.isEmpty() -> Hint("没有找到「${vm.biliQuery}」相关视频")
         else -> LazyColumn(
+            state = listState,
             contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(videos, key = { it.bvid }) { v ->
+            items(vm.biliVideos, key = { it.bvid }) { v ->
                 VideoCard(v = v, onClick = { onOpen(v) })
+            }
+            if (vm.biliLoading) item {
+                Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.CircularProgressIndicator()
+                }
+            }
+            if (!vm.biliHasMore) item {
+                Text(
+                    "没有更多了",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                )
             }
         }
     }
 }
 
+/** 监听滚动，最后一项可见时触发一次 [atEnd]（由调用方状态保证不重复）。 */
+private suspend fun snapshotAtEnd(
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    atEnd: () -> Unit,
+) {
+    androidx.compose.runtime.snapshotFlow {
+        val info = listState.layoutInfo
+        val last = info.visibleItemsInfo.lastOrNull()?.index ?: return@snapshotFlow false
+        val total = info.totalItemsCount
+        total > 0 && last >= total - 3
+    }.collect { nearEnd -> if (nearEnd) atEnd() }
+}
+
 @Composable
 private fun SourceSearchTab(
     container: AppContainer,
-    keyword: String,
-    onKeywordChange: (String) -> Unit,
+    vm: SearchViewModel,
     onOpen: (SourceSearchResult) -> Unit,
+    onFillKeyword: (String) -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-    val results = remember { mutableStateListOf<SourceSearchResult>() }
-    var query by remember { mutableStateOf("") }
-    var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(keyword) {
-        if (keyword.isBlank()) return@LaunchedEffect
-        kotlinx.coroutines.delay(500)
-        query = keyword.trim()
-    }
-
-    LaunchedEffect(query) {
-        if (query.isEmpty()) return@LaunchedEffect
-        results.clear()
-        loading = true
-        error = null
-        launch(Dispatchers.IO) { container.searchHistory.add(query) }
-        runCatching { withContext(Dispatchers.IO) { container.sourceRepository.aggregateSearch(query) } }
-            .onSuccess { results.addAll(it) }
-            .onFailure { error = it.message }
-        loading = false
-    }
-
     when {
-        query.isEmpty() -> EmptyHistory(
-            container,
-            "输入番名，在全部已启用源中并发聚合搜索",
-            onKeywordChange,
-        )
-        loading -> LoadingBox()
-        error != null -> ErrorBox("聚合搜索失败：$error")
-        results.isEmpty() -> Hint("所有源均未找到「$query」（可在「源」页添加订阅）")
+        vm.sourceQuery.isEmpty() ->
+            EmptyHistory(container, "输入番名，在全部已启用源中并发聚合搜索", onFillKeyword)
+        vm.sourceLoading && vm.sourceResults.isEmpty() -> LoadingBox()
+        vm.sourceError != null && vm.sourceResults.isEmpty() ->
+            ErrorBox("聚合搜索失败：${vm.sourceError}")
+        vm.sourceResults.isEmpty() ->
+            Hint("所有源均未找到「${vm.sourceQuery}」（可在「源」页添加订阅）")
         else -> LazyColumn(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(results.size) { i ->
-                val r = results[i]
+            items(vm.sourceResults.size) { i ->
+                val r = vm.sourceResults[i]
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
@@ -221,7 +215,7 @@ private fun SourceSearchTab(
                 ) {
                     Row(
                         Modifier.padding(14.dp),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(r.subject.name, style = MaterialTheme.typography.titleMedium)
@@ -241,7 +235,7 @@ private fun SourceSearchTab(
 
 @Composable
 private fun Hint(text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -251,10 +245,10 @@ private fun Hint(text: String) {
 private fun EmptyHistory(
     container: AppContainer,
     hint: String,
-    onPick: (String) -> Unit,
+    onFillKeyword: (String) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
-        SearchHistoryRow(container, onPick)
+        SearchHistoryRow(container, onPick = onFillKeyword)
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(hint, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

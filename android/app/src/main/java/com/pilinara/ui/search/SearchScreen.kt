@@ -1,6 +1,7 @@
 package com.pilinara.ui.search
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,10 +23,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -32,6 +36,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -103,8 +108,8 @@ fun SearchScreen(container: AppContainer) {
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (tab) {
-                SearchTab.BILI -> BiliSearchTab(container, keyword) { biliSelected = it }
-                SearchTab.SOURCE -> SourceSearchTab(container, keyword) { sourceSelected = it }
+                SearchTab.BILI -> BiliSearchTab(container, keyword, { keyword = it }) { biliSelected = it }
+                SearchTab.SOURCE -> SourceSearchTab(container, keyword, { keyword = it }) { sourceSelected = it }
             }
         }
     }
@@ -114,6 +119,7 @@ fun SearchScreen(container: AppContainer) {
 private fun BiliSearchTab(
     container: AppContainer,
     keyword: String,
+    onKeywordChange: (String) -> Unit,
     onOpen: (BiliVideo) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -138,6 +144,8 @@ private fun BiliSearchTab(
     LaunchedEffect(query) {
         if (query.isEmpty()) return@LaunchedEffect
         loading = true
+        // 记录历史（两个 Tab 共用一份 LRU）。
+        launch(Dispatchers.IO) { container.searchHistory.add(query) }
         runCatching { withContext(Dispatchers.IO) { container.api.searchVideo(query, page) } }
             .onSuccess { videos.addAll(it) }
             .onFailure { error = it.message }
@@ -145,7 +153,7 @@ private fun BiliSearchTab(
     }
 
     when {
-        query.isEmpty() -> Hint("输入关键词搜索哔哩哔哩")
+        query.isEmpty() -> EmptyHistory(container, "输入关键词搜索哔哩哔哩", onKeywordChange)
         loading && videos.isEmpty() -> LoadingBox()
         error != null && videos.isEmpty() -> ErrorBox("搜索失败：$error")
         videos.isEmpty() -> Hint("没有找到「$query」相关视频")
@@ -164,6 +172,7 @@ private fun BiliSearchTab(
 private fun SourceSearchTab(
     container: AppContainer,
     keyword: String,
+    onKeywordChange: (String) -> Unit,
     onOpen: (SourceSearchResult) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -183,6 +192,7 @@ private fun SourceSearchTab(
         results.clear()
         loading = true
         error = null
+        launch(Dispatchers.IO) { container.searchHistory.add(query) }
         runCatching { withContext(Dispatchers.IO) { container.sourceRepository.aggregateSearch(query) } }
             .onSuccess { results.addAll(it) }
             .onFailure { error = it.message }
@@ -190,7 +200,11 @@ private fun SourceSearchTab(
     }
 
     when {
-        query.isEmpty() -> Hint("输入番名，在全部已启用源中并发聚合搜索")
+        query.isEmpty() -> EmptyHistory(
+            container,
+            "输入番名，在全部已启用源中并发聚合搜索",
+            onKeywordChange,
+        )
         loading -> LoadingBox()
         error != null -> ErrorBox("聚合搜索失败：$error")
         results.isEmpty() -> Hint("所有源均未找到「$query」（可在「源」页添加订阅）")
@@ -229,5 +243,76 @@ private fun SourceSearchTab(
 private fun Hint(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
         Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** 未输入关键词时：顶部显示搜索历史，下方居中提示。 */
+@Composable
+private fun EmptyHistory(
+    container: AppContainer,
+    hint: String,
+    onPick: (String) -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        SearchHistoryRow(container, onPick)
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(hint, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** 横向滚动的历史词 Chip：点击回填关键词，长按单条删除。 */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun SearchHistoryRow(container: AppContainer, onPick: (String) -> Unit) {
+    val history by container.searchHistory.items.collectAsState()
+    val scope = rememberCoroutineScope()
+    if (history.isEmpty()) return
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "搜索历史",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                onClick = { scope.launch(Dispatchers.IO) { container.searchHistory.clear() } },
+            ) {
+                Text("清空")
+            }
+        }
+        LazyRow(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(history, key = { it }) { kw ->
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.combinedClickable(
+                        interactionSource = remember {
+                            androidx.compose.foundation.interaction.MutableInteractionSource()
+                        },
+                        indication = androidx.compose.foundation.LocalIndication.current,
+                        onLongClick = {
+                            scope.launch(Dispatchers.IO) { container.searchHistory.remove(kw) }
+                        },
+                        onClick = { onPick(kw) },
+                    ),
+                ) {
+                    Text(
+                        kw,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
     }
 }

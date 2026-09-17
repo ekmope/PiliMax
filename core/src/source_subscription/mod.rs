@@ -6,6 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod jsonpath;
 pub mod selector;
 
 /// 源订阅：一个 URL 指向 animeko 兼容的 JSON 清单。

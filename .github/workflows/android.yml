@@ -52,7 +52,15 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           # Android 17（compileSdk 37）+ NDK r28（Armv9/Oryon LLVM 调度）。
-          packages: "platform-tools platforms;android-37 build-tools;37.0.0 ndk;28.0.13004108"
+          # 2026 年起平台包按 minor 版本命名（android-37.0），AGP 仍查找 android-37 目录。
+          packages: "platform-tools platforms;android-37.0 build-tools;37.0.0 ndk;28.0.13004108"
+
+      - name: Alias platform android-37 -> android-37.0
+        run: |
+          if [ ! -e "$ANDROID_HOME/platforms/android-37" ]; then
+            ln -s android-37.0 "$ANDROID_HOME/platforms/android-37"
+          fi
+          ls -l "$ANDROID_HOME/platforms"
 
       - name: Setup Rust (aarch64-linux-android)
         uses: dtolnay/rust-toolchain@stable

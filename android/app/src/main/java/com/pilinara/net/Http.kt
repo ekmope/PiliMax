@@ -51,7 +51,7 @@ class Http(cacheDir: File, cookieFile: File) {
         headers.forEach { (k, v) -> header(k, v) }
     }
 
-    /** 协程化 GET，返回字符串 body。 */
+    /** 协程化 GET，返回字符串 body（按响应声明的 UTF-8 解码，适合 JSON / B 站接口）。 */
     suspend fun getString(
         url: String,
         headers: Map<String, String> = emptyMap(),
@@ -59,6 +59,21 @@ class Http(cacheDir: File, cookieFile: File) {
         origin: String? = null,
     ): String = execute(request(url, headers, referer, origin).get().build()) {
         it.body?.string().orEmpty()
+    }
+
+    /**
+     * 抓取第三方站点 HTML：很多老旧番剧站不返回 Content-Type charset（或声明 GB2312/GBK），
+     * 默认按 UTF-8 解码会乱码导致选择器全部失效。这里依次用 ① 响应头 charset
+     * ② 页面前 4KB 的 `<meta charset>` / http-equiv 声明 ③ UTF-8 兜底。
+     */
+    suspend fun getHtml(
+        url: String,
+        headers: Map<String, String> = emptyMap(),
+        referer: String? = null,
+        origin: String? = null,
+    ): String = execute(request(url, headers, referer, origin).get().build()) { resp ->
+        val bytes = resp.body?.bytes() ?: ByteArray(0)
+        HtmlCharset.decode(bytes, resp.header("Content-Type"))
     }
 
     /** 协程化 GET（二进制，如 seg.so 弹幕）。 */
@@ -142,3 +157,46 @@ private fun OkHttpClient.Builder.addBrowserFingerprintHeaders(): OkHttpClient.Bu
         }
         chain.proceed(b.build())
     }
+
+/**
+ * 第三方页面编码识别（对应 animeko/kazumi 里 Jsoup 的 charset 探测）。
+ * 老旧中文番剧站大量使用 GB2312/GBK，OkHttp 缺省会按 UTF-8 解成乱码。
+ */
+object HtmlCharset {
+    private val HEADER_CHARSET = Regex("(?i)charset=\\s*\"?'?\\s*([a-z0-9_\\-]+)")
+    private val META_CHARSET =
+        Regex("(?is)<meta[^>]+?charset\\s*=\\s*[\"']?\\s*([a-zA-Z0-9_\\-]+)")
+
+    fun decode(bytes: ByteArray, contentType: String?): String {
+        if (bytes.isEmpty()) return ""
+        // BOM
+        if (bytes.size >= 3 && bytes[0] == 0xEF.toByte() && bytes[1] == 0xBB.toByte() &&
+            bytes[2] == 0xBF.toByte()
+        ) {
+            return String(bytes, 3, bytes.size - 3, Charsets.UTF_8)
+        }
+        val declared = contentType?.let { nameFrom(it) }
+            ?: bytes.copyOf(minOf(bytes.size, 4096))
+                .toString(Charsets.ISO_8859_1)
+                .let { head -> META_CHARSET.find(head)?.groupValues?.get(1)?.lowercase() }
+        val charset = declared?.let(::resolve) ?: Charsets.UTF_8
+        return String(bytes, charset)
+    }
+
+    private fun nameFrom(header: String): String? =
+        HEADER_CHARSET.find(header)?.groupValues?.get(1)?.lowercase()
+
+    private fun resolve(name: String): java.nio.charset.Charset? {
+        val canonical = when (name) {
+            "gb2312", "gbk", "gb18030", "x-gbk" -> "GB18030" // GB18030 是 GBK/GB2312 的超集
+            "utf8", "utf-8" -> "UTF-8"
+            "big5" -> "Big5"
+            "windows-1252", "iso-8859-1", "latin1" -> "ISO-8859-1"
+            else -> name
+        }
+        return runCatching {
+            val cs = java.nio.charset.Charset.forName(canonical)
+            if (java.nio.charset.Charset.isSupported(cs.name())) cs else null
+        }.getOrNull()
+    }
+}

@@ -4,11 +4,29 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-17
+
+本版重点解决**视频无法播放**与**番剧源搜索一直转圈**两大阻断性问题，并补齐 animeko 2026 新版订阅源格式。
+
 ### Added
+- **搜索历史**：搜索框下方新增横向历史词 Chip，点击直接回填关键词发起搜索，长按单条删除，LRU 上限自动淘汰。
 - **视频参数面板新增音频延迟**：播放器三点菜单的「视频参数」面板在原五项画面参数基础上新增音频延迟调节（±1000 ms，步进 10 ms），对应 mpv 的 `--audio-delay`，用于补偿蓝牙耳机等设备造成的音画不同步。是否跨视频保留跟随「播放器设置仅对当前生效」开关。
+- 番剧源支持按源配置**请求间隔与超时**，聚合搜索时多源错峰，避免并发风控。
+- HTML 响应新增 **GBK / GB2312 编码自动嗅探**（meta charset / HTTP 头），老番剧站点不再乱码。
 
 ### Changed
+- 番剧源选择器引擎（Rust）重写，完整支持 animeko 2026 新版格式：条目选择器 `a` / `indexed` / `json-path-indexed`，线路格式 `index-grouped` / `no-channel`，新增 JSONPath API 响应解析；电影「正片」自动归一化为第 1 集。
+- B 站请求统一伪装为桌面版 Chrome：补全桌面 UA、Client Hints（sec-ch-ua / platform / mobile）与 Referer/Origin，规避 412 风控与 CDN 403。
+- WBI 签名改用 `/x/web-interface/nav` 实时下发的 img_key/sub_key 计算 mixin key，参数按字典序排列。
+- 视频直链支持 CDN 节点优选（`CdnNode`），播放请求自动注入 Referer/Origin 头。
 - 播放器三点菜单入口与面板标题由「视频画面参数」更名为「视频参数」，以涵盖新增的音频延迟项。
+
+### Fixed
+- **修复 B 站搜索必崩**：`play`、`typeid`、`pubdate` 等字段 API 返回数字而模型声明为字符串，新增 `FlexLong` / `FlexInt` 容错序列化器，数字与字符串均能解析。
+- **修复点击「立即播放」报 JSON 解析错误**：播放地址接口的 `format` 字段为字符串、`durl.backup_url` 为 snake_case，修正模型映射并加入响应级容错。
+- **修复添加 animeko 订阅源后搜索一直转圈**：新版源格式不兼容导致解析全空，同时修复 GBK 站点解析、`data-play` base64 直链嗅探与超时无反馈问题。
+- 修复番剧源 DASH/HLS 播放缺少防盗链头导致的 403 失败（`PiliMediaSourceFactory` 统一注入头）。
+- CI 修复 Android 17 SDK 包名变更（`platforms;android-37.0`）导致的构建失败。
 
 ## [0.1.0] - 2026-09-16
 

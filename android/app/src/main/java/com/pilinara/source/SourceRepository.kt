@@ -4,6 +4,7 @@ import com.pilinara.core.NativeCore
 import com.pilinara.net.Http
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -23,32 +24,38 @@ class SourceRepository(
 ) {
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
-    /** 并发聚合搜索。单个源失败不影响其他源。 */
+    /** 单个源的最长等待：死链/反爬源不应让整页聚合一直转圈。 */
+    private val perSourceTimeoutMs = 12_000L
+
+    /** 并发聚合搜索。单个源失败/超时不影响其他源。 */
     suspend fun aggregateSearch(keyword: String): List<SourceSearchResult> = coroutineScope {
         val instances = manager.enabledInstanceJsonList()
         instances.map { instanceJson ->
             async {
                 runCatching {
-                    val searchUrl = NativeCore.buildSearchUrl(instanceJson, keyword)
-                    val html = http.getString(
-                        searchUrl,
-                        referer = baseOf(searchUrl),
-                    )
-                    val out = NativeCore.parseSubjectList(instanceJson, html, searchUrl)
-                    val subjects = json.decodeFromString(
-                        ListSerializer(SourceSubject.serializer()),
-                        out,
-                    )
-                    val sourceName = sourceNameOf(instanceJson)
-                    subjects.map { SourceSearchResult(sourceName, it) }
+                    withTimeout(perSourceTimeoutMs) { searchOne(instanceJson, keyword) }
                 }.getOrDefault(emptyList())
             }
         }.flatMap { it.await() }
     }
 
+    /** 单源搜索：构造 URL → 抓取（自动识别 GBK/UTF-8）→ Rust 核心解析。 */
+    private suspend fun searchOne(instanceJson: String, keyword: String): List<SourceSearchResult> {
+        val searchUrl = NativeCore.buildSearchUrl(instanceJson, keyword)
+        // 第三方页面编码混杂（GBK/GB2312/UTF-8），统一走 HTML 编码探测。
+        val html = http.getHtml(searchUrl, referer = baseOf(searchUrl))
+        val out = NativeCore.parseSubjectList(instanceJson, html, searchUrl)
+        val subjects = json.decodeFromString(
+            ListSerializer(SourceSubject.serializer()),
+            out,
+        )
+        val sourceName = sourceNameOf(instanceJson)
+        return subjects.map { SourceSearchResult(sourceName, it) }
+    }
+
     /** 拉取条目详情页的全部线路。 */
     suspend fun channels(instanceJson: String, subjectUrl: String): List<SourceChannel> {
-        val html = http.getString(subjectUrl, referer = baseOf(subjectUrl))
+        val html = http.getHtml(subjectUrl, referer = baseOf(subjectUrl))
         val out = NativeCore.parseChannels(instanceJson, html, subjectUrl)
         return json.decodeFromString(ListSerializer(SourceChannel.serializer()), out)
     }
@@ -61,7 +68,7 @@ class SourceRepository(
      */
     suspend fun resolve(instanceJson: String, pageUrl: String): ResolvedVideo {
         val headers = videoHeaders(instanceJson)
-        val html = http.getString(pageUrl, headers = headers, referer = baseOf(pageUrl))
+        val html = http.getHtml(pageUrl, headers = headers, referer = baseOf(pageUrl))
 
         val direct = NativeCore.matchVideo(instanceJson, html)
         val sniffConfig = sniffConfigOf(instanceJson)
@@ -73,7 +80,7 @@ class SourceRepository(
             val nested = parseNullable(NativeCore.sniffNested(html, sniffConfig))
             if (nested != null) {
                 val nestedUrl = resolveUrl(pageUrl, nested)
-                val nestedHtml = http.getString(
+                val nestedHtml = http.getHtml(
                     nestedUrl,
                     headers = headers,
                     referer = baseOf(nestedUrl),

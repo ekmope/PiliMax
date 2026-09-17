@@ -3,6 +3,7 @@ package com.pilinara
 import android.app.Application
 import com.pilinara.api.BiliApi
 import com.pilinara.data.JsonFileStore
+import com.pilinara.data.SearchHistoryStore
 import com.pilinara.data.SettingsStore
 import com.pilinara.net.Http
 import com.pilinara.source.SourceManager
@@ -37,6 +38,8 @@ class AppContainer(application: Application) {
     val sources: SourceManager = SourceManager(http, files)
 
     val sourceRepository: SourceRepository = SourceRepository(http, sources)
+
+    val searchHistory: SearchHistoryStore = SearchHistoryStore(files)
 }
 
 class PiliApplication : Application() {
@@ -51,6 +54,7 @@ class PiliApplication : Application() {
         runBlocking(Dispatchers.IO) {
             container.settings.bootstrap()
             container.sources.load()
+            container.searchHistory.load()
         }
         // 后台预热 B 站风控指纹与 WBI 密钥（不阻塞冷启动；接口内部幂等）。
         appScope.launch(Dispatchers.IO) {

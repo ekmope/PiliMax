@@ -1,7 +1,62 @@
 package com.pilinara.api
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.longOrNull
+
+/**
+ * 宽松的 Long 解析：B 站不同接口/灰度下同一字段可能是数字、数字字符串、空串甚至布尔，
+ * 统一吞掉异常形态，避免单个脏字段导致整页解析失败。
+ */
+object FlexLong : KSerializer<Long> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("com.pilinara.FlexLong", PrimitiveKind.LONG)
+
+    override fun deserialize(decoder: Decoder): Long {
+        val jd = decoder as? JsonDecoder ?: return decoder.decodeLong()
+        return when (val el = jd.decodeJsonElement()) {
+            is JsonNull -> 0L
+            is JsonPrimitive -> when {
+                el.isString -> el.content.trim().toLongOrNull() ?: 0L
+                else -> el.longOrNull ?: el.booleanOrNull?.let { if (it) 1L else 0L } ?: 0L
+            }
+            else -> 0L
+        }
+    }
+
+    override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: Long) =
+        encoder.encodeLong(value)
+}
+
+/** 宽松 Int，语义同 [FlexLong]。 */
+object FlexInt : KSerializer<Int> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("com.pilinara.FlexInt", PrimitiveKind.INT)
+
+    override fun deserialize(decoder: Decoder): Int {
+        val jd = decoder as? JsonDecoder ?: return decoder.decodeInt()
+        return when (val el = jd.decodeJsonElement()) {
+            is JsonNull -> 0
+            is JsonPrimitive -> when {
+                el.isString -> el.content.trim().toIntOrNull() ?: 0
+                else -> el.longOrNull?.toInt() ?: el.booleanOrNull?.let { if (it) 1 else 0 } ?: 0
+            }
+            else -> 0
+        }
+    }
+
+    override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: Int) =
+        encoder.encodeInt(value)
+}
 
 @Serializable
 data class ApiResp<T>(
@@ -133,16 +188,16 @@ data class SearchData(
 @Serializable
 data class SearchVideo(
     val bvid: String = "",
-    val aid: Long = 0,
-    val typeid: Long = 0,
+    @Serializable(with = FlexLong::class) val aid: Long = 0,
+    @Serializable(with = FlexLong::class) val typeid: Long = 0,
     val title: String = "",
     val pic: String = "",
     val author: String = "",
-    val mid: Long = 0,
-    // 注意：web 搜索接口 play/review 等均为 JSON 数字（如 "play":851779），不是字符串。
-    val play: Long = 0,
-    val review: Long = 0,
-    val video_review: Long = 0,
+    @Serializable(with = FlexLong::class) val mid: Long = 0,
+    // 注意：web 搜索接口 play/review 等均为 JSON 数字（如 "play":851779），旧接口可能给字符串。
+    @Serializable(with = FlexLong::class) val play: Long = 0,
+    @Serializable(with = FlexLong::class) val review: Long = 0,
+    @Serializable(with = FlexLong::class) val video_review: Long = 0,
     val tag: String = "",
     val duration: String = "",
 ) {
@@ -226,9 +281,10 @@ data class HistoryItem(
 
 @Serializable
 data class PlayUrlData(
-    val quality: Int = 0,
-    val format: Int = 0,
-    val timelength: Long = 0,
+    @Serializable(with = FlexInt::class) val quality: Int = 0,
+    // playurl 的 format 是字符串（如 "flv_p64"、"hdmp4"、DASH 下为 ""），不是数字。
+    val format: String = "",
+    @Serializable(with = FlexLong::class) val timelength: Long = 0,
     val trial: Boolean = false,
     val dash: Dash? = null,
     val durl: List<Durl> = emptyList(),
@@ -236,29 +292,35 @@ data class PlayUrlData(
 
 @Serializable
 data class Dash(
-    val duration: Long = 0,
+    @Serializable(with = FlexLong::class) val duration: Long = 0,
     val video: List<Track> = emptyList(),
     val audio: List<Track> = emptyList(),
+    // 杜比全景声轨：{"audio": Track 或 null}，结构一致，单独接收。
+    val dolby: Dolby? = null,
 )
 
 @Serializable
+data class Dolby(val audio: List<Track> = emptyList())
+
+@Serializable
 data class Track(
-    val id: Int = 0,
-    val baseUrl: String = "",
-    val backupUrl: List<String> = emptyList(),
-    val bandwidth: Int = 0,
-    val mimeType: String = "",
+    @Serializable(with = FlexInt::class) val id: Int = 0,
+    @SerialName("baseUrl") val baseUrl: String = "",
+    @SerialName("backupUrl") val backupUrl: List<String> = emptyList(),
+    @Serializable(with = FlexInt::class) val bandwidth: Int = 0,
+    @SerialName("mimeType") val mimeType: String = "",
     val codecs: String = "",
-    val width: Int = 0,
-    val height: Int = 0,
-    val frameRate: String = "",
+    @Serializable(with = FlexInt::class) val width: Int = 0,
+    @Serializable(with = FlexInt::class) val height: Int = 0,
+    @SerialName("frameRate") val frameRate: String = "",
 )
 
 @Serializable
 data class Durl(
-    val order: Int = 0,
-    val length: Long = 0,
-    val size: Long = 0,
+    @Serializable(with = FlexInt::class) val order: Int = 0,
+    @Serializable(with = FlexLong::class) val length: Long = 0,
+    @Serializable(with = FlexLong::class) val size: Long = 0,
     val url: String = "",
-    val backupUrl: List<String> = emptyList(),
+    // durl 用蛇形命名（dash track 才是驼峰）。
+    @SerialName("backup_url") val backupUrl: List<String> = emptyList(),
 )

@@ -25,10 +25,11 @@ class BiliApi(private val http: Http) {
         base: String,
         params: Map<String, String>,
         referer: String? = null,
+        origin: String? = null,
     ): String {
         val key = ensureWbiKey()
         val query = if (key != null) Wbi.sign(params, key) else encode(params)
-        return http.getString("$base?$query", referer = referer)
+        return http.getString("$base?$query", referer = referer, origin = origin)
     }
 
     private fun encode(params: Map<String, String>): String =
@@ -94,11 +95,46 @@ class BiliApi(private val http: Http) {
         return resp.code to resp.data
     }
 
-    /** seg.so 弹幕需要 buvid3 Cookie，匿名状态先访问指纹接口领取。 */
+    /**
+     * 准备 B 站网页风控所需的设备指纹 Cookie。
+     *
+     * 逆向实测：finger/spi 把 buvid3/buvid4 放在 **JSON body** 里（不是 Set-Cookie），
+     * 真实浏览器由 JS 取出发芽（buvid3 是「激活报告」后的形态，但直接用 spi 的 b_3 即可通过
+     * playurl / seg.so 风控）；缺失这些 Cookie 时 wbi/playurl 直接 412。
+     * 同时补齐浏览器里常驻的 _uuid / b_nut / b_lsid / buvid_fp，使 Cookie 形态更像真实 Chrome。
+     * 幂等：已有有效 buvid3 时直接返回。
+     */
     suspend fun ensureBuvid() {
+        val jar = http.cookieJar
+        if (jar.has(BILI_DOMAIN, "buvid3")) return
         runCatching {
-            http.getString("https://api.bilibili.com/x/frontend/finger/spi")
+            val body = http.getString("https://api.bilibili.com/x/frontend/finger/spi")
+            val data = json.parseToJsonElement(body).jsonObject["data"]?.jsonObject ?: return@runCatching
+            val b3 = data["b_3"]?.jsonPrimitive?.content.orEmpty()
+            val b4 = data["b_4"]?.jsonPrimitive?.content.orEmpty()
+            val now = System.currentTimeMillis()
+            if (b3.isNotEmpty()) {
+                jar.put(BILI_DOMAIN, "buvid3", b3, ONE_YEAR_SECS)
+                jar.put(BILI_DOMAIN, "buvid4", b4.ifEmpty { b3 }, ONE_YEAR_SECS)
+                jar.put(BILI_DOMAIN, "buvid_fp", java.util.UUID.randomUUID()
+                    .toString().replace("-", "").take(32), ONE_YEAR_SECS)
+                jar.put(BILI_DOMAIN, "_uuid", "${java.util.UUID.randomUUID()}infoc", ONE_YEAR_SECS)
+                jar.put(BILI_DOMAIN, "b_nut", (now / 1000).toString(), ONE_YEAR_SECS)
+                jar.put(
+                    BILI_DOMAIN,
+                    "b_lsid",
+                    "${randomHex(8).uppercase()}_${java.lang.Long.toHexString(now / 1000).uppercase()}",
+                    ONE_YEAR_SECS,
+                )
+            }
         }
+    }
+
+    private fun randomHex(len: Int): String {
+        val alphabet = "0123456789abcdef"
+        val sb = StringBuilder(len)
+        repeat(len) { sb.append(alphabet.random()) }
+        return sb.toString()
     }
 
     // ---------- 首页 ----------
@@ -128,6 +164,7 @@ class BiliApi(private val http: Http) {
     // ---------- 搜索 ----------
 
     suspend fun searchVideo(keyword: String, page: Int = 1): List<BiliVideo> {
+        ensureBuvid()
         val body = signedGet(
             "https://api.bilibili.com/x/web-interface/wbi/search/type",
             mapOf(
@@ -139,6 +176,8 @@ class BiliApi(private val http: Http) {
             referer = "https://search.bilibili.com",
         )
         return decode<SearchData>(body).data?.result.orEmpty()
+            // 视频搜索结果里会混入直播/用户/广告卡片，它们没有 bvid，直接剔除。
+            .filter { it.bvid.isNotEmpty() && it.aid > 0 }
             .map(SearchVideo::toBiliVideo)
     }
 
@@ -161,8 +200,16 @@ class BiliApi(private val http: Http) {
     }
 
     /**
-     * 获取播放地址（DASH）。
-     * 普通请求遇到「仅大会员」错误码时自动带 try_look=1 重试（试看流由本地 VIP 改写转正）。
+     * 获取播放地址。
+     *
+     * 逆向结论（2026-09 实测，Windows Chrome 伪装 + buvid 指纹）：
+     * 1. 旧版 [/x/player/playurl] 比 wbi 端点风控宽松：不签名也稳定 200，携带 buvid3 时
+     *    返回完整 DASH（音视频分离），是首选；
+     * 2. wbi 端点缺指纹 Cookie 时直接 HTTP 412，仅留给「大会员专享」的 try_look 试看场景；
+     * 3. 匿名 web DASH 上限 480P；而 platform=html5 给的是合流 MP4、匿名可取 720P，
+     *    未登录时作为后备（登录后 DASH 清晰度更高，不走该后备）。
+     *
+     * 大会员错误码自动带 try_look=1 走 wbi 重试（试看标记由本地 VIP 拦截器清除）。
      */
     suspend fun playurl(
         bvid: String,
@@ -170,6 +217,8 @@ class BiliApi(private val http: Http) {
         qn: Int = 127,
         forceTryLook: Boolean = false,
     ): PlayUrlData {
+        ensureBuvid()
+        val referer = "https://www.bilibili.com/video/$bvid"
         val params = linkedMapOf(
             "bvid" to bvid,
             "cid" to cid.toString(),
@@ -179,18 +228,53 @@ class BiliApi(private val http: Http) {
             "fourk" to "1",
             "otype" to "json",
         )
-        if (forceTryLook) params["try_look"] = "1"
-        val body = signedGet(
-            "https://api.bilibili.com/x/player/wbi/playurl",
-            params,
-            referer = "https://www.bilibili.com/video/$bvid",
+
+        // ① 大会员专享：wbi + try_look（试看流由 VipTrialInterceptor 本地转正）。
+        if (forceTryLook) {
+            params["try_look"] = "1"
+            val body = signedGet(
+                "https://api.bilibili.com/x/player/wbi/playurl",
+                params,
+                referer = referer,
+                origin = "https://www.bilibili.com",
+            )
+            val resp = decode<PlayUrlData>(body)
+            return resp.data ?: error(resp.errMsg)
+        }
+
+        // ② 首选：旧版端点 DASH（带桌面浏览器 Referer/Origin + 指纹 Cookie）。
+        var body = http.getString(
+            "https://api.bilibili.com/x/player/playurl?${encode(params)}",
+            referer = referer,
+            origin = "https://www.bilibili.com",
         )
-        val resp = decode<PlayUrlData>(body)
-        val data = resp.data
-        if (!forceTryLook && data?.dash == null && resp.code in NEEDS_VIP_CODES) {
+        var resp = decode<PlayUrlData>(body)
+        var data = resp.data
+
+        // ③ 权限错误：转 wbi try_look。
+        if (data?.dash == null && resp.code in NEEDS_VIP_CODES) {
             return playurl(bvid, cid, qn, forceTryLook = true)
         }
-        return data ?: error(resp.errMsg)
+        if (data == null) error(resp.errMsg)
+
+        // ④ 匿名且 DASH 最高只有 480P 时，尝试 html5 合流 720P MP4（登录用户清晰度更高，跳过）。
+        val loggedIn = http.cookieJar.has(BILI_DOMAIN, "SESSDATA")
+        val dashMaxQn = data.dash?.video?.maxOfOrNull { it.id } ?: 0
+        if (!loggedIn && data.durl.isEmpty() && dashMaxQn in 1..<64) {
+            val html5 = params + mapOf("platform" to "html5", "high_quality" to "1")
+            runCatching {
+                val hb = http.getString(
+                    "https://api.bilibili.com/x/player/playurl?${encode(html5)}",
+                    referer = referer,
+                    origin = "https://www.bilibili.com",
+                )
+                val hd = decode<PlayUrlData>(hb).data
+                if (hd != null && hd.durl.isNotEmpty() && hd.quality >= 64 && hd.quality > dashMaxQn) {
+                    return hd
+                }
+            }
+        }
+        return data
     }
 
     /** seg.so protobuf 弹幕单段（返回原始二进制）。 */
@@ -206,6 +290,9 @@ class BiliApi(private val http: Http) {
         http.getString("https://comment.bilibili.com/$cid.xml")
 
     companion object {
+        private const val BILI_DOMAIN = ".bilibili.com"
+        private const val ONE_YEAR_SECS = 365L * 24 * 3600
+
         // -10403: 大会员专享；100: 需要登录/无权限；-10404: 地区限制等。
         private val NEEDS_VIP_CODES = setOf(-10403, 100, -10404)
 

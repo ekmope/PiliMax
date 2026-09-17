@@ -65,7 +65,7 @@ suspend fun buildBiliPlayRequest(
         "Referer" to "https://www.bilibili.com/video/$bvid",
         "User-Agent" to com.pilinara.net.Http.UA_WEB,
     )
-    return mapPlayData(data, title, cid, headers, node)
+    return mapPlayData(data, title, cid, headers, node, qn)
 }
 
 fun mapPlayData(
@@ -74,13 +74,16 @@ fun mapPlayData(
     cid: Long,
     headers: Map<String, String>,
     node: CdnNode,
+    preferQn: Int,
 ): PlayRequest {
     data.dash?.let { dash ->
-        val video = dash.video
-            .sortedWith(compareByDescending<Track> { it.height }.thenByDescending { it.bandwidth })
-            .firstOrNull()
-            ?: error("播放地址中没有视频轨")
-        val audio = dash.audio.maxByOrNull { it.bandwidth }
+        val video = pickVideoTrack(dash.video, preferQn) ?: error("播放地址中没有视频轨")
+        // 30251=Hi-Res FLAC、30255=杜比全景声：Media3 默认无对应解码器，优先普通 AAC
+        // （30250/30280/30232/30216），都没有时再退回最高带宽轨。
+        val audio = dash.audio
+            .filter { it.id in AAC_AUDIO_IDS }
+            .maxByOrNull { it.bandwidth }
+            ?: dash.audio.maxByOrNull { it.bandwidth }
         return PlayRequest(
             title = title,
             videoUrl = node.pick(video.baseUrl, video.backupUrl),
@@ -105,3 +108,30 @@ fun mapPlayData(
         headers = headers,
     )
 }
+
+/**
+ * 选择视频轨：
+ * 1. 不超过用户设置的清晰度上限 [preferQn]；
+ * 2. 同清晰度下优先 AV1 → HEVC → AVC（骁龙 8 至尊版均有硬解，AV1/HEVC 压缩率高更省电省流）；
+ * 3. 编码相同时取高码率。
+ */
+private fun pickVideoTrack(tracks: List<Track>, preferQn: Int): Track? {
+    if (tracks.isEmpty()) return null
+    val available = tracks.filter { it.id <= preferQn }.ifEmpty { tracks }
+    val targetQn = available.maxOf { it.id }
+    return available.filter { it.id == targetQn }
+        .sortedWith(
+            compareByDescending<Track> { codecRank(it.codecs) }
+                .thenByDescending { it.bandwidth },
+        )
+        .first()
+}
+
+private fun codecRank(codecs: String): Int = when {
+    codecs.startsWith("av01", ignoreCase = true) -> 3
+    codecs.startsWith("hvc1", ignoreCase = true) ||
+        codecs.startsWith("hev1", ignoreCase = true) -> 2
+    else -> 1
+}
+
+private val AAC_AUDIO_IDS = setOf(30250, 30280, 30232, 30216)

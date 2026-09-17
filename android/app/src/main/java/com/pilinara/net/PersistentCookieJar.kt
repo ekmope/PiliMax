@@ -84,6 +84,37 @@ class PersistentCookieJar(private val file: File) : CookieJar {
         persist()
     }
 
+    /**
+     * 手动种植 Cookie（B 站 finger/spi 把 buvid3/buvid4 放在 JSON body 而非 Set-Cookie，
+     * 需要客户端像网页 JS 一样自行写入）。
+     *
+     * @param domain 形如 ".bilibili.com"
+     */
+    fun put(
+        domain: String,
+        name: String,
+        value: String,
+        maxAgeSeconds: Long,
+        secure: Boolean = false,
+    ) {
+        val cookie = Cookie.Builder()
+            .name(name)
+            .value(value)
+            .domain(domain)
+            .path("/")
+            .expiresAt(System.currentTimeMillis() + maxAgeSeconds * 1000L)
+            .apply { if (secure) secure() }
+            .build()
+        store.computeIfAbsent(domain) { ConcurrentHashMap() }[name] = cookie
+        persist()
+    }
+
+    /** 查询某域下是否存在未过期 Cookie（用于判断登录态/指纹是否已就绪）。 */
+    fun has(domain: String, name: String): Boolean {
+        val c = store[domain]?.get(name) ?: return false
+        return c.expiresAt >= System.currentTimeMillis()
+    }
+
     override fun loadForRequest(url: HttpUrl): List<Cookie> {
         val now = System.currentTimeMillis()
         val out = ArrayList<Cookie>()

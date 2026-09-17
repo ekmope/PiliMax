@@ -7,7 +7,10 @@ import com.pilinara.data.SettingsStore
 import com.pilinara.net.Http
 import com.pilinara.source.SourceManager
 import com.pilinara.source.SourceRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.File
 
@@ -49,5 +52,16 @@ class PiliApplication : Application() {
             container.settings.bootstrap()
             container.sources.load()
         }
+        // 后台预热 B 站风控指纹与 WBI 密钥（不阻塞冷启动；接口内部幂等）。
+        appScope.launch(Dispatchers.IO) {
+            runCatching {
+                container.api.ensureBuvid()
+                container.api.nav()
+            }
+        }
+    }
+
+    companion object {
+        private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 }

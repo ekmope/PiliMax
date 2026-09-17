@@ -139,7 +139,8 @@ data class SearchVideo(
     val pic: String = "",
     val author: String = "",
     val mid: Long = 0,
-    val play: String = "",
+    // 注意：web 搜索接口 play/review 等均为 JSON 数字（如 "play":851779），不是字符串。
+    val play: Long = 0,
     val review: Long = 0,
     val video_review: Long = 0,
     val tag: String = "",
@@ -149,12 +150,12 @@ data class SearchVideo(
         aid = aid,
         bvid = bvid,
         title = EM_TAG.replace(title, ""),
-        pic = pic,
+        pic = BiliApi.image(pic),
         duration = parseDuration(duration),
         tname = tag,
         owner = BiliOwner(mid = mid, name = author),
         stat = BiliStat(
-            view = play.toLongOrNull() ?: 0L,
+            view = play,
             danmaku = if (review > 0) review else video_review,
         ),
     )

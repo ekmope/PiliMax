@@ -127,11 +127,13 @@ class MainActivity : Activity() {
             {"instanceId":"inst","factoryId":"web-selector","isEnabled":true,"sortOrder":0,
              "arguments":{
                 "name":"演示源","tier":1,
-                "searchUrl":"https://example.com/s?q={keyword}","searchRemoveSpecial":true,
-                "rawBaseUrl":"https://example.com",
-                "selectorSubjectFormatFlattened":{"selectItems":"a.item"},
-                "selectorChannelFormatNoChannel":{"selectEpisodes":"a"},
-                "matchVideo":{"matchVideoUrl":"https://cdn\\.example\\.com/[^\"']+\\.mp4"}
+                "searchConfig":{
+                   "searchUrl":"https://example.com/s?q={keyword}","searchRemoveSpecial":true,
+                   "rawBaseUrl":"https://example.com",
+                   "selectorSubjectFormatFlattened":{"selectItems":"a.item"},
+                   "selectorChannelFormatNoChannel":{"selectEpisodes":"a"},
+                   "matchVideo":{"matchVideoUrl":"https://cdn\\.example\\.com/[^\"']+\\.mp4"}
+                }
              }}
         """.trimIndent()
         val searchUrl = NativeCore.buildSearchUrl(instance, " 一拳 超人!! ")

@@ -52,6 +52,8 @@ class PiliApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // 最早安装崩溃落盘，捕获容器初始化及后续播放链路上的未处理异常。
+        CrashLog.install(this)
         container = AppContainer(this)
         // 读取本地小文件并把 VIP 配置同步到拦截器闸门（必须在首个网络请求前完成）。
         runBlocking(Dispatchers.IO) {

@@ -98,6 +98,9 @@ class PlayerActivity : ComponentActivity() {
     private val json = Json { ignoreUnknownKeys = true }
     private var controller: MediaController? = null
 
+    /** 播放服务连接/初始化失败信息；非 null 时渲染全屏错误页而非崩溃。 */
+    private var fatalError by mutableStateOf<String?>(null)
+
     @UnstableApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -107,11 +110,13 @@ class PlayerActivity : ComponentActivity() {
         // 外部内核分支：用户选择 VLC/MPV 且插件已安装时，直接挂载外部播放界面，
         // 不启动 MediaSession；未安装或加载失败则静默回落到内置 Media3。
         val piliApp = application as PiliApplication
-        val selectedCore = kotlinx.coroutines.runBlocking {
-            com.pilinara.player.external.PlayerCoreManager.CoreId.ofSetting(
-                piliApp.container.settings.playerCore.first(),
-            )
-        }
+        val selectedCore = runCatching {
+            kotlinx.coroutines.runBlocking {
+                com.pilinara.player.external.PlayerCoreManager.CoreId.ofSetting(
+                    piliApp.container.settings.playerCore.first(),
+                )
+            }
+        }.getOrDefault(com.pilinara.player.external.PlayerCoreManager.CoreId.MEDIA3)
         if (selectedCore != com.pilinara.player.external.PlayerCoreManager.CoreId.MEDIA3 &&
             piliApp.container.playerCores.isInstalled(selectedCore)
         ) {
@@ -137,13 +142,28 @@ class PlayerActivity : ComponentActivity() {
         val token = SessionToken(this, android.content.ComponentName(this, PlaybackService::class.java))
         val future = MediaController.Builder(this, token).buildAsync()
         future.addListener({
-            val c = future.get()
-            controller = c
-            prepareAndPlay(c, request)
+            // 服务未创建 / R8 裁剪 / 会话拒绝等情况下 future.get() 会在主线程抛异常，
+            // 不捕获即表现为「点击播放直接闪退」。这里记录日志并改为全屏错误提示。
+            runCatching {
+                val c = future.get()
+                controller = c
+                prepareAndPlay(c, request)
+            }.onFailure {
+                com.pilinara.CrashLog.write(
+                    applicationContext, Thread.currentThread(), it,
+                )
+                fatalError = "播放服务启动失败：${it.message ?: it.javaClass.simpleName}"
+            }
         }, ContextCompat.getMainExecutor(this))
 
         setContent {
             val container = (application as PiliApplication).container
+
+            val fatal = fatalError
+            if (fatal != null) {
+                PlayerFatalError(fatal, onBack = { finish() })
+                return@setContent
+            }
 
             val audioOnlyDefault by container.settings.audioOnly.collectAsState(false)
             val danmakuEnabled by container.settings.danmakuEnabled.collectAsState(true)
@@ -225,14 +245,16 @@ class PlayerActivity : ComponentActivity() {
         c.playWhenReady = true
         // 默认倍速在 prepare 前设置，首帧即以目标速率渲染（DataStore 读取是毫秒级本地 IO）。
         val app = application as PiliApplication
-        val defaultSpeed = kotlinx.coroutines.runBlocking {
-            app.container.settings.defaultSpeed.first()
-        }
+        val defaultSpeed = runCatching {
+            kotlinx.coroutines.runBlocking {
+                app.container.settings.defaultSpeed.first()
+            }
+        }.getOrDefault(1f)
         if (defaultSpeed != 1f) c.setPlaybackSpeed(defaultSpeed)
         c.prepare()
     }
 
-    private suspend fun loadDanmaku(cid: Long, mergeWindowMs: Long): List<Danmaku> =
+    private suspend fun loadDanmaku(cid: Long, mergeWindowMs: Long): List<Danmaku> = try {
         withContext(Dispatchers.IO) {
             val api = (application as PiliApplication).container.api
             val out = ArrayList<Danmaku>()
@@ -255,6 +277,13 @@ class PlayerActivity : ComponentActivity() {
             }
             out.sortedBy { it.t }
         }
+    } catch (ce: kotlinx.coroutines.CancellationException) {
+        throw ce
+    } catch (t: Throwable) {
+        // 弹幕解析的任何意外都不应拖垮播放：记录日志并返回空列表。
+        com.pilinara.CrashLog.write(applicationContext, Thread.currentThread(), t)
+        emptyList()
+    }
 
     private fun enterPip() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && packageManager.hasSystemFeature(
@@ -335,6 +364,40 @@ private object NativeCoreDanmaku {
     fun parseXml(xml: String, mergeWindowMs: Long): List<Danmaku> {
         val s = com.pilinara.core.NativeCore.parseDanmakuXml(xml, mergeWindowMs)
         return json.decodeFromString(ListSerializer(Danmaku.serializer()), s)
+    }
+}
+
+/** 播放服务致命错误页：替代闪退，用户可返回；错误详情已写入 crash.log。 */
+@Composable
+private fun PlayerFatalError(message: String, onBack: () -> Unit) {
+    Box(
+        Modifier.fillMaxSize().background(Color.Black).padding(24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(
+                text = "无法播放",
+                color = Color.White,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            Text(
+                text = message,
+                color = Color(0xFFCCCCCC),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = "详细信息已记录到 Android/data/com.pilinara/files/crash.log",
+                color = Color(0xFF888888),
+                style = MaterialTheme.typography.labelSmall,
+            )
+            androidx.compose.material3.Button(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                Text("  返回")
+            }
+        }
     }
 }
 

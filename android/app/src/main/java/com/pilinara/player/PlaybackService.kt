@@ -26,6 +26,17 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        try {
+            buildSession()
+        } catch (t: Throwable) {
+            // 服务初始化失败不应以进程闪退收场：记录日志后停止服务，
+            // Activity 侧的控制器连接回调会把原因显示为错误页。
+            com.pilinara.CrashLog.write(applicationContext, Thread.currentThread(), t)
+            stopSelf()
+        }
+    }
+
+    private fun buildSession() {
         val app = application as PiliApplication
         val container = app.container
 
@@ -48,8 +59,12 @@ class PlaybackService : MediaSessionService() {
         val piliFactory = PiliMediaSourceFactory(resolvingFactory)
 
         // 用户解码 / 缓冲偏好（在服务创建时读取；更改后下次播放生效）。
-        val decodeMode = runBlocking { container.settings.decodeMode.first() }
-        val bufferMs = runBlocking { container.settings.bufferMs.first() }
+        val decodeMode = runCatching {
+            runBlocking { container.settings.decodeMode.first() }
+        }.getOrDefault("auto")
+        val bufferMs = runCatching {
+            runBlocking { container.settings.bufferMs.first() }
+        }.getOrDefault(50_000)
 
         val renderersFactory = DefaultRenderersFactory(this).apply {
             when (decodeMode) {

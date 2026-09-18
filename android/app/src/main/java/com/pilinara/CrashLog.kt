@@ -23,6 +23,27 @@ object CrashLog {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             runCatching { write(context, thread, throwable) }
+            // EIO / ErrnoException 一类属于「磁盘层抖动」（缓存文件被系统回收、
+            // 外部分区瞬断），把整个进程杀掉代价太大。吞掉并让线程退出：
+            // OkHttp/协程会把 IO 失败以 IOException 形式回传给调用方，UI 层已有兜底。
+            val isIoNoise = runCatching {
+                var t: Throwable? = throwable
+                while (t != null) {
+                    if (t is android.system.ErrnoException &&
+                        t.errno == android.system.OsConstants.EIO
+                    ) {
+                        return@runCatching true
+                    }
+                    // close failed: EIO 形态的包装异常（如来自 libcore 的 IOException）。
+                    if ((t.message ?: "").contains("EIO")) return@runCatching true
+                    t = t.cause
+                }
+                false
+            }.getOrDefault(false)
+            if (isIoNoise) {
+                android.util.Log.e("CrashLog", "suppressed IO-noise crash on ${thread.name}", throwable)
+                return@setDefaultUncaughtExceptionHandler
+            }
             previous?.uncaughtException(thread, throwable)
         }
     }

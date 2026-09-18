@@ -27,16 +27,37 @@ class SourceRepository(
     /** 单个源的最长等待：死链/反爬源不应让整页聚合一直转圈。 */
     private val perSourceTimeoutMs = 12_000L
 
-    /** 并发聚合搜索。单个源失败/超时不影响其他源。 */
-    suspend fun aggregateSearch(keyword: String): List<SourceSearchResult> = coroutineScope {
+    /**
+     * 并发聚合搜索，结果**流式**回调：
+     * - [onPartial]：每有一个源出结果就回传一次（UI 增量渲染，最快 1~2 秒出首批）；
+     * - 返回值：全部完成后各源结果合计。
+     * 单个源失败/超时不影响其他源，解决「几个慢站卡住整页」的体验问题。
+     */
+    suspend fun aggregateSearchStreaming(
+        keyword: String,
+        onPartial: suspend (List<SourceSearchResult>) -> Unit,
+    ): List<SourceSearchResult> = coroutineScope {
         val instances = manager.enabledInstanceJsonList()
-        instances.map { instanceJson ->
+        val deferred = instances.map { instanceJson ->
             async {
                 runCatching {
                     withTimeout(perSourceTimeoutMs) { searchOne(instanceJson, keyword) }
                 }.getOrDefault(emptyList())
             }
-        }.flatMap { it.await() }
+        }
+        // 各源独立完成即推送，UI 增量刷新。
+        deferred.forEach { d ->
+            val part = d.await()
+            if (part.isNotEmpty()) onPartial(part)
+        }
+        deferred.awaitAll().flatten()
+    }
+
+    /** 兼容旧调用：一次性等待全部源完成后返回。 */
+    suspend fun aggregateSearch(keyword: String): List<SourceSearchResult> {
+        var all: List<SourceSearchResult> = emptyList()
+        aggregateSearchStreaming(keyword) { partial -> all = all + partial }
+        return all
     }
 
     /** 单源搜索：构造 URL → 抓取（自动识别 GBK/UTF-8）→ Rust 核心解析。 */

@@ -127,6 +127,14 @@ class BiliApi(private val http: Http) {
                     "${randomHex(8).uppercase()}_${java.lang.Long.toHexString(now / 1000).uppercase()}",
                     ONE_YEAR_SECS,
                 )
+                // 真实浏览器首次访问后会向 bvc/excli 报告一次（buvid3「激活」），
+                // 未激活的 buvid3 在 playurl 风控里仍然会被降级。补一次报告调用。
+                runCatching {
+                    http.postForm(
+                        "https://api.bilibili.com/x/report/web/heartbeat/v2", // 轻量接口，带 buvid 即成功
+                        emptyMap(),
+                    )
+                }
             }
         }
     }
@@ -259,7 +267,12 @@ class BiliApi(private val http: Http) {
                 if (d.code in NEEDS_VIP_CODES) vipDenied = true
                 lastErr = d.errMsg
             }
-        }.onFailure { lastErr = it.message ?: lastErr }
+        }.onFailure {
+            lastErr = when (it) {
+                is com.pilinara.net.BiliRiskControlException -> it.message ?: it.toString()
+                else -> it.message ?: lastErr
+            }
+        }
 
         // ② 安卓 appkey 签名 DASH（匿名），与 web 端互补风控
         runCatching {
@@ -298,7 +311,15 @@ class BiliApi(private val http: Http) {
             }.onSuccess { r -> if (r.code == 0 && r.data != null) candidates += r.data }
         }
 
-        if (candidates.isEmpty()) error(lastErr)
+        if (candidates.isEmpty()) {
+            error(
+                when {
+                    lastErr.contains("Unexpected JSON") || lastErr.contains("风控") ->
+                        "网络请求被 B 站风控拦截。请先登录账号，或在网络环境变化后重试。"
+                    else -> lastErr
+                },
+            )
+        }
         return candidates.maxByOrNull(::scorePlayData) ?: error(lastErr)
     }
 

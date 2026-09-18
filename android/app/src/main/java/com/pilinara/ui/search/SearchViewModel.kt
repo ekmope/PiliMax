@@ -126,9 +126,13 @@ class SearchViewModel(private val c: AppContainer) : ViewModel() {
             sourceLoading = true
             launch(Dispatchers.IO) { c.searchHistory.add(query) }
             runSuspendCatching {
-                withContext(Dispatchers.IO) { c.sourceRepository.aggregateSearch(query) }
-            }.onSuccess { sourceResults.addAll(it) }
-                .onFailure { sourceError = it.message }
+                withContext(Dispatchers.IO) {
+                    c.sourceRepository.aggregateSearchStreaming(query) { partial ->
+                        // 流式回填：每出一个源的结果就立刻上屏。
+                        sourceResults.addAll(partial)
+                    }
+                }
+            }.onFailure { sourceError = it.message }
             sourceLoading = false
         }
     }

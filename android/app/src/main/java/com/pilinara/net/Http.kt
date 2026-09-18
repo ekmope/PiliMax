@@ -22,21 +22,22 @@ class Http(cacheDir: File, cookieFile: File) {
 
     val cookieJar: PersistentCookieJar = PersistentCookieJar(cookieFile)
 
-    val client: OkHttpClient = OkHttpClient.Builder()
-        .cookieJar(cookieJar)
-        // 浏览器伪装头必须最先生效，后续 VIP 改写拦截器只动响应体。
-        .addBrowserFingerprintHeaders()
-        .addInterceptor(VipTrialInterceptor())
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
-        .callTimeout(30, TimeUnit.SECONDS)
-        .cache(
-            okhttp3.Cache(
-                directory = File(cacheDir, "http_cache"),
-                maxSize = 256L * 1024 * 1024,
-            ),
-        )
-        .build()
+    val client: OkHttpClient = run {
+        val builder = OkHttpClient.Builder()
+            .cookieJar(cookieJar)
+            // 浏览器伪装头必须最先生效，后续 VIP 改写拦截器只动响应体。
+            .addBrowserFingerprintHeaders()
+            .addInterceptor(VipTrialInterceptor())
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+        // 磁盘缓存：部分机型的 shared cache 分区在 I/O 繁忙或被系统回收时
+        // close() 会抛 EIO（android.system.ErrnoException），并且是从 OkHttp
+        // 内部线程抛出的未捕获异常 → 进程闪退。磁盘缓存的收益（省流量）
+        // 远低于其稳定性风险，改为完全内存行为（不安装 okhttp3.Cache）。
+        // 需要缓存的大文件（视频流）本身也不走 HTTP 缓存。
+        builder.build()
+    }
 
     /** 抓第三方源页面时常用的浏览器风格请求构造。 */
     fun request(
@@ -58,7 +59,13 @@ class Http(cacheDir: File, cookieFile: File) {
         referer: String? = null,
         origin: String? = null,
     ): String = execute(request(url, headers, referer, origin).get().build()) {
-        it.body?.string().orEmpty()
+        val body = it.body?.string().orEmpty()
+        // B 站风控（412/anti-crawler）返回 HTML 页而非 JSON。把 HTTP 状态与内容特征
+        // 转成可读异常，避免上层把「Unexpected JSON token」这种实现细节抛给用户。
+        if (it.code == 412 || body.startsWith("<!DOCTYPE") || body.startsWith("<html")) {
+            throw BiliRiskControlException(it.code)
+        }
+        body
     }
 
     /**
@@ -200,3 +207,11 @@ object HtmlCharset {
         }.getOrNull()
     }
 }
+
+/**
+ * B 站风控响应（HTTP 412 / anti-crawler HTML）。message 面向用户可直接展示，
+ * 不暴露 kotlinx-serialization 之类的实现细节。
+ */
+class BiliRiskControlException(val httpCode: Int) : IOException(
+    "请求被 B 站风控拦截（HTTP $httpCode）。请先在「我的」页登录账号，稍后重试。",
+)

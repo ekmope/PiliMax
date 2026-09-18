@@ -202,32 +202,44 @@ private fun SourceSearchTab(
             ErrorBox("聚合搜索失败：${vm.sourceError}")
         vm.sourceResults.isEmpty() ->
             Hint("所有源均未找到「${vm.sourceQuery}」（可在「源」页添加订阅）")
-        else -> LazyColumn(
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(vm.sourceResults.size) { i ->
-                val r = vm.sourceResults[i]
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.fillMaxWidth().clickable { onOpen(r) },
-                ) {
-                    Row(
-                        Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+        else -> Box {
+            LazyColumn(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(vm.sourceResults.size) { i ->
+                    val r = vm.sourceResults[i]
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth().clickable { onOpen(r) },
                     ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(r.subject.name, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                r.sourceName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 4.dp),
-                            )
+                        Row(
+                            Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(r.subject.name, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    r.sourceName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                            }
                         }
                     }
                 }
+            }
+            if (vm.sourceLoading) {
+                Text(
+                    "仍在搜索更多源…",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(12.dp),
+                )
             }
         }
     }

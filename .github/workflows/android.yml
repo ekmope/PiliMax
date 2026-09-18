@@ -77,7 +77,7 @@ jobs:
         working-directory: android
         run: |
           set -o pipefail
-          ./gradlew :app:assembleRelease :plugin-vlc:assembleRelease --no-daemon 2>&1 | tee gradle-build.log
+          ./gradlew :app:assembleRelease :plugin-vlc:assembleRelease :plugin-mpv:assembleRelease --no-daemon 2>&1 | tee gradle-build.log
 
       - name: Surface gradle errors
         if: failure()
@@ -92,11 +92,15 @@ jobs:
                 echo "::error title=Kotlin::${line}"
               done || true
           # e: 开头的 Kotlin 错误行（kotlinc 风格）。
-          grep -E '^e: .*error: ' gradle-build.log | head -30 \
+          grep -E "^e: " gradle-build.log | head -30 \
             | while IFS= read -r line; do
                 echo "::error title=KotlinE::${line}"
               done || true
-          # 兜底：FAILURE 段落上下文。
+          # 兜底：FAILURE 段落上下文 + 编译错误行。
+          grep -B 2 'error: ' gradle-build.log | head -40 \
+            | while IFS= read -r line; do
+                echo "::error title=Err::${line}"
+              done || true
           grep -n -A 8 'FAILURE: Build failed' gradle-build.log | head -24 \
             | while IFS= read -r line; do
                 echo "::error title=Gradle::${line}"
@@ -118,6 +122,7 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk dist/piliAI-latest-arm64-v8a.apk
           # 宿主按该固定资产名做内核插件的版本无关下载（releases/latest/download/vlc-core.apk）。
           cp android/plugin-vlc/build/outputs/apk/release/plugin-vlc-release.apk dist/vlc-core.apk
+          cp android/plugin-mpv/build/outputs/apk/release/plugin-mpv-release.apk dist/mpv-core.apk
           ls -lh dist
 
       - name: Upload APK

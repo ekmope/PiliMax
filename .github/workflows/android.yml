@@ -75,7 +75,41 @@ jobs:
       - name: Build release APKs
         working-directory: android
         run: |
-          ./gradlew :app:assembleRelease :plugin-vlc:assembleRelease --no-daemon
+          set -o pipefail
+          ./gradlew :app:assembleRelease :plugin-vlc:assembleRelease --no-daemon 2>&1 | tee gradle-build.log
+
+      - name: Surface gradle errors
+        if: failure()
+        continue-on-error: true
+        working-directory: android
+        run: |
+          if [ ! -f gradle-build.log ]; then exit 0; fi
+          # Kotlin/Java 编译错误带 file:line，逐条转成 annotation。
+          grep -E '\.kt:[0-9]+:[0-9]+: error:|\.java:[0-9]+: error:' gradle-build.log \
+            | head -30 \
+            | while IFS= read -r line; do
+                echo "::error title=Kotlin::${line}"
+              done || true
+          # e: 开头的 Kotlin 错误行（kotlinc 风格）。
+          grep -E '^e: .*error: ' gradle-build.log | head -30 \
+            | while IFS= read -r line; do
+                echo "::error title=KotlinE::${line}"
+              done || true
+          # 兜底：FAILURE 段落上下文。
+          grep -n -A 8 'FAILURE: Build failed' gradle-build.log | head -24 \
+            | while IFS= read -r line; do
+                echo "::error title=Gradle::${line}"
+              done || true
+          exit 0
+
+      - name: Upload gradle log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log-${{ github.run_number }}
+          path: android/gradle-build.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Stage release assets
         run: |

@@ -24,5 +24,7 @@ url = "2.5"
 # fat LTO + 单 codegen unit 让弹幕解析/合并热路径获得更好的内联与布局。
 lto = "fat"
 codegen-units = 1
-panic = "abort"
+# 必须保持 unwind：JNI 边界用 catch_unwind 把解析器对畸形输入的 panic
+# 转成 Java 异常，而不是让整个 App 进程被 SIGABRT 直接杀死（点播放秒退）。
+panic = "unwind"
 strip = "symbols"

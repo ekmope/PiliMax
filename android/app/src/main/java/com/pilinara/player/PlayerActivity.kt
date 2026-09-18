@@ -567,16 +567,23 @@ private fun PlayerScreen(
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
-                PlayerView(ctx).apply {
-                    useController = false
-                    playerProvider()?.let { player = it }
-                    // 控制器可能晚于视图创建。
-                    post { playerProvider()?.let { player = it } }
+                // PlayerView 在组合期构建，onCreate 的守卫抓不到这里的异常；
+                // 失败时退化为空 View 也不能让整个播放页崩溃。
+                runCatching {
+                    PlayerView(ctx).apply {
+                        useController = false
+                        playerProvider()?.let { player = it }
+                    }
+                }.getOrElse {
+                    com.pilinara.CrashLog.write(
+                        ctx, Thread.currentThread(), it,
+                    )
+                    android.view.View(ctx)
                 }
             },
             update = { view ->
-                if (view.player !== playerProvider()) {
-                    view.player = playerProvider()
+                if (view is PlayerView && view.player !== playerProvider()) {
+                    runCatching { view.player = playerProvider() }
                 }
             },
         )

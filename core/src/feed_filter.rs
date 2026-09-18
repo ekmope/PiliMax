@@ -45,7 +45,10 @@ pub fn apply(videos_json: &str, rules_json: &str) -> String {
     let rules = parse_rules(rules_json);
     let compiled = compile_rules(&rules);
 
-    let arr = videos.as_array().unwrap();
+    let arr = match videos.as_array() {
+        Some(a) => a,
+        None => return videos_json.to_string(),
+    };
     let kept: Vec<&Value> = arr
         .iter()
         .filter(|v| !v.is_object() || !compiled.iter().any(|r| r.matches(v)))

@@ -31,11 +31,15 @@ class VipTrialInterceptor : Interceptor {
         if (contentType?.subtype?.contains("json", ignoreCase = true) != true) return response
 
         val raw = body.string()
-        val rewritten = NativeCore.applyVipTrial(
-            raw,
-            VipTrialGate.configJson(),
-            System.currentTimeMillis(),
-        )
+        // 改写只是本地增强：核心即使对畸形响应抛出异常，也必须透传原始响应，
+        // 绝不能让一个可选的会员字段改写拖垮整个播放请求（曾表现为点播放秒退）。
+        val rewritten = runCatching {
+            NativeCore.applyVipTrial(
+                raw,
+                VipTrialGate.configJson(),
+                System.currentTimeMillis(),
+            )
+        }.getOrDefault(raw)
         return response.newBuilder()
             .body(rewritten.toResponseBody(contentType))
             .build()

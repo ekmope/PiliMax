@@ -66,8 +66,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.pilinara.PiliApplication
 import kotlinx.coroutines.Dispatchers
@@ -96,20 +95,27 @@ data class PlayRequest(
 class PlayerActivity : ComponentActivity() {
 
     private val json = Json { ignoreUnknownKeys = true }
-    private var controller: MediaController? = null
 
-    /** 播放服务连接/初始化失败信息；非 null 时渲染全屏错误页而非崩溃。 */
+    /** 进程内播放器（不再跨 Service 绑定 MediaController）。 */
+    private var player: ExoPlayer? = null
+
+    /** 播放初始化失败信息；非 null 时渲染全屏错误页而非崩溃。 */
     private var fatalError by mutableStateOf<String?>(null)
 
     @UnstableApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        val request = requireNotNull(parseRequest(intent)) { "缺少播放参数" }
+        val piliApp = application as PiliApplication
+
+        val request = runCatching { requireNotNull(parseRequest(intent)) }.getOrNull()
+        if (request == null) {
+            setContent { PlayerFatalError("缺少播放参数", onBack = { finish() }) }
+            return
+        }
 
         // 外部内核分支：用户选择 VLC/MPV 且插件已安装时，直接挂载外部播放界面，
-        // 不启动 MediaSession；未安装或加载失败则静默回落到内置 Media3。
-        val piliApp = application as PiliApplication
+        // 不创建 ExoPlayer；未安装或加载失败则静默回落到内置 Media3。
         val selectedCore = runCatching {
             kotlinx.coroutines.runBlocking {
                 com.pilinara.player.external.PlayerCoreManager.CoreId.ofSetting(
@@ -139,22 +145,26 @@ class PlayerActivity : ComponentActivity() {
             return
         }
 
-        val token = SessionToken(this, android.content.ComponentName(this, PlaybackService::class.java))
-        val future = MediaController.Builder(this, token).buildAsync()
-        future.addListener({
-            // 服务未创建 / R8 裁剪 / 会话拒绝等情况下 future.get() 会在主线程抛异常，
-            // 不捕获即表现为「点击播放直接闪退」。这里记录日志并改为全屏错误提示。
-            runCatching {
-                val c = future.get()
-                controller = c
-                prepareAndPlay(c, request)
-            }.onFailure {
-                com.pilinara.CrashLog.write(
-                    applicationContext, Thread.currentThread(), it,
+        // 进程内直接构建 ExoPlayer（bv / bilipai 式）：没有跨组件绑定，
+        // 构造失败只会落到错误页而不是整个进程闪退。
+        val exo = runCatching {
+            PlayerEngine.create(applicationContext, piliApp.container)
+        }.getOrElse {
+            com.pilinara.CrashLog.write(applicationContext, Thread.currentThread(), it)
+            setContent {
+                PlayerFatalError(
+                    "播放器初始化失败：${it.message ?: it.javaClass.simpleName}",
+                    onBack = { finish() },
                 )
-                fatalError = "播放服务启动失败：${it.message ?: it.javaClass.simpleName}"
             }
-        }, ContextCompat.getMainExecutor(this))
+            return
+        }
+        player = exo
+        runCatching { prepareAndPlay(exo, request) }
+            .onFailure {
+                com.pilinara.CrashLog.write(applicationContext, Thread.currentThread(), it)
+                fatalError = "无法播放：${it.message ?: it.javaClass.simpleName}"
+            }
 
         setContent {
             val container = (application as PiliApplication).container
@@ -186,7 +196,7 @@ class PlayerActivity : ComponentActivity() {
 
             PlayerScreen(
                 title = request.title,
-                controllerProvider = { controller },
+                playerProvider = { player },
                 onBack = { finish() },
                 onPip = { enterPip() },
                 onToggleOrientation = { toggleOrientation() },
@@ -200,8 +210,8 @@ class PlayerActivity : ComponentActivity() {
                 audioOnly = audioOnly,
                 onToggleAudioOnly = { enable ->
                     audioOnly = enable
-                    val c = controller ?: return@PlayerScreen
-                    c.trackSelectionParameters = c.trackSelectionParameters.buildUpon()
+                    val p = player ?: return@PlayerScreen
+                    p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
                         .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, enable)
                         .build()
                 },
@@ -223,7 +233,7 @@ class PlayerActivity : ComponentActivity() {
             json.decodeFromString(PlayRequest.serializer(), it)
         }
 
-    private fun prepareAndPlay(c: MediaController, request: PlayRequest) {
+    private fun prepareAndPlay(c: ExoPlayer, request: PlayRequest) {
         val extras = Bundle().apply {
             putString(PiliMediaSourceFactory.EXTRA_STREAM_TYPE, request.streamType)
             request.audioUrl?.let { putString(PiliMediaSourceFactory.EXTRA_AUDIO_URL, it) }
@@ -243,7 +253,7 @@ class PlayerActivity : ComponentActivity() {
         PlaybackHeaderStore.set(listOfNotNull(request.videoUrl, request.audioUrl), request.headers)
         c.setMediaItem(item, request.positionMs)
         c.playWhenReady = true
-        // 默认倍速在 prepare 前设置，首帧即以目标速率渲染（DataStore 读取是毫秒级本地 IO）。
+        // 默认倍速 / 只听模式在 prepare 前设置（DataStore 读取是毫秒级本地 IO）。
         val app = application as PiliApplication
         val defaultSpeed = runCatching {
             kotlinx.coroutines.runBlocking {
@@ -251,6 +261,14 @@ class PlayerActivity : ComponentActivity() {
             }
         }.getOrDefault(1f)
         if (defaultSpeed != 1f) c.setPlaybackSpeed(defaultSpeed)
+        val audioOnly = runCatching {
+            kotlinx.coroutines.runBlocking { app.container.settings.audioOnly.first() }
+        }.getOrDefault(false)
+        if (audioOnly) {
+            c.trackSelectionParameters = c.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, true)
+                .build()
+        }
         c.prepare()
     }
 
@@ -324,7 +342,7 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (controller?.isPlaying == true) enterPip()
+        if (player?.isPlaying == true) enterPip()
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
@@ -335,8 +353,8 @@ class PlayerActivity : ComponentActivity() {
     private var pipMode: Boolean by mutableStateOf(false)
 
     override fun onDestroy() {
-        controller?.release()
-        controller = null
+        player?.release()
+        player = null
         super.onDestroy()
     }
 
@@ -406,7 +424,7 @@ private fun PlayerFatalError(message: String, onBack: () -> Unit) {
 @Composable
 private fun PlayerScreen(
     title: String,
-    controllerProvider: () -> MediaController?,
+    playerProvider: () -> Player?,
     onBack: () -> Unit,
     onPip: () -> Unit,
     onToggleOrientation: () -> Unit,
@@ -447,12 +465,12 @@ private fun PlayerScreen(
         }
     }
 
-    // 只听模式开关（含「默认只听」设置）：控制器异步就绪后轮询一次再应用。
+    // 只听模式开关（含「默认只听」设置）：播放器就绪后应用一次。
     LaunchedEffect(audioOnly) {
-        var c = controllerProvider()
+        var c = playerProvider()
         while (c == null) {
             delay(100)
-            c = controllerProvider()
+            c = playerProvider()
         }
         c.trackSelectionParameters = c.trackSelectionParameters.buildUpon()
             .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, audioOnly)
@@ -462,7 +480,7 @@ private fun PlayerScreen(
     // 轮询进度。
     LaunchedEffect(Unit) {
         while (true) {
-            val c = controllerProvider()
+            val c = playerProvider()
             if (c != null) {
                 position = c.currentPosition
                 if (c.duration > 0) duration = c.duration
@@ -473,7 +491,7 @@ private fun PlayerScreen(
     }
 
     // 播放状态监听。
-    DisposableListener(controllerProvider) { c ->
+    DisposableListener(playerProvider) { c ->
         isPlaying = c.isPlaying
     }
 
@@ -485,27 +503,27 @@ private fun PlayerScreen(
                 detectTapGestures(
                     onTap = { controlsVisible = !controlsVisible },
                     onDoubleTap = { offset ->
-                        val c = controllerProvider() ?: return@detectTapGestures
+                        val c = playerProvider() ?: return@detectTapGestures
                         val delta = if (offset.x < size.width / 3f) -10_000L else 10_000L
                         c.seekTo((c.currentPosition + delta).coerceAtLeast(0L))
                         gestureHint = if (delta < 0) "快退 10s" else "快进 10s"
                     },
                     onLongPress = {
-                        controllerProvider()?.setPlaybackSpeed(2f)
+                        playerProvider()?.setPlaybackSpeed(2f)
                         gestureHint = "2 倍速"
                     },
                     onPress = {
                         awaitRelease()
-                        controllerProvider()?.setPlaybackSpeed(speed)
+                        playerProvider()?.setPlaybackSpeed(speed)
                         gestureHint = null
                     },
                 )
             }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
-                    onDragStart = { scrubTarget = controllerProvider()?.currentPosition ?: 0L },
+                    onDragStart = { scrubTarget = playerProvider()?.currentPosition ?: 0L },
                     onDragEnd = {
-                        scrubTarget?.let { controllerProvider()?.seekTo(it) }
+                        scrubTarget?.let { playerProvider()?.seekTo(it) }
                         scrubTarget = null
                     },
                     onDragCancel = { scrubTarget = null },
@@ -545,14 +563,14 @@ private fun PlayerScreen(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     useController = false
-                    controllerProvider()?.let { player = it }
+                    playerProvider()?.let { player = it }
                     // 控制器可能晚于视图创建。
-                    post { controllerProvider()?.let { player = it } }
+                    post { playerProvider()?.let { player = it } }
                 }
             },
             update = { view ->
-                if (view.player !== controllerProvider()) {
-                    view.player = controllerProvider()
+                if (view.player !== playerProvider()) {
+                    view.player = playerProvider()
                 }
             },
         )
@@ -564,8 +582,8 @@ private fun PlayerScreen(
                 enabled = danmakuEnabled && danmakuVisible,
                 opacity = danmakuOpacity,
                 scale = danmakuScale,
-                positionProvider = { scrubTarget ?: controllerProvider()?.currentPosition ?: 0L },
-                isPlayingProvider = { controllerProvider()?.isPlaying == true },
+                positionProvider = { scrubTarget ?: playerProvider()?.currentPosition ?: 0L },
+                isPlayingProvider = { playerProvider()?.isPlaying == true },
             )
         }
 
@@ -651,14 +669,14 @@ private fun PlayerScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(onClick = {
-                        val c = controllerProvider() ?: return@IconButton
+                        val c = playerProvider() ?: return@IconButton
                         c.seekTo((c.currentPosition - 10_000L).coerceAtLeast(0L))
                     }) {
                         Icon(Icons.Filled.RotateLeft, contentDescription = "快退", tint = Color.White, modifier = Modifier.size(40.dp))
                     }
                     IconButton(
                         onClick = {
-                            val c = controllerProvider() ?: return@IconButton
+                            val c = playerProvider() ?: return@IconButton
                             if (c.isPlaying) c.pause() else c.play()
                         },
                         modifier = Modifier.padding(horizontal = 32.dp),
@@ -671,7 +689,7 @@ private fun PlayerScreen(
                         )
                     }
                     IconButton(onClick = {
-                        val c = controllerProvider() ?: return@IconButton
+                        val c = playerProvider() ?: return@IconButton
                         c.seekTo(c.currentPosition + 10_000L)
                     }) {
                         Icon(Icons.Filled.RotateRight, contentDescription = "快进", tint = Color.White, modifier = Modifier.size(40.dp))
@@ -686,7 +704,7 @@ private fun PlayerScreen(
                                     text = { Text(if (sp == 1f) "倍速：正常" else "倍速：${sp}x") },
                                     onClick = {
                                         speed = sp
-                                        controllerProvider()?.setPlaybackSpeed(sp)
+                                        playerProvider()?.setPlaybackSpeed(sp)
                                         speedMenu = false
                                     },
                                 )
@@ -708,7 +726,7 @@ private fun PlayerScreen(
                         value = (scrubTarget ?: position).toFloat(),
                         onValueChange = { scrubTarget = it.toLong() },
                         onValueChangeFinished = {
-                            scrubTarget?.let { controllerProvider()?.seekTo(it) }
+                            scrubTarget?.let { playerProvider()?.seekTo(it) }
                             scrubTarget = null
                         },
                         valueRange = 0f..(duration.coerceAtLeast(1L)).toFloat(),
@@ -728,8 +746,8 @@ private fun PlayerScreen(
 /** 绑定 Player.Listener 到控制器（控制器是异步就绪的）。 */
 @Composable
 private fun DisposableListener(
-    controllerProvider: () -> MediaController?,
-    onState: (MediaController) -> Unit,
+    playerProvider: () -> Player?,
+    onState: (Player) -> Unit,
 ) {
     androidx.compose.runtime.DisposableEffect(Unit) {
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -737,7 +755,7 @@ private fun DisposableListener(
         var attached: Player? = null
         val poll = object : Runnable {
             override fun run() {
-                val c = controllerProvider()
+                val c = playerProvider()
                 if (c != null && attached !== c) {
                     attached = c
                     val l = object : Player.Listener {

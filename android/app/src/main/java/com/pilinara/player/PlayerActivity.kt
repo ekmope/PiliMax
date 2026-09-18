@@ -160,6 +160,12 @@ class PlayerActivity : ComponentActivity() {
             return
         }
         player = exo
+        // 播放期错误（解码/网络/源）走 ExoPlayer 回调而非崩溃：落盘以便定位，界面停在缓冲态。
+        exo.addListener(object : Player.Listener {
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                com.pilinara.CrashLog.write(applicationContext, Thread.currentThread(), error)
+            }
+        })
         runCatching { prepareAndPlay(exo, request) }
             .onFailure {
                 com.pilinara.CrashLog.write(applicationContext, Thread.currentThread(), it)

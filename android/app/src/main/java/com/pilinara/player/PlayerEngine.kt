@@ -33,6 +33,7 @@ data class PlayerSettings(
     val defaultSpeed: Float = 1f,
     val audioOnly: Boolean = false,
     val playerCore: String = "media3",
+    val weakNet: Boolean = false,
 ) {
     companion object {
         suspend fun load(settings: SettingsStore): PlayerSettings = runCatching {
@@ -42,8 +43,16 @@ data class PlayerSettings(
                 defaultSpeed = settings.defaultSpeed.first(),
                 audioOnly = settings.audioOnly.first(),
                 playerCore = settings.playerCore.first(),
+                weakNet = settings.weakNet.first(),
             )
         }.getOrDefault(PlayerSettings())
+
+        /** 弱网/省流模式下的清晰度上限（720P）。 */
+        const val WEAK_NET_MAX_QN = 64
+
+        /** 弱网模式下把用户偏好清晰度收敛到上限内。 */
+        fun effectiveQn(preferQn: Int, weakNet: Boolean): Int =
+            if (weakNet) minOf(preferQn, WEAK_NET_MAX_QN) else preferQn
     }
 }
 
@@ -103,7 +112,8 @@ object PlayerEngine {
             }
         }
 
-        val bufferMs = settings.bufferMs
+        // 弱网模式：缓冲上限翻倍（封顶 120s），减少卡顿重连次数。
+        val bufferMs = if (settings.weakNet) settings.bufferMs * 2 else settings.bufferMs
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
                 (bufferMs / 2).coerceIn(1_000, 60_000),

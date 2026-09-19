@@ -1,5 +1,6 @@
 package com.pilinara.ui.source
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,7 @@ fun SourceScreen(container: AppContainer) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val subscriptions by container.sources.subscriptions.collectAsState()
+    val followed by container.sources.followed.collectAsState()
     // 实例 JSON 变化时重新渲染开关列表。
     val instancesTick by container.sources.instancesJson.collectAsState()
     val instances = remember(instancesTick) { container.sources.instances() }
@@ -57,6 +59,19 @@ fun SourceScreen(container: AppContainer) {
     var showAdd by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var opened by remember { mutableStateOf<com.pilinara.source.FollowedSubject?>(null) }
+
+    // 追番条目点击直达源详情（选集页）。
+    opened?.let { f ->
+        SourceDetailScreen(
+            container = container,
+            sourceName = f.sourceName,
+            subjectUrl = f.subjectUrl,
+            subjectName = f.name,
+            onBack = { opened = null },
+        )
+        return
+    }
 
     val presets = remember {
         runCatching {
@@ -128,6 +143,50 @@ fun SourceScreen(container: AppContainer) {
                             },
                             modifier = Modifier.padding(top = 10.dp),
                         ) { Text(if (subscribed) "已添加" else "添加此订阅") }
+                    }
+                }
+            }
+
+            item {
+                HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                Text("我的追番", style = MaterialTheme.typography.titleMedium)
+            }
+            if (followed.isEmpty()) {
+                item {
+                    Text(
+                        "在源详情页右上角点「追番」即可收藏番剧；开启「追番同步到 B 站」后会自动同步。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            items(followed.sortedByDescending { it.followedAt }, key = { it.subjectUrl }) { f ->
+                Card(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .clickable { opened = f }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(f.name, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                buildString {
+                                    append(f.sourceName)
+                                    if (f.biliSeasonId > 0) append(" · 已同步 B 站追番")
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                        IconButton(onClick = {
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    container.sources.removeFollow(f.subjectUrl)
+                                }
+                            }
+                        }) { Icon(Icons.Filled.Delete, contentDescription = "取消追番") }
                     }
                 }
             }

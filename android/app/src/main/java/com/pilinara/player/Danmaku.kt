@@ -72,6 +72,10 @@ fun DanmakuLayer(
     positionProvider: () -> Long,
     isPlayingProvider: () -> Boolean,
     modifier: Modifier = Modifier,
+    /** 弹幕显示区域（占画面高度比例 0.25~1.0）。 */
+    area: Float = 1f,
+    /** 弹幕滚动速度倍率（0.5~2.0）。 */
+    speed: Float = 1f,
 ) {
     if (!enabled || danmaku.isEmpty()) return
 
@@ -106,8 +110,8 @@ fun DanmakuLayer(
         }
     }
 
-    val placement = remember(measured, viewport) {
-        place(measured, viewport)
+    val placement = remember(measured, viewport, area, speed) {
+        place(measured, viewport, area, speed)
     }
 
     Canvas(modifier = modifier.fillMaxSize().onSizeChanged { viewport = it }) {
@@ -140,18 +144,23 @@ fun DanmakuLayer(
     }
 }
 
-private fun place(measured: List<Measured>, viewport: IntSize): Placement {
+private fun place(
+    measured: List<Measured>,
+    viewport: IntSize,
+    area: Float = 1f,
+    speed: Float = 1f,
+): Placement {
     if (viewport.width == 0 || viewport.height == 0) {
         return Placement(emptyList(), emptyList(), 1, 0f, 0f)
     }
     val w = viewport.width.toFloat()
-    val h = viewport.height.toFloat()
+    val h = viewport.height.toFloat() * area.coerceIn(0.25f, 1f)
     // sp 已在 measure 时换算成 px；lane 高度按字号的 1.35 倍估计。
     val laneHeight = measured.firstOrNull()?.layout?.size?.height?.times(1.35f) ?: 40f
     val lanes = max(1, (h * 0.82f / laneHeight).toInt())
     val fixedSlots = max(2, lanes / 3)
-    // 参考穿屏时间约 8.5 秒。
-    val pxPerSec = w / 8.5f
+    // 参考穿屏时间约 8.5 秒；speed 越大穿屏越快。
+    val pxPerSec = w / 8.5f * speed.coerceIn(0.5f, 2f)
 
     // 滚动轨道：同一轨道两条弹幕不能在入口处重叠。
     val tailTime = DoubleArray(lanes)

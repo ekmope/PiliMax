@@ -251,15 +251,76 @@ class BiliApi(private val http: Http) {
     /**
      * 空降片段（BilibiliSponsorBlock 公开社区 API，bilipai 同源）。
      * 用于跳过片头广告/恰饭等社区标注片段；404/失败返回空列表。
+     *
+     * @param categories 启用的分类（sponsor/paid_promotion/intro/outro/…），
+     *   空集合时回退默认（sponsor + poi_highlight）。
      */
-    suspend fun sponsorSegments(bvid: String, cid: Long): List<SponsorSegment> = try {
+    suspend fun sponsorSegments(
+        bvid: String,
+        cid: Long,
+        categories: Collection<String> = emptyList(),
+    ): List<SponsorSegment> = try {
+        val cats = categories.ifEmpty { listOf("sponsor", "poi_highlight") }
         val body = http.getString(
             "https://bsbsb.top/api/skipSegments?videoID=$bvid&cid=$cid" +
-                "&category=sponsor&category=poi_highlight",
+                cats.joinToString("") { "&category=$it" },
         )
         decodeRaw<List<SponsorSegment>>(body)
     } catch (_: Exception) {
         emptyList()
+    }
+
+    /**
+     * B 站追番列表（登录态；游客返回空）。用于「订阅源追番同步到 B 站」的匹配。
+     */
+    suspend fun myBangumiFollow(page: Int = 1): List<BangumiFollowItem> = try {
+        val body = signedGet(
+            "https://api.bilibili.com/x/space/bangumi/follow/list",
+            mapOf("vmid" to myMid().toString(), "pn" to page.toString(), "ps" to "30"),
+            referer = "https://space.bilibili.com",
+        )
+        json.decodeFromString<ApiResp<BangumiFollowData>>(body).data?.list.orEmpty()
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    /**
+     * 加入 B 站追番（需登录）。season_id 来自搜索/详情页；失败不抛异常。
+     */
+    suspend fun addBangumiFollow(seasonId: Long): Boolean = try {
+        val csrf = http.cookieJar.value("bilibili.com", "bili_jct").orEmpty()
+        if (csrf.isEmpty()) return false
+        val body = http.postForm(
+            "https://api.bilibili.com/pgc/web/follow/add",
+            mapOf("season_id" to seasonId.toString(), "csrf" to csrf),
+            headers = mapOf("Referer" to "https://www.bilibili.com"),
+        )
+        runCatching {
+            json.parseToJsonElement(body).jsonObject["code"]?.jsonPrimitive?.content?.toIntOrNull()
+        }.getOrNull() == 0
+    } catch (_: Exception) {
+        false
+    }
+
+    /**
+     * 按关键词搜索番剧（用于把订阅源里的番名匹配到 B 站 season_id）。
+     */
+    suspend fun searchBangumi(keyword: String): List<BangumiSearchItem> = try {
+        val body = signedGet(
+            "https://api.bilibili.com/x/web-interface/wbi/search/type",
+            mapOf("search_type" to "media_bangumi", "keyword" to keyword, "page" to "1"),
+            referer = "https://search.bilibili.com",
+        )
+        decode<BangumiSearchData>(body).data?.result.orEmpty()
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    /** 当前登录用户 mid（游客为 0）。 */
+    suspend fun myMid(): Long = try {
+        nav().mid ?: 0L
+    } catch (_: Exception) {
+        0L
     }
 
     suspend fun history(max: Int = 100): List<HistoryItem> {

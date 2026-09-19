@@ -41,7 +41,29 @@ import com.pilinara.player.Quality
 import com.pilinara.vip.VipTrialConfig
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** 底栏可选页面。 */
+private val BOTTOM_TAB_OPTIONS = listOf(
+    "首页" to "home",
+    "搜索" to "search",
+    "源" to "sources",
+    "我的" to "mine",
+)
+
+/** 空降跳过可选分类（BilibiliSponsorBlock category id）。 */
+private val SPONSOR_CATEGORY_OPTIONS = listOf(
+    "赞助广告" to "sponsor",
+    "付费推广" to "paid_promotion",
+    "自我介绍" to "self_promotion",
+    "互动提醒" to "interaction",
+    "精彩看点" to "poi_highlight",
+    "片头" to "intro",
+    "片尾" to "outro",
+    "下集预告" to "preview",
+    "填充片段" to "filler",
+    "无关音乐" to "music_offtopic",
+)
+
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
     val s = container.settings
@@ -63,6 +85,16 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
     val roamingServer by s.roamingServer.collectAsState("")
     val filterVertical by s.filterVertical.collectAsState(true)
     val sponsorSkip by s.sponsorSkip.collectAsState(true)
+    val sponsorCategories by s.sponsorCategories
+        .collectAsState(com.pilinara.data.SettingsStore.DEFAULT_SPONSOR_CATEGORIES)
+    val weakNet by s.weakNet.collectAsState(false)
+    val bottomTabs by s.bottomTabs.collectAsState("home,search,sources,mine")
+    val bangumiSync by s.bangumiSync.collectAsState(false)
+    val danmakuMergeWindow by s.danmakuMergeWindow.collectAsState(10_000L)
+    val danmakuSpeed by s.danmakuSpeed.collectAsState(1f)
+    val danmakuArea by s.danmakuArea.collectAsState(1f)
+    val danmakuShowFixed by s.danmakuShowFixed.collectAsState(true)
+    val danmakuShowColor by s.danmakuShowColor.collectAsState(true)
 
     Scaffold(
         topBar = {
@@ -163,6 +195,35 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                 subtitle = "自动跳过社区标注的广告/恰饭片段（BilibiliSponsorBlock 数据）",
                 checked = sponsorSkip,
             ) { en -> scope.launch { s.setSponsorSkip(en) } }
+            if (sponsorSkip) {
+                Text(
+                    "跳过的片段类型（可多选）",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    SPONSOR_CATEGORY_OPTIONS.forEach { (label, id) ->
+                        val enabled = id in sponsorCategories.split(',')
+                        androidx.compose.material3.FilterChip(
+                            selected = enabled,
+                            onClick = {
+                                val set = sponsorCategories.split(',')
+                                    .map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()
+                                if (enabled) set.remove(id) else set.add(id)
+                                scope.launch { s.setSponsorCategories(set.joinToString(",")) }
+                            },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+            }
+            SwitchRow(
+                title = "弱网 / 省流模式",
+                subtitle = "清晰度上限 720P、缓冲翻倍、关闭 Hi-Res 音轨（参考 BiliVideo-Lab 带宽优化）",
+                checked = weakNet,
+            ) { en -> scope.launch { s.setWeakNet(en) } }
 
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
             SectionTitle("解析服务")
@@ -203,6 +264,84 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                 range = 0.6f..2f,
                 valueText = "${danmakuScale}x",
             ) { v -> scope.launch { s.setDanmakuScale(v) } }
+            SliderRow(
+                label = "弹幕滚动速度",
+                value = danmakuSpeed,
+                range = 0.5f..2f,
+                valueText = "${danmakuSpeed}x",
+            ) { v -> scope.launch { s.setDanmakuSpeed(v) } }
+            SliderRow(
+                label = "弹幕显示区域",
+                value = danmakuArea,
+                range = 0.25f..1f,
+                valueText = "${(danmakuArea * 100).toInt()}%",
+            ) { v -> scope.launch { s.setDanmakuArea(v) } }
+            LabeledDropdown(
+                label = "重复弹幕合并窗口",
+                current = when (danmakuMergeWindow) {
+                    0L -> "关闭合并"
+                    5_000L -> "5 秒"
+                    10_000L -> "10 秒（默认）"
+                    30_000L -> "30 秒"
+                    else -> "${danmakuMergeWindow / 1000} 秒"
+                },
+                options = listOf(
+                    "关闭合并" to 0L,
+                    "5 秒" to 5_000L,
+                    "10 秒（默认）" to 10_000L,
+                    "30 秒" to 30_000L,
+                ),
+            ) { v -> scope.launch { s.setDanmakuMergeWindow(v) } }
+            SwitchRow(
+                title = "显示顶部/底部弹幕",
+                subtitle = "关闭后只保留滚动弹幕，画面更干净",
+                checked = danmakuShowFixed,
+            ) { en -> scope.launch { s.setDanmakuShowFixed(en) } }
+            SwitchRow(
+                title = "显示彩色弹幕",
+                subtitle = "关闭后统一白色，降低视觉干扰",
+                checked = danmakuShowColor,
+            ) { en -> scope.launch { s.setDanmakuShowColor(en) } }
+
+            HorizontalDivider(Modifier.padding(vertical = 10.dp))
+            SectionTitle("界面")
+            Text(
+                "底部导航栏启用的页面（至少保留两个）",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                BOTTOM_TAB_OPTIONS.forEach { (label, id) ->
+                    val enabled = id in bottomTabs.split(',')
+                    androidx.compose.material3.FilterChip(
+                        selected = enabled,
+                        onClick = {
+                            val set = bottomTabs.split(',')
+                                .map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()
+                            if (enabled) {
+                                if (set.size > 2) set.remove(id)
+                            } else {
+                                set.add(id)
+                            }
+                            // 保持首页在首位的固定顺序。
+                            val ordered = listOf("home", "search", "sources", "mine")
+                                .filter { it in set }
+                            scope.launch { s.setBottomTabs(ordered.joinToString(",")) }
+                        },
+                        label = { Text(label) },
+                    )
+                }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 10.dp))
+            SectionTitle("追番")
+            SwitchRow(
+                title = "追番同步到 B 站",
+                subtitle = "在订阅源里追番时，若 B 站存在该番则同步加入 B 站追番（需登录 B 站）",
+                checked = bangumiSync,
+            ) { en -> scope.launch { s.setBangumiSync(en) } }
 
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
             SectionTitle("外观")

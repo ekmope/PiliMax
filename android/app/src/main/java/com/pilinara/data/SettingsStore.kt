@@ -35,6 +35,12 @@ class SettingsStore(private val context: Context) {
         val DANMAKU_OPACITY = floatPreferencesKey("danmaku_opacity")
         val DANMAKU_SCALE = floatPreferencesKey("danmaku_scale")
         val DANMAKU_SPEED = floatPreferencesKey("danmaku_speed")
+        // 弹幕显示区域（占画面高度比例 0.25~1.0）。
+        val DANMAKU_AREA = floatPreferencesKey("danmaku_area")
+        // 是否显示顶部/底部固定弹幕。
+        val DANMAKU_SHOW_FIXED = booleanPreferencesKey("danmaku_show_fixed")
+        // 是否显示彩色弹幕（关闭后统一白色，降低视觉干扰）。
+        val DANMAKU_SHOW_COLOR = booleanPreferencesKey("danmaku_show_color")
 
         val DEFAULT_PLAYBACK_SPEED = floatPreferencesKey("default_speed")
         val AUDIO_ONLY = booleanPreferencesKey("audio_only")
@@ -56,6 +62,14 @@ class SettingsStore(private val context: Context) {
         val FILTER_VERTICAL = booleanPreferencesKey("filter_vertical")
         // 空降跳过（BilibiliSponsorBlock 社区数据，默认开）。
         val SPONSOR_SKIP = booleanPreferencesKey("sponsor_skip")
+        // 空降跳过启用的分类（逗号分隔：sponsor,paid_promotion,self_promotion,interaction,poi_highlight,intro,outro,preview,filler,music_offtopic）。
+        val SPONSOR_CATEGORIES = stringPreferencesKey("sponsor_categories")
+        // 弱网/省流模式：限制默认清晰度上限、加大缓冲、关闭高码率音轨。
+        val WEAK_NET = booleanPreferencesKey("weak_net")
+        // 底栏启用的页面（逗号分隔：home,search,sources,mine；至少保留两个）。
+        val BOTTOM_TABS = stringPreferencesKey("bottom_tabs")
+        // 追番同步到 B 站（订阅源里追的番，若 B 站存在则同步加入 B 站追番）。
+        val BANGUMI_SYNC = booleanPreferencesKey("bangumi_sync")
     }
 
     private fun <T> pref(key: Preferences.Key<T>, default: T): Flow<T> =
@@ -79,6 +93,9 @@ class SettingsStore(private val context: Context) {
     val danmakuOpacity = pref(Keys.DANMAKU_OPACITY, 0.82f)
     val danmakuScale = pref(Keys.DANMAKU_SCALE, 1.0f)
     val danmakuSpeed = pref(Keys.DANMAKU_SPEED, 1.0f)
+    val danmakuArea = pref(Keys.DANMAKU_AREA, 1.0f)
+    val danmakuShowFixed = pref(Keys.DANMAKU_SHOW_FIXED, true)
+    val danmakuShowColor = pref(Keys.DANMAKU_SHOW_COLOR, true)
 
     val defaultSpeed = pref(Keys.DEFAULT_PLAYBACK_SPEED, 1.0f)
     val audioOnly = pref(Keys.AUDIO_ONLY, false)
@@ -93,6 +110,15 @@ class SettingsStore(private val context: Context) {
     val roamingServer = pref(Keys.ROAMING_SERVER, "")
     val filterVertical = pref(Keys.FILTER_VERTICAL, true)
     val sponsorSkip = pref(Keys.SPONSOR_SKIP, true)
+    val sponsorCategories = pref(Keys.SPONSOR_CATEGORIES, DEFAULT_SPONSOR_CATEGORIES)
+    val weakNet = pref(Keys.WEAK_NET, false)
+    val bottomTabs = pref(Keys.BOTTOM_TABS, "home,search,sources,mine")
+    val bangumiSync = pref(Keys.BANGUMI_SYNC, false)
+
+    companion object {
+        /** 空降跳过默认分类：赞助广告 + 付费推广 + 片头片尾。 */
+        const val DEFAULT_SPONSOR_CATEGORIES = "sponsor,paid_promotion,intro,outro"
+    }
 
     suspend fun bootstrap() {
         VipTrialGate.config = VipTrialConfig(
@@ -115,6 +141,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setDanmakuMergeWindow(v: Long) = edit { it[Keys.DANMAKU_MERGE_WINDOW] = v }
     suspend fun setDanmakuOpacity(v: Float) = edit { it[Keys.DANMAKU_OPACITY] = v }
     suspend fun setDanmakuScale(v: Float) = edit { it[Keys.DANMAKU_SCALE] = v }
+    suspend fun setDanmakuSpeed(v: Float) = edit { it[Keys.DANMAKU_SPEED] = v }
     suspend fun setDefaultSpeed(v: Float) = edit { it[Keys.DEFAULT_PLAYBACK_SPEED] = v }
     suspend fun setAudioOnly(v: Boolean) = edit { it[Keys.AUDIO_ONLY] = v }
     suspend fun setPreferQn(v: Int) = edit { it[Keys.PREFER_QN] = v }
@@ -127,6 +154,13 @@ class SettingsStore(private val context: Context) {
     suspend fun setRoamingServer(v: String) = edit { it[Keys.ROAMING_SERVER] = v }
     suspend fun setFilterVertical(v: Boolean) = edit { it[Keys.FILTER_VERTICAL] = v }
     suspend fun setSponsorSkip(v: Boolean) = edit { it[Keys.SPONSOR_SKIP] = v }
+    suspend fun setSponsorCategories(v: String) = edit { it[Keys.SPONSOR_CATEGORIES] = v }
+    suspend fun setDanmakuArea(v: Float) = edit { it[Keys.DANMAKU_AREA] = v }
+    suspend fun setDanmakuShowFixed(v: Boolean) = edit { it[Keys.DANMAKU_SHOW_FIXED] = v }
+    suspend fun setDanmakuShowColor(v: Boolean) = edit { it[Keys.DANMAKU_SHOW_COLOR] = v }
+    suspend fun setWeakNet(v: Boolean) = edit { it[Keys.WEAK_NET] = v }
+    suspend fun setBottomTabs(v: String) = edit { it[Keys.BOTTOM_TABS] = v }
+    suspend fun setBangumiSync(v: Boolean) = edit { it[Keys.BANGUMI_SYNC] = v }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
         // 写入失败（文件损坏 / 存储 IO 错误）只记录，不向调用协程抛异常：

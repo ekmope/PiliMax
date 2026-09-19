@@ -75,10 +75,11 @@ fun InlinePlayer(
     LaunchedEffect(request.bvid, request.cid) {
         val req = withContext(Dispatchers.IO) {
             runCatching {
-                val qn = container.settings.preferQn.first()
+                val weakNet = container.settings.weakNet.first()
+                val qn = PlayerSettings.effectiveQn(container.settings.preferQn.first(), weakNet)
                 val cdn = container.settings.cdnNode.first()
                 val roaming = container.settings.roamingServer.first()
-                val hiRes = container.settings.hiResAudio.first()
+                val hiRes = container.settings.hiResAudio.first() && !weakNet
                 buildBiliPlayRequest(
                     container.api, request.bvid, request.cid, request.title,
                     qn, cdn, roaming, hiRes,

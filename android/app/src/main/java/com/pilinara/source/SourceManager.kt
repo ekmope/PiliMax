@@ -44,6 +44,11 @@ class SourceManager(
             } ?: emptyList()
         }.getOrDefault(emptyList())
         _instancesJson.value = files.read(JsonFileStore.SOURCE_INSTANCES) ?: "[]"
+        _followed.value = runCatching {
+            files.read(JsonFileStore.FOLLOWED)?.let {
+                json.decodeFromString(ListSerializer(FollowedSubject.serializer()), it)
+            } ?: emptyList()
+        }.getOrDefault(emptyList())
     }
 
     fun instances(): List<SourceInstanceView> {
@@ -72,6 +77,50 @@ class SourceManager(
     /** 仅保留当前启用的实例，供聚合搜索使用。 */
     fun enabledInstanceJsonList(): List<String> =
         instances().filter { it.enabled }.map { it.raw.toString() }
+
+    // ---------- 本地追番（订阅源里的番剧；可选同步到 B 站追番） ----------
+
+    private val _followed = MutableStateFlow<List<FollowedSubject>>(emptyList())
+    val followed: StateFlow<List<FollowedSubject>> = _followed.asStateFlow()
+
+    fun isFollowed(subjectUrl: String): Boolean =
+        _followed.value.any { it.subjectUrl == subjectUrl }
+
+    /** 追番；[biliSeasonId] > 0 表示调用方已确认 B 站存在该番并加入追番。 */
+    suspend fun addFollow(name: String, subjectUrl: String, sourceName: String, biliSeasonId: Long = 0) =
+        mutex.withLock {
+            if (_followed.value.any { it.subjectUrl == subjectUrl }) return@withLock
+            persistFollowed(
+                _followed.value + FollowedSubject(
+                    name = name,
+                    subjectUrl = subjectUrl,
+                    sourceName = sourceName,
+                    followedAt = System.currentTimeMillis(),
+                    biliSeasonId = biliSeasonId,
+                ),
+            )
+        }
+
+    suspend fun removeFollow(subjectUrl: String) = mutex.withLock {
+        persistFollowed(_followed.value.filterNot { it.subjectUrl == subjectUrl })
+    }
+
+    /** B 站同步成功后回填 season_id（用于追番列表展示「已同步 B 站」）。 */
+    suspend fun markFollowSynced(subjectUrl: String, biliSeasonId: Long) = mutex.withLock {
+        persistFollowed(
+            _followed.value.map {
+                if (it.subjectUrl == subjectUrl) it.copy(biliSeasonId = biliSeasonId) else it
+            },
+        )
+    }
+
+    private suspend fun persistFollowed(list: List<FollowedSubject>) {
+        _followed.value = list
+        files.write(
+            JsonFileStore.FOLLOWED,
+            json.encodeToString(ListSerializer(FollowedSubject.serializer()), list),
+        )
+    }
 
     /** 添加订阅并立即拉取一次清单。 */
     suspend fun addSubscription(name: String, url: String): Result<Unit> = mutex.withLock {

@@ -371,9 +371,14 @@ class PlayerActivity : ComponentActivity() {
 
         fun start(context: Context, request: PlayRequest) {
             val text = Json.encodeToString(PlayRequest.serializer(), request)
-            context.startActivity(
-                Intent(context, PlayerActivity::class.java).putExtra(EXTRA_REQUEST, text),
-            )
+            val intent = Intent(context, PlayerActivity::class.java).putExtra(EXTRA_REQUEST, text)
+            // 调用方可能传 Application Context（如详情页的 appContext）：
+            // 非 Activity 上下文 startActivity 必须带 NEW_TASK，否则抛
+            // AndroidRuntimeException 直接闪退。
+            if (context !is android.app.Activity) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
         }
     }
 }

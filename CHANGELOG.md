@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.4.9] - 2026-09-19
+
+### Fixed
+- **点「立即播放」闪退**：详情页用 Application Context 调 `PlayerActivity.start`，非 Activity 上下文 `startActivity` 未带 `FLAG_ACTIVITY_NEW_TASK` 抛 `AndroidRuntimeException`。现在 `start()` 对非 Activity 上下文自动补 NEW_TASK 标志。
+
 ## [0.4.8] - 2026-09-19
 
 修复「播放失败：unexpected domain: .bilibili.com」——这是此前所有「风控 / 播放失败」的真正根因。

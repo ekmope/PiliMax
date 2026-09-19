@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.4.10] - 2026-09-19
+
+### Fixed
+- 播放器启动标志改为无条件添加 `FLAG_ACTIVITY_NEW_TASK`（Activity 上下文下为无害 no-op），彻底消除 VideoDetail / SourceDetail 两个入口的闪退边界情况。
+
 ## [0.4.9] - 2026-09-19
 
 ### Fixed

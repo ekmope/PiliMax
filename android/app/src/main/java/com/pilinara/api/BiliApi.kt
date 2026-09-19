@@ -108,35 +108,35 @@ class BiliApi(private val http: Http) {
     suspend fun ensureBuvid() {
         val jar = http.cookieJar
         if (jar.has(BILI_DOMAIN, "buvid3")) return
+        var b3 = ""
+        var b4 = ""
         runCatching {
             val body = http.getString("https://api.bilibili.com/x/frontend/finger/spi")
             val data = json.parseToJsonElement(body).jsonObject["data"]?.jsonObject ?: return@runCatching
-            val b3 = data["b_3"]?.jsonPrimitive?.content.orEmpty()
-            val b4 = data["b_4"]?.jsonPrimitive?.content.orEmpty()
-            val now = System.currentTimeMillis()
-            if (b3.isNotEmpty()) {
-                jar.put(BILI_DOMAIN, "buvid3", b3, ONE_YEAR_SECS)
-                jar.put(BILI_DOMAIN, "buvid4", b4.ifEmpty { b3 }, ONE_YEAR_SECS)
-                jar.put(BILI_DOMAIN, "buvid_fp", java.util.UUID.randomUUID()
-                    .toString().replace("-", "").take(32), ONE_YEAR_SECS)
-                jar.put(BILI_DOMAIN, "_uuid", "${java.util.UUID.randomUUID()}infoc", ONE_YEAR_SECS)
-                jar.put(BILI_DOMAIN, "b_nut", (now / 1000).toString(), ONE_YEAR_SECS)
-                jar.put(
-                    BILI_DOMAIN,
-                    "b_lsid",
-                    "${randomHex(8).uppercase()}_${java.lang.Long.toHexString(now / 1000).uppercase()}",
-                    ONE_YEAR_SECS,
-                )
-                // 真实浏览器首次访问后会向 bvc/excli 报告一次（buvid3「激活」），
-                // 未激活的 buvid3 在 playurl 风控里仍然会被降级。补一次报告调用。
-                runCatching {
-                    http.postForm(
-                        "https://api.bilibili.com/x/report/web/heartbeat/v2", // 轻量接口，带 buvid 即成功
-                        emptyMap(),
-                    )
-                }
-            }
+            b3 = data["b_3"]?.jsonPrimitive?.content.orEmpty()
+            b4 = data["b_4"]?.jsonPrimitive?.content.orEmpty()
         }
+        // spi 失败时本地生成一个合法格式的 buvid3（BV 方案：UUID + 随机数字 + infoc），
+        // 保证任何网络状况下请求都带指纹，降低 412 概率。
+        if (b3.isEmpty()) {
+            b3 = "${java.util.UUID.randomUUID()}${(10000..99999).random()}infoc"
+        }
+        val now = System.currentTimeMillis()
+        jar.put(BILI_DOMAIN, "buvid3", b3, ONE_YEAR_SECS)
+        jar.put(BILI_DOMAIN, "buvid4", b4.ifEmpty { b3 }, ONE_YEAR_SECS)
+        jar.put(BILI_DOMAIN, "buvid_fp", java.util.UUID.randomUUID()
+            .toString().replace("-", "").take(32), ONE_YEAR_SECS)
+        jar.put(BILI_DOMAIN, "_uuid", "${java.util.UUID.randomUUID()}infoc", ONE_YEAR_SECS)
+        jar.put(BILI_DOMAIN, "b_nut", (now / 1000).toString(), ONE_YEAR_SECS)
+        jar.put(
+            BILI_DOMAIN,
+            "b_lsid",
+            "${randomHex(8).uppercase()}_${java.lang.Long.toHexString(now / 1000).uppercase()}",
+            ONE_YEAR_SECS,
+        )
+        // 说明：buvid3/buvid4 等 Cookie 是规避 412 的核心。部分项目（bilipai）还会额外调
+        // ExClimbWuzhi 做「激活上报」，但其请求体字段是加密指纹、无法可靠复现，编造字段
+        // 反而可能被标记为可疑设备，故此处不做该上报，仅保证 Cookie 形态完整。
     }
 
     private fun randomHex(len: Int): String {
@@ -308,6 +308,20 @@ class BiliApi(private val http: Http) {
                     referer = referer,
                 )
                 decode<PlayUrlData>(body)
+            }.onSuccess { r -> if (r.code == 0 && r.data != null) candidates += r.data }
+        }
+
+        // ⑤ 未登录：wbi/playurl + try_look=1。try_look 是 B 站官方参数——未登录也可下发
+        //    720P/1080P 清晰度（参考 bilipai/bv 的未登录高画质策略）。作为候选参与画质 PK，
+        //    让匿名用户不必登录就能拿到更清晰的流。
+        if (!loggedIn) {
+            runCatching {
+                fetchPlayurl(
+                    url = roamingOf("https://api.bilibili.com/x/player/wbi/playurl"),
+                    params = baseParams + ("try_look" to "1"),
+                    signed = true,
+                    referer = referer,
+                )
             }.onSuccess { r -> if (r.code == 0 && r.data != null) candidates += r.data }
         }
 

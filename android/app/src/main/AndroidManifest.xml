@@ -36,6 +36,13 @@
             android:supportsPictureInPicture="true"
             android:theme="@style/Theme.PiliNara.Player" />
 
+        <!-- 崩溃展示页：独立进程，主进程崩溃后仍能把堆栈显示给用户截图。 -->
+        <activity
+            android:name=".CrashDisplayActivity"
+            android:exported="false"
+            android:process=":crash"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
         <service
             android:name=".player.PlaybackService"
             android:exported="false"

@@ -20,7 +20,6 @@ object CrashLog {
     private const val MAX_BYTES = 512 * 1024
 
     fun install(context: Context) {
-        val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             runCatching { write(context, thread, throwable) }
             // EIO / ErrnoException 一类属于「磁盘层抖动」（缓存文件被系统回收、
@@ -44,7 +43,12 @@ object CrashLog {
                 android.util.Log.e("CrashLog", "suppressed IO-noise crash on ${thread.name}", throwable)
                 return@setDefaultUncaughtExceptionHandler
             }
-            previous?.uncaughtException(thread, throwable)
+            // 写日志后拉起崩溃展示页（独立 :crash 进程），把堆栈直接显示给用户截图，
+            // 替代「需要 adb 才能拿日志」的困境。随后直接结束本进程，跳过系统崩溃弹窗。
+            runCatching { CrashDisplayActivity.launch(context) }
+            Thread.sleep(400)
+            android.os.Process.killProcess(android.os.Process.myPid())
+            kotlin.system.exitProcess(2)
         }
     }
 

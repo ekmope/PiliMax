@@ -1,5 +1,6 @@
 import 'dart:async' show Timer, StreamSubscription, unawaited;
 import 'dart:convert' show jsonDecode;
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:PiliMax/common/widgets/dialog/report.dart';
@@ -31,6 +32,7 @@ import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/pilimax/forks/tcp/live.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/connectivity_utils.dart';
+import 'package:PiliMax/utils/android/bindings.g.dart';
 import 'package:PiliMax/utils/danmaku_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
@@ -1108,6 +1110,8 @@ class LiveRoomController extends GetxController {
         case 'SUPER_CHAT_MESSAGE' when showSuperChat:
           final item = SuperChatItem.fromJson(obj['data']);
           superChatMsg.insert(0, item);
+          addDm(item);
+          if (Platform.isAndroid && AndroidHelper.isPipMode) return;
           if (plPlayerController.showDanmaku &&
               (isFullScreen || plPlayerController.isDesktopPip)) {
             fsSC.value = item.copyWith(
@@ -1117,7 +1121,6 @@ class LiveRoomController extends GetxController {
               ),
             );
           }
-          addDm(item);
           break;
         // case 'SUPER_CHAT_MESSAGE_DELETE' when showSuperChat:
         //   if (obj['roomid'] == roomId) {

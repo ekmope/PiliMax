@@ -35,6 +35,7 @@ class EsportsContest {
     this.playback,
     this.contestStatus,
     this.stime,
+    this.title,
   });
 
   final int id;
@@ -47,6 +48,7 @@ class EsportsContest {
   final String? playback;
   final int? contestStatus;
   final int? stime;
+  final String? title;
 
   factory EsportsContest.fromJson(Map<String, dynamic> json) => EsportsContest(
     id: safeToInt(json['ID']) ?? 0,
@@ -63,6 +65,7 @@ class EsportsContest {
     playback: json['playback'] as String?,
     contestStatus: safeToInt(json['contestStatus']),
     stime: safeToInt(json['stime']),
+    title: (json['season'] as Map?)?['title'] as String?,
   );
 }
 

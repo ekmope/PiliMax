@@ -38,6 +38,7 @@ abstract final class ApiType {
       Api.mobileHeartBeat,
       Api.liveRoomDmPrefetch,
       Api.superChatMsg,
+      Api.getLiveInfoByUser,
 
       // Api.memberInfo,
       // Api.bgmDetail,

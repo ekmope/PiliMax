@@ -88,7 +88,9 @@ class SearchEsportsItem extends StatelessWidget {
 
     final statusText = [
       if (contest.gameStage != null) contest.gameStage!,
-      if (contest.contestStatus == 1 && contest.stime != null)
+      if (contest.contestStatus == 3)
+        '已结束'
+      else if (contest.contestStatus == 1 && contest.stime != null)
         DateFormatUtils.format(contest.stime),
     ].join('  ');
 
@@ -107,7 +109,7 @@ class SearchEsportsItem extends StatelessWidget {
             mainAxisSize: .min,
             children: [
               Text(
-                item.configInfo.esportTitle,
+                contest.title ?? item.configInfo.esportTitle,
                 style: const TextStyle(fontWeight: .bold, fontSize: 16),
               ),
               if (statusText.isNotEmpty)

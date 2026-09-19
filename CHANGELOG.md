@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-09-19
+
+本版修复 release 混淆版（正式安装包）的序列化崩溃——这也是「debug 能跑、安装 release 后打开就闪退/点播放报 JSON 解析错误」的根本原因。
+
+### Fixed
+- **修复 R8 混淆导致 release 版序列化崩溃**：release 构建开启了 R8 full mode（`isMinifyEnabled` + `proguard-android-optimize.txt`），而混淆规则此前未保留注解——`@SerialName` 注解被 R8 移除，导致 B 站接口返回的 snake_case 字段（`qrcode_key`/`backup_url` 等）映射错乱、反序列化直接崩。现已按 kotlinx.serialization 官方规则补齐 `-keepattributes` 与 `serializer()` 查找链，序列化字段名与序列化器在混淆后保持可用。
+
 ## [0.4.4] - 2026-09-19
 
 本版集中修复播放器稳定性问题：播放中闪退、播放失败假死、设置存储 IO 异常杀进程等。

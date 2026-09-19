@@ -160,7 +160,8 @@ private suspend fun loadDanmakuList(container: AppContainer, cid: Long): List<Da
     val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
     val listSerializer = kotlinx.serialization.builtins.ListSerializer(Danmaku.serializer())
     return try {
-        val b64 = container.api.danmakuSegment(cid, 1)
+        val bytes = container.api.danmakuSegment(cid, 1)
+        val b64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
         json.decodeFromString(
             listSerializer,
             com.pilinara.core.NativeCore.parseDanmakuSegSo(b64, mergeWindow),

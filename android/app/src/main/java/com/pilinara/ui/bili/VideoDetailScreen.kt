@@ -20,7 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Share
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.outlined.MonetizationOn
@@ -252,7 +252,7 @@ private fun ActionRow(stat: com.pilinara.api.BiliStat, bvid: String) {
             }
             context.startActivity(android.content.Intent.createChooser(intent, "分享"))
         }) {
-            Icon(Icons.AutoMirrored.Filled.Share, contentDescription = "分享")
+            Icon(Icons.Filled.Share, contentDescription = "分享")
         }
     }
 }

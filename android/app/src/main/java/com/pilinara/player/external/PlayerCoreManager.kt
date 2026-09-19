@@ -4,6 +4,8 @@ import android.content.Context
 import com.pilinara.BuildConfig
 import com.pilinara.plugin.api.ExternalPlayerCore
 import dalvik.system.PathClassLoader
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -65,13 +67,15 @@ class PlayerCoreManager(private val context: Context) {
 
     /**
      * 下载并安装内核。[onProgress] 回调 0..1。
+     * 整个下载/校验/解包都在 IO 线程执行：调用方多在主线程 scope 里 launch，
+     * 阻塞式网络与 ZIP 解包放主线程会直接卡死界面（下载大内核时等同假死）。
      * @return 安装成功后的内核实例
      */
     suspend fun install(
         id: CoreId,
         url: String = id.defaultUrl,
         onProgress: (Float) -> Unit = {},
-    ): ExternalPlayerCore {
+    ): ExternalPlayerCore = withContext(Dispatchers.IO) {
         require(id != CoreId.MEDIA3) { "内置内核无需安装" }
         require(url.startsWith("http://") || url.startsWith("https://")) { "下载地址必须为 http(s)" }
 
@@ -99,7 +103,7 @@ class PlayerCoreManager(private val context: Context) {
             }
         }
         onProgress(1f)
-        return finalizeInstall(id, tmp)
+        finalizeInstall(id, tmp)
     }
 
     /**

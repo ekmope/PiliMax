@@ -8,6 +8,7 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.common.util.UnstableApi
 import com.pilinara.AppContainer
@@ -59,7 +60,14 @@ object PlayerEngine {
                 "soft" -> {
                     setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
                     setMediaCodecSelector { mimeType, secure, tunneling ->
-                        val infos = MediaCodecUtil.getDecoderInfos(mimeType, secure, tunneling)
+                        // 解码器枚举在个别固件上会抛 DecoderQueryException；
+                        // 兜底为默认选择器，绝不让软解偏好把播放炸掉。
+                        val infos = runCatching {
+                            MediaCodecUtil.getDecoderInfos(mimeType, secure, tunneling)
+                        }.getOrElse {
+                            return@setMediaCodecSelector MediaCodecSelector.DEFAULT
+                                .getDecoderInfos(mimeType, secure, tunneling)
+                        }
                         infos.filter {
                             val n = it.name.lowercase()
                             n.contains("google") || n.contains("c2.android")

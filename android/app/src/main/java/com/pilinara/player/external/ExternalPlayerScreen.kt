@@ -323,7 +323,9 @@ fun ExternalPlayerScreen(
                         style = MaterialTheme.typography.labelMedium,
                     )
                     Slider(
-                        value = (scrubTarget ?: position).toFloat(),
+                        // 同 PlayerScreen：position 可能瞬时大于未就绪的 duration，越界即崩溃。
+                        value = (scrubTarget ?: position)
+                            .coerceIn(0L, duration.coerceAtLeast(1L)).toFloat(),
                         onValueChange = { scrubTarget = it.toLong() },
                         onValueChangeFinished = {
                             scrubTarget?.let { p -> core.seekTo(p) }

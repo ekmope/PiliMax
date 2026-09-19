@@ -13,6 +13,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.pilinara.vip.VipTrialConfig
 import com.pilinara.vip.VipTrialGate
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -54,7 +55,16 @@ class SettingsStore(private val context: Context) {
     }
 
     private fun <T> pref(key: Preferences.Key<T>, default: T): Flow<T> =
-        context.dataStore.data.map { it[key] ?: default }
+        context.dataStore.data
+            // 设置文件损坏 / 存储层 IOException（如底层 close 返回 EIO）时，异常会顺着
+            // Flow 冲进 Compose 的 collectAsState 收集协程——那里没有兜底，直接杀进程。
+            // 所有设置读取一律降级为默认值：播放页是全部播放路径的汇合点，绝不能因
+            // 一个可选设置的本地 IO 故障而闪退。
+            .catch {
+                com.pilinara.CrashLog.write(context, Thread.currentThread(), it)
+                emit(androidx.datastore.preferences.core.emptyPreferences())
+            }
+            .map { it[key] ?: default }
 
     val vipEnabled = pref(Keys.VIP_ENABLED, true)
     val vipType = pref(Keys.VIP_TYPE, 2)
@@ -111,6 +121,9 @@ class SettingsStore(private val context: Context) {
     suspend fun setRoamingServer(v: String) = edit { it[Keys.ROAMING_SERVER] = v }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
-        context.dataStore.edit(block)
+        // 写入失败（文件损坏 / 存储 IO 错误）只记录，不向调用协程抛异常：
+        // 调用方大多是 rememberCoroutineScope 的设置点击，未捕获即闪退。
+        runCatching { context.dataStore.edit(block) }
+            .onFailure { com.pilinara.CrashLog.write(context, Thread.currentThread(), it) }
     }
 }

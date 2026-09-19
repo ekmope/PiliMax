@@ -160,10 +160,12 @@ class PlayerActivity : ComponentActivity() {
             return
         }
         player = exo
-        // 播放期错误（解码/网络/源）走 ExoPlayer 回调而非崩溃：落盘以便定位，界面停在缓冲态。
+        // 播放期错误（解码/网络/源）走 ExoPlayer 回调而非崩溃：落盘以便定位，界面给出错误页。
         exo.addListener(object : Player.Listener {
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 com.pilinara.CrashLog.write(applicationContext, Thread.currentThread(), error)
+                // 之前只落盘不反馈：用户看到的是永远转圈的缓冲页，体感等同闪退。
+                fatalError = "播放出错：${error.errorCodeName}"
             }
         })
         runCatching { prepareAndPlay(exo, request) }
@@ -736,7 +738,10 @@ private fun PlayerScreen(
                         style = MaterialTheme.typography.labelMedium,
                     )
                     Slider(
-                        value = (scrubTarget ?: position).toFloat(),
+                        // 进度可能瞬时大于尚未就绪的 duration（直播/时长未下发），
+                        // 越界值会让 Slider 直接抛 IllegalArgumentException（表现为播放中闪退）。
+                        value = (scrubTarget ?: position)
+                            .coerceIn(0L, duration.coerceAtLeast(1L)).toFloat(),
                         onValueChange = { scrubTarget = it.toLong() },
                         onValueChangeFinished = {
                             scrubTarget?.let { playerProvider()?.seekTo(it) }

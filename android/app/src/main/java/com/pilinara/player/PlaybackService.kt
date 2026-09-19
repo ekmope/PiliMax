@@ -7,6 +7,7 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -74,7 +75,12 @@ class PlaybackService : MediaSessionService() {
                     setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
                     // 仅保留平台软解（OMX.google / c2.android）；无匹配时回退全部。
                     setMediaCodecSelector { mimeType, secure, tunneling ->
-                        val infos = MediaCodecUtil.getDecoderInfos(mimeType, secure, tunneling)
+                        val infos = runCatching {
+                            MediaCodecUtil.getDecoderInfos(mimeType, secure, tunneling)
+                        }.getOrElse {
+                            return@setMediaCodecSelector MediaCodecSelector.DEFAULT
+                                .getDecoderInfos(mimeType, secure, tunneling)
+                        }
                         infos.filter {
                             val n = it.name.lowercase()
                             n.contains("google") || n.contains("c2.android")

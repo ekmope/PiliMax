@@ -49,6 +49,23 @@ private val BOTTOM_TAB_OPTIONS = listOf(
     "我的" to "mine",
 )
 
+/** 网络与带宽一键策略：联动清晰度/缓冲/Hi-Res/弱网四项。 */
+private data class NetStrategy(
+    val id: String,
+    val label: String,
+    val preferQn: Int,
+    val bufferMs: Int,
+    val hiRes: Boolean,
+    val weakNet: Boolean,
+)
+
+private val NET_STRATEGIES = listOf(
+    NetStrategy("save", "省流", 32, 15_000, false, false),
+    NetStrategy("balanced", "均衡", 80, 30_000, false, false),
+    NetStrategy("hq", "高画质", 127, 50_000, true, false),
+    NetStrategy("weak", "弱网", 64, 90_000, false, true),
+)
+
 /** 空降跳过可选分类（BilibiliSponsorBlock category id）。 */
 private val SPONSOR_CATEGORY_OPTIONS = listOf(
     "赞助广告" to "sponsor",
@@ -149,31 +166,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                     "强制软解（兼容性）" to "soft",
                 ),
             ) { v -> scope.launch { s.setDecodeMode(v) } }
-            LabeledDropdown(
-                label = "缓冲时长",
-                current = "${bufferMs / 1000} 秒",
-                options = listOf(
-                    "15 秒（省流）" to 15_000,
-                    "30 秒（默认）" to 30_000,
-                    "50 秒" to 50_000,
-                    "90 秒（弱网）" to 90_000,
-                ),
-            ) { v -> scope.launch { s.setBufferMs(v) } }
-            LabeledDropdown(
-                label = "默认清晰度",
-                current = Quality.PRESETS.firstOrNull { it.qn == preferQn }?.label ?: "1080P 高清",
-                options = Quality.PRESETS.map { it.label to it.qn },
-            ) { qn -> scope.launch { s.setPreferQn(qn) } }
-            LabeledDropdown(
-                label = "CDN 节点",
-                current = CdnNode.of(cdnNode).label,
-                options = CdnNode.entries.map { it.label to it.id },
-            ) { id -> scope.launch { s.setCdnNode(id) } }
-            SwitchRow(
-                title = "高解析度音轨",
-                subtitle = "允许 Hi-Res FLAC / 杜比全景声音轨（设备无对应解码器时可能无声）",
-                checked = hiResAudio,
-            ) { en -> scope.launch { s.setHiResAudio(en) } }
+
             SliderRow(
                 label = "默认倍速",
                 value = defaultSpeed,
@@ -219,9 +212,77 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                     }
                 }
             }
+            HorizontalDivider(Modifier.padding(vertical = 10.dp))
+            SectionTitle("网络与带宽")
+            Text(
+                "一键策略（参考 BiliVideo-Lab 带宽优化）",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            val currentStrategy = when {
+                weakNet -> "weak"
+                preferQn <= 32 && bufferMs <= 15_000 && !hiResAudio -> "save"
+                preferQn >= 120 && hiResAudio -> "hq"
+                preferQn == 80 && bufferMs == 30_000 -> "balanced"
+                else -> "custom"
+            }
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                NET_STRATEGIES.forEach { st ->
+                    androidx.compose.material3.FilterChip(
+                        selected = currentStrategy == st.id,
+                        onClick = {
+                            scope.launch {
+                                s.setPreferQn(st.preferQn)
+                                s.setBufferMs(st.bufferMs)
+                                s.setHiResAudio(st.hiRes)
+                                s.setWeakNet(st.weakNet)
+                            }
+                        },
+                        label = { Text(st.label) },
+                    )
+                }
+            }
+            Text(
+                when (currentStrategy) {
+                    "save" -> "当前：省流 —— 480P 上限、15s 缓冲、关闭 Hi-Res"
+                    "balanced" -> "当前：均衡 —— 1080P、30s 缓冲"
+                    "hq" -> "当前：高画质 —— 8K/HDR 上限、50s 缓冲、Hi-Res 音轨"
+                    "weak" -> "当前：弱网 —— 720P 上限、90s 缓冲、关闭 Hi-Res"
+                    else -> "当前：自定义（下方可逐项微调）"
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            LabeledDropdown(
+                label = "默认清晰度",
+                current = Quality.PRESETS.firstOrNull { it.qn == preferQn }?.label ?: "1080P 高清",
+                options = Quality.PRESETS.map { it.label to it.qn },
+            ) { qn -> scope.launch { s.setPreferQn(qn) } }
+            LabeledDropdown(
+                label = "缓冲时长",
+                current = "${bufferMs / 1000} 秒",
+                options = listOf(
+                    "15 秒（省流）" to 15_000,
+                    "30 秒（默认）" to 30_000,
+                    "50 秒" to 50_000,
+                    "90 秒（弱网）" to 90_000,
+                ),
+            ) { v -> scope.launch { s.setBufferMs(v) } }
+            LabeledDropdown(
+                label = "CDN 节点",
+                current = CdnNode.of(cdnNode).label,
+                options = CdnNode.entries.map { it.label to it.id },
+            ) { id -> scope.launch { s.setCdnNode(id) } }
+            SwitchRow(
+                title = "高解析度音轨",
+                subtitle = "允许 Hi-Res FLAC / 杜比全景声音轨（设备无对应解码器时可能无声）",
+                checked = hiResAudio,
+            ) { en -> scope.launch { s.setHiResAudio(en) } }
             SwitchRow(
                 title = "弱网 / 省流模式",
-                subtitle = "清晰度上限 720P、缓冲翻倍、关闭 Hi-Res 音轨（参考 BiliVideo-Lab 带宽优化）",
+                subtitle = "清晰度上限 720P、缓冲翻倍、关闭 Hi-Res 音轨",
                 checked = weakNet,
             ) { en -> scope.launch { s.setWeakNet(en) } }
 

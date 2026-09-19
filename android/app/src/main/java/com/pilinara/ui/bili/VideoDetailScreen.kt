@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,19 +14,26 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.automirrored.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material.icons.outlined.MonetizationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -35,10 +43,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -47,34 +55,35 @@ import com.pilinara.api.BiliApi
 import com.pilinara.api.BiliVideo
 import com.pilinara.api.ReplyItem
 import com.pilinara.api.ViewData
-import com.pilinara.player.PlayerActivity
+import com.pilinara.player.InlinePlayer
 import com.pilinara.player.PlayRequest
-import com.pilinara.player.buildBiliPlayRequest
+import com.pilinara.player.launchFullscreen
 import com.pilinara.ui.common.LoadingBox
 import com.pilinara.ui.common.runSuspendCatching
 import com.pilinara.ui.common.toWan
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** B 站视频详情：封面/简介/分 P 列表/评论区，点击任一 P 即取 playurl 进入播放器。 */
+private val DETAIL_TABS = listOf("简介", "评论", "相关")
+
+/**
+ * B 站视频详情（bilipai / 官方 App 式）：
+ * 顶部内联播放器（进入即播，下滑看内容，右滑切评论/相关），
+ * 下方标题 + 操作栏（点赞/投币/收藏/分享）+ 三页滑动内容。
+ * 全屏按钮转横屏 PlayerActivity。
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoDetailScreen(
     container: AppContainer,
     video: BiliVideo,
     onBack: () -> Unit,
+    onOpenVideo: (BiliVideo) -> Unit = {},
 ) {
-    val scope = rememberCoroutineScope()
     var detail by remember { mutableStateOf<ViewData?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var loadingCid by remember { mutableStateOf<Long?>(null) }
-
-    // 详情加载重试通过递增 retryKey 触发。
     var retryKey by remember { mutableStateOf(0) }
-    // 详情失败且自动播放也失败时，回落到可重试的错误页（而非永远转圈）。
-    var autoPlayFailed by remember { mutableStateOf(false) }
 
     // 评论分页状态。
     var replies by remember { mutableStateOf<List<ReplyItem>>(emptyList()) }
@@ -82,21 +91,32 @@ fun VideoDetailScreen(
     var replyEnd by remember { mutableStateOf(false) }
     var replyLoading by remember { mutableStateOf(false) }
 
+    // 相关推荐。
+    var related by remember { mutableStateOf<List<BiliVideo>?>(null) }
+
+    val pagerState = rememberPagerState(pageCount = { DETAIL_TABS.size })
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(video.bvid, retryKey) {
         error = null
-        com.pilinara.ui.common.runSuspendCatching { withContext(Dispatchers.IO) { container.api.view(video.bvid) } }
+        runSuspendCatching { withContext(Dispatchers.IO) { container.api.view(video.bvid) } }
             .onSuccess { detail = it }
             .onFailure { error = it.message ?: "加载失败" }
     }
 
-    // 详情成功后拉第一页评论。
+    // 详情成功后拉第一页评论 + 相关推荐。
     LaunchedEffect(detail?.aid) {
         val aid = detail?.aid ?: return@LaunchedEffect
         replies = emptyList()
         replyNext = 0
         replyEnd = false
-        loadReplies(container, aid, 0L, { replyLoading = it }, { replyNext = it }, { replyEnd = it }) {
-            replies = (replies + it).distinctBy { r -> r.rpid }
+        related = null
+        loadReplies(container, aid, 0L, { replyLoading = it }, { replyEnd = it }) { list, next ->
+            replies = (replies + list).distinctBy { r -> r.rpid }
+            replyNext = next
+        }
+        related = withContext(Dispatchers.IO) {
+            runCatching { container.api.related(aid) }.getOrDefault(emptyList())
         }
     }
 
@@ -112,155 +132,267 @@ fun VideoDetailScreen(
             )
         },
     ) { padding ->
-        val d = detail
-        if (d == null) {
-            if (error != null) {
-                // 热门/推荐卡片自带 cid：详情接口故障时不再挡播放，直接进播放器。
-                if (video.cid > 0 && !autoPlayFailed) {
-                    LaunchedEffect(Unit) {
-                        play(
-                            container, video.bvid, video.cid,
-                            video.title.ifEmpty { "未知标题" },
-                        ) { loadingCid = it }.onFailure { autoPlayFailed = true }
-                    }
-                    LoadingBox(Modifier.padding(padding))
-                } else {
-                    Column(
-                        Modifier.fillMaxSize().padding(padding).padding(24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            text = "详情加载失败：$error",
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                        Button(onClick = { autoPlayFailed = false; retryKey++ }) { Text("重试") }
-                    }
-                }
-            } else {
-                LoadingBox(Modifier.padding(padding))
-            }
-            return@Scaffold
-        }
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp),
-        ) {
-            item {
-                Box(
-                    Modifier.fillMaxWidth().aspectRatio(16f / 9f)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                ) {
-                    AsyncImage(
-                        model = BiliApi.image(d.pic),
-                        contentDescription = d.title,
-                        contentScale = ContentScale.Crop,
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            // 顶部内联播放器：进入即播；失败时显示封面 + 错误。
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+                if (video.cid > 0 && video.bvid.isNotEmpty()) {
+                    InlinePlayer(
+                        container = container,
+                        request = PlayRequest(
+                            title = video.title.ifEmpty { "未知标题" },
+                            videoUrl = "",
+                            cid = video.cid,
+                            bvid = video.bvid,
+                        ),
+                        onFullscreen = { req -> launchFullscreen(container.appContext, req) },
                         modifier = Modifier.fillMaxSize(),
                     )
-                    Button(
-                        onClick = {
-                            scope.launch { play(container, d.bvid, d.cid, pickTitle(d, 1, null), loadingCid = { loadingCid = it }) }
-                        },
-                        modifier = Modifier.padding(12.dp).align(androidx.compose.ui.Alignment.BottomEnd),
-                    ) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = null)
-                        Text("立即播放")
-                    }
+                } else {
+                    Box(
+                        Modifier.fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("无法播放：缺少 cid") }
                 }
             }
-            item {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                    Text(d.title, style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        text = "${d.owner.name} · ${d.stat.view.toWan()}播放 · ${d.stat.danmaku.toWan()}弹幕",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
-                    if (d.desc.isNotEmpty()) {
-                        Text(
-                            d.desc,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 4,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
-                }
-            }
-            if (d.pages.size > 1) {
-                items(d.pages) { page ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 3.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable(enabled = loadingCid == null) {
-                                scope.launch {
-                                    play(container, d.bvid, page.cid, pickTitle(d, page.page, page.part)) {
-                                        loadingCid = it
-                                    }
-                                }
-                            }
-                            .padding(horizontal = 14.dp, vertical = 14.dp),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text(
-                            "P${page.page}",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Text(
-                            page.part.ifEmpty { "第 ${page.page} 集" },
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-            }
-            item {
+
+            // 标题 + 操作栏。
+            val d = detail
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
-                    "评论",
+                    d?.title ?: video.title,
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = buildString {
+                        append(d?.owner?.name ?: video.owner.name)
+                        append(" · ")
+                        append((d?.stat?.view ?: video.stat.view).toWan())
+                        append("播放 · ")
+                        append((d?.stat?.danmaku ?: video.stat.danmaku).toWan())
+                        append("弹幕")
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                if (error != null) {
+                    Text(
+                        "详情加载失败：$error",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                    Button(onClick = { retryKey++ }, modifier = Modifier.padding(top = 4.dp)) {
+                        Text("重试")
+                    }
+                }
+            }
+            ActionRow(stat = d?.stat ?: video.stat, bvid = video.bvid)
+            HorizontalDivider()
+
+            // 三页滑动：简介 / 评论 / 相关（右滑切换）。
+            PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
+                DETAIL_TABS.forEachIndexed { i, label ->
+                    Tab(
+                        selected = pagerState.currentPage == i,
+                        onClick = { scope.launch { pagerState.animateScrollToPage(i) } },
+                        text = { Text(label) },
+                    )
+                }
+            }
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                when (page) {
+                    0 -> IntroPage(d)
+                    1 -> CommentsPage(
+                        container = container,
+                        replies = replies,
+                        loading = replyLoading,
+                        ended = replyEnd,
+                        aid = d?.aid ?: video.aid,
+                        nextCursor = replyNext,
+                        onAppend = { list, next, end ->
+                            replies = (replies + list).distinctBy { it.rpid }
+                            replyNext = next
+                            replyEnd = end
+                        },
+                        onLoading = { replyLoading = it },
+                    )
+                    2 -> RelatedPage(
+                        related = related,
+                        onOpen = onOpenVideo,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 操作栏：点赞/投币/收藏计数展示 + 分享（系统分享面板，真实可用）。 */
+@Composable
+private fun ActionRow(stat: com.pilinara.api.BiliStat, bvid: String) {
+    val context = LocalContext.current
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ActionChip(icon = { Icon(Icons.Filled.ThumbUp, null, Modifier.size(18.dp)) }, text = stat.like.toWan())
+        ActionChip(icon = { Icon(Icons.Outlined.MonetizationOn, null, Modifier.size(18.dp)) }, text = stat.coin.toWan())
+        ActionChip(icon = { Icon(Icons.Filled.Star, null, Modifier.size(18.dp)) }, text = stat.favorite.toWan())
+        IconButton(onClick = {
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(android.content.Intent.EXTRA_TEXT, "https://www.bilibili.com/video/$bvid")
+            }
+            context.startActivity(android.content.Intent.createChooser(intent, "分享"))
+        }) {
+            Icon(Icons.AutoMirrored.Filled.Share, contentDescription = "分享")
+        }
+    }
+}
+
+@Composable
+private fun ActionChip(icon: @Composable () -> Unit, text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        icon()
+        Text(text, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+/** 简介页：描述 + 分 P 列表。 */
+@Composable
+private fun IntroPage(d: ViewData?) {
+    if (d == null) {
+        LoadingBox()
+        return
+    }
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (d.desc.isNotEmpty()) {
+            item { Text(d.desc, style = MaterialTheme.typography.bodyMedium) }
+        }
+        if (d.pages.size > 1) {
+            item {
+                Text("分 P（${d.pages.size}）", style = MaterialTheme.typography.titleSmall)
+            }
+            items(d.pages) { p ->
+                Text(
+                    "P${p.page}  ${p.part.ifEmpty { "第 ${p.page} 集" }}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(vertical = 2.dp),
                 )
             }
-            if (replies.isEmpty() && replyLoading) {
-                item {
+        }
+    }
+}
+
+/** 评论页：主楼列表 + 触底翻页。 */
+@Composable
+private fun CommentsPage(
+    container: AppContainer,
+    replies: List<ReplyItem>,
+    loading: Boolean,
+    ended: Boolean,
+    aid: Long,
+    nextCursor: Long,
+    onAppend: (List<ReplyItem>, Long, Boolean) -> Unit,
+    onLoading: (Boolean) -> Unit,
+) {
+    LazyColumn {
+        if (replies.isEmpty() && loading) {
+            item {
+                Box(
+                    Modifier.fillMaxWidth().padding(16.dp),
+                    contentAlignment = Alignment.Center,
+                ) { CircularProgressIndicator() }
+            }
+        }
+        items(replies, key = { it.rpid }) { r -> CommentItem(r) }
+        item {
+            when {
+                ended -> Text(
+                    "没有更多评论了",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                )
+                replies.isNotEmpty() -> {
                     Box(
                         Modifier.fillMaxWidth().padding(16.dp),
                         contentAlignment = Alignment.Center,
                     ) { CircularProgressIndicator() }
+                    // 该 item 滚入可视区才组合，等价触底加载；游标变化续页。
+                    LaunchedEffect(nextCursor) {
+                        loadReplies(
+                            container, aid, nextCursor,
+                            onLoading,
+                            { end -> if (end) onAppend(emptyList(), nextCursor, true) },
+                        ) { list, next -> onAppend(list, next, false) }
+                    }
                 }
             }
-            items(replies, key = { it.rpid }) { r ->
-                CommentItem(r)
-            }
-            item {
-                // 触底加载更多；到底则显示「没有更多评论」。
-                when {
-                    replyEnd -> Text(
-                        "没有更多评论了",
+        }
+    }
+}
+
+/** 相关页：推荐视频列表，点击切换详情。 */
+@Composable
+private fun RelatedPage(
+    related: List<BiliVideo>?,
+    onOpen: (BiliVideo) -> Unit,
+) {
+    if (related == null) {
+        LoadingBox()
+        return
+    }
+    if (related.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("暂无相关推荐", style = MaterialTheme.typography.labelSmall)
+        }
+        return
+    }
+    LazyColumn(contentPadding = PaddingValues(12.dp)) {
+        items(related, key = { it.bvid }) { v ->
+            Row(
+                Modifier.fillMaxWidth()
+                    .padding(vertical = 6.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onOpen(v) }
+                    .padding(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                AsyncImage(
+                    model = BiliApi.image(v.pic),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(width = 120.dp, height = 68.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        v.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        "${v.owner.name} · ${v.stat.view.toWan()}播放",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        modifier = Modifier.padding(top = 4.dp),
                     )
-                    replies.isNotEmpty() -> {
-                        Box(
-                            Modifier.fillMaxWidth().padding(16.dp),
-                            contentAlignment = Alignment.Center,
-                        ) { CircularProgressIndicator() }
-                        // 该 item 滚入可视区才组合，等价触底加载；组合期间不随状态重启。
-                        LaunchedEffect(Unit) {
-                            loadReplies(
-                                container, d.aid, replyNext,
-                                { replyLoading = it }, { replyNext = it }, { replyEnd = it },
-                            ) { replies = (replies + it).distinctBy { r -> r.rpid } }
-                        }
-                    }
                 }
             }
         }
@@ -275,7 +407,6 @@ private fun CommentItem(r: ReplyItem) {
             AsyncImage(
                 model = BiliApi.image(r.member?.avatar.orEmpty()),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier.size(36.dp).clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant),
             )
@@ -367,9 +498,8 @@ private suspend fun loadReplies(
     aid: Long,
     next: Long,
     setLoading: (Boolean) -> Unit,
-    setNext: (Long) -> Unit,
     setEnd: (Boolean) -> Unit,
-    append: (List<ReplyItem>) -> Unit,
+    append: (List<ReplyItem>, Long) -> Unit,
 ) {
     setLoading(true)
     runSuspendCatching {
@@ -379,39 +509,8 @@ private suspend fun loadReplies(
         if (list.isEmpty() || page.cursor?.isEnd == true) {
             setEnd(true)
         } else {
-            setNext(page.cursor?.next ?: next + 1)
-            append(list)
+            append(list, page.cursor?.next ?: next + 1)
         }
     }.onFailure { setEnd(true) }
     setLoading(false)
-}
-
-private fun pickTitle(d: ViewData, page: Int, part: String?): String =
-    if (d.pages.size > 1) "${d.title} - ${part ?: "P$page"}" else d.title
-
-private suspend fun play(
-    container: AppContainer,
-    bvid: String,
-    cid: Long,
-    title: String,
-    loadingCid: (Long?) -> Unit,
-): Result<PlayRequest> {
-    loadingCid(cid)
-    val result = com.pilinara.ui.common.runSuspendCatching {
-        val qn = container.settings.preferQn.first()
-        val cdn = container.settings.cdnNode.first()
-        val roaming = container.settings.roamingServer.first()
-        val hiRes = container.settings.hiResAudio.first()
-        withContext(Dispatchers.IO) {
-            buildBiliPlayRequest(container.api, bvid, cid, title, qn, cdn, roaming, hiRes)
-        }
-    }
-    result.onSuccess { req: PlayRequest ->
-        PlayerActivity.start(container.appContext, req)
-    }.onFailure {
-        // 错误在详情页之外以 Toast 呈现，避免静默失败。
-        android.widget.Toast.makeText(container.appContext, "播放失败：${it.message}", android.widget.Toast.LENGTH_LONG).show()
-    }
-    loadingCid(null)
-    return result
 }

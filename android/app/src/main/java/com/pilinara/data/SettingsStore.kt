@@ -52,6 +52,10 @@ class SettingsStore(private val context: Context) {
         val HIRES_AUDIO = booleanPreferencesKey("hires_audio")
         // 哔哩漫游式解析服务器（空=不启用）。
         val ROAMING_SERVER = stringPreferencesKey("roaming_server")
+        // 信息流过滤竖屏视频（默认开：横屏长视频体验优先，可关）。
+        val FILTER_VERTICAL = booleanPreferencesKey("filter_vertical")
+        // 空降跳过（BilibiliSponsorBlock 社区数据，默认开）。
+        val SPONSOR_SKIP = booleanPreferencesKey("sponsor_skip")
     }
 
     private fun <T> pref(key: Preferences.Key<T>, default: T): Flow<T> =
@@ -87,6 +91,8 @@ class SettingsStore(private val context: Context) {
     val bufferMs = pref(Keys.BUFFER_MS, 50_000)
     val hiResAudio = pref(Keys.HIRES_AUDIO, false)
     val roamingServer = pref(Keys.ROAMING_SERVER, "")
+    val filterVertical = pref(Keys.FILTER_VERTICAL, true)
+    val sponsorSkip = pref(Keys.SPONSOR_SKIP, true)
 
     suspend fun bootstrap() {
         VipTrialGate.config = VipTrialConfig(
@@ -119,6 +125,8 @@ class SettingsStore(private val context: Context) {
     suspend fun setBufferMs(v: Int) = edit { it[Keys.BUFFER_MS] = v }
     suspend fun setHiResAudio(v: Boolean) = edit { it[Keys.HIRES_AUDIO] = v }
     suspend fun setRoamingServer(v: String) = edit { it[Keys.ROAMING_SERVER] = v }
+    suspend fun setFilterVertical(v: Boolean) = edit { it[Keys.FILTER_VERTICAL] = v }
+    suspend fun setSponsorSkip(v: Boolean) = edit { it[Keys.SPONSOR_SKIP] = v }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {
         // 写入失败（文件损坏 / 存储 IO 错误）只记录，不向调用协程抛异常：

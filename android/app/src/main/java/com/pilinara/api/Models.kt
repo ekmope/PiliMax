@@ -138,8 +138,19 @@ data class BiliVideo(
     val pubdate: Long = 0,
     val tname: String = "",
     val goto: String = "",
+    /** 宽高信息；height > width 即竖屏视频，用于信息流过滤。 */
+    val dimension: BiliDimension? = null,
     val owner: BiliOwner = BiliOwner(),
     val stat: BiliStat = BiliStat(),
+) {
+    val isVertical: Boolean
+        get() = dimension != null && dimension.height > dimension.width
+}
+
+@Serializable
+data class BiliDimension(
+    val width: Int = 0,
+    val height: Int = 0,
 )
 
 @Serializable
@@ -161,6 +172,7 @@ data class RcmdItem(
     val tname: String? = null,
     val desc: String? = null,
     val goto: String? = null,
+    val dimension: BiliDimension? = null,
     val owner: BiliOwner? = null,
     val stat: BiliStat? = null,
 ) {
@@ -174,6 +186,7 @@ data class RcmdItem(
         pubdate = pubdate,
         tname = tname.orEmpty(),
         goto = goto.orEmpty(),
+        dimension = dimension,
         owner = owner ?: BiliOwner(),
         stat = stat ?: BiliStat(),
     )
@@ -246,7 +259,14 @@ data class ViewData(
     val owner: BiliOwner = BiliOwner(),
     val stat: BiliStat = BiliStat(),
     val pages: List<VideoPage> = emptyList(),
-)
+    /** 宽高信息；height > width 即竖屏。 */
+    val dimension: BiliDimension? = null,
+    /** 相关推荐（view 接口附带，失败为空）。 */
+    val related: List<BiliVideo>? = null,
+) {
+    val isVertical: Boolean
+        get() = dimension != null && dimension.height > dimension.width
+}
 
 @Serializable
 data class VideoPage(
@@ -368,4 +388,14 @@ data class ReplyMember(
 @Serializable
 data class ReplyContent(
     val message: String = "",
+)
+
+// ---------- 空降片段（BilibiliSponsorBlock 公开社区 API） ----------
+
+@Serializable
+data class SponsorSegment(
+    @SerialName("UUID") val uuid: String = "",
+    val startTime: Float = 0f,
+    val endTime: Float = 0f,
+    val category: String = "",
 )

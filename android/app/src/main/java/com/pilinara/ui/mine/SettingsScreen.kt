@@ -61,6 +61,8 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
     val bufferMs by s.bufferMs.collectAsState(30_000)
     val hiResAudio by s.hiResAudio.collectAsState(false)
     val roamingServer by s.roamingServer.collectAsState("")
+    val filterVertical by s.filterVertical.collectAsState(true)
+    val sponsorSkip by s.sponsorSkip.collectAsState(true)
 
     Scaffold(
         topBar = {
@@ -151,6 +153,16 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                 subtitle = "进入播放即关闭视频轨，仅后台音频（省电）",
                 checked = audioOnly,
             ) { en -> scope.launch { s.setAudioOnly(en) } }
+            SwitchRow(
+                title = "过滤竖屏视频",
+                subtitle = "信息流隐藏竖屏短视频（热门/推荐生效）",
+                checked = filterVertical,
+            ) { en -> scope.launch { s.setFilterVertical(en) } }
+            SwitchRow(
+                title = "空降跳过",
+                subtitle = "自动跳过社区标注的广告/恰饭片段（BilibiliSponsorBlock 数据）",
+                checked = sponsorSkip,
+            ) { en -> scope.launch { s.setSponsorSkip(en) } }
 
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
             SectionTitle("解析服务")

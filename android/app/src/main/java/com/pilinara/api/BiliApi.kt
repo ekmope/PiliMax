@@ -22,6 +22,10 @@ class BiliApi(private val http: Http) {
     private inline fun <reified T> decode(s: String): ApiResp<T> =
         json.decodeFromString<ApiResp<T>>(s)
 
+    /** 非 {code,data} 包装的裸响应（如 SponsorBlock）。 */
+    private inline fun <reified T> decodeRaw(s: String): T =
+        json.decodeFromString<T>(s)
+
     private suspend fun signedGet(
         base: String,
         params: Map<String, String>,
@@ -230,6 +234,32 @@ class BiliApi(private val http: Http) {
             referer = "https://www.bilibili.com",
         )
         return decode<ReplyMainData>(body).data ?: ReplyMainData()
+    }
+
+    /** 相关推荐（view/detail/related，游客可用；失败返回空列表不阻断详情）。 */
+    suspend fun related(aid: Long): List<BiliVideo> = try {
+        val body = signedGet(
+            "https://api.bilibili.com/x/web-interface/view/detail/related",
+            mapOf("aid" to aid.toString()),
+            referer = "https://www.bilibili.com",
+        )
+        decode<List<BiliVideo>>(body).data.orEmpty()
+    } catch (_: Exception) {
+        emptyList()
+    }
+
+    /**
+     * 空降片段（BilibiliSponsorBlock 公开社区 API，bilipai 同源）。
+     * 用于跳过片头广告/恰饭等社区标注片段；404/失败返回空列表。
+     */
+    suspend fun sponsorSegments(bvid: String, cid: Long): List<SponsorSegment> = try {
+        val body = http.getString(
+            "https://bsbsb.top/api/skipSegments?videoID=$bvid&cid=$cid" +
+                "&category=sponsor&category=poi_highlight",
+        )
+        decodeRaw<List<SponsorSegment>>(body)
+    } catch (_: Exception) {
+        emptyList()
     }
 
     suspend fun history(max: Int = 100): List<HistoryItem> {

@@ -32,6 +32,7 @@ import com.pilinara.ui.common.LoadingBox
 import com.pilinara.ui.common.VideoGrid
 import com.pilinara.ui.common.runSuspendCatching
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
@@ -59,7 +60,12 @@ fun HomeScreen(container: AppContainer) {
 
     val current = selected
     if (current != null) {
-        VideoDetailScreen(container = container, video = current, onBack = { selected = null })
+        VideoDetailScreen(
+            container = container,
+            video = current,
+            onBack = { selected = null },
+            onOpenVideo = { selected = it },
+        )
         return
     }
 
@@ -252,14 +258,16 @@ private fun HistoryFeed(container: AppContainer, onOpen: (BiliVideo) -> Unit) {
     }
 }
 
-/** 信息流规则过滤：存在本地规则文件时交 Rust 核心处理，否则原样返回。 */
+/** 信息流过滤：竖屏视频（设置可关）+ 本地规则文件交 Rust 核心处理。 */
 private suspend fun applyFeedFilter(container: AppContainer, raw: List<BiliVideo>): List<BiliVideo> {
-    val rules = container.files.read(JsonFileStore.FEED_RULES) ?: return raw
+    val filterVertical = container.settings.filterVertical.first()
+    val filtered = if (filterVertical) raw.filterNot { it.isVertical } else raw
+    val rules = container.files.read(JsonFileStore.FEED_RULES) ?: return filtered
     return runCatching {
         val out = NativeCore.applyFeedFilter(
-            Json.encodeToString(ListSerializer(BiliVideo.serializer()), raw),
+            Json.encodeToString(ListSerializer(BiliVideo.serializer()), filtered),
             rules,
         )
         Json.decodeFromString(ListSerializer(BiliVideo.serializer()), out)
-    }.getOrDefault(raw)
+    }.getOrDefault(filtered)
 }

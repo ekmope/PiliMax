@@ -112,6 +112,8 @@ class PlayerActivity : ComponentActivity() {
     @UnstableApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 全屏播放默认横屏（bilipai / 官方 App 行为）；内联播放器保持竖屏页内。
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val piliApp = application as PiliApplication
 
@@ -207,6 +209,37 @@ class PlayerActivity : ComponentActivity() {
                     danmakuList = loadDanmaku(request.cid, mergeWindow)
                 } else {
                     danmakuList = emptyList()
+                }
+            }
+
+            // 空降跳过（BilibiliSponsorBlock 社区数据）：播放到广告/恰饭片段自动 seek 到段尾。
+            val sponsorSkip by container.settings.sponsorSkip.collectAsState(true)
+            var segments by remember { mutableStateOf<List<com.pilinara.api.SponsorSegment>>(emptyList()) }
+            val skippedIds = remember { mutableSetOf<String>() }
+            LaunchedEffect(request.bvid, request.cid, sponsorSkip) {
+                skippedIds.clear()
+                segments = if (sponsorSkip && request.bvid.isNotEmpty()) {
+                    withContext(Dispatchers.IO) {
+                        container.api.sponsorSegments(request.bvid, request.cid)
+                    }
+                } else {
+                    emptyList()
+                }
+            }
+            LaunchedEffect(segments) {
+                if (segments.isEmpty()) return@LaunchedEffect
+                while (true) {
+                    delay(500)
+                    val p = player ?: continue
+                    if (!p.isPlaying) continue
+                    val posSec = p.currentPosition / 1000f
+                    val seg = segments.firstOrNull {
+                        posSec >= it.startTime && posSec < it.endTime - 0.5f
+                    }
+                    if (seg != null && seg.uuid !in skippedIds) {
+                        skippedIds.add(seg.uuid)
+                        p.seekTo((seg.endTime * 1000).toLong())
+                    }
                 }
             }
 

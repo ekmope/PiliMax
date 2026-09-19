@@ -72,7 +72,7 @@ suspend fun buildBiliPlayRequest(
         "Referer" to "https://www.bilibili.com/video/$bvid",
         "User-Agent" to com.pilinara.net.Http.UA_WEB,
     )
-    return mapPlayData(data, title, cid, headers, node, qn, hiResAudio)
+    return mapPlayData(data, title, cid, headers, node, qn, hiResAudio, bvid)
 }
 
 fun mapPlayData(
@@ -83,6 +83,7 @@ fun mapPlayData(
     node: CdnNode,
     preferQn: Int,
     hiResAudio: Boolean = false,
+    bvid: String = "",
 ): PlayRequest {
     data.dash?.let { dash ->
         val video = pickVideoTrack(dash.video, preferQn) ?: error("播放地址中没有视频轨")
@@ -98,6 +99,8 @@ fun mapPlayData(
             audioUrl = audio?.let { node.pick(it.baseUrl, it.backupUrl) },
             streamType = "progressive",
             cid = cid,
+            bvid = bvid,
+            qn = video.id,
             headers = headers,
         )
     }
@@ -113,6 +116,8 @@ fun mapPlayData(
         videoUrl = url,
         streamType = type,
         cid = cid,
+        bvid = bvid,
+        qn = data.quality,
         headers = headers,
     )
 }

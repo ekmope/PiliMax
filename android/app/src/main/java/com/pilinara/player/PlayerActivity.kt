@@ -88,6 +88,10 @@ data class PlayRequest(
     val streamType: String = "progressive",
     /** B 站视频 cid；> 0 时自动加载弹幕。 */
     val cid: Long = 0,
+    /** B 站视频 bvid；非空时播放器内可切换清晰度（重新拉 playurl）。 */
+    val bvid: String = "",
+    /** 实际选中的清晰度档位（用于播放器内清晰度菜单高亮）。 */
+    val qn: Int = 0,
     val positionMs: Long = 0,
     val headers: Map<String, String> = emptyMap(),
 )
@@ -98,6 +102,9 @@ class PlayerActivity : ComponentActivity() {
 
     /** 进程内播放器（不再跨 Service 绑定 MediaController）。 */
     private var player: ExoPlayer? = null
+
+    /** 当前播放请求（切换清晰度后更新，UI 读取 qn 高亮）。 */
+    private var currentRequest by mutableStateOf<PlayRequest?>(null)
 
     /** 播放初始化失败信息；非 null 时渲染全屏错误页而非崩溃。 */
     private var fatalError by mutableStateOf<String?>(null)
@@ -160,6 +167,7 @@ class PlayerActivity : ComponentActivity() {
             return
         }
         player = exo
+        currentRequest = request
         // 播放期错误（解码/网络/源）走 ExoPlayer 回调而非崩溃：落盘以便定位，界面给出错误页。
         exo.addListener(object : Player.Listener {
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
@@ -227,6 +235,9 @@ class PlayerActivity : ComponentActivity() {
                 onVolume = { v -> setVolume(v) },
                 currentBrightness = { currentBrightness() },
                 pipMode = pipMode,
+                currentQn = currentRequest?.qn ?: 0,
+                canSwitchQuality = request.bvid.isNotEmpty(),
+                onSwitchQuality = { qn -> switchQuality(qn) },
             )
         }
     }
@@ -241,7 +252,7 @@ class PlayerActivity : ComponentActivity() {
             json.decodeFromString(PlayRequest.serializer(), it)
         }
 
-    private fun prepareAndPlay(c: ExoPlayer, request: PlayRequest) {
+    private fun prepareAndPlay(c: ExoPlayer, request: PlayRequest, positionMs: Long = request.positionMs) {
         val extras = Bundle().apply {
             putString(PiliMediaSourceFactory.EXTRA_STREAM_TYPE, request.streamType)
             request.audioUrl?.let { putString(PiliMediaSourceFactory.EXTRA_AUDIO_URL, it) }
@@ -259,7 +270,7 @@ class PlayerActivity : ComponentActivity() {
             .build()
         // 请求头经 PlaybackHeaderStore + ResolvingDataSource 按 URL 注入。
         PlaybackHeaderStore.set(listOfNotNull(request.videoUrl, request.audioUrl), request.headers)
-        c.setMediaItem(item, request.positionMs)
+        c.setMediaItem(item, positionMs)
         c.playWhenReady = true
         // 默认倍速 / 只听模式在 prepare 前设置（DataStore 读取是毫秒级本地 IO）。
         val app = application as PiliApplication
@@ -309,6 +320,41 @@ class PlayerActivity : ComponentActivity() {
         // 弹幕解析的任何意外都不应拖垮播放：记录日志并返回空列表。
         com.pilinara.CrashLog.write(applicationContext, Thread.currentThread(), t)
         emptyList()
+    }
+
+    /**
+     * 播放器内切换清晰度：按目标 qn 重新拉 playurl，保留当前进度无缝换源。
+     * 仅 B 站视频（bvid 非空）可用；失败 Toast 提示，不影响当前播放。
+     */
+    private fun switchQuality(targetQn: Int) {
+        val req = currentRequest ?: return
+        if (req.bvid.isEmpty()) return
+        val pos = player?.currentPosition ?: 0L
+        lifecycleScope.launch {
+            val app = application as PiliApplication
+            val c = app.container
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val cdn = c.settings.cdnNode.first()
+                    val roaming = c.settings.roamingServer.first()
+                    val hiRes = c.settings.hiResAudio.first()
+                    buildBiliPlayRequest(
+                        c.api, req.bvid, req.cid, req.title,
+                        targetQn, cdn, roaming, hiRes,
+                    )
+                }
+            }
+            result.onSuccess { newReq ->
+                currentRequest = newReq
+                player?.let { prepareAndPlay(it, newReq, pos) }
+            }.onFailure {
+                android.widget.Toast.makeText(
+                    this@PlayerActivity,
+                    "切换清晰度失败：${it.message}",
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
     }
 
     private fun enterPip() {
@@ -454,6 +500,9 @@ private fun PlayerScreen(
     onVolume: (Float) -> Unit,
     currentBrightness: () -> Float,
     pipMode: Boolean,
+    currentQn: Int,
+    canSwitchQuality: Boolean,
+    onSwitchQuality: (Int) -> Unit,
 ) {
     val context = LocalContext.current
     val audioManager = remember {
@@ -663,6 +712,22 @@ private fun PlayerScreen(
                             Icon(Icons.Filled.Tune, contentDescription = "更多", tint = Color.White)
                         }
                         DropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                            if (canSwitchQuality) {
+                                Quality.PRESETS.forEach { q ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                if (q.qn == currentQn) "清晰度：${q.label} ✓"
+                                                else "清晰度：${q.label}",
+                                            )
+                                        },
+                                        onClick = {
+                                            moreMenu = false
+                                            if (q.qn != currentQn) onSwitchQuality(q.qn)
+                                        },
+                                    )
+                                }
+                            }
                             if (danmakuEnabled) {
                                 DropdownMenuItem(
                                     text = { Text(if (danmakuVisible) "关闭弹幕" else "开启弹幕") },

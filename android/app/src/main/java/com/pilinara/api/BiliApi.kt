@@ -153,6 +153,7 @@ class BiliApi(private val http: Http) {
     // ---------- 首页 ----------
 
     suspend fun popular(pn: Int = 1, ps: Int = 30): List<BiliVideo> {
+        ensureBuvid()
         val body = http.getString(
             "https://api.bilibili.com/x/web-interface/popular?pn=$pn&ps=$ps",
         )
@@ -199,11 +200,36 @@ class BiliApi(private val http: Http) {
     // ---------- 详情 / 播放 ----------
 
     suspend fun view(bvid: String): ViewData {
+        // 详情页是用户最常触发的第一个请求：预热未完成时若不带 buvid 指纹，
+        // 会直接 412（表现为「详情加载失败：风控」）。ensureBuvid 幂等且永不抛异常。
+        ensureBuvid()
         val body = http.getString(
             "https://api.bilibili.com/x/web-interface/view?bvid=$bvid",
+            referer = "https://www.bilibili.com",
         )
         val resp = decode<ViewData>(body)
         return resp.data ?: error(resp.errMsg)
+    }
+
+    /**
+     * 评论主楼列表（官方公开接口，游客可用；bilipai 同端点）。
+     * @param mode 3 按时间倒序 / 2 按热度。
+     * @param next 翻页游标，首次传 0。
+     */
+    suspend fun replies(aid: Long, mode: Int = 3, next: Long = 0): ReplyMainData {
+        ensureBuvid()
+        val body = signedGet(
+            "https://api.bilibili.com/x/v2/reply/wbi/main",
+            mapOf(
+                "oid" to aid.toString(),
+                "type" to "1",
+                "mode" to mode.toString(),
+                "next" to next.toString(),
+                "ps" to "20",
+            ),
+            referer = "https://www.bilibili.com",
+        )
+        return decode<ReplyMainData>(body).data ?: ReplyMainData()
     }
 
     suspend fun history(max: Int = 100): List<HistoryItem> {

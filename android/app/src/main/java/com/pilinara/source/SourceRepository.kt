@@ -112,6 +112,19 @@ class SourceRepository(
             }
         }
 
+        // 第三层：直链藏在外部 JS 里（苹果 CMS 静态 JS 播放器常见形态：
+        // HTML 只有 <script src=".../player.js">，m3u8 地址在 JS 文件中）。
+        if (found == null) {
+            for (scriptUrl in scriptSrcs(html, pageUrl).take(3)) {
+                val js = runCatching {
+                    http.getString(scriptUrl, headers = headers, referer = baseOf(pageUrl))
+                }.getOrNull() ?: continue
+                found = parseNullable(NativeCore.sniffVideo(js, sniffConfig))
+                    ?.let { resolveUrl(scriptUrl, it) }
+                if (found != null) break
+            }
+        }
+
         val url = found?.let { resolveUrl(pageUrl, it) }
             ?: error("未能解析出视频地址（源未返回可识别的直链）")
 
@@ -155,6 +168,16 @@ class SourceRepository(
 
     private fun parseNullable(s: String): String? =
         s.takeIf { it.isNotBlank() && it != "null" }
+
+    /** 提取页面外部脚本地址（相对路径补全为绝对 URL），供 JS 层嗅探。 */
+    private fun scriptSrcs(html: String, pageUrl: String): List<String> {
+        val re = Regex("""<script[^>]+src=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+        return re.findAll(html).mapNotNull { m ->
+            val src = m.groupValues[1].trim()
+            if (src.isEmpty() || src.startsWith("data:")) return@mapNotNull null
+            resolveUrl(pageUrl, src).takeIf { it.startsWith("http") }
+        }.distinct().toList()
+    }
 
     private fun resolveUrl(base: String, link: String): String =
         runCatching { URI(base).resolve(link).toString() }.getOrDefault(link)

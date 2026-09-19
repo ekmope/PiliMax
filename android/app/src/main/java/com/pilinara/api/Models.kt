@@ -333,3 +333,39 @@ data class Durl(
     // durl 用蛇形命名（dash track 才是驼峰）。
     @SerialName("backup_url") val backupUrl: List<String> = emptyList(),
 )
+
+// ---------- 评论（x/v2/reply/main，游客可用） ----------
+
+@Serializable
+data class ReplyMainData(
+    val replies: List<ReplyItem>? = null,
+    val cursor: ReplyCursor? = null,
+)
+
+@Serializable
+data class ReplyCursor(
+    @Serializable(with = FlexLong::class) val next: Long = 0,
+    @SerialName("is_end") val isEnd: Boolean = false,
+)
+
+@Serializable
+data class ReplyItem(
+    @SerialName("rpid") @Serializable(with = FlexLong::class) val rpid: Long = 0,
+    val member: ReplyMember? = null,
+    val content: ReplyContent? = null,
+    @SerialName("ctime") @Serializable(with = FlexLong::class) val ctime: Long = 0,
+    val like: Long = 0,
+    val replies: List<ReplyItem>? = null,
+    @SerialName("rcount") @Serializable(with = FlexLong::class) val rcount: Long = 0,
+)
+
+@Serializable
+data class ReplyMember(
+    val uname: String = "",
+    val avatar: String = "",
+)
+
+@Serializable
+data class ReplyContent(
+    val message: String = "",
+)

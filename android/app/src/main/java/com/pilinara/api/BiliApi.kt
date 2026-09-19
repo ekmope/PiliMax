@@ -108,35 +108,39 @@ class BiliApi(private val http: Http) {
     suspend fun ensureBuvid() {
         val jar = http.cookieJar
         if (jar.has(BILI_DOMAIN, "buvid3")) return
-        var b3 = ""
-        var b4 = ""
         runCatching {
-            val body = http.getString("https://api.bilibili.com/x/frontend/finger/spi")
-            val data = json.parseToJsonElement(body).jsonObject["data"]?.jsonObject ?: return@runCatching
-            b3 = data["b_3"]?.jsonPrimitive?.content.orEmpty()
-            b4 = data["b_4"]?.jsonPrimitive?.content.orEmpty()
+            var b3 = ""
+            var b4 = ""
+            runCatching {
+                val body = http.getString("https://api.bilibili.com/x/frontend/finger/spi")
+                val data = json.parseToJsonElement(body).jsonObject["data"]?.jsonObject
+                    ?: return@runCatching
+                b3 = data["b_3"]?.jsonPrimitive?.content.orEmpty()
+                b4 = data["b_4"]?.jsonPrimitive?.content.orEmpty()
+            }
+            // spi 失败时本地生成一个合法格式的 buvid3（BV 方案：UUID + 随机数字 + infoc），
+            // 保证任何网络状况下请求都带指纹，降低 412 概率。
+            if (b3.isEmpty()) {
+                b3 = "${java.util.UUID.randomUUID()}${(10000..99999).random()}infoc"
+            }
+            val now = System.currentTimeMillis()
+            jar.put(BILI_DOMAIN, "buvid3", b3, ONE_YEAR_SECS)
+            jar.put(BILI_DOMAIN, "buvid4", b4.ifEmpty { b3 }, ONE_YEAR_SECS)
+            jar.put(BILI_DOMAIN, "buvid_fp", java.util.UUID.randomUUID()
+                .toString().replace("-", "").take(32), ONE_YEAR_SECS)
+            jar.put(BILI_DOMAIN, "_uuid", "${java.util.UUID.randomUUID()}infoc", ONE_YEAR_SECS)
+            jar.put(BILI_DOMAIN, "b_nut", (now / 1000).toString(), ONE_YEAR_SECS)
+            jar.put(
+                BILI_DOMAIN,
+                "b_lsid",
+                "${randomHex(8).uppercase()}_${java.lang.Long.toHexString(now / 1000).uppercase()}",
+                ONE_YEAR_SECS,
+            )
         }
-        // spi 失败时本地生成一个合法格式的 buvid3（BV 方案：UUID + 随机数字 + infoc），
-        // 保证任何网络状况下请求都带指纹，降低 412 概率。
-        if (b3.isEmpty()) {
-            b3 = "${java.util.UUID.randomUUID()}${(10000..99999).random()}infoc"
-        }
-        val now = System.currentTimeMillis()
-        jar.put(BILI_DOMAIN, "buvid3", b3, ONE_YEAR_SECS)
-        jar.put(BILI_DOMAIN, "buvid4", b4.ifEmpty { b3 }, ONE_YEAR_SECS)
-        jar.put(BILI_DOMAIN, "buvid_fp", java.util.UUID.randomUUID()
-            .toString().replace("-", "").take(32), ONE_YEAR_SECS)
-        jar.put(BILI_DOMAIN, "_uuid", "${java.util.UUID.randomUUID()}infoc", ONE_YEAR_SECS)
-        jar.put(BILI_DOMAIN, "b_nut", (now / 1000).toString(), ONE_YEAR_SECS)
-        jar.put(
-            BILI_DOMAIN,
-            "b_lsid",
-            "${randomHex(8).uppercase()}_${java.lang.Long.toHexString(now / 1000).uppercase()}",
-            ONE_YEAR_SECS,
-        )
         // 说明：buvid3/buvid4 等 Cookie 是规避 412 的核心。部分项目（bilipai）还会额外调
         // ExClimbWuzhi 做「激活上报」，但其请求体字段是加密指纹、无法可靠复现，编造字段
         // 反而可能被标记为可疑设备，故此处不做该上报，仅保证 Cookie 形态完整。
+        // 整个指纹准备对调用方「永不抛异常」：宁可无指纹降级，也不能阻断播放/搜索。
     }
 
     private fun randomHex(len: Int): String {

@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+## [0.4.8] - 2026-09-19
+
+修复「播放失败：unexpected domain: .bilibili.com」——这是此前所有「风控 / 播放失败」的真正根因。
+
+### Fixed
+- **Cookie 域归一化**：OkHttp 的 `Cookie.Builder.domain()` 拒绝带前导点的域（`.bilibili.com` 会抛 `IllegalArgumentException: unexpected domain`），导致 buvid3/buvid4 等风控指纹**从未写入成功**，所有请求都无指纹裸奔，被 B 站 412 风控拦截。现在 `put()`/`has()` 统一剥点归一化，指纹可正常落盘并随请求发送。
+- **`ensureBuvid` 整体「永不抛异常」**：指纹准备失败只降级、不阻断播放/搜索。
+
 ## [0.4.7] - 2026-09-19
 
 本版聚焦「闪退可定位」与「未登录高画质」：新增应用内崩溃展示页，把真实堆栈直接显示在屏幕上供截图反馈；并把 B 站官方 `try_look` 试看参数提前到未登录常规链路，未登录也能拿到 720P/1080P。

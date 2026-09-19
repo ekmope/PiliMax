@@ -88,7 +88,7 @@ class PersistentCookieJar(private val file: File) : CookieJar {
      * 手动种植 Cookie（B 站 finger/spi 把 buvid3/buvid4 放在 JSON body 而非 Set-Cookie，
      * 需要客户端像网页 JS 一样自行写入）。
      *
-     * @param domain 形如 ".bilibili.com"
+     * @param domain 形如 ".bilibili.com" 或 "bilibili.com"
      */
     fun put(
         domain: String,
@@ -97,21 +97,26 @@ class PersistentCookieJar(private val file: File) : CookieJar {
         maxAgeSeconds: Long,
         secure: Boolean = false,
     ) {
+        // OkHttp 的 Cookie.Builder.domain() 不接受带前导点的域（会抛
+        // IllegalArgumentException: unexpected domain），而 B 站约定俗成用
+        // ".bilibili.com" 表示全子域。这里统一剥点归一化；loadForRequest 的
+        // domainMatch 对「带点/不带点」两种键都能正确匹配。
+        val base = domain.removePrefix(".")
         val cookie = Cookie.Builder()
             .name(name)
             .value(value)
-            .domain(domain)
+            .domain(base)
             .path("/")
             .expiresAt(System.currentTimeMillis() + maxAgeSeconds * 1000L)
             .apply { if (secure) secure() }
             .build()
-        store.computeIfAbsent(domain) { ConcurrentHashMap() }[name] = cookie
+        store.computeIfAbsent(base) { ConcurrentHashMap() }[name] = cookie
         persist()
     }
 
     /** 查询某域下是否存在未过期 Cookie（用于判断登录态/指纹是否已就绪）。 */
     fun has(domain: String, name: String): Boolean {
-        val c = store[domain]?.get(name) ?: return false
+        val c = store[domain.removePrefix(".")]?.get(name) ?: return false
         return c.expiresAt >= System.currentTimeMillis()
     }
 

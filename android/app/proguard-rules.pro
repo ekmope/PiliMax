@@ -5,9 +5,29 @@
 # 契约类一旦被 R8 重命名，插件将出现 ClassCastException / AbstractMethodError。
 -keep class com.pilinara.plugin.api.** { *; }
 
-# kotlinx.serialization 生成的 serializer 全静态可达，无需保留 @Serializable 模型；
-# 但保留实体类成员以稳妥规避 R8 full mode 的激进内联。
--keepclassmembers class com.pilinara.** {
+# kotlinx.serialization：序列化器在运行期通过注解（@Serializable/@SerialName）与反射
+# 定位伴生对象的 serializer()。R8 full mode 默认会移除全部注解并内联/重命名
+# @Serializable 类，导致 release 版字段名映射错乱、反序列化崩（debug 正常、release 闪退）。
+# 必须：① 保留注解与签名；② 保留伴生对象 serializer() 查找链。规则取自 kotlinx.serialization 官方 README。
+-keepattributes *Annotation*, Signature, InnerClasses, EnclosingMethod
+
+-if @kotlinx.serialization.Serializable class **
+-keepclassmembers class <1> {
+    static <1>$Companion Companion;
+}
+
+-if @kotlinx.serialization.Serializable class ** {
+    static **$* *;
+}
+-keepclassmembers class <2>$<3> {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
+-if @kotlinx.serialization.Serializable class ** {
+    public static ** INSTANCE;
+}
+-keepclassmembers class <1> {
+    public static <1> INSTANCE;
     kotlinx.serialization.KSerializer serializer(...);
 }
 

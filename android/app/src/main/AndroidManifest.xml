@@ -34,6 +34,11 @@
             android:supportsPictureInPicture="true"
             android:theme="@style/Theme.PiliNara.Player" />
 
+        <!-- 订阅源账号登录（WebView） -->
+        <activity
+            android:name=".ui.source.SourceLoginActivity"
+            android:exported="false" />
+
         <!-- 崩溃展示页：独立进程，主进程崩溃后仍能把堆栈显示给用户截图。 -->
         <activity
             android:name=".CrashDisplayActivity"

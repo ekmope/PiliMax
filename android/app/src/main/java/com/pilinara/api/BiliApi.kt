@@ -4,6 +4,7 @@ import com.pilinara.net.Http
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 /**
@@ -300,6 +301,21 @@ class BiliApi(private val http: Http) {
         }.getOrNull() == 0
     } catch (_: Exception) {
         false
+    }
+
+    /**
+     * 番剧 season_id → media_id（番剧评论区的 oid）。
+     * 评论接口 type=1 时 oid 用 media_id；查不到返回 0。
+     */
+    suspend fun bangumiMediaId(seasonId: Long): Long = try {
+        val body = http.getString(
+            "https://api.bilibili.com/pgc/view/web/season?season_id=$seasonId",
+            referer = "https://www.bilibili.com",
+        )
+        json.parseToJsonElement(body).jsonObject["result"]?.jsonObject
+            ?.get("media_id")?.jsonPrimitive?.longOrNull ?: 0L
+    } catch (_: Exception) {
+        0L
     }
 
     /**

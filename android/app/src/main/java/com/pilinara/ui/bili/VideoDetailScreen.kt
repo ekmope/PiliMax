@@ -58,7 +58,9 @@ import com.pilinara.api.ViewData
 import com.pilinara.player.InlinePlayer
 import com.pilinara.player.PlayRequest
 import com.pilinara.player.launchFullscreen
+import com.pilinara.ui.common.CommentsPage
 import com.pilinara.ui.common.LoadingBox
+import com.pilinara.ui.common.loadReplies
 import com.pilinara.ui.common.runSuspendCatching
 import com.pilinara.ui.common.toWan
 import kotlinx.coroutines.Dispatchers
@@ -214,7 +216,7 @@ fun VideoDetailScreen(
                         replies = replies,
                         loading = replyLoading,
                         ended = replyEnd,
-                        aid = d?.aid ?: video.aid,
+                        oid = d?.aid ?: video.aid,
                         nextCursor = replyNext,
                         onAppend = { list, next, end ->
                             replies = (replies + list).distinctBy { it.rpid }
@@ -297,55 +299,6 @@ private fun IntroPage(d: ViewData?) {
     }
 }
 
-/** 评论页：主楼列表 + 触底翻页。 */
-@Composable
-private fun CommentsPage(
-    container: AppContainer,
-    replies: List<ReplyItem>,
-    loading: Boolean,
-    ended: Boolean,
-    aid: Long,
-    nextCursor: Long,
-    onAppend: (List<ReplyItem>, Long, Boolean) -> Unit,
-    onLoading: (Boolean) -> Unit,
-) {
-    LazyColumn {
-        if (replies.isEmpty() && loading) {
-            item {
-                Box(
-                    Modifier.fillMaxWidth().padding(16.dp),
-                    contentAlignment = Alignment.Center,
-                ) { CircularProgressIndicator() }
-            }
-        }
-        items(replies, key = { it.rpid }) { r -> CommentItem(r) }
-        item {
-            when {
-                ended -> Text(
-                    "没有更多评论了",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                )
-                replies.isNotEmpty() -> {
-                    Box(
-                        Modifier.fillMaxWidth().padding(16.dp),
-                        contentAlignment = Alignment.Center,
-                    ) { CircularProgressIndicator() }
-                    // 该 item 滚入可视区才组合，等价触底加载；游标变化续页。
-                    LaunchedEffect(nextCursor) {
-                        loadReplies(
-                            container, aid, nextCursor,
-                            onLoading,
-                            { end -> if (end) onAppend(emptyList(), nextCursor, true) },
-                        ) { list, next -> onAppend(list, next, false) }
-                    }
-                }
-            }
-        }
-    }
-}
-
 /** 相关页：推荐视频列表，点击切换详情。 */
 @Composable
 private fun RelatedPage(
@@ -399,118 +352,4 @@ private fun RelatedPage(
     }
 }
 
-/** 单条主评论：头像 + 昵称 + 时间 + 点赞，子评论折叠为灰底块（最多 3 条）。 */
-@Composable
-private fun CommentItem(r: ReplyItem) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(
-                model = BiliApi.image(r.member?.avatar.orEmpty()),
-                contentDescription = null,
-                modifier = Modifier.size(36.dp).clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
-            Column(Modifier.padding(start = 10.dp).weight(1f)) {
-                Text(
-                    r.member?.uname.orEmpty().ifEmpty { "匿名" },
-                    style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
-                )
-                Text(
-                    fmtCommentTime(r.ctime),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Filled.ThumbUp,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    r.like.toWan(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 4.dp),
-                )
-            }
-        }
-        Text(
-            r.content?.message.orEmpty(),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(top = 6.dp, start = 46.dp),
-        )
-        val subs = r.replies.orEmpty()
-        if (subs.isNotEmpty()) {
-            Column(
-                Modifier.padding(top = 6.dp, start = 46.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                subs.take(3).forEach { sub ->
-                    Text(
-                        buildString {
-                            append(sub.member?.uname.orEmpty().ifEmpty { "匿名" })
-                            append("：")
-                            append(sub.content?.message.orEmpty())
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                if (r.rcount > subs.size) {
-                    Text(
-                        "共 ${r.rcount} 条回复",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-        }
-    }
-}
 
-private fun fmtCommentTime(unixSec: Long): String {
-    if (unixSec <= 0) return ""
-    val diff = System.currentTimeMillis() / 1000 - unixSec
-    return when {
-        diff < 60 -> "刚刚"
-        diff < 3600 -> "${diff / 60}分钟前"
-        diff < 86400 -> "${diff / 3600}小时前"
-        diff < 86400L * 30 -> "${diff / 86400}天前"
-        else -> {
-            val cal = java.util.Calendar.getInstance().apply { timeInMillis = unixSec * 1000 }
-            "%d-%02d-%02d".format(
-                cal.get(java.util.Calendar.YEAR),
-                cal.get(java.util.Calendar.MONTH) + 1,
-                cal.get(java.util.Calendar.DAY_OF_MONTH),
-            )
-        }
-    }
-}
-
-/** 拉一页评论；失败静默（评论区故障不应影响主内容），失败时视为到底避免无限重试。 */
-private suspend fun loadReplies(
-    container: AppContainer,
-    aid: Long,
-    next: Long,
-    setLoading: (Boolean) -> Unit,
-    setEnd: (Boolean) -> Unit,
-    append: (List<ReplyItem>, Long) -> Unit,
-) {
-    setLoading(true)
-    runSuspendCatching {
-        withContext(Dispatchers.IO) { container.api.replies(aid, mode = 3, next = next) }
-    }.onSuccess { page ->
-        val list = page.replies.orEmpty()
-        if (list.isEmpty() || page.cursor?.isEnd == true) {
-            setEnd(true)
-        } else {
-            append(list, page.cursor?.next ?: next + 1)
-        }
-    }.onFailure { setEnd(true) }
-    setLoading(false)
-}

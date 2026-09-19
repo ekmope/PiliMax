@@ -114,6 +114,19 @@ class PersistentCookieJar(private val file: File) : CookieJar {
         persist()
     }
 
+    /** 清除某域全部 Cookie（源账号退出登录）。 */
+    @Synchronized
+    fun clearDomain(domain: String) {
+        store.remove(domain.removePrefix("."))
+        persist()
+    }
+
+    /** 某域下是否存在任意未过期 Cookie（判断源账号是否已登录）。 */
+    fun hasAny(domain: String): Boolean {
+        val now = System.currentTimeMillis()
+        return store[domain.removePrefix(".")]?.values?.any { it.expiresAt >= now } == true
+    }
+
     /** 查询某域下是否存在未过期 Cookie（用于判断登录态/指纹是否已就绪）。 */
     fun has(domain: String, name: String): Boolean {
         val c = store[domain.removePrefix(".")]?.get(name) ?: return false

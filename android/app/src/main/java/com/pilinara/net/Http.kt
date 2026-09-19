@@ -148,6 +148,12 @@ class Http(cacheDir: File, cookieFile: File) {
 /**
  * 给 B 站域名请求补齐桌面 Chrome 的 Client Hints / 语言 / XHR 风格头，
  * 降低 412 指纹风控命中率。只作用于 bilibili.com 系域名，不影响第三方源抓取。
+ *
+ * 指纹思路参考 Vanadium（GrapheneOS）/LibreWolf：不是「随机化」而是「标准化」——
+ * 所有请求呈现同一套与真实桌面 Chrome 完全一致的头组合（UA、Client Hints、
+ * Sec-Fetch、Accept-Language 版本互相自洽），避免「移动端 UA + 桌面 hints」这类
+ * 自相矛盾的组合特征被风控识别。Sec-Fetch 按 XHR 请求的真实形态补齐
+ * （dest=empty / mode=cors / site=same-origin）。
  */
 private fun OkHttpClient.Builder.addBrowserFingerprintHeaders(): OkHttpClient.Builder =
     addInterceptor { chain ->
@@ -159,6 +165,9 @@ private fun OkHttpClient.Builder.addBrowserFingerprintHeaders(): OkHttpClient.Bu
             .header("sec-ch-ua", "\"Chromium\";v=\"148\", \"Not?A_Brand\";v=\"24\", \"Google Chrome\";v=\"148\"")
             .header("sec-ch-ua-mobile", "?0")
             .header("sec-ch-ua-platform", "\"Windows\"")
+            .header("Sec-Fetch-Dest", "empty")
+            .header("Sec-Fetch-Mode", "cors")
+            .header("Sec-Fetch-Site", "same-site")
         if (req.header("Accept") == null) {
             b.header("Accept", "application/json, text/plain, */*")
         }

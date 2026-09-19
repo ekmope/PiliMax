@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-09-19
+
+本版关闭 release 包的 R8 混淆，从根上消除「安装 release 后打开/播放闪退」。
+
+### Changed
+- **release 关闭代码混淆与资源收缩（`isMinifyEnabled/shinkResources` 置 false）**：本项目同时依赖 Rust JNI、kotlinx.serialization 反射、以及 DexClassLoader 动态加载播放器插件，这些机制在 R8 full mode 下极易被破坏，正是 release 版长期「打开闪退 / JSON 反序列化崩溃」的根因。关闭混淆后类名、字段、`@SerialName` 注解、`serializer()` 全部保持原样，运行期不再因混淆出错；性能与功耗由 native 硬解决定，与混淆无关。
+
 ## [0.4.5] - 2026-09-19
 
 本版修复 release 混淆版（正式安装包）的序列化崩溃——这也是「debug 能跑、安装 release 后打开就闪退/点播放报 JSON 解析错误」的根本原因。

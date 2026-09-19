@@ -35,8 +35,8 @@ android {
         applicationId = "com.pilinara"
         minSdk = 26
         targetSdk = 37
-        versionCode = 11
-        versionName = "0.4.5"
+        versionCode = 12
+        versionName = "0.4.6"
 
         // 仅在 ARMv8（arm64-v8a）架构上运行：面向第五代骁龙 8 至尊版（Oryon / Armv9.2）。
         ndk {
@@ -54,14 +54,15 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8 full mode 混淆对本项目的破坏面远大于收益：项目同时依赖 JNI(Rust so)、
+            // kotlinx.serialization 反射、DexClassLoader 动态加载播放器插件，全是混淆
+            // 最容易破坏的机制，release 版已长期出现「打开闪退 / 反序列化崩溃」。
+            // 主包本就不大，关闭混淆换取稳定运行；性能与功耗由 native 硬解路径决定，
+            // 与是否混淆无关。
+            isMinifyEnabled = false
+            isShrinkResources = false
             // 预览版沿用 debug 签名，保证 APK 可直接安装。
             signingConfig = signingConfigs.getByName("debug")
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-            )
         }
     }
 

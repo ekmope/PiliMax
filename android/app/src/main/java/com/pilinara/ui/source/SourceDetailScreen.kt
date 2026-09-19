@@ -23,9 +23,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +45,7 @@ import com.pilinara.source.SourceChannel
 import com.pilinara.ui.common.ErrorBox
 import com.pilinara.ui.common.LoadingBox
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -66,6 +69,45 @@ fun SourceDetailScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var resolving by remember { mutableStateOf<String?>(null) }
 
+    // 追番（本地 + 可选同步 B 站）。
+    val followed by container.sources.followed.collectAsState()
+    val isFollowed = followed.any { it.subjectUrl == subjectUrl }
+    var followBusy by remember { mutableStateOf(false) }
+    var toast by remember { mutableStateOf<String?>(null) }
+
+    fun toggleFollow() {
+        if (followBusy) return
+        scope.launch {
+            if (isFollowed) {
+                withContext(Dispatchers.IO) { container.sources.removeFollow(subjectUrl) }
+                toast = "已取消追番"
+                return@launch
+            }
+            followBusy = true
+            // 追番同步到 B 站：开关开启时先按番名搜索 B 站，存在则加入 B 站追番；
+            // 不存在（或搜索/加入失败）则仅本地追番，不阻断。
+            var biliSeasonId = 0L
+            val sync = container.settings.bangumiSync.first()
+            if (sync) {
+                withContext(Dispatchers.IO) {
+                    val hit = runCatching { container.api.searchBangumi(subjectName) }
+                        .getOrDefault(emptyList())
+                        .firstOrNull { it.title.isNotEmpty() }
+                    if (hit != null && runCatching { container.api.addBangumiFollow(hit.seasonId) }
+                            .getOrDefault(false)
+                    ) {
+                        biliSeasonId = hit.seasonId
+                    }
+                }
+            }
+            withContext(Dispatchers.IO) {
+                container.sources.addFollow(subjectName, subjectUrl, sourceName, biliSeasonId)
+            }
+            toast = if (biliSeasonId > 0) "已追番，并同步到 B 站追番" else "已追番"
+            followBusy = false
+        }
+    }
+
     LaunchedEffect(subjectUrl) {
         com.pilinara.ui.common.runSuspendCatching {
             withContext(Dispatchers.IO) {
@@ -86,6 +128,11 @@ fun SourceDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    TextButton(enabled = !followBusy, onClick = ::toggleFollow) {
+                        Text(if (isFollowed) "已追番" else "追番")
                     }
                 },
             )
@@ -154,6 +201,11 @@ fun SourceDetailScreen(
                 }
             }
         }
+    }
+
+    toast?.let { msg ->
+        android.widget.Toast.makeText(container.appContext, msg, android.widget.Toast.LENGTH_SHORT).show()
+        toast = null
     }
 }
 

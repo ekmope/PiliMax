@@ -72,3 +72,13 @@ data class ResolvedVideo(
     val url: String,
     val headers: Map<String, String>,
 )
+
+/** 本地追番：订阅源里的番剧追番记录；biliSeasonId>0 表示已同步到 B 站追番。 */
+@Serializable
+data class FollowedSubject(
+    val name: String,
+    val subjectUrl: String,
+    val sourceName: String,
+    val followedAt: Long,
+    val biliSeasonId: Long = 0,
+)

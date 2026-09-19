@@ -120,6 +120,12 @@ class PersistentCookieJar(private val file: File) : CookieJar {
         return c.expiresAt >= System.currentTimeMillis()
     }
 
+    /** 读取某域下未过期 Cookie 的值（如 bili_jct/csrf）；不存在返回 null。 */
+    fun value(domain: String, name: String): String? {
+        val c = store[domain.removePrefix(".")]?.get(name) ?: return null
+        return if (c.expiresAt >= System.currentTimeMillis()) c.value else null
+    }
+
     override fun loadForRequest(url: HttpUrl): List<Cookie> {
         val now = System.currentTimeMillis()
         val out = ArrayList<Cookie>()

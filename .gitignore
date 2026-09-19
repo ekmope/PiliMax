@@ -64,3 +64,6 @@ outputs/runtime/vibe-sessions
 
 # AiCode runtime state (container-side, not part of the repo)
 /.aicode/
+
+# Sandbox-installed Android SDK/NDK toolchain (build-only, never commit)
+/.android-sdk/

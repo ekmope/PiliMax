@@ -36,5 +36,6 @@ class JsonFileStore(dir: File) {
         const val SUBSCRIPTIONS = "subscriptions.json"
         const val SOURCE_INSTANCES = "source_instances.json"
         const val FEED_RULES = "feed_rules.json"
+        const val FOLLOWED = "followed.json"
     }
 }

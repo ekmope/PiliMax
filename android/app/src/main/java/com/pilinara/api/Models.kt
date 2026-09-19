@@ -399,3 +399,27 @@ data class SponsorSegment(
     val endTime: Float = 0f,
     val category: String = "",
 )
+
+// ---------- 追番（B 站 bangumi follow / search） ----------
+
+@Serializable
+data class BangumiFollowData(
+    val list: List<BangumiFollowItem>? = null,
+)
+
+@Serializable
+data class BangumiFollowItem(
+    @SerialName("season_id") @Serializable(with = FlexLong::class) val seasonId: Long = 0,
+    val title: String = "",
+)
+
+@Serializable
+data class BangumiSearchData(
+    val result: List<BangumiSearchItem>? = null,
+)
+
+@Serializable
+data class BangumiSearchItem(
+    @SerialName("season_id") @Serializable(with = FlexLong::class) val seasonId: Long = 0,
+    val title: String = "",
+)

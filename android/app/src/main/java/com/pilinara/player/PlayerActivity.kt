@@ -340,10 +340,12 @@ class PlayerActivity : ComponentActivity() {
                 withContext(Dispatchers.IO) {
                     val cdn = c.settings.cdnNode.first()
                     val roaming = c.settings.roamingServer.first()
-                    val hiRes = c.settings.hiResAudio.first()
+                    val weakNet = c.settings.weakNet.first()
+                    val hiRes = c.settings.hiResAudio.first() && !weakNet
+                    val qn = PlayerSettings.effectiveQn(targetQn, weakNet)
                     buildBiliPlayRequest(
                         c.api, req.bvid, req.cid, req.title,
-                        targetQn, cdn, roaming, hiRes,
+                        qn, cdn, roaming, hiRes,
                     )
                 }
             }
@@ -510,13 +512,27 @@ private fun PlayerScreenHost(
     val mergeWindow by container.settings.danmakuMergeWindow.collectAsState(10_000L)
     val danmakuOpacity by container.settings.danmakuOpacity.collectAsState(0.82f)
     val danmakuScale by container.settings.danmakuScale.collectAsState(1.0f)
+    val danmakuSpeed by container.settings.danmakuSpeed.collectAsState(1.0f)
+    val danmakuArea by container.settings.danmakuArea.collectAsState(1.0f)
+    val danmakuShowFixed by container.settings.danmakuShowFixed.collectAsState(true)
+    val danmakuShowColor by container.settings.danmakuShowColor.collectAsState(true)
 
-    var danmakuList by remember { mutableStateOf<List<Danmaku>>(emptyList()) }
+    var rawDanmaku by remember { mutableStateOf<List<Danmaku>>(emptyList()) }
     var danmakuVisible by remember { mutableStateOf(true) }
     var audioOnly by remember { mutableStateOf(audioOnlyDefault) }
 
+    // 弹幕显示过滤：区域外的固定弹幕（顶/底）与彩色弹幕按设置隐藏。
+    val danmakuList = remember(rawDanmaku, danmakuShowFixed, danmakuShowColor) {
+        rawDanmaku.filter { d ->
+            val isFixed = d.mode == 4 || d.mode == 5
+            if (isFixed && !danmakuShowFixed) return@filter false
+            if (!danmakuShowColor && d.color != 0xFFFFFFL) return@filter false
+            true
+        }
+    }
+
     LaunchedEffect(request.cid, danmakuEnabled) {
-        danmakuList = if (request.cid > 0 && danmakuEnabled) {
+        rawDanmaku = if (request.cid > 0 && danmakuEnabled) {
             loadDanmaku(request.cid, mergeWindow)
         } else {
             emptyList()
@@ -524,14 +540,18 @@ private fun PlayerScreenHost(
     }
 
     // 空降跳过（BilibiliSponsorBlock 社区数据）：播放到广告/恰饭片段自动 seek 到段尾。
+    // 分类可自定义（赞助/付费推广/自我介绍/片头/片尾/精彩看点等）。
     val sponsorSkip by container.settings.sponsorSkip.collectAsState(true)
+    val sponsorCategories by container.settings.sponsorCategories
+        .collectAsState(com.pilinara.data.SettingsStore.DEFAULT_SPONSOR_CATEGORIES)
     var segments by remember { mutableStateOf<List<com.pilinara.api.SponsorSegment>>(emptyList()) }
     val skippedIds = remember { mutableSetOf<String>() }
-    LaunchedEffect(request.bvid, request.cid, sponsorSkip) {
+    LaunchedEffect(request.bvid, request.cid, sponsorSkip, sponsorCategories) {
         skippedIds.clear()
         segments = if (sponsorSkip && request.bvid.isNotEmpty()) {
+            val cats = sponsorCategories.split(',').map { it.trim() }.filter { it.isNotEmpty() }
             withContext(Dispatchers.IO) {
-                runCatching { container.api.sponsorSegments(request.bvid, request.cid) }
+                runCatching { container.api.sponsorSegments(request.bvid, request.cid, cats) }
                     .getOrDefault(emptyList())
             }
         } else {
@@ -567,6 +587,8 @@ private fun PlayerScreenHost(
         danmakuList = danmakuList,
         danmakuOpacity = danmakuOpacity,
         danmakuScale = danmakuScale,
+        danmakuSpeed = danmakuSpeed,
+        danmakuArea = danmakuArea,
         audioOnly = audioOnly,
         onToggleAudioOnly = { enable ->
             audioOnly = enable
@@ -600,6 +622,8 @@ private fun PlayerScreen(
     danmakuList: List<Danmaku>,
     danmakuOpacity: Float,
     danmakuScale: Float,
+    danmakuSpeed: Float,
+    danmakuArea: Float,
     audioOnly: Boolean,
     onToggleAudioOnly: (Boolean) -> Unit,
     onBrightness: (Float) -> Unit,
@@ -761,6 +785,8 @@ private fun PlayerScreen(
                 enabled = danmakuEnabled && danmakuVisible,
                 opacity = danmakuOpacity,
                 scale = danmakuScale,
+                area = danmakuArea,
+                speed = danmakuSpeed,
                 positionProvider = { scrubTarget ?: player.currentPosition },
                 isPlayingProvider = { player.isPlaying },
             )

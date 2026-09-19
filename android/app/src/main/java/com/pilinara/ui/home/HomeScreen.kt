@@ -1,14 +1,23 @@
 package com.pilinara.ui.home
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.pilinara.AppContainer
@@ -143,14 +153,31 @@ private fun PagedFeed(
     }
 }
 
-/** 「今日推荐」：Rust 核心根据观看历史给候选流打分排序。 */
+private data class TodayUpUi(val mid: Long, val name: String)
+
+private data class TodayPlanUi(
+    val ups: List<TodayUpUi>,
+    val queue: List<BiliVideo>,
+    val explanation: Map<String, String>,
+)
+
+/**
+ * 「今日推荐单」：bilipai 同款卡片——模式切换（今晚轻松看/深度学习看）、UP 主榜、
+ * 视频队列（带推荐理由），点开自动从队列移除，刷新换一批。
+ * 打分/排序/解释全部由 Rust 核心（core/src/today_watch.rs）完成。
+ */
 @Composable
 private fun TodayFeed(container: AppContainer, onOpen: (BiliVideo) -> Unit) {
-    val videos = remember { mutableStateListOf<BiliVideo>() }
+    var mode by remember { mutableStateOf("relax") }
+    var refreshKey by remember { mutableIntStateOf(0) }
+    var collapsed by remember { mutableStateOf(false) }
+    var plan by remember { mutableStateOf<TodayPlanUi?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var upDialog by remember { mutableStateOf<TodayUpUi?>(null) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(mode, refreshKey) {
+        loading = true
         runSuspendCatching {
             withContext(Dispatchers.IO) {
                 val history = container.api.history(50)
@@ -191,10 +218,19 @@ private fun TodayFeed(container: AppContainer, onOpen: (BiliVideo) -> Unit) {
                         }
                     }
                 }.toString()
-                val plan = NativeCore
-                    .buildTodayWatchPlan(historyJson, candidateJson, "relax", "balanced")
+                val root = NativeCore
+                    .buildTodayWatchPlan(historyJson, candidateJson, mode, "balanced")
                     .let { Json.parseToJsonElement(it).jsonObject }
-                plan["video_queue"]!!.jsonArray.mapNotNull { el ->
+                val ups = root["up_ranks"]?.jsonArray.orEmpty().mapNotNull { el ->
+                    runCatching {
+                        val o = el.jsonObject
+                        TodayUpUi(
+                            mid = o["mid"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L,
+                            name = o["name"]?.jsonPrimitive?.content.orEmpty(),
+                        )
+                    }.getOrNull()
+                }
+                val queue = root["video_queue"]?.jsonArray.orEmpty().mapNotNull { el ->
                     runCatching {
                         val o = el.jsonObject
                         BiliVideo(
@@ -204,23 +240,195 @@ private fun TodayFeed(container: AppContainer, onOpen: (BiliVideo) -> Unit) {
                             title = o["title"]?.jsonPrimitive?.content.orEmpty(),
                             pic = o["cover"]?.jsonPrimitive?.content.orEmpty(),
                             duration = o["duration"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L,
+                            tname = o["tname"]?.jsonPrimitive?.content.orEmpty(),
                             owner = BiliOwner(
                                 name = o["owner_name"]?.jsonPrimitive?.content.orEmpty(),
                             ),
                         )
                     }.getOrNull()
                 }
+                val explanation = root["explanation_by_bvid"]?.jsonObject.orEmpty()
+                    .mapValues { it.value.jsonPrimitive.content }
+                TodayPlanUi(ups, queue, explanation)
             }
-        }.onSuccess { videos.addAll(it) }
+        }.onSuccess { plan = it; error = null }
             .onFailure { error = it.message }
         loading = false
     }
 
-    when {
-        loading -> LoadingBox()
-        videos.isEmpty() -> ErrorBox("${error ?: "暂无推荐"}（登录并产生观看历史后更准）")
-        else -> VideoGrid(videos = videos, onItemClick = onOpen)
+    val current = plan
+    androidx.compose.material3.Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = androidx.compose.material3.MaterialTheme.colorScheme.background,
+    ) {
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // 卡片头：今日推荐单 + 刷新 + 收起/展开。
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "今日推荐单",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { refreshKey++ }) {
+                    Text("刷新", color = MaterialTheme.colorScheme.primary)
+                }
+                TextButton(onClick = { collapsed = !collapsed }) {
+                    Text(if (collapsed) "展开" else "收起", color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
+            if (!collapsed) {
+                // 模式切换（今晚轻松看 / 深度学习看）。
+                Surface(
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                ) {
+                    Row(Modifier.padding(4.dp)) {
+                        listOf("relax" to "今晚轻松看", "learn" to "深度学习看").forEach { (id, label) ->
+                            val selected = mode == id
+                            Surface(
+                                onClick = { mode = id },
+                                shape = MaterialTheme.shapes.extraLarge,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.surfaceContainerHighest
+                                } else {
+                                    androidx.compose.ui.graphics.Color.Transparent
+                                },
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+                Text(
+                    "点开视频后会自动从推荐单移除；想换一批可点右上角「刷新」。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "当前按你的观看习惯与「${if (mode == "learn") "深度学习" else "轻松"}」偏好生成。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                when {
+                    loading -> LoadingBox()
+                    error != null && current == null -> ErrorBox("加载失败：$error")
+                    current == null || (current.queue.isEmpty() && current.ups.isEmpty()) ->
+                        ErrorBox("暂无推荐（登录并产生观看历史后更准）")
+                    else -> {
+                        // UP 主榜。
+                        if (current.ups.isNotEmpty()) {
+                            Text("UP主榜", style = MaterialTheme.typography.titleMedium)
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                current.ups.forEachIndexed { i, up ->
+                                    TextButton(onClick = { upDialog = up }) {
+                                        Text(
+                                            "${i + 1}. ${up.name}",
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        // 视频队列。
+                        if (current.queue.isNotEmpty()) {
+                            Text("视频队列", style = MaterialTheme.typography.titleMedium)
+                            current.queue.forEachIndexed { i, v ->
+                                Surface(
+                                    onClick = {
+                                        plan = current.copy(queue = current.queue - v)
+                                        onOpen(v)
+                                    },
+                                    shape = MaterialTheme.shapes.medium,
+                                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Column(Modifier.padding(12.dp)) {
+                                        Text(
+                                            "${i + 1}. ${v.title}",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            maxLines = 2,
+                                        )
+                                        Text(
+                                            v.owner.name,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        current.explanation[v.bvid]?.let { why ->
+                                            Text(
+                                                why,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
+
+    // UP 主榜点击：拉该 UP 的近期视频供选择。
+    upDialog?.let { up ->
+        UpVideosDialog(container = container, up = up, onOpen = { v ->
+            upDialog = null
+            onOpen(v)
+        }, onDismiss = { upDialog = null })
+    }
+}
+
+@Composable
+private fun UpVideosDialog(
+    container: AppContainer,
+    up: TodayUpUi,
+    onOpen: (BiliVideo) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var videos by remember(up) { mutableStateOf<List<BiliVideo>?>(null) }
+    LaunchedEffect(up) {
+        videos = runSuspendCatching {
+            withContext(Dispatchers.IO) { container.api.searchVideo(up.name) }
+        }.getOrNull().orEmpty()
+    }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(up.name) },
+        text = {
+            val list = videos
+            when {
+                list == null -> LoadingBox()
+                list.isEmpty() -> Text("暂无相关视频")
+                else -> Column(
+                    Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    list.take(10).forEach { v ->
+                        TextButton(onClick = { onOpen(v) }) {
+                            Text(v.title, maxLines = 2)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        },
+    )
 }
 
 @Composable

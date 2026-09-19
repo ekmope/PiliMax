@@ -4,7 +4,7 @@ import java.net.URI
 
 /**
  * Media3 1.11 的 MediaItem 不再支持逐条请求头；改为「URL → 请求头」表，
- * 由 PlaybackService 中的 ResolvingDataSource 在打开连接时按 URI 注入
+ * 由 PlayerEngine 中的 ResolvingDataSource 在打开连接时按 URI 注入
  * （B 站防盗链 Referer、第三方源自定义头都走这里）。
  *
  * 匹配顺序：URL 精确匹配 → 注册域名（最后两段，如 bilivideo.com）兜底。

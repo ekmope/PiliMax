@@ -85,8 +85,11 @@ fun InlinePlayer(
                 )
             }.getOrDefault(request)
         }
-        val exo = runCatching { PlayerEngine.create(context.applicationContext, container) }
-            .getOrNull() ?: return@LaunchedEffect
+        // 设置快照在协程里读（DataStore 磁盘 IO 绝不阻塞主线程）。
+        val snapshot = PlayerSettings.load(container.settings)
+        val exo = runCatching {
+            PlayerEngine.create(context.applicationContext, container, snapshot)
+        }.getOrNull() ?: return@LaunchedEffect
         exo.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying }
             override fun onPlaybackStateChanged(state: Int) {

@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+## [0.4.13] - 2026-09-19
+
+本版重构播放器内核链路，根治「点播放即闪退」。
+
+### Fixed
+- **播放闪退头号根因（主线程阻塞被系统杀进程）**：旧版在 `PlayerEngine.create` / `PlayerActivity.onCreate` 里用 `runBlocking` 同步读 DataStore，首次访问的磁盘 IO 把主线程卡死，Android 17 直接杀进程且无 Java 异常可捕获。现新增 `PlayerSettings` 不可变快照：进入播放页后先在协程里毫秒级读出快照（失败全量兜底默认值），播放页全程零主线程阻塞读取。
+- **音轨故障拖垮整个播放**：B 站 DASH 双轨合流中音轨 CDN 节点失败会让 `MergingMediaSource` 整体报错。现在播放期错误自动去音轨以纯视频重试一次（无声但能播），不再直接失败。
+- **播放失败永远转圈**：播放期错误此前只落盘不反馈，体感等同闪退；现在统一显示错误页与错误码。
+- **监听器竞态**：播放状态监听从 Handler 轮询等待播放器就绪，改为 `DisposableEffect` 直接注册/注销 `Player.Listener`，组合销毁即清理。
+- **PlayerView 工厂无效代码**：`this@PlayerScreen.playerParam()` 不存在导致画面挂载失败，改为直接绑定播放器实例并加异常兜底。
+
+### Removed
+- **死代码 `PlaybackService`**：从未被绑定使用，却与进程内播放器存在潜在冲突；连同 `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_MEDIA_PLAYBACK` 权限一并移除。
+
 ## [0.4.12] - 2026-09-19
 
 ### Changed

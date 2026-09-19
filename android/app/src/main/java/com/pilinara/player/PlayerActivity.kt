@@ -1,6 +1,5 @@
 package com.pilinara.player
 
-import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -46,6 +45,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -60,10 +60,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -75,7 +75,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 /** 播放请求：由首页/详情/源页面构造，序列化为 JSON 经 Intent 传递。 */
@@ -109,11 +108,23 @@ class PlayerActivity : ComponentActivity() {
     /** 播放初始化失败信息；非 null 时渲染全屏错误页而非崩溃。 */
     private var fatalError by mutableStateOf<String?>(null)
 
+    /** 播放器是否已就绪（设置快照读取 + ExoPlayer 构建完成）。 */
+    private var ready by mutableStateOf(false)
+
+    /** 是否走外部内核界面（设置快照读取完成后决定）。 */
+    private var useExternal by mutableStateOf(false)
+
+    /** 音轨兜底是否已用过：B 站 DASH 双轨合流中音轨 CDN 失败时，去音轨重试一次。 */
+    private var audioFallbackUsed = false
+
+    /** 播放偏好快照（协程中读取，播放全程不再阻塞主线程）。 */
+    private var settingsSnapshot: PlayerSettings = PlayerSettings()
+
     @UnstableApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // 全屏播放默认横屏（bilipai / 官方 App 行为）；内联播放器保持竖屏页内。
-        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val piliApp = application as PiliApplication
 
@@ -122,157 +133,123 @@ class PlayerActivity : ComponentActivity() {
             setContent { PlayerFatalError("缺少播放参数", onBack = { finish() }) }
             return
         }
+        currentRequest = request
 
-        // 外部内核分支：用户选择 VLC/MPV 且插件已安装时，直接挂载外部播放界面，
-        // 不创建 ExoPlayer；未安装或加载失败则静默回落到内置 Media3。
-        val selectedCore = runCatching {
-            kotlinx.coroutines.runBlocking {
-                com.pilinara.player.external.PlayerCoreManager.CoreId.ofSetting(
-                    piliApp.container.settings.playerCore.first(),
-                )
+        setContent {
+            val container = (application as PiliApplication).container
+            val fatal = fatalError
+            when {
+                fatal != null -> PlayerFatalError(fatal, onBack = { finish() })
+                useExternal -> {
+                    val req = currentRequest ?: return@setContent
+                    com.pilinara.player.external.ExternalPlayerScreen(
+                        container = container,
+                        coreId = com.pilinara.player.external.PlayerCoreManager.CoreId
+                            .ofSetting(settingsSnapshot.playerCore),
+                        request = req,
+                        onBack = { finish() },
+                        onFallbackMedia3 = {
+                            lifecycleScope.launch {
+                                container.settings.setPlayerCore("media3")
+                            }
+                            // 直接就地重建内置播放器，避免 recreate() 重走整条初始化链。
+                            useExternal = false
+                            ready = false
+                            lifecycleScope.launch { bootstrapMedia3(container, req) }
+                        },
+                        onBrightness = { v -> setBrightness(v) },
+                        onSetVolumeRatio = { v -> setVolume(v) },
+                    )
+                }
+                !ready -> Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color.White)
+                }
+                else -> {
+                    val req = currentRequest
+                    val p = player
+                    if (req == null || p == null) {
+                        PlayerFatalError("播放器状态异常", onBack = { finish() })
+                        return@setContent
+                    }
+                    PlayerScreenHost(
+                        container = container,
+                        request = req,
+                        player = p,
+                        settings = settingsSnapshot,
+                        loadDanmaku = { cid, window -> loadDanmaku(cid, window) },
+                        onBack = { finish() },
+                        onPip = { enterPip() },
+                        onToggleOrientation = { toggleOrientation() },
+                        onBrightness = { v -> setBrightness(v) },
+                        onVolume = { v -> setVolume(v) },
+                        currentBrightness = { currentBrightness() },
+                        pipMode = pipMode,
+                        currentQn = currentRequest?.qn ?: 0,
+                        canSwitchQuality = req.bvid.isNotEmpty(),
+                        onSwitchQuality = { qn -> switchQuality(qn) },
+                    )
+                }
             }
-        }.getOrDefault(com.pilinara.player.external.PlayerCoreManager.CoreId.MEDIA3)
-        if (selectedCore != com.pilinara.player.external.PlayerCoreManager.CoreId.MEDIA3 &&
-            piliApp.container.playerCores.isInstalled(selectedCore)
-        ) {
-            setContent {
-                com.pilinara.player.external.ExternalPlayerScreen(
-                    container = piliApp.container,
-                    coreId = selectedCore,
-                    request = request,
-                    onBack = { finish() },
-                    onFallbackMedia3 = {
-                        lifecycleScope.launch {
-                            piliApp.container.settings.setPlayerCore("media3")
-                        }
-                        recreate()
-                    },
-                    onBrightness = { v -> setBrightness(v) },
-                    onSetVolumeRatio = { v -> setVolume(v) },
-                )
-            }
-            return
         }
 
-        // 进程内直接构建 ExoPlayer（bv / bilipai 式）：没有跨组件绑定，
-        // 构造失败只会落到错误页而不是整个进程闪退。
+        // 全部初始化移入协程：设置快照读取（DataStore 磁盘 IO）绝不在主线程同步等待。
+        // 这是 v0.4.12 之前「点播放即闪退」的头号根因（runBlocking 卡主线程触发系统杀进程）。
+        lifecycleScope.launch {
+            val snapshot = PlayerSettings.load(piliApp.container.settings)
+            settingsSnapshot = snapshot
+
+            // 外部内核分支：用户选择 VLC/MPV 且插件已安装时，直接挂载外部播放界面，
+            // 不创建 ExoPlayer；未安装或加载失败则静默回落到内置 Media3。
+            val selectedCore = com.pilinara.player.external.PlayerCoreManager.CoreId
+                .ofSetting(snapshot.playerCore)
+            if (selectedCore != com.pilinara.player.external.PlayerCoreManager.CoreId.MEDIA3 &&
+                piliApp.container.playerCores.isInstalled(selectedCore)
+            ) {
+                useExternal = true
+                return@launch
+            }
+
+            bootstrapMedia3(piliApp.container, request)
+        }
+    }
+
+    /** 构建进程内 ExoPlayer 并开播。任何一步失败都落到错误页而不是闪退。 */
+    @UnstableApi
+    private fun bootstrapMedia3(container: com.pilinara.AppContainer, request: PlayRequest) {
         val exo = runCatching {
-            PlayerEngine.create(applicationContext, piliApp.container)
+            PlayerEngine.create(applicationContext, container, settingsSnapshot)
         }.getOrElse {
             com.pilinara.CrashLog.write(applicationContext, Thread.currentThread(), it)
-            setContent {
-                PlayerFatalError(
-                    "播放器初始化失败：${it.message ?: it.javaClass.simpleName}",
-                    onBack = { finish() },
-                )
-            }
+            fatalError = "播放器初始化失败：${it.message ?: it.javaClass.simpleName}"
             return
         }
         player = exo
-        currentRequest = request
         // 播放期错误（解码/网络/源）走 ExoPlayer 回调而非崩溃：落盘以便定位，界面给出错误页。
         exo.addListener(object : Player.Listener {
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            override fun onPlayerError(error: PlaybackException) {
                 com.pilinara.CrashLog.write(applicationContext, Thread.currentThread(), error)
+                val req = currentRequest
+                // 双轨合流兜底：音轨 CDN 节点故障会拖垮整个 MergingMediaSource。
+                // 去掉音轨以纯视频重试一次（无声但能播），而不是直接报错。
+                if (!audioFallbackUsed && req != null && !req.audioUrl.isNullOrEmpty()) {
+                    audioFallbackUsed = true
+                    val pos = exo.currentPosition.takeIf { it > 0 } ?: req.positionMs
+                    val stripped = req.copy(audioUrl = null)
+                    currentRequest = stripped
+                    runCatching { prepareAndPlay(exo, stripped, pos) }
+                        .onFailure { fatalError = "播放出错：${error.errorCodeName}" }
+                    return
+                }
                 // 之前只落盘不反馈：用户看到的是永远转圈的缓冲页，体感等同闪退。
                 fatalError = "播放出错：${error.errorCodeName}"
             }
         })
-        runCatching { prepareAndPlay(exo, request) }
+        runCatching { prepareAndPlay(exo, request, request.positionMs) }
             .onFailure {
                 com.pilinara.CrashLog.write(applicationContext, Thread.currentThread(), it)
                 fatalError = "无法播放：${it.message ?: it.javaClass.simpleName}"
             }
-
-        setContent {
-            val container = (application as PiliApplication).container
-
-            val fatal = fatalError
-            if (fatal != null) {
-                PlayerFatalError(fatal, onBack = { finish() })
-                return@setContent
-            }
-
-            val audioOnlyDefault by container.settings.audioOnly.collectAsState(false)
-            val danmakuEnabled by container.settings.danmakuEnabled.collectAsState(true)
-            val mergeWindow by container.settings.danmakuMergeWindow.collectAsState(10_000L)
-            val danmakuOpacity by container.settings.danmakuOpacity.collectAsState(0.82f)
-            val danmakuScale by container.settings.danmakuScale.collectAsState(1.0f)
-            val defaultSpeed by container.settings.defaultSpeed.collectAsState(1.0f)
-
-            var danmakuList by remember { mutableStateOf<List<Danmaku>>(emptyList()) }
-            var danmakuVisible by remember { mutableStateOf(true) }
-            var audioOnly by remember { mutableStateOf(audioOnlyDefault) }
-
-            LaunchedEffect(request.cid, danmakuEnabled) {
-                if (request.cid > 0 && danmakuEnabled) {
-                    danmakuList = loadDanmaku(request.cid, mergeWindow)
-                } else {
-                    danmakuList = emptyList()
-                }
-            }
-
-            // 空降跳过（BilibiliSponsorBlock 社区数据）：播放到广告/恰饭片段自动 seek 到段尾。
-            val sponsorSkip by container.settings.sponsorSkip.collectAsState(true)
-            var segments by remember { mutableStateOf<List<com.pilinara.api.SponsorSegment>>(emptyList()) }
-            val skippedIds = remember { mutableSetOf<String>() }
-            LaunchedEffect(request.bvid, request.cid, sponsorSkip) {
-                skippedIds.clear()
-                segments = if (sponsorSkip && request.bvid.isNotEmpty()) {
-                    withContext(Dispatchers.IO) {
-                        container.api.sponsorSegments(request.bvid, request.cid)
-                    }
-                } else {
-                    emptyList()
-                }
-            }
-            LaunchedEffect(segments) {
-                if (segments.isEmpty()) return@LaunchedEffect
-                while (true) {
-                    delay(500)
-                    val p = player ?: continue
-                    if (!p.isPlaying) continue
-                    val posSec = p.currentPosition / 1000f
-                    val seg = segments.firstOrNull {
-                        posSec >= it.startTime && posSec < it.endTime - 0.5f
-                    }
-                    if (seg != null && seg.uuid !in skippedIds) {
-                        skippedIds.add(seg.uuid)
-                        p.seekTo((seg.endTime * 1000).toLong())
-                    }
-                }
-            }
-
-            PlayerScreen(
-                title = request.title,
-                playerProvider = { player },
-                onBack = { finish() },
-                onPip = { enterPip() },
-                onToggleOrientation = { toggleOrientation() },
-                defaultSpeed = defaultSpeed,
-                danmakuEnabled = danmakuEnabled,
-                danmakuVisible = danmakuVisible,
-                onToggleDanmaku = { danmakuVisible = !danmakuVisible },
-                danmakuList = danmakuList,
-                danmakuOpacity = danmakuOpacity,
-                danmakuScale = danmakuScale,
-                audioOnly = audioOnly,
-                onToggleAudioOnly = { enable ->
-                    audioOnly = enable
-                    val p = player ?: return@PlayerScreen
-                    p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
-                        .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, enable)
-                        .build()
-                },
-                onBrightness = { v -> setBrightness(v) },
-                onVolume = { v -> setVolume(v) },
-                currentBrightness = { currentBrightness() },
-                pipMode = pipMode,
-                currentQn = currentRequest?.qn ?: 0,
-                canSwitchQuality = request.bvid.isNotEmpty(),
-                onSwitchQuality = { qn -> switchQuality(qn) },
-            )
-        }
+        ready = true
     }
 
     private fun currentBrightness(): Float {
@@ -285,12 +262,26 @@ class PlayerActivity : ComponentActivity() {
             json.decodeFromString(PlayRequest.serializer(), it)
         }
 
-    private fun prepareAndPlay(c: ExoPlayer, request: PlayRequest, positionMs: Long = request.positionMs) {
+    /** 用快照里的默认倍速/只听偏好开播——本函数内没有任何阻塞读取。 */
+    private fun prepareAndPlay(c: ExoPlayer, request: PlayRequest, positionMs: Long) {
+        PlaybackHeaderStore.set(listOfNotNull(request.videoUrl, request.audioUrl), request.headers)
+        c.setMediaItem(buildMediaItem(request), positionMs)
+        c.playWhenReady = true
+        if (settingsSnapshot.defaultSpeed != 1f) c.setPlaybackSpeed(settingsSnapshot.defaultSpeed)
+        if (settingsSnapshot.audioOnly) {
+            c.trackSelectionParameters = c.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, true)
+                .build()
+        }
+        c.prepare()
+    }
+
+    private fun buildMediaItem(request: PlayRequest): MediaItem {
         val extras = Bundle().apply {
             putString(PiliMediaSourceFactory.EXTRA_STREAM_TYPE, request.streamType)
             request.audioUrl?.let { putString(PiliMediaSourceFactory.EXTRA_AUDIO_URL, it) }
         }
-        val item = MediaItem.Builder()
+        return MediaItem.Builder()
             .setMediaId(request.videoUrl)
             .setUri(request.videoUrl)
             .setMediaMetadata(
@@ -301,27 +292,6 @@ class PlayerActivity : ComponentActivity() {
                     .build(),
             )
             .build()
-        // 请求头经 PlaybackHeaderStore + ResolvingDataSource 按 URL 注入。
-        PlaybackHeaderStore.set(listOfNotNull(request.videoUrl, request.audioUrl), request.headers)
-        c.setMediaItem(item, positionMs)
-        c.playWhenReady = true
-        // 默认倍速 / 只听模式在 prepare 前设置（DataStore 读取是毫秒级本地 IO）。
-        val app = application as PiliApplication
-        val defaultSpeed = runCatching {
-            kotlinx.coroutines.runBlocking {
-                app.container.settings.defaultSpeed.first()
-            }
-        }.getOrDefault(1f)
-        if (defaultSpeed != 1f) c.setPlaybackSpeed(defaultSpeed)
-        val audioOnly = runCatching {
-            kotlinx.coroutines.runBlocking { app.container.settings.audioOnly.first() }
-        }.getOrDefault(false)
-        if (audioOnly) {
-            c.trackSelectionParameters = c.trackSelectionParameters.buildUpon()
-                .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, true)
-                .build()
-        }
-        c.prepare()
     }
 
     private suspend fun loadDanmaku(cid: Long, mergeWindowMs: Long): List<Danmaku> = try {
@@ -378,6 +348,7 @@ class PlayerActivity : ComponentActivity() {
                 }
             }
             result.onSuccess { newReq ->
+                audioFallbackUsed = false
                 currentRequest = newReq
                 player?.let { prepareAndPlay(it, newReq, pos) }
             }.onFailure {
@@ -396,7 +367,7 @@ class PlayerActivity : ComponentActivity() {
             )
         ) {
             runCatching {
-                enterPictureInPictureMode(PictureInPictureParams.Builder().build())
+                enterPictureInPictureMode(android.app.PictureInPictureParams.Builder().build())
             }
         }
     }
@@ -440,8 +411,9 @@ class PlayerActivity : ComponentActivity() {
     private var pipMode: Boolean by mutableStateOf(false)
 
     override fun onDestroy() {
-        player?.release()
+        runCatching { player?.release() }
         player = null
+        PlaybackHeaderStore.clear()
         super.onDestroy()
     }
 
@@ -468,12 +440,12 @@ private object NativeCoreDanmaku {
 
     fun parseSegSo(b64: String, mergeWindowMs: Long): List<Danmaku> {
         val s = com.pilinara.core.NativeCore.parseDanmakuSegSo(b64, mergeWindowMs)
-        return json.decodeFromString(ListSerializer(Danmaku.serializer()), s)
+        return json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(Danmaku.serializer()), s)
     }
 
     fun parseXml(xml: String, mergeWindowMs: Long): List<Danmaku> {
         val s = com.pilinara.core.NativeCore.parseDanmakuXml(xml, mergeWindowMs)
-        return json.decodeFromString(ListSerializer(Danmaku.serializer()), s)
+        return json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(Danmaku.serializer()), s)
     }
 }
 
@@ -511,12 +483,113 @@ private fun PlayerFatalError(message: String, onBack: () -> Unit) {
     }
 }
 
+/**
+ * 播放页宿主：弹幕/空降跳过等副作用 + 控制层。
+ * 播放器在这里一定非空（ready=true 才会组合到这里）。
+ */
+@Composable
+private fun PlayerScreenHost(
+    container: com.pilinara.AppContainer,
+    request: PlayRequest,
+    player: ExoPlayer,
+    settings: PlayerSettings,
+    loadDanmaku: suspend (Long, Long) -> List<Danmaku>,
+    onBack: () -> Unit,
+    onPip: () -> Unit,
+    onToggleOrientation: () -> Unit,
+    onBrightness: (Float) -> Unit,
+    onVolume: (Float) -> Unit,
+    currentBrightness: () -> Float,
+    pipMode: Boolean,
+    currentQn: Int,
+    canSwitchQuality: Boolean,
+    onSwitchQuality: (Int) -> Unit,
+) {
+    val audioOnlyDefault = settings.audioOnly
+    val danmakuEnabled by container.settings.danmakuEnabled.collectAsState(true)
+    val mergeWindow by container.settings.danmakuMergeWindow.collectAsState(10_000L)
+    val danmakuOpacity by container.settings.danmakuOpacity.collectAsState(0.82f)
+    val danmakuScale by container.settings.danmakuScale.collectAsState(1.0f)
+
+    var danmakuList by remember { mutableStateOf<List<Danmaku>>(emptyList()) }
+    var danmakuVisible by remember { mutableStateOf(true) }
+    var audioOnly by remember { mutableStateOf(audioOnlyDefault) }
+
+    LaunchedEffect(request.cid, danmakuEnabled) {
+        danmakuList = if (request.cid > 0 && danmakuEnabled) {
+            loadDanmaku(request.cid, mergeWindow)
+        } else {
+            emptyList()
+        }
+    }
+
+    // 空降跳过（BilibiliSponsorBlock 社区数据）：播放到广告/恰饭片段自动 seek 到段尾。
+    val sponsorSkip by container.settings.sponsorSkip.collectAsState(true)
+    var segments by remember { mutableStateOf<List<com.pilinara.api.SponsorSegment>>(emptyList()) }
+    val skippedIds = remember { mutableSetOf<String>() }
+    LaunchedEffect(request.bvid, request.cid, sponsorSkip) {
+        skippedIds.clear()
+        segments = if (sponsorSkip && request.bvid.isNotEmpty()) {
+            withContext(Dispatchers.IO) {
+                runCatching { container.api.sponsorSegments(request.bvid, request.cid) }
+                    .getOrDefault(emptyList())
+            }
+        } else {
+            emptyList()
+        }
+    }
+    LaunchedEffect(segments) {
+        if (segments.isEmpty()) return@LaunchedEffect
+        while (true) {
+            delay(500)
+            if (!player.isPlaying) continue
+            val posSec = player.currentPosition / 1000f
+            val seg = segments.firstOrNull {
+                posSec >= it.startTime && posSec < it.endTime - 0.5f
+            }
+            if (seg != null && seg.uuid !in skippedIds) {
+                skippedIds.add(seg.uuid)
+                player.seekTo((seg.endTime * 1000).toLong())
+            }
+        }
+    }
+
+    PlayerScreen(
+        title = request.title,
+        player = player,
+        onBack = onBack,
+        onPip = onPip,
+        onToggleOrientation = onToggleOrientation,
+        defaultSpeed = settings.defaultSpeed,
+        danmakuEnabled = danmakuEnabled,
+        danmakuVisible = danmakuVisible,
+        onToggleDanmaku = { danmakuVisible = !danmakuVisible },
+        danmakuList = danmakuList,
+        danmakuOpacity = danmakuOpacity,
+        danmakuScale = danmakuScale,
+        audioOnly = audioOnly,
+        onToggleAudioOnly = { enable ->
+            audioOnly = enable
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, enable)
+                .build()
+        },
+        onBrightness = onBrightness,
+        onVolume = onVolume,
+        currentBrightness = currentBrightness,
+        pipMode = pipMode,
+        currentQn = currentQn,
+        canSwitchQuality = canSwitchQuality,
+        onSwitchQuality = onSwitchQuality,
+    )
+}
+
 @UnstableApi
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 private fun PlayerScreen(
     title: String,
-    playerProvider: () -> Player?,
+    player: Player,
     onBack: () -> Unit,
     onPip: () -> Unit,
     onToggleOrientation: () -> Unit,
@@ -562,32 +635,36 @@ private fun PlayerScreen(
 
     // 只听模式开关（含「默认只听」设置）：播放器就绪后应用一次。
     LaunchedEffect(audioOnly) {
-        var c = playerProvider()
-        while (c == null) {
-            delay(100)
-            c = playerProvider()
-        }
-        c.trackSelectionParameters = c.trackSelectionParameters.buildUpon()
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, audioOnly)
             .build()
     }
 
-    // 轮询进度。
+    // 轮询进度（轻量：500ms 一次，仅读内存状态）。
     LaunchedEffect(Unit) {
         while (true) {
-            val c = playerProvider()
-            if (c != null) {
-                position = c.currentPosition
-                if (c.duration > 0) duration = c.duration
-                isBuffering = c.playbackState == Player.STATE_BUFFERING
-            }
+            position = player.currentPosition
+            if (player.duration > 0) duration = player.duration
+            isBuffering = player.playbackState == Player.STATE_BUFFERING
             delay(500)
         }
     }
 
-    // 播放状态监听。
-    DisposableListener(playerProvider) { c ->
-        isPlaying = c.isPlaying
+    // 播放状态监听：直接注册/注销，不再用 Handler 轮询等待播放器就绪。
+    DisposableEffect(player) {
+        val l = object : Player.Listener {
+            override fun onIsPlayingChanged(playing: Boolean) {
+                isPlaying = playing
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                isBuffering = playbackState == Player.STATE_BUFFERING
+                if (player.duration > 0) duration = player.duration
+            }
+        }
+        player.addListener(l)
+        isPlaying = player.isPlaying
+        onDispose { player.removeListener(l) }
     }
 
     Box(
@@ -598,27 +675,26 @@ private fun PlayerScreen(
                 detectTapGestures(
                     onTap = { controlsVisible = !controlsVisible },
                     onDoubleTap = { offset ->
-                        val c = playerProvider() ?: return@detectTapGestures
                         val delta = if (offset.x < size.width / 3f) -10_000L else 10_000L
-                        c.seekTo((c.currentPosition + delta).coerceAtLeast(0L))
+                        player.seekTo((player.currentPosition + delta).coerceAtLeast(0L))
                         gestureHint = if (delta < 0) "快退 10s" else "快进 10s"
                     },
                     onLongPress = {
-                        playerProvider()?.setPlaybackSpeed(2f)
+                        player.setPlaybackSpeed(2f)
                         gestureHint = "2 倍速"
                     },
                     onPress = {
                         awaitRelease()
-                        playerProvider()?.setPlaybackSpeed(speed)
+                        player.setPlaybackSpeed(speed)
                         gestureHint = null
                     },
                 )
             }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
-                    onDragStart = { scrubTarget = playerProvider()?.currentPosition ?: 0L },
+                    onDragStart = { scrubTarget = player.currentPosition },
                     onDragEnd = {
-                        scrubTarget?.let { playerProvider()?.seekTo(it) }
+                        scrubTarget?.let { player.seekTo(it) }
                         scrubTarget = null
                     },
                     onDragCancel = { scrubTarget = null },
@@ -659,9 +735,10 @@ private fun PlayerScreen(
                 // PlayerView 在组合期构建，onCreate 的守卫抓不到这里的异常；
                 // 失败时退化为空 View 也不能让整个播放页崩溃。
                 runCatching {
+                    val p = player
                     PlayerView(ctx).apply {
                         useController = false
-                        playerProvider()?.let { player = it }
+                        this.player = p
                     }
                 }.getOrElse {
                     com.pilinara.CrashLog.write(
@@ -671,8 +748,8 @@ private fun PlayerScreen(
                 }
             },
             update = { view ->
-                if (view is PlayerView && view.player !== playerProvider()) {
-                    runCatching { view.player = playerProvider() }
+                if (view is PlayerView && view.player !== player) {
+                    runCatching { view.player = player }
                 }
             },
         )
@@ -684,8 +761,8 @@ private fun PlayerScreen(
                 enabled = danmakuEnabled && danmakuVisible,
                 opacity = danmakuOpacity,
                 scale = danmakuScale,
-                positionProvider = { scrubTarget ?: playerProvider()?.currentPosition ?: 0L },
-                isPlayingProvider = { playerProvider()?.isPlaying == true },
+                positionProvider = { scrubTarget ?: player.currentPosition },
+                isPlayingProvider = { player.isPlaying },
             )
         }
 
@@ -787,15 +864,13 @@ private fun PlayerScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(onClick = {
-                        val c = playerProvider() ?: return@IconButton
-                        c.seekTo((c.currentPosition - 10_000L).coerceAtLeast(0L))
+                        player.seekTo((player.currentPosition - 10_000L).coerceAtLeast(0L))
                     }) {
                         Icon(Icons.Filled.RotateLeft, contentDescription = "快退", tint = Color.White, modifier = Modifier.size(40.dp))
                     }
                     IconButton(
                         onClick = {
-                            val c = playerProvider() ?: return@IconButton
-                            if (c.isPlaying) c.pause() else c.play()
+                            if (player.isPlaying) player.pause() else player.play()
                         },
                         modifier = Modifier.padding(horizontal = 32.dp),
                     ) {
@@ -807,8 +882,7 @@ private fun PlayerScreen(
                         )
                     }
                     IconButton(onClick = {
-                        val c = playerProvider() ?: return@IconButton
-                        c.seekTo(c.currentPosition + 10_000L)
+                        player.seekTo(player.currentPosition + 10_000L)
                     }) {
                         Icon(Icons.Filled.RotateRight, contentDescription = "快进", tint = Color.White, modifier = Modifier.size(40.dp))
                     }
@@ -822,7 +896,7 @@ private fun PlayerScreen(
                                     text = { Text(if (sp == 1f) "倍速：正常" else "倍速：${sp}x") },
                                     onClick = {
                                         speed = sp
-                                        playerProvider()?.setPlaybackSpeed(sp)
+                                        player.setPlaybackSpeed(sp)
                                         speedMenu = false
                                     },
                                 )
@@ -847,7 +921,7 @@ private fun PlayerScreen(
                             .coerceIn(0L, duration.coerceAtLeast(1L)).toFloat(),
                         onValueChange = { scrubTarget = it.toLong() },
                         onValueChangeFinished = {
-                            scrubTarget?.let { playerProvider()?.seekTo(it) }
+                            scrubTarget?.let { player.seekTo(it) }
                             scrubTarget = null
                         },
                         valueRange = 0f..(duration.coerceAtLeast(1L)).toFloat(),
@@ -860,46 +934,6 @@ private fun PlayerScreen(
                     )
                 }
             }
-        }
-    }
-}
-
-/** 绑定 Player.Listener 到控制器（控制器是异步就绪的）。 */
-@Composable
-private fun DisposableListener(
-    playerProvider: () -> Player?,
-    onState: (Player) -> Unit,
-) {
-    androidx.compose.runtime.DisposableEffect(Unit) {
-        val handler = android.os.Handler(android.os.Looper.getMainLooper())
-        var listener: Player.Listener? = null
-        var attached: Player? = null
-        val poll = object : Runnable {
-            override fun run() {
-                val c = playerProvider()
-                if (c != null && attached !== c) {
-                    attached = c
-                    val l = object : Player.Listener {
-                        override fun onIsPlayingChanged(isPlaying: Boolean) {
-                            onState(c)
-                        }
-
-                        override fun onPlaybackStateChanged(playbackState: Int) {
-                            onState(c)
-                        }
-                    }
-                    listener = l
-                    c.addListener(l)
-                    onState(c)
-                } else {
-                    handler.postDelayed(this, 250)
-                }
-            }
-        }
-        handler.post(poll)
-        onDispose {
-            handler.removeCallbacks(poll)
-            attached?.let { p -> listener?.let { p.removeListener(it) } }
         }
     }
 }

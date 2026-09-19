@@ -35,8 +35,8 @@ android {
         applicationId = "com.pilinara"
         minSdk = 26
         targetSdk = 37
-        versionCode = 18
-        versionName = "0.4.12"
+        versionCode = 19
+        versionName = "0.4.13"
 
         // 仅在 ARMv8（arm64-v8a）架构上运行：面向第五代骁龙 8 至尊版（Oryon / Armv9.2）。
         ndk {

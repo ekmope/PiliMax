@@ -810,7 +810,16 @@ class ChatItem extends StatelessWidget {
       );
     }
     return GestureDetector(
-      onTap: () => PageUtils.imageView(imgList: [SourceModel(url: url)]),
+      onTap: () => PageUtils.imageView(
+        imgList: [
+          SourceModel(
+            url: url,
+            width: imgWidth.toInt(),
+            height: imgHeight.toInt(),
+            isLongPic: ratio > Style.imgMaxRatio,
+          ),
+        ],
+      ),
       child: child,
     );
   }

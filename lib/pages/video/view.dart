@@ -1161,9 +1161,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       return;
     }
 
-    // A native first-frame signal or post-active playback advance only says
-    // that rendering can begin. Keep the cover until the texture ID, decoded
-    // size and Rect are stable for two consecutive Flutter frames.
+    // A native first-frame signal or post-active playback advance is enough
+    // to release the initial cover once the native surface is usable. Later
+    // geometry changes remain guarded by the player surface gate.
     if (!await _waitForStableInitialVideoSurface(
       generation: generation,
       session: session,
@@ -1256,25 +1256,13 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       // Mobile fullscreen can recreate or rebind its output surface during
       // rotation. Desktop native outputs keep the same source/texture and are
       // fully covered by the stable-layout and stable-surface gates.
-      if (PlatformUtils.isMobile) {
-        if (!await _waitForCurrentPlaybackAdvance(
-          generation: generation,
-          session: session,
-          controller: currentController,
-          videoController: postFullscreenVideoController,
-          sourceGeneration: sourceGeneration,
-          minimumAdvanceEvents: Platform.isAndroid ? 2 : 1,
-        )) {
-          return;
-        }
-      }
       if (!await _waitForStableInitialVideoSurface(
         generation: generation,
         session: session,
         controller: currentController,
         videoController: postFullscreenVideoController,
         sourceGeneration: sourceGeneration,
-        stableFrameCount: 3,
+        stableFrameCount: 1,
       )) {
         return;
       }
@@ -1305,7 +1293,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     required PlPlayerController controller,
     required VideoController videoController,
     required int sourceGeneration,
-    int stableFrameCount = 2,
+    int stableFrameCount = 1,
   }) async {
     final result = Completer<bool>();
     var stopped = false;

@@ -621,6 +621,10 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
     final decodedHeight = _imageInfo?.image.height.toDouble() ?? 0.0;
     final sourceWidth = widget.sourceWidth?.toDouble() ?? 0.0;
     final sourceHeight = widget.sourceHeight?.toDouble() ?? 0.0;
+    // Keep the layout ratio tied to the API's original dimensions. Platform
+    // decoders may cap an oversized texture's height; using that capped
+    // decoded size would make a long image appear vertically compressed after
+    // the full frame replaces its placeholder.
     final hasSourceDimensions = sourceWidth > 0 && sourceHeight > 0;
     final imgWidth = hasSourceDimensions ? sourceWidth : decodedWidth;
     final imgHeight = hasSourceDimensions ? sourceHeight : decodedHeight;
@@ -640,10 +644,8 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
           imgHeight > widget.containerSize.height;
       if (calculatedLongPic) {
         final compatWidth = math.min(650.0, widget.containerSize.width);
-        // The long-image child is laid out at the viewport width in the
-        // OverflowBox below, so derive the initial scale from that same base
-        // width. This keeps the capped initial width (650 px) consistent with
-        // Viewer._imageSize and avoids oversizing the image on first frame.
+        // Keep the capped initial width consistent with the long-image base
+        // computed by Viewer without creating a giant render box.
         minScale = compatWidth / widget.containerSize.width;
         maxScale = math.max(widget.maxScale, minScale * 3);
       }
@@ -653,39 +655,6 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
       calculatedLongPic = false;
     }
     final isLongPic = widget.isLongPic ?? calculatedLongPic;
-    final rawImage = RawImage(
-      image: _imageInfo?.image,
-      // Never stretch decoded pixels. Long images use an explicit display
-      // size below, but contain remains the final guard when dimensions are
-      // unavailable during the first frame.
-      fit: BoxFit.contain,
-      alignment: isLongPic ? Alignment.topCenter : Alignment.center,
-    );
-    final Widget imageChild;
-    if (isLongPic &&
-        widget.containerSize.width.isFinite &&
-        widget.containerSize.width > 0 &&
-        imgWidth > 0 &&
-        imgHeight > 0) {
-      final displayWidth = widget.containerSize.width;
-      final displayHeight = displayWidth * imgHeight / imgWidth;
-      imageChild = OverflowBox(
-        alignment: Alignment.topCenter,
-        minWidth: displayWidth,
-        maxWidth: displayWidth,
-        minHeight: displayHeight,
-        maxHeight: displayHeight,
-        child: RawImage(
-          image: _imageInfo?.image,
-          width: displayWidth,
-          height: displayHeight,
-          fit: BoxFit.contain,
-          alignment: Alignment.topCenter,
-        ),
-      );
-    } else {
-      imageChild = rawImage;
-    }
     Widget result = Viewer(
       minScale: minScale ?? widget.minScale,
       maxScale: maxScale ?? widget.maxScale,
@@ -698,7 +667,10 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
       doubleTapGestureRecognizer: widget.doubleTapGestureRecognizer,
       horizontalDragGestureRecognizer: widget.horizontalDragGestureRecognizer,
       onChangePage: widget.onChangePage,
-      child: imageChild,
+      child: RawImage(
+        image: _imageInfo?.image,
+        alignment: isLongPic ? Alignment.topCenter : Alignment.center,
+      ),
     );
 
     if (!widget.excludeFromSemantics) {

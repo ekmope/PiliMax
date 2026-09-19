@@ -3100,7 +3100,8 @@ class _StableVideoSurfaceState extends State<_StableVideoSurface> {
       _previousTextureId = textureId;
       _previousWidth = width;
       _previousHeight = height;
-      if (_stableFrames >= _stableFrameCount && !_surfaceReady) {
+      final requiredStableFrames = _hasShownSurface ? _stableFrameCount : 1;
+      if (_stableFrames >= requiredStableFrames && !_surfaceReady) {
         _hasShownSurface = true;
         setState(() => _surfaceReady = true);
         _stopProbeTimer();

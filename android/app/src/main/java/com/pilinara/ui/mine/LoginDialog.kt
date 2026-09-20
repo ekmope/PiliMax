@@ -56,8 +56,18 @@ fun LoginDialog(
             }.getOrNull() ?: continue
             when (code) {
                 0 -> {
-                    status = "登录成功"
-                    onLoggedIn()
+                    // 扫码成功：passport 的 Set-Cookie（SESSDATA/bili_jct 等）已由
+                    // PersistentCookieJar 落地；这里强制复核一次，避免“已登录但仍被风控”。
+                    status = "登录成功，正在确认…"
+                    val nav = runCatching {
+                        kotlinx.coroutines.withContext(Dispatchers.IO) { container.api.nav() }
+                    }.getOrNull()
+                    if (nav?.isLogin == true) {
+                        status = "登录成功"
+                        onLoggedIn()
+                    } else {
+                        status = "登录态未生效，请重新扫码"
+                    }
                     return@LaunchedEffect
                 }
                 86090 -> status = "已扫码，请在手机上确认"

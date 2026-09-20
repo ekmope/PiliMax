@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -374,7 +375,7 @@ class PlayerActivity : ComponentActivity() {
         }
     }
 
-    private var landscape = false
+    private var landscape by mutableStateOf(false)
     private fun toggleOrientation() {
         landscape = !landscape
         requestedOrientation = if (landscape) {
@@ -603,6 +604,7 @@ private fun PlayerScreenHost(
         currentQn = currentQn,
         canSwitchQuality = canSwitchQuality,
         onSwitchQuality = onSwitchQuality,
+        isLandscape = landscape,
     )
 }
 
@@ -633,6 +635,7 @@ private fun PlayerScreen(
     currentQn: Int,
     canSwitchQuality: Boolean,
     onSwitchQuality: (Int) -> Unit,
+    isLandscape: Boolean = false,
 ) {
     val context = LocalContext.current
     val audioManager = remember {
@@ -694,7 +697,8 @@ private fun PlayerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            // 竖屏：底色跟随 App 主题（视频区只占上方 16:9，不再纯黑占满）；横屏才纯黑全屏
+            .background(if (isLandscape) Color.Black else MaterialTheme.colorScheme.background)
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { controlsVisible = !controlsVisible },
@@ -754,7 +758,12 @@ private fun PlayerScreen(
     ) {
         // 视频画面。
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = if (isLandscape) { Modifier.fillMaxSize() } else {
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .align(Alignment.TopCenter)
+            },
             factory = { ctx ->
                 // PlayerView 在组合期构建，onCreate 的守卫抓不到这里的异常；
                 // 失败时退化为空 View 也不能让整个播放页崩溃。

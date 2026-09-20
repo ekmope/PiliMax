@@ -243,6 +243,118 @@ data class SearchVideo(
     }
 }
 
+// ---------- 动态 ----------
+
+@Serializable
+data class DynamicFeedData(val items: List<DynamicItem> = emptyList(), val has_more: Boolean = false)
+
+@Serializable
+data class DynamicItem(
+    /** 动态里的视频模块；非视频动态为空（转发纯文字等），上层直接剔除。 */
+    val modules: DynamicModules? = null,
+)
+
+@Serializable
+data class DynamicModules(
+    @SerialName("module_dynamic") val dynamic: DynamicModuleBody? = null,
+    @SerialName("module_author") val author: DynamicAuthor? = null,
+)
+
+@Serializable
+data class DynamicModuleBody(
+    val major: DynamicMajor? = null,
+    val desc: DynamicDesc? = null,
+)
+
+@Serializable
+data class DynamicMajor(val archive: DynamicArchive? = null)
+
+@Serializable
+data class DynamicDesc(val text: String = "")
+
+@Serializable
+data class DynamicAuthor(val name: String = "", val mid: Long = 0)
+
+/** 动态里的稿件卡片（字段与 search 类似，归一化成 [BiliVideo]）。 */
+@Serializable
+data class DynamicArchive(
+    val bvid: String = "",
+    @Serializable(with = FlexLong::class) val aid: Long = 0,
+    val title: String = "",
+    val cover: String = "",
+    val desc: String? = null,
+    val duration_text: String = "",
+    @Serializable(with = FlexLong::class) val duration: Long = 0,
+    @SerialName("pub_ts") val pubTs: Long = 0,
+    val bvid_title: String = "",
+) {
+    fun toBiliVideo(name: String = "", mid: Long = 0): BiliVideo = BiliVideo(
+        aid = aid,
+        bvid = bvid,
+        title = title.ifEmpty { bvid_title },
+        pic = cover,
+        desc = desc.orEmpty(),
+        // 动态稿件的 duration 偶尔是 0，回落解析 duration_text（mm:ss）。
+        duration = duration.takeIf { it > 0 } ?: SearchVideo.parseDuration(duration_text),
+        pubdate = pubTs,
+        owner = BiliOwner(mid = mid, name = name),
+    )
+}
+
+// ---------- 收藏夹 ----------
+
+@Serializable
+data class FavFolderListData(val list: List<FavFolder> = emptyList(), val count: Int = 0)
+
+@Serializable
+data class FavFolder(
+    val id: Long = 0,
+    @SerialName("fid") val fid: Long = 0,
+    val title: String = "",
+    @SerialName("media_count") val mediaCount: Int = 0,
+) {
+    /** 接口在不同版本下主键字段名不一致（id / fid），取非零者。 */
+    val mediaId: Long get() = id.takeIf { it > 0 } ?: fid
+}
+
+@Serializable
+data class FavResourceData(
+    val medias: List<FavMedia>? = null,
+    val info: FavResourceInfo? = null,
+    val has_more: Boolean = false,
+)
+
+@Serializable
+data class FavResourceInfo(val id: Long = 0, val title: String = "", val media_count: Int = 0)
+
+@Serializable
+data class FavMedia(
+    val id: Long = 0,
+    val bvid: String = "",
+    val title: String = "",
+    val cover: String = "",
+    val duration: Long = 0,
+    val intro: String = "",
+    val pubtime: Long = 0,
+    @SerialName("upper") val upper: BiliOwner? = null,
+    val cnt_info: FavCountInfo? = null,
+) {
+    fun toBiliVideo(): BiliVideo = BiliVideo(
+        aid = id,
+        bvid = bvid,
+        title = title,
+        pic = cover,
+        desc = intro,
+        duration = duration,
+        pubdate = pubtime,
+        owner = upper ?: BiliOwner(),
+        stat = BiliStat(view = cnt_info?.play ?: 0, danmaku = cnt_info?.danmaku ?: 0),
+    )
+}
+
+@Serializable
+data class FavCountInfo(val play: Long = 0, val danmaku: Long = 0, val collect: Long = 0)
+
 // ---------- 视频详情 ----------
 
 @Serializable

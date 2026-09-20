@@ -3,9 +3,11 @@ package com.pilinara.player
 import android.content.Context
 import android.os.Bundle
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fullscreen
@@ -63,6 +65,14 @@ fun InlinePlayer(
     val danmakuEnabled by container.settings.danmakuEnabled.collectAsState(true)
     val danmakuOpacity by container.settings.danmakuOpacity.collectAsState(0.82f)
     val danmakuScale by container.settings.danmakuScale.collectAsState(1.0f)
+    val autoPlay by container.settings.autoPlayOnOpen.collectAsState(true)
+    // 「打开时手动播放」：先出封面 + 播放按钮，点击后才真正起播（省流 / 避免点开就响）。
+    var armed by remember(request.bvid, request.cid) { mutableStateOf(autoPlay) }
+
+    LaunchedEffect(autoPlay, request.bvid, request.cid) {
+        // 设置从「手动」切回「自动」时，已打开的详情页应立即起播。
+        if (autoPlay) armed = true
+    }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -72,7 +82,9 @@ fun InlinePlayer(
     }
 
     // 拉取播放地址（按用户偏好清晰度/CDN），失败时回落到调用方给的地址。
-    LaunchedEffect(request.bvid, request.cid) {
+    // 手动播放模式下先不起播：封面页不触发 playurl / 弹幕请求。
+    LaunchedEffect(request.bvid, request.cid, armed) {
+        if (!armed) return@LaunchedEffect
         val req = withContext(Dispatchers.IO) {
             runCatching {
                 val weakNet = container.settings.weakNet.first()
@@ -108,6 +120,34 @@ fun InlinePlayer(
     }
 
     Box(modifier = modifier.background(Color.Black)) {
+        if (!armed) {
+            // 手动播放：封面 + 居中播放按钮（贴图前不发起 playurl / 弹幕请求）。
+            coil3.compose.AsyncImage(
+                model = com.pilinara.api.BiliApi.image(request.coverUrl),
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                Modifier.fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.25f))
+                    .clickable { armed = true },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.PlayArrow,
+                    contentDescription = "播放",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.45f),
+                            androidx.compose.foundation.shape.CircleShape,
+                        )
+                        .padding(10.dp),
+                )
+            }
+        } else {
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
@@ -126,7 +166,7 @@ fun InlinePlayer(
             positionProvider = { player?.currentPosition ?: 0L },
             isPlayingProvider = { player?.isPlaying ?: false },
         )
-        if (buffering) {
+        if (buffering && player != null) {
             CircularProgressIndicator(
                 Modifier.align(Alignment.Center).size(40.dp),
                 color = Color.White,
@@ -155,6 +195,7 @@ fun InlinePlayer(
                     )
                 }
             }
+        }
         }
     }
 }

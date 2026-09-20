@@ -94,6 +94,8 @@ data class PlayRequest(
     val qn: Int = 0,
     val positionMs: Long = 0,
     val headers: Map<String, String> = emptyMap(),
+    /** 封面图；「打开时手动播放」模式下先显示封面，点击才起播。 */
+    val coverUrl: String = "",
 )
 
 class PlayerActivity : ComponentActivity() {

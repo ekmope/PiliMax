@@ -237,16 +237,60 @@ class BiliApi(private val http: Http) {
         return decode<ReplyMainData>(body).data ?: ReplyMainData()
     }
 
-    /** 相关推荐（view/detail/related，游客可用；失败返回空列表不阻断详情）。 */
+    /**
+     * 相关推荐。
+     *
+     * 注意：旧端点 `view/detail/related` 已下线，匿名请求直接返回风控 HTML（表现为
+     * 「相关」页永远空）。现用 `archive/related`（游客可用，返回裸数组）。
+     */
     suspend fun related(aid: Long): List<BiliVideo> = try {
-        val body = signedGet(
-            "https://api.bilibili.com/x/web-interface/view/detail/related",
-            mapOf("aid" to aid.toString()),
-            referer = "https://www.bilibili.com",
+        val body = http.getString(
+            "https://api.bilibili.com/x/web-interface/archive/related?aid=$aid",
+            referer = "https://www.bilibili.com/video/av$aid",
         )
         decode<List<BiliVideo>>(body).data.orEmpty()
     } catch (_: Exception) {
         emptyList()
+    }
+
+    /** 动态（关注的 UP 最新视频，需登录；未登录时抛错由 UI 展示）。 */
+    suspend fun dynamicFeed(pn: Int = 1, ps: Int = 30): List<BiliVideo> {
+        val body = http.getString(
+            "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all" +
+                "?type=video&pn=$pn&ps=$ps",
+            referer = "https://t.bilibili.com/",
+        )
+        val resp = decode<DynamicFeedData>(body)
+        return (resp.data ?: error(resp.errMsg)).items.mapNotNull { item ->
+            val m = item.modules ?: return@mapNotNull null
+            val author = m.author
+            m.dynamic?.major?.archive
+                ?.takeIf { it.bvid.isNotEmpty() }
+                ?.toBiliVideo(author?.name.orEmpty(), author?.mid ?: 0)
+        }
+    }
+
+    /** 我的收藏夹列表（需登录）。 */
+    suspend fun favoriteFolders(): List<FavFolder> {
+        val mid = myMid()
+        val body = http.getString(
+            "https://api.bilibili.com/x/v3/fav/folder/created/list-all?up_mid=$mid",
+            referer = "https://space.bilibili.com/$mid/favlist",
+        )
+        val resp = decode<FavFolderListData>(body)
+        return resp.data?.list.orEmpty()
+    }
+
+    /** 收藏夹内容（需登录）。[mediaId] 来自 [favoriteFolders]。 */
+    suspend fun favoriteMedias(mediaId: Long, pn: Int = 1, ps: Int = 30): List<BiliVideo> {
+        val mid = myMid()
+        val body = http.getString(
+            "https://api.bilibili.com/x/v3/fav/resource/list" +
+                "?media_id=$mediaId&pn=$pn&ps=$ps&order=mtime&type=0&tid=0&platform=web",
+            referer = "https://space.bilibili.com/$mid/favlist",
+        )
+        val resp = decode<FavResourceData>(body)
+        return resp.data?.medias.orEmpty().map(FavMedia::toBiliVideo)
     }
 
     /**
@@ -346,6 +390,8 @@ class BiliApi(private val http: Http) {
         )
         return json.decodeFromString<ApiResp<List<HistoryItem>>>(body).data.orEmpty()
     }
+
+
 
     /**
      * 获取播放地址（多端 + 多策略，2026-09 逆向实测）：

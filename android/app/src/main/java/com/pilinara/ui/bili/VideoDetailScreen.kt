@@ -37,6 +37,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -82,10 +84,16 @@ fun VideoDetailScreen(
     video: BiliVideo,
     onBack: () -> Unit,
     onOpenVideo: (BiliVideo) -> Unit = {},
+    onImmersive: (Boolean) -> Unit = {},
 ) {
     var detail by remember { mutableStateOf<ViewData?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var retryKey by remember { mutableStateOf(0) }
+
+    DisposableEffect(video.bvid) {
+        onImmersive(true)
+        onDispose { onImmersive(false) }
+    }
 
     // 评论分页状态。
     var replies by remember { mutableStateOf<List<ReplyItem>>(emptyList()) }
@@ -122,29 +130,23 @@ fun VideoDetailScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("视频详情", maxLines = 1) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
+    // 详情页顶栏：返回箭头直接浮在播放器上（B 站官方同款），不再单独占一行高度。
+    val d = detail
+    // 从相关推荐/卡片进来的视频没有 cid，详情接口返回后再补上。
+    val cid = video.cid.takeIf { it > 0 } ?: d?.cid ?: 0L
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
             // 顶部内联播放器：进入即播；失败时显示封面 + 错误。
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
-                if (video.cid > 0 && video.bvid.isNotEmpty()) {
+                if (cid > 0 && video.bvid.isNotEmpty()) {
                     InlinePlayer(
                         container = container,
                         request = PlayRequest(
                             title = video.title.ifEmpty { "未知标题" },
                             videoUrl = "",
-                            cid = video.cid,
+                            cid = cid,
                             bvid = video.bvid,
+                            coverUrl = video.pic.ifEmpty { d?.pic.orEmpty() },
                         ),
                         onFullscreen = { req -> launchFullscreen(container.appContext, req) },
                         modifier = Modifier.fillMaxSize(),
@@ -154,12 +156,11 @@ fun VideoDetailScreen(
                         Modifier.fillMaxSize()
                             .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center,
-                    ) { Text("无法播放：缺少 cid") }
+                    ) { Text(if (d == null) "加载中…" else "无法播放：缺少 cid") }
                 }
             }
 
-            // 标题 + 操作栏。
-            val d = detail
+            // 标题 + UP 主 + 播放量。
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
                     d?.title ?: video.title,
@@ -231,6 +232,25 @@ fun VideoDetailScreen(
                     )
                 }
             }
+        }
+
+        // 返回按钮浮在播放器左上角（沉浸式，不额外占高度）。
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(4.dp)
+                .size(40.dp)
+                .background(
+                    Color.Black.copy(alpha = 0.35f),
+                    CircleShape,
+                ),
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "返回",
+                tint = Color.White,
+            )
         }
     }
 }

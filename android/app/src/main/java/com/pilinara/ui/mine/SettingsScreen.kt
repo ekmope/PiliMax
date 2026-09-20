@@ -41,9 +41,12 @@ import com.pilinara.player.Quality
 import com.pilinara.vip.VipTrialConfig
 import kotlinx.coroutines.launch
 
-/** 底栏可选页面。 */
+/** 底栏可选页面（顺序即底栏显示顺序；至少保留两个）。 */
 private val BOTTOM_TAB_OPTIONS = listOf(
     "首页" to "home",
+    "动态" to "dynamic",
+    "历史" to "history",
+    "收藏" to "favorites",
     "搜索" to "search",
     "源" to "sources",
     "我的" to "mine",
@@ -105,6 +108,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
     val sponsorCategories by s.sponsorCategories
         .collectAsState(com.pilinara.data.SettingsStore.DEFAULT_SPONSOR_CATEGORIES)
     val weakNet by s.weakNet.collectAsState(false)
+    val autoPlayOnOpen by s.autoPlayOnOpen.collectAsState(true)
     val bottomTabs by s.bottomTabs.collectAsState("home,search,sources,mine")
     val bangumiSync by s.bangumiSync.collectAsState(false)
     val danmakuMergeWindow by s.danmakuMergeWindow.collectAsState(10_000L)
@@ -152,6 +156,16 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
 
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
             SectionTitle("播放")
+            SwitchRow(
+                title = "打开视频时自动播放",
+                subtitle = "关闭后进入详情页只显示封面，点一下才开始播放（省流量）",
+                checked = autoPlayOnOpen,
+            ) { en -> scope.launch { s.setAutoPlayOnOpen(en) } }
+            Text(
+                "视频详情页打开时会自动隐藏底部导航栏",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             PlayerCoreRow(container)
             LabeledDropdown(
                 label = "解码方式",
@@ -387,7 +401,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                                 set.add(id)
                             }
                             // 保持首页在首位的固定顺序。
-                            val ordered = listOf("home", "search", "sources", "mine")
+                            val ordered = BOTTOM_TAB_OPTIONS.map { it.second }
                                 .filter { it in set }
                             scope.launch { s.setBottomTabs(ordered.joinToString(",")) }
                         },

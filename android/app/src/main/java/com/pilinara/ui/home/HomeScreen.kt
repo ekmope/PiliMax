@@ -64,7 +64,10 @@ private enum class HomeTab(val label: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(container: AppContainer) {
+fun HomeScreen(
+    container: AppContainer,
+    onImmersive: (Boolean) -> Unit = {},
+) {
     var tab by remember { mutableStateOf(HomeTab.POPULAR) }
     var selected by remember { mutableStateOf<BiliVideo?>(null) }
 
@@ -75,6 +78,7 @@ fun HomeScreen(container: AppContainer) {
             video = current,
             onBack = { selected = null },
             onOpenVideo = { selected = it },
+            onImmersive = onImmersive,
         )
         return
     }

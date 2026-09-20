@@ -58,7 +58,10 @@ private enum class SearchTab(val label: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchScreen(container: AppContainer) {
+fun SearchScreen(
+    container: AppContainer,
+    onImmersive: (Boolean) -> Unit = {},
+) {
     var tab by remember { mutableStateOf(SearchTab.BILI) }
     var keyword by remember { mutableStateOf("") }
     var biliSelected by remember { mutableStateOf<BiliVideo?>(null) }
@@ -77,7 +80,13 @@ fun SearchScreen(container: AppContainer) {
         return
     }
     biliSelected?.let { sel ->
-        VideoDetailScreen(container = container, video = sel, onBack = { biliSelected = null })
+        VideoDetailScreen(
+            container = container,
+            video = sel,
+            onBack = { biliSelected = null },
+            onOpenVideo = { biliSelected = it },
+            onImmersive = onImmersive,
+        )
         return
     }
 

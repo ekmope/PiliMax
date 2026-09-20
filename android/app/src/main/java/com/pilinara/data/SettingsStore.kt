@@ -66,8 +66,10 @@ class SettingsStore(private val context: Context) {
         val SPONSOR_CATEGORIES = stringPreferencesKey("sponsor_categories")
         // 弱网/省流模式：限制默认清晰度上限、加大缓冲、关闭高码率音轨。
         val WEAK_NET = booleanPreferencesKey("weak_net")
-        // 底栏启用的页面（逗号分隔：home,search,sources,mine；至少保留两个）。
+        // 底栏启用的页面（逗号分隔：home,dynamic,history,favorites,search,sources,mine；至少保留两个）。
         val BOTTOM_TABS = stringPreferencesKey("bottom_tabs")
+        // 打开视频时自动播放（关闭则显示封面，需手动点播放）。
+        val AUTO_PLAY_ON_OPEN = booleanPreferencesKey("auto_play_on_open")
         // 追番同步到 B 站（订阅源里追的番，若 B 站存在则同步加入 B 站追番）。
         val BANGUMI_SYNC = booleanPreferencesKey("bangumi_sync")
     }
@@ -113,6 +115,7 @@ class SettingsStore(private val context: Context) {
     val sponsorCategories = pref(Keys.SPONSOR_CATEGORIES, DEFAULT_SPONSOR_CATEGORIES)
     val weakNet = pref(Keys.WEAK_NET, false)
     val bottomTabs = pref(Keys.BOTTOM_TABS, "home,search,sources,mine")
+    val autoPlayOnOpen = pref(Keys.AUTO_PLAY_ON_OPEN, true)
     val bangumiSync = pref(Keys.BANGUMI_SYNC, false)
 
     companion object {
@@ -160,6 +163,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setDanmakuShowColor(v: Boolean) = edit { it[Keys.DANMAKU_SHOW_COLOR] = v }
     suspend fun setWeakNet(v: Boolean) = edit { it[Keys.WEAK_NET] = v }
     suspend fun setBottomTabs(v: String) = edit { it[Keys.BOTTOM_TABS] = v }
+    suspend fun setAutoPlayOnOpen(v: Boolean) = edit { it[Keys.AUTO_PLAY_ON_OPEN] = v }
     suspend fun setBangumiSync(v: Boolean) = edit { it[Keys.BANGUMI_SYNC] = v }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {

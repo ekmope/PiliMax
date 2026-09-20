@@ -20,7 +20,6 @@ android {
         }
     }
 
-    // 插件无 UI、无资源，保持 debug 签名便于产物即装即测（实际不会被 PackageManager 安装）。
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -35,8 +34,7 @@ android {
 }
 
 dependencies {
-    // 仅编译期引用宿主契约；运行时由宿主 ClassLoader 提供。
     compileOnly(project(":plugin-api"))
-    // libmpv Android 绑定（含 arm64-v8a 的 libmpv.so + ffmpeg 全套原生库，约 6.5MB so 体积，AAR 46MB 含多 ABI → 已用 abiFilters 收敛为 arm64-v8a。
+    // libmpv Android 绑定（AAR 含 jni/arm64-v8a/libmpv.so + ffmpeg 全套）。
     implementation("dev.jdtech.mpv:libmpv:1.0.0")
 }

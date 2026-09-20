@@ -88,27 +88,34 @@ class MpvCore : ExternalPlayerCore {
         rate = spec.rate.toDouble()
         worker.post {
             runCatching { teardownLocked() }
-            val lib = MPVLib.create(ctx)
-            lib.addObserver(observer)
+            // MPVLib.create 返回 MPVLib?（原生库加载失败时为 null）。
+            // 这里在 runCatching 内断言非空：失败会被捕获并落盘，不会让进程闪退。
+            runCatching {
+                val lib = MPVLib.create(ctx)!!
+                lib.addObserver(observer)
             // 选项必须在 init() 之前设置（部分选项 init 后只读）。
-            applyOptions(lib, spec)
-            lib.init()
-            mpv = lib
-            attachSurfaceLocked()
-            lib.setPropertyDouble("speed", rate)
-            lib.setPropertyInt("volume", volume)
-            lib.command(arrayOf("loadfile", spec.videoUrl))
-            if (!spec.audioUrl.isNullOrBlank()) {
-                // B 站 DASH：分离音轨作为外部音轨合流。
-                lib.command(arrayOf("audio-add", spec.audioUrl!!, "auto"))
+                applyOptions(lib, spec)
+                lib.init()
+                mpv = lib
+                attachSurfaceLocked()
+                lib.setPropertyDouble("speed", rate)
+                lib.setPropertyInt("volume", volume)
+                lib.command(arrayOf("loadfile", spec.videoUrl))
+                if (!spec.audioUrl.isNullOrBlank()) {
+                    // B 站 DASH：分离音轨作为外部音轨合流。
+                    lib.command(arrayOf("audio-add", spec.audioUrl!!, "auto"))
+                }
+                if (spec.startPositionMs > 0) {
+                    lib.command(arrayOf("seek", (spec.startPositionMs / 1000.0).toString(), "absolute"))
+                }
+                // 观察进度与时长，驱动 UI。
+                lib.observeProperty("time-pos", MPVLib.MpvFormat.MPV_FORMAT_DOUBLE)
+                lib.observeProperty("duration", MPVLib.MpvFormat.MPV_FORMAT_DOUBLE)
+                lib.observeProperty("pause", MPVLib.MpvFormat.MPV_FORMAT_FLAG)
+            }.onFailure {
+                android.util.Log.e(TAG, "mpv open failed", it)
+                com.pilinara.CrashLog.write(ctx, Thread.currentThread(), it)
             }
-            if (spec.startPositionMs > 0) {
-                lib.command(arrayOf("seek", (spec.startPositionMs / 1000.0).toString(), "absolute"))
-            }
-            // 观察进度与时长，驱动 UI。
-            lib.observeProperty("time-pos", MPVLib.MpvFormat.MPV_FORMAT_DOUBLE)
-            lib.observeProperty("duration", MPVLib.MpvFormat.MPV_FORMAT_DOUBLE)
-            lib.observeProperty("pause", MPVLib.MpvFormat.MPV_FORMAT_FLAG)
         }
     }
 

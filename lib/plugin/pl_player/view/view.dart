@@ -1590,7 +1590,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       children: <Widget>[
         _videoWidget,
         if (widget.danmuWidget case final danmaku?)
-          Positioned.fill(top: 4, child: danmaku),
+          Positioned.fill(
+            top: 4,
+            child: ClipRect(child: danmaku),
+          ),
         Positioned.fill(
           child: Stack(
             fit: StackFit.expand,
@@ -1950,6 +1953,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   right: 0,
                   child: Obx(
                     () {
+                      if (!plPlayerController.playerStatus.isPlaying &&
+                          !plPlayerController.isSeeking.value) {
+                        return const SizedBox.shrink();
+                      }
                       final showControls =
                           plPlayerController.showControls.value;
                       final bool offstage;

@@ -645,7 +645,7 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
       if (calculatedLongPic) {
         final compatWidth = math.min(650.0, widget.containerSize.width);
         // Keep the capped initial width consistent with the long-image base
-        // computed by Viewer without creating a giant render box.
+        // computed by Viewer while keeping the initial zoom bounded.
         minScale = compatWidth / widget.containerSize.width;
         maxScale = math.max(widget.maxScale, minScale * 3);
       }
@@ -655,6 +655,38 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
       calculatedLongPic = false;
     }
     final isLongPic = widget.isLongPic ?? calculatedLongPic;
+    final rawImage = RawImage(
+      image: _imageInfo?.image,
+      alignment: isLongPic ? Alignment.topCenter : Alignment.center,
+    );
+    final Widget imageChild;
+    if (isLongPic &&
+        widget.containerSize.width.isFinite &&
+        widget.containerSize.width > 0 &&
+        imgWidth > 0 &&
+        imgHeight > 0) {
+      final displayWidth = widget.containerSize.width;
+      final displayHeight = displayWidth * imgHeight / imgWidth;
+      // Keep the render box tied to the API dimensions. Some platforms cap an
+      // oversized decoded texture's height, so using its intrinsic size would
+      // change the visible ratio after the full image replaces the preview.
+      imageChild = OverflowBox(
+        alignment: Alignment.topCenter,
+        minWidth: displayWidth,
+        maxWidth: displayWidth,
+        minHeight: displayHeight,
+        maxHeight: displayHeight,
+        child: RawImage(
+          image: _imageInfo?.image,
+          width: displayWidth,
+          height: displayHeight,
+          fit: BoxFit.fill,
+          alignment: Alignment.topCenter,
+        ),
+      );
+    } else {
+      imageChild = rawImage;
+    }
     Widget result = Viewer(
       minScale: minScale ?? widget.minScale,
       maxScale: maxScale ?? widget.maxScale,
@@ -667,10 +699,7 @@ class _ImageState extends State<Image> with WidgetsBindingObserver {
       doubleTapGestureRecognizer: widget.doubleTapGestureRecognizer,
       horizontalDragGestureRecognizer: widget.horizontalDragGestureRecognizer,
       onChangePage: widget.onChangePage,
-      child: RawImage(
-        image: _imageInfo?.image,
-        alignment: isLongPic ? Alignment.topCenter : Alignment.center,
-      ),
+      child: imageChild,
     );
 
     if (!widget.excludeFromSemantics) {

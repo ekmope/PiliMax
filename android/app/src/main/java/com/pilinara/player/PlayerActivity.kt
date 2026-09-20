@@ -188,6 +188,7 @@ class PlayerActivity : ComponentActivity() {
                         currentQn = currentRequest?.qn ?: 0,
                         canSwitchQuality = req.bvid.isNotEmpty(),
                         onSwitchQuality = { qn -> switchQuality(qn) },
+                        isLandscape = landscape,
                     )
                 }
             }
@@ -507,6 +508,7 @@ private fun PlayerScreenHost(
     currentQn: Int,
     canSwitchQuality: Boolean,
     onSwitchQuality: (Int) -> Unit,
+    isLandscape: Boolean = false,
 ) {
     val audioOnlyDefault = settings.audioOnly
     val danmakuEnabled by container.settings.danmakuEnabled.collectAsState(true)
@@ -604,7 +606,7 @@ private fun PlayerScreenHost(
         currentQn = currentQn,
         canSwitchQuality = canSwitchQuality,
         onSwitchQuality = onSwitchQuality,
-        isLandscape = landscape,
+        isLandscape = isLandscape,
     )
 }
 

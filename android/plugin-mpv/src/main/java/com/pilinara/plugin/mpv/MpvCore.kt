@@ -113,8 +113,8 @@ class MpvCore : ExternalPlayerCore {
                 lib.observeProperty("duration", MPVLib.MpvFormat.MPV_FORMAT_DOUBLE)
                 lib.observeProperty("pause", MPVLib.MpvFormat.MPV_FORMAT_FLAG)
             }.onFailure {
+                // 插件模块不依赖宿主（CrashLog 在 :app）。只落 Log（避免未解析引用）。
                 android.util.Log.e(TAG, "mpv open failed", it)
-                com.pilinara.CrashLog.write(ctx, Thread.currentThread(), it)
             }
         }
     }

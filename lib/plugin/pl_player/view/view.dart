@@ -1953,8 +1953,19 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   right: 0,
                   child: Obx(
                     () {
-                      if (!plPlayerController.playerStatus.isPlaying &&
-                          !plPlayerController.isSeeking.value) {
+                      // A collapsed video-detail header must not leave the
+                      // chapter/progress overlay painting over the page body.
+                      // Playback state alone is not a visibility signal: a
+                      // paused, still-visible player must keep its seekable
+                      // chapter bar.
+                      final detailHeaderCollapsed =
+                          !isFullScreen &&
+                          !widget.isPipMode &&
+                          !widget.isInAppPip &&
+                          (widget.videoDetailController?.scrollRatio.value ??
+                                  0.0) >=
+                              1.0;
+                      if (detailHeaderCollapsed) {
                         return const SizedBox.shrink();
                       }
                       final showControls =

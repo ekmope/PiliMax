@@ -63,12 +63,18 @@ class BottomControl extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 0, 10, 7),
             child: Obx(
-              () => Offstage(
-                offstage: !controller.showControls.value,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.bottomCenter,
-                  children: [
+              () {
+                final detailHeaderCollapsed =
+                    !isFullScreen &&
+                    !isPipMode &&
+                    videoDetailController.scrollRatio.value >= 1.0;
+                return Offstage(
+                  offstage:
+                      detailHeaderCollapsed || !controller.showControls.value,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.bottomCenter,
+                    children: [
                     Obx(
                       () => ProgressBar(
                         progress: controller.progress,
@@ -134,9 +140,10 @@ class BottomControl extends StatelessWidget {
                       if (videoDetailController.dmTrend.value?.dataOrNull
                           case final list?)
                         buildDmChart(primary, list, videoDetailController, 4.5),
-                  ],
-                ),
-              ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
           buildBottomControl(),

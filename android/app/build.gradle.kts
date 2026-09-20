@@ -119,6 +119,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.11.1")
     implementation("androidx.media3:media3-session:1.11.1")
+    // 视频效果（Lanczos 超分辨率）需要 GL 版的 ExoPlayer effect 流水线。
+    implementation("androidx.media3:media3-effect:1.11.1")
 
     // 外部播放器内核插件契约（实现以独立 APK 按需下载，见 PlayerCoreManager）。
     implementation(project(":plugin-api"))

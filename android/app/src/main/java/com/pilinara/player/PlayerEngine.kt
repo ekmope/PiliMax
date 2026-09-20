@@ -3,17 +3,22 @@ package com.pilinara.player
 import android.content.Context
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
-import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
-import androidx.media3.common.util.UnstableApi
 import com.pilinara.AppContainer
 import com.pilinara.data.SettingsStore
 import com.pilinara.net.Http
+import com.pilinara.player.media3.AudioNormalizationConfiguration
+import com.pilinara.player.media3.AudioNormalizationProcessor
+import com.pilinara.player.media3.resolveMedia3BufferPolicy
 import kotlinx.coroutines.flow.first
 
 /**
@@ -34,6 +39,19 @@ data class PlayerSettings(
     val audioOnly: Boolean = false,
     val playerCore: String = "media3",
     val weakNet: Boolean = false,
+    // ---- 音频处理（移植自 pili++ 的 AudioNormalizationProcessor）----
+    val audioProcEnabled: Boolean = false,
+    val audioGainDb: Float = 0f,
+    val audioDynamic: Boolean = false,
+    val audioTargetRmsDb: Float = -16f,
+    val audioHighpassHz: Float = 0f,
+    val audioLowpassHz: Float = 0f,
+    val audioEqEnabled: Boolean = false,
+    val audioEqFreqHz: Float = 1000f,
+    val audioEqGainDb: Float = 0f,
+    val audioEqQ: Float = 1f,
+    // ---- 超分辨率（Media3 LanczosResample）----
+    val superResolution: String = "disable",
 ) {
     companion object {
         suspend fun load(settings: SettingsStore): PlayerSettings = runCatching {
@@ -44,6 +62,17 @@ data class PlayerSettings(
                 audioOnly = settings.audioOnly.first(),
                 playerCore = settings.playerCore.first(),
                 weakNet = settings.weakNet.first(),
+                audioProcEnabled = settings.audioProcEnabled.first(),
+                audioGainDb = settings.audioGainDb.first(),
+                audioDynamic = settings.audioDynamic.first(),
+                audioTargetRmsDb = settings.audioTargetRmsDb.first(),
+                audioHighpassHz = settings.audioHighpassHz.first(),
+                audioLowpassHz = settings.audioLowpassHz.first(),
+                audioEqEnabled = settings.audioEqEnabled.first(),
+                audioEqFreqHz = settings.audioEqFreqHz.first(),
+                audioEqGainDb = settings.audioEqGainDb.first(),
+                audioEqQ = settings.audioEqQ.first(),
+                superResolution = settings.superResolution.first(),
             )
         }.getOrDefault(PlayerSettings())
 
@@ -86,44 +115,53 @@ object PlayerEngine {
 
         val piliFactory = PiliMediaSourceFactory(resolvingFactory)
 
-        val renderersFactory = DefaultRenderersFactory(context).apply {
-            when (settings.decodeMode) {
-                "hard" ->
-                    setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-                "soft" -> {
-                    setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-                    setMediaCodecSelector { mimeType, secure, tunneling ->
-                        // 解码器枚举在个别固件上会抛 DecoderQueryException；
-                        // 兜底为默认选择器，绝不让软解偏好把播放炸掉。
-                        val infos = runCatching {
-                            MediaCodecUtil.getDecoderInfos(mimeType, secure, tunneling)
-                        }.getOrElse {
-                            return@setMediaCodecSelector MediaCodecSelector.DEFAULT
-                                .getDecoderInfos(mimeType, secure, tunneling)
-                        }
-                        infos.filter {
-                            val n = it.name.lowercase()
-                            n.contains("google") || n.contains("c2.android")
-                        }.ifEmpty { infos }
-                    }
-                }
-                else ->
-                    setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
-            }
+        // 音频处理链：配置为空时处理器直通（内部判 null 后原样 copy），无需二选一构建。
+        val audioProcessor = AudioNormalizationProcessor().apply {
+            setConfiguration(AudioNormalizationConfiguration.fromSettings(
+                enabled = settings.audioProcEnabled,
+                gainDb = settings.audioGainDb,
+                dynamic = settings.audioDynamic,
+                targetRmsDb = settings.audioTargetRmsDb,
+                highpassHz = settings.audioHighpassHz,
+                lowpassHz = settings.audioLowpassHz,
+                eqEnabled = settings.audioEqEnabled,
+                eqFreqHz = settings.audioEqFreqHz,
+                eqGainDb = settings.audioEqGainDb,
+                eqQ = settings.audioEqQ,
+            ))
         }
 
-        // 弱网模式：缓冲上限翻倍（封顶 120s），减少卡顿重连次数。
-        val bufferMs = if (settings.weakNet) settings.bufferMs * 2 else settings.bufferMs
-        val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                (bufferMs / 2).coerceIn(1_000, 60_000),
-                bufferMs.coerceIn(2_000, 120_000),
-                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
-                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
-            )
-            .build()
+        val renderersFactory = PiliRenderersFactory(
+            context = context,
+            audioProcessor = audioProcessor,
+            decodeMode = settings.decodeMode,
+        )
 
-        return ExoPlayer.Builder(context)
+        // 缓冲策略（移植 pili++）：min/max 分别约束；时间优先；直播用 Media3 默认。
+        val isLive = false
+        val bufferMs = if (settings.weakNet) settings.bufferMs * 2 else settings.bufferMs
+        val policy = resolveMedia3BufferPolicy(
+            targetBufferBytes = DEFAULT_TARGET_BUFFER_BYTES,
+            bufferDurationMs = bufferMs,
+            isLive = isLive,
+        )
+        val loadControl = if (policy == null) {
+            DefaultLoadControl.Builder().build()
+        } else {
+            DefaultLoadControl.Builder()
+                .setBufferDurationsMsForStreaming(
+                    policy.minBufferMs,
+                    policy.maxBufferMs,
+                    policy.bufferForPlaybackMs,
+                    policy.bufferForPlaybackAfterRebufferMs,
+                )
+                .setTargetBufferBytes(policy.targetBufferBytes)
+                .setPrioritizeTimeOverSizeThresholdsForStreaming(true)
+                .setBackBuffer(policy.backBufferDurationMs, false)
+                .build()
+        }
+
+        val exo = ExoPlayer.Builder(context)
             .setRenderersFactory(renderersFactory)
             .setLoadControl(loadControl)
             .setMediaSourceFactory(piliFactory)
@@ -136,5 +174,48 @@ object PlayerEngine {
                 /* handleAudioFocus = */ true,
             )
             .build()
+
+        // 超分辨率：源尺寸要等 onVideoSizeChanged 才知道，这里只登记模式，
+        // 由 PlayerActivity 在拿到 videoSize 后调用 applySuperResolution。
+        return exo
+    }
+
+    private const val DEFAULT_TARGET_BUFFER_BYTES = 4 * 1024 * 1024
+}
+
+/**
+ * 带音频处理器的 RenderersFactory（对应 pili++ 的 NormalizingRenderersFactory）。
+ *
+ * 软解选择改用 MediaCodecInfo.softwareOnly 判定：旧实现按解码器名猜
+ * （含 google / c2.android），在部分 OEM 固件上会把厂商硬解误判成软解。
+ */
+private class PiliRenderersFactory(
+    context: Context,
+    private val audioProcessor: AudioNormalizationProcessor,
+    private val decodeMode: String,
+) : DefaultRenderersFactory(context) {
+    init {
+        // 解码失败时回退到其它可用解码器，而不是直接报错。
+        setEnableDecoderFallback(true)
+        if (decodeMode == "soft") setMediaCodecSelector(SOFTWARE_VIDEO_CODEC_SELECTOR)
+    }
+
+    override fun buildAudioSink(
+        context: Context,
+        enableFloatOutput: Boolean,
+        enableAudioOutputPlaybackParameters: Boolean,
+    ): AudioSink = DefaultAudioSink.Builder(context)
+        .setAudioProcessors(arrayOf(audioProcessor))
+        .setEnableFloatOutput(enableFloatOutput)
+        .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParameters)
+        .build()
+
+    private companion object {
+        val SOFTWARE_VIDEO_CODEC_SELECTOR = MediaCodecSelector { mimeType, secure, tunneling ->
+            val infos = runCatching {
+                MediaCodecSelector.DEFAULT.getDecoderInfos(mimeType, secure, tunneling)
+            }.getOrDefault(emptyList())
+            if (MimeTypes.isVideo(mimeType)) infos.filter { it.softwareOnly } else infos
+        }
     }
 }

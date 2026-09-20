@@ -70,6 +70,9 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.pilinara.PiliApplication
+import com.pilinara.player.media3.Media3SuperResolutionMode
+import com.pilinara.player.media3.PlayerFrameCapture
+import com.pilinara.player.media3.resolveMedia3SuperResolutionTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -525,6 +528,7 @@ private fun PlayerScreenHost(
     var rawDanmaku by remember { mutableStateOf<List<Danmaku>>(emptyList()) }
     var danmakuVisible by remember { mutableStateOf(true) }
     var audioOnly by remember { mutableStateOf(audioOnlyDefault) }
+    var captureMessage by remember { mutableStateOf<String?>(null) }
 
     // 弹幕显示过滤：区域外的固定弹幕（顶/底）与彩色弹幕按设置隐藏。
     val danmakuList = remember(rawDanmaku, danmakuShowFixed, danmakuShowColor) {
@@ -579,6 +583,50 @@ private fun PlayerScreenHost(
         }
     }
 
+    // 超分辨率（Media3 Lanczos，移植自 pili++）：源尺寸要等视频尺寸回调才知道。
+    val superResolutionSetting by container.settings.superResolution.collectAsState("disable")
+    val srMode = remember(superResolutionSetting) {
+        Media3SuperResolutionMode.fromName(superResolutionSetting)
+    }
+    var videoWidth by remember { mutableStateOf(0) }
+    var videoHeight by remember { mutableStateOf(0) }
+    var rotationDegrees by remember { mutableStateOf(0) }
+    DisposableEffect(player, srMode) {
+        val listener = object : Player.Listener {
+            override fun onVideoSizeChanged(size: androidx.media3.common.VideoSize) {
+                videoWidth = size.width
+                videoHeight = size.height
+                rotationDegrees = size.unappliedRotationDegrees
+            }
+        }
+        player.addListener(listener)
+        videoWidth = player.videoSize.width
+        videoHeight = player.videoSize.height
+        rotationDegrees = player.videoSize.unappliedRotationDegrees
+        onDispose { player.removeListener(listener) }
+    }
+    LaunchedEffect(srMode, videoWidth, videoHeight) {
+        val target = resolveMedia3SuperResolutionTarget(srMode, videoWidth, videoHeight)
+        runCatching {
+            if (target == null) {
+                player.setVideoEffects(emptyList())
+            } else {
+                player.setVideoEffects(
+                    listOf(
+                        androidx.media3.effect.LanczosResample.scaleToFit(
+                            target.width,
+                            target.height,
+                        ),
+                    ),
+                )
+            }
+        }.onFailure {
+            // 效果流水线在无 GL 上下文 / 老设备上可能不可用；失败就回到无效果，不影响播放。
+            runCatching { player.setVideoEffects(emptyList()) }
+            com.pilinara.CrashLog.write(container.appContext, Thread.currentThread(), it)
+        }
+    }
+
     PlayerScreen(
         title = request.title,
         player = player,
@@ -609,6 +657,23 @@ private fun PlayerScreenHost(
         canSwitchQuality = canSwitchQuality,
         onSwitchQuality = onSwitchQuality,
         isLandscape = isLandscape,
+        onCaptureFrame = { surfaceView ->
+            val title = request.title.ifBlank { "pilinara" }.take(60)
+            if (!PlayerFrameCapture.isSupported()) {
+                captureMessage = "截图需要 Android 7.0 及以上"
+                return@PlayerScreen
+            }
+            PlayerFrameCapture.capture(surfaceView, rotationDegrees) { result ->
+                result.onSuccess { bmp ->
+                    PlayerFrameCapture.saveToGallery(container.appContext, bmp, title)
+                        .onSuccess { captureMessage = "已保存到相册 Pictures/PiliNara" }
+                        .onFailure { captureMessage = "保存失败：${it.message}" }
+                    bmp.recycle()
+                }.onFailure { captureMessage = "截图失败：${it.message}" }
+            }
+        },
+        captureMessage = captureMessage,
+        onDismissCaptureMessage = { captureMessage = null },
     )
 }
 
@@ -640,6 +705,9 @@ private fun PlayerScreen(
     canSwitchQuality: Boolean,
     onSwitchQuality: (Int) -> Unit,
     isLandscape: Boolean = false,
+    onCaptureFrame: (android.view.SurfaceView?) -> Unit = {},
+    captureMessage: String? = null,
+    onDismissCaptureMessage: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val audioManager = remember {
@@ -656,6 +724,8 @@ private fun PlayerScreen(
     var moreMenu by remember { mutableStateOf(false) }
     var gestureHint by remember { mutableStateOf<String?>(null) }
     var speed by remember { mutableFloatStateOf(defaultSpeed) }
+    /** PlayerView 里的 SurfaceView 引用（截图用 PixelCopy 需要它）。 */
+    var surfaceView by remember { mutableStateOf<android.view.SurfaceView?>(null) }
 
     LaunchedEffect(gestureHint) {
         if (gestureHint != null) {
@@ -776,6 +846,9 @@ private fun PlayerScreen(
                     PlayerView(ctx).apply {
                         useController = false
                         this.player = p
+                        // 截图需要 PixelCopy 的源 surface：PlayerView 的视频层通常是
+                        // SurfaceView（默认 surface_type），也可能是 TextureView / GL 层。
+                        surfaceView = videoSurfaceView as? android.view.SurfaceView
                     }
                 }.getOrElse {
                     com.pilinara.CrashLog.write(
@@ -818,6 +891,22 @@ private fun PlayerScreen(
                 color = Color.White,
                 modifier = Modifier.align(Alignment.Center)
                     .background(Color(0x88000000), MaterialTheme.shapes.medium)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+
+        // 截图结果提示（自动消失）。
+        captureMessage?.let {
+            LaunchedEffect(it) {
+                delay(2000)
+                onDismissCaptureMessage()
+            }
+            Text(
+                text = it,
+                color = Color.White,
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .padding(bottom = 72.dp)
+                    .background(Color(0xCC000000), MaterialTheme.shapes.medium)
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
@@ -891,6 +980,13 @@ private fun PlayerScreen(
                                 onClick = {
                                     onToggleAudioOnly(!audioOnly)
                                     moreMenu = false
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("截取当前画面") },
+                                onClick = {
+                                    moreMenu = false
+                                    onCaptureFrame(surfaceView)
                                 },
                             )
                         }

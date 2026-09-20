@@ -69,6 +69,13 @@ private val NET_STRATEGIES = listOf(
     NetStrategy("weak", "弱网", 64, 90_000, false, true),
 )
 
+/** 超分辨率档位（对应 Media3SuperResolutionMode）。 */
+private val SUPER_RESOLUTION_OPTIONS = listOf(
+    "关闭" to "disable",
+    "省电（≤1080P）" to "efficiency",
+    "画质（≤4K）" to "quality",
+)
+
 /** 空降跳过可选分类（BilibiliSponsorBlock category id）。 */
 private val SPONSOR_CATEGORY_OPTIONS = listOf(
     "赞助广告" to "sponsor",
@@ -109,6 +116,17 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
         .collectAsState(com.pilinara.data.SettingsStore.DEFAULT_SPONSOR_CATEGORIES)
     val weakNet by s.weakNet.collectAsState(false)
     val autoPlayOnOpen by s.autoPlayOnOpen.collectAsState(true)
+    val audioProcEnabled by s.audioProcEnabled.collectAsState(false)
+    val audioGainDb by s.audioGainDb.collectAsState(0f)
+    val audioDynamic by s.audioDynamic.collectAsState(false)
+    val audioTargetRmsDb by s.audioTargetRmsDb.collectAsState(-16f)
+    val audioHighpassHz by s.audioHighpassHz.collectAsState(0f)
+    val audioLowpassHz by s.audioLowpassHz.collectAsState(0f)
+    val audioEqEnabled by s.audioEqEnabled.collectAsState(false)
+    val audioEqFreqHz by s.audioEqFreqHz.collectAsState(1000f)
+    val audioEqGainDb by s.audioEqGainDb.collectAsState(0f)
+    val audioEqQ by s.audioEqQ.collectAsState(1f)
+    val superResolution by s.superResolution.collectAsState("disable")
     val bottomTabs by s.bottomTabs.collectAsState("home,search,sources,mine")
     val bangumiSync by s.bangumiSync.collectAsState(false)
     val danmakuMergeWindow by s.danmakuMergeWindow.collectAsState(10_000L)
@@ -226,6 +244,89 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit) {
                     }
                 }
             }
+            HorizontalDivider(Modifier.padding(vertical = 10.dp))
+            SectionTitle("音频处理")
+            Text(
+                "在 PCM 层做增益 / 限幅 / 响度归一 / 滤波（移植自 pili++ 的 AudioNormalizationProcessor）",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            SwitchRow(
+                title = "启用音频处理",
+                subtitle = "关闭时音频直通，不做任何处理",
+                checked = audioProcEnabled,
+            ) { en -> scope.launch { s.setAudioProcEnabled(en) } }
+            if (audioProcEnabled) {
+                SliderRow(
+                    label = "增益",
+                    value = audioGainDb,
+                    range = -12f..12f,
+                    valueText = "%.1f dB".format(audioGainDb),
+                    onChange = { v -> scope.launch { s.setAudioGainDb(v) } },
+                )
+                SwitchRow(
+                    title = "动态响度归一",
+                    subtitle = "自动把音量拉到目标响度，避免不同视频忽大忽小",
+                    checked = audioDynamic,
+                ) { en -> scope.launch { s.setAudioDynamic(en) } }
+                if (audioDynamic) {
+                    SliderRow(
+                        label = "目标响度",
+                        value = audioTargetRmsDb,
+                        range = -30f..-8f,
+                        valueText = "%.0f dB".format(audioTargetRmsDb),
+                        onChange = { v -> scope.launch { s.setAudioTargetRmsDb(v) } },
+                    )
+                }
+                SwitchRow(
+                    title = "参量均衡器（单段）",
+                    subtitle = "在指定频点做 peaking EQ",
+                    checked = audioEqEnabled,
+                ) { en -> scope.launch { s.setAudioEqEnabled(en) } }
+                if (audioEqEnabled) {
+                    SliderRow(
+                        label = "频率",
+                        value = audioEqFreqHz,
+                        range = 60f..12000f,
+                        valueText = "%.0f Hz".format(audioEqFreqHz),
+                        onChange = { v -> scope.launch { s.setAudioEqFreqHz(v) } },
+                    )
+                    SliderRow(
+                        label = "增益",
+                        value = audioEqGainDb,
+                        range = -12f..12f,
+                        valueText = "%.1f dB".format(audioEqGainDb),
+                        onChange = { v -> scope.launch { s.setAudioEqGainDb(v) } },
+                    )
+                    SliderRow(
+                        label = "Q（带宽）",
+                        value = audioEqQ,
+                        range = 0.3f..8f,
+                        valueText = "%.1f".format(audioEqQ),
+                        onChange = { v -> scope.launch { s.setAudioEqQ(v) } },
+                    )
+                }
+            }
+
+            HorizontalDivider(Modifier.padding(vertical = 10.dp))
+            SectionTitle("超分辨率")
+            Text(
+                "用 Media3 的 Lanczos 重采样放大画面（会增加 GPU / 耗电），只放大不缩小",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                SUPER_RESOLUTION_OPTIONS.forEach { (label, id) ->
+                    androidx.compose.material3.FilterChip(
+                        selected = superResolution == id,
+                        onClick = { scope.launch { s.setSuperResolution(id) } },
+                        label = { Text(label) },
+                    )
+                }
+            }
+
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
             SectionTitle("网络与带宽")
             Text(

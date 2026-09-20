@@ -68,8 +68,23 @@ class SettingsStore(private val context: Context) {
         val WEAK_NET = booleanPreferencesKey("weak_net")
         // 底栏启用的页面（逗号分隔：home,dynamic,history,favorites,search,sources,mine；至少保留两个）。
         val BOTTOM_TABS = stringPreferencesKey("bottom_tabs")
+
         // 打开视频时自动播放（关闭则显示封面，需手动点播放）。
         val AUTO_PLAY_ON_OPEN = booleanPreferencesKey("auto_play_on_open")
+        // 音频处理：增益 / 峰值限幅 / 动态响度归一 / 高低通 / 参量 EQ。
+        val AUDIO_PROC_ENABLED = booleanPreferencesKey("audio_proc_enabled")
+        val AUDIO_GAIN_DB = floatPreferencesKey("audio_gain_db")
+        val AUDIO_DYNAMIC = booleanPreferencesKey("audio_dynamic")
+        val AUDIO_TARGET_RMS_DB = floatPreferencesKey("audio_target_rms_db")
+        val AUDIO_HIGHPASS_HZ = floatPreferencesKey("audio_highpass_hz")
+        val AUDIO_LOWPASS_HZ = floatPreferencesKey("audio_lowpass_hz")
+        val AUDIO_EQ_ENABLED = booleanPreferencesKey("audio_eq_enabled")
+        val AUDIO_EQ_FREQ_HZ = floatPreferencesKey("audio_eq_freq_hz")
+        val AUDIO_EQ_GAIN_DB = floatPreferencesKey("audio_eq_gain_db")
+        val AUDIO_EQ_Q = floatPreferencesKey("audio_eq_q")
+        // 超分辨率（Media3 Lanczos）：disable / efficiency / quality。
+        val SUPER_RESOLUTION = stringPreferencesKey("super_resolution")
+
         // 追番同步到 B 站（订阅源里追的番，若 B 站存在则同步加入 B 站追番）。
         val BANGUMI_SYNC = booleanPreferencesKey("bangumi_sync")
     }
@@ -116,6 +131,17 @@ class SettingsStore(private val context: Context) {
     val weakNet = pref(Keys.WEAK_NET, false)
     val bottomTabs = pref(Keys.BOTTOM_TABS, "home,search,sources,mine")
     val autoPlayOnOpen = pref(Keys.AUTO_PLAY_ON_OPEN, true)
+    val audioProcEnabled = pref(Keys.AUDIO_PROC_ENABLED, false)
+    val audioGainDb = pref(Keys.AUDIO_GAIN_DB, 0f)
+    val audioDynamic = pref(Keys.AUDIO_DYNAMIC, false)
+    val audioTargetRmsDb = pref(Keys.AUDIO_TARGET_RMS_DB, -16f)
+    val audioHighpassHz = pref(Keys.AUDIO_HIGHPASS_HZ, 0f)
+    val audioLowpassHz = pref(Keys.AUDIO_LOWPASS_HZ, 0f)
+    val audioEqEnabled = pref(Keys.AUDIO_EQ_ENABLED, false)
+    val audioEqFreqHz = pref(Keys.AUDIO_EQ_FREQ_HZ, 1000f)
+    val audioEqGainDb = pref(Keys.AUDIO_EQ_GAIN_DB, 0f)
+    val audioEqQ = pref(Keys.AUDIO_EQ_Q, 1f)
+    val superResolution = pref(Keys.SUPER_RESOLUTION, "disable")
     val bangumiSync = pref(Keys.BANGUMI_SYNC, false)
 
     companion object {
@@ -164,6 +190,17 @@ class SettingsStore(private val context: Context) {
     suspend fun setWeakNet(v: Boolean) = edit { it[Keys.WEAK_NET] = v }
     suspend fun setBottomTabs(v: String) = edit { it[Keys.BOTTOM_TABS] = v }
     suspend fun setAutoPlayOnOpen(v: Boolean) = edit { it[Keys.AUTO_PLAY_ON_OPEN] = v }
+    suspend fun setAudioProcEnabled(v: Boolean) = edit { it[Keys.AUDIO_PROC_ENABLED] = v }
+    suspend fun setAudioGainDb(v: Float) = edit { it[Keys.AUDIO_GAIN_DB] = v }
+    suspend fun setAudioDynamic(v: Boolean) = edit { it[Keys.AUDIO_DYNAMIC] = v }
+    suspend fun setAudioTargetRmsDb(v: Float) = edit { it[Keys.AUDIO_TARGET_RMS_DB] = v }
+    suspend fun setAudioHighpassHz(v: Float) = edit { it[Keys.AUDIO_HIGHPASS_HZ] = v }
+    suspend fun setAudioLowpassHz(v: Float) = edit { it[Keys.AUDIO_LOWPASS_HZ] = v }
+    suspend fun setAudioEqEnabled(v: Boolean) = edit { it[Keys.AUDIO_EQ_ENABLED] = v }
+    suspend fun setAudioEqFreqHz(v: Float) = edit { it[Keys.AUDIO_EQ_FREQ_HZ] = v }
+    suspend fun setAudioEqGainDb(v: Float) = edit { it[Keys.AUDIO_EQ_GAIN_DB] = v }
+    suspend fun setAudioEqQ(v: Float) = edit { it[Keys.AUDIO_EQ_Q] = v }
+    suspend fun setSuperResolution(v: String) = edit { it[Keys.SUPER_RESOLUTION] = v }
     suspend fun setBangumiSync(v: Boolean) = edit { it[Keys.BANGUMI_SYNC] = v }
 
     private suspend fun edit(block: (MutablePreferences) -> Unit) {

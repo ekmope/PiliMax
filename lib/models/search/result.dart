@@ -8,6 +8,7 @@ import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/em.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
+import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/parse_int.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
@@ -50,7 +51,11 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
                 .toList();
           case 'bili_user':
             if (item['data'] case List users when users.isNotEmpty) {
-              searchUser = users.map((e) => SearchUser.fromJson(e)).toList();
+              for (final e in users) {
+                if (!GlobalData().blackMids.contains(e['mid'])) {
+                  (searchUser ??= <SearchUser>[]).add(SearchUser.fromJson(e));
+                }
+              }
             }
           case 'media_bangumi' || 'media_ft':
             if (item['data'] case List medias when medias.isNotEmpty) {

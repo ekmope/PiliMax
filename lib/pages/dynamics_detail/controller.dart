@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show ValueChanged;
 import 'package:PiliMax/common/widgets/scroll_physics.dart' show ReloadMixin;
 import 'package:PiliMax/http/dynamics.dart';
@@ -133,7 +135,7 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
       action: action,
     );
     if (res.isSuccess) {
-      Future.delayed(const Duration(milliseconds: 500), () {
+      Timer(const Duration(milliseconds: 500), () {
         if (!isClosed) {
           onReload();
         }

@@ -115,23 +115,20 @@ index 0000000..6817d9c
 +  }
 +}
 diff --git a/lib/pages/login/geetest/geetest_webview_dialog.dart b/lib/pages/login/geetest/geetest_webview_dialog.dart
-index 6683f9b..85b7bec 100644
 --- a/lib/pages/login/geetest/geetest_webview_dialog.dart
 +++ b/lib/pages/login/geetest/geetest_webview_dialog.dart
-@@ -9,6 +9,7 @@ import 'package:PiliMax/main.dart';
- import 'package:PiliMax/pilimax/pages/login/geetest/geetest_security.dart';
- import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
- import 'package:PiliMax/utils/extension/string_ext.dart';
+@@ -4,6 +4,7 @@
+ import 'package:PiliMax/http/browser_ua.dart';
+ import 'package:PiliMax/main.dart';
+ import 'package:PiliMax/plugin/linux_webview.dart';
 +import 'package:PiliMax/pages/login/geetest/geetest_plugin.dart';
- import 'package:desktop_webview_window/desktop_webview_window.dart';
- import 'package:dio/dio.dart';
+ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+ import 'package:get/get.dart';
  import 'package:material_ui/material_ui.dart';
-@@ -26,6 +27,7 @@ class GeetestWebviewDialog extends StatefulWidget {
-   State<GeetestWebviewDialog> createState() => _GeetestWebviewDialogState();
- 
-   static Future<Map<String, String>?> geetest(String gt, String challenge) {
+@@ -20,4 +20,5 @@
+   static Future<Map<String, dynamic>?> geetest(String gt, String challenge) {
 +    return GeetestPlugin.geetest(gt, challenge);
-     return showDialog<Map<String, String>>(
+     return showDialog<Map<String, dynamic>>(
        context: Get.context!,
        builder: (context) => GeetestWebviewDialog(gt, challenge),
 diff --git a/pubspec.yaml b/pubspec.yaml

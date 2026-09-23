@@ -135,7 +135,7 @@ class LoginPageController extends GetxController
           ..validate = res['geetest_validate']
           ..seccode = res['geetest_seccode']
           ..geetest = GeetestData(
-            challenge: res['geetest_challenge']!,
+            challenge: res['geetest_challenge'],
             gt: geeGt,
           );
         SmartDialog.showToast('验证成功');

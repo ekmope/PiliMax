@@ -28,8 +28,6 @@ import 'package:PiliMax/pages/common/common_intro_controller.dart'
     show FavMixin, IntroAction;
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
 import 'package:PiliMax/pages/main_reply/view.dart';
-import 'package:PiliMax/pages/setting/models/play_settings.dart'
-    show kMaxVolume;
 import 'package:PiliMax/pages/sponsor_block/block_mixin.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
@@ -125,6 +123,14 @@ class AudioController extends GetxController
   final Map<String, int> _initialPlaylistProgress = {};
 
   late double speed = 1.0;
+
+  void setSpeed(double value) {
+    if (player case final player?) {
+      speed = value;
+      player.setRate(value);
+      _updatePlaybackState();
+    }
+  }
 
   late final Rx<PlayRepeat> playMode = Pref.audioPlayMode.obs;
 
@@ -940,6 +946,22 @@ class AudioController extends GetxController
     _start = null;
   }
 
+  final PlayerStatus _playerStatus = .paused;
+
+  /// 上行播放状态到 videoPlayerServiceHandler。
+  ///
+  /// 注意：本仓库的 videoPlayerServiceHandler 契约为
+  /// `onStatusChange(PlayerStatus, bool, bool)` + `onPositionChange(Duration)`，
+  /// 不存在 `onUpdateState`（那是上游 PiliPlus 的契约）。此处按本地契约调用。
+  void _updatePlaybackState({Duration? position}) {
+    final handler = videoPlayerServiceHandler;
+    if (handler == null) return;
+    handler.onStatusChange(_playerStatus, false, false);
+    if (position != null) {
+      handler.onPositionChange(position);
+    }
+  }
+
   Future<void> _initPlayerIfNeeded() async {
     if (_hasInit) return;
     _hasInit = true;
@@ -952,7 +974,6 @@ class AudioController extends GetxController
           'volume': PlatformUtils.isDesktop
               ? (desktopVolume.value * 100).toString()
               : Pref.playerVolume.toString(),
-          'volume-max': kMaxVolume.toString(),
           ...Pref.initBuffer(),
         },
       ),
@@ -972,6 +993,9 @@ class AudioController extends GetxController
         }
         final seconds = position.inSeconds;
         if (seconds != this.position.value) {
+          if (seconds == 0 && _playerStatus.isPlaying) {
+            _updatePlaybackState(position: position);
+          }
           this.position.value = seconds;
           _recordCurrentAudioProgress(seconds);
           _videoDetailController?.playedTime = position;
@@ -1343,13 +1367,6 @@ class AudioController extends GetxController
         }
       }
     }());
-  }
-
-  void setSpeed(double speed) {
-    if (player case final player?) {
-      this.speed = speed;
-      player.setRate(speed);
-    }
   }
 
   @override

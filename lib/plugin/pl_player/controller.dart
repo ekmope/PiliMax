@@ -2041,9 +2041,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         final posInSeconds = position.inSeconds;
 
         if (posInSeconds != this.position.value) {
-          this.position.value = posInSeconds;
+          if (posInSeconds == 0 && playerStatus.isPlaying) {
+          }
 
-          videoPlayerServiceHandler?.onPositionChange(position);
+          this.position.value = posInSeconds;
 
           makeHeartBeat(posInSeconds);
         }
@@ -2260,6 +2261,19 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         cancel: true,
       );
       _subForSeek = null;
+    }
+  }
+
+  Future<void> seek(Duration position, {bool isSeek = false}) async {
+    if (isSeek) {
+      /// 拖动进度条调节时，不等待第一帧，防止抖动
+      await _videoPlayerController?.stream.buffer.first;
+    }
+    danmakuController?.clear();
+    try {
+      await _videoPlayerController?.seek(position);
+    } catch (e) {
+      if (kDebugMode) debugPrint('seek failed: $e');
     }
   }
 

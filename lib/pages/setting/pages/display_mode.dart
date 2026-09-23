@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:PiliMax/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:collection/collection.dart';

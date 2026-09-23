@@ -152,7 +152,6 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     return onPlay?.call() ??
         PlPlayerController.playIfExists() ??
         Future.syncValue(null);
-    // player.play();
   }
 
   @override

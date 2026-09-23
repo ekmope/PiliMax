@@ -3,7 +3,7 @@ import 'dart:io' show Cookie, Platform;
 
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
-import 'package:desktop_webview_window/desktop_webview_window.dart' as dww;
+import 'package:PiliMax/plugin/linux_webview.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 
 abstract final class LinuxCookieManager {
@@ -22,7 +22,7 @@ abstract final class LinuxCookieManager {
   static Future<void> deleteAllCookies() async {
     if (!Platform.isLinux) return;
     try {
-      await dww.WebviewWindow.clearAll();
+      await LinuxWebviewPlugin.clearAllCookies();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('LinuxCookieManager: deleteAllCookies failed: $e');

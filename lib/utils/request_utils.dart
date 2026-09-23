@@ -619,7 +619,7 @@ abstract final class RequestUtils {
       ..validate = json['geetest_validate']
       ..seccode = json['geetest_seccode']
       ..geetest = GeetestData(
-        challenge: json['geetest_challenge']!,
+        challenge: json['geetest_challenge'],
         gt: gt,
       );
     gaiaVgateValidate();

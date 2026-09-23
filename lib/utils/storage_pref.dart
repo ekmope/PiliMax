@@ -1357,6 +1357,9 @@ abstract final class Pref {
   static double get defaultTextScale =>
       _setting.get(SettingBoxKey.defaultTextScale, defaultValue: 1.0);
 
+  static bool get followSystemTextScale =>
+      _setting.get(SettingBoxKey.followSystemTextScale, defaultValue: false);
+
   static double get uiScale =>
       _setting.get(SettingBoxKey.uiScale, defaultValue: 1.0);
 

@@ -49,6 +49,7 @@ final class _FontSettingPageState extends State<FontSettingPage> {
   bool _selectedCustom = false;
   int _selectedWeight = FontWeight.values.indexOf(Pref.appFontWeight);
   double _selectedScale = Pref.defaultTextScale;
+  bool _followSystemScale = Pref.followSystemTextScale;
   bool _saving = false;
 
   @override
@@ -137,6 +138,7 @@ final class _FontSettingPageState extends State<FontSettingPage> {
       await GStorage.setting.putAllNE({
         SettingBoxKey.appFontWeightV2: _selectedWeight,
         SettingBoxKey.defaultTextScale: _selectedScale,
+        SettingBoxKey.followSystemTextScale: _followSystemScale,
       });
 
       if (!mounted) return;
@@ -302,6 +304,7 @@ final class _FontSettingPageState extends State<FontSettingPage> {
                       FontWeight.normal,
                     );
                     _selectedScale = 1.0;
+                    _followSystemScale = false;
                   }),
             child: const Text('重置'),
           ),
@@ -489,6 +492,25 @@ final class _FontSettingPageState extends State<FontSettingPage> {
                     Row(
                       children: [
                         const Text(
+                          '跟随系统字号',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        Switch(
+                          value: _followSystemScale,
+                          onChanged: _saving
+                              ? null
+                              : (value) => setState(
+                                  () => _followSystemScale = value,
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _buildItem(
+                    Row(
+                      children: [
+                        const Text(
                           '字号：',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
@@ -507,9 +529,11 @@ final class _FontSettingPageState extends State<FontSettingPage> {
                             label: _selectedScale == 1.0
                                 ? '默认'
                                 : _selectedScale.toStringAsFixed(2),
-                            onChanged: (value) => setState(
-                              () => _selectedScale = value.toPrecision(2),
-                            ),
+                            onChanged: _followSystemScale
+                                ? null
+                                : (value) => setState(
+                                    () => _selectedScale = value.toPrecision(2),
+                                  ),
                           ),
                         ),
                         const SizedBox(

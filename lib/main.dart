@@ -461,7 +461,9 @@ class MyApp extends StatelessWidget {
   ) {
     final uiScale = Pref.uiScale;
     var mediaQuery = MediaQuery.of(context);
-    final textScaler = TextScaler.linear(Pref.defaultTextScale);
+    final textScaler = Pref.followSystemTextScale
+        ? mediaQuery.textScaler
+        : TextScaler.linear(Pref.defaultTextScale);
 
     // Fix abnormal safe-area padding reported by HyperOS in windowed mode.
     // https://github.com/flutter/flutter/issues/161086

@@ -1,11 +1,35 @@
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:PiliMax/models/common/enum_with_label.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb, visibleForTesting;
 
-/// Chooses the cost of the liquid-glass treatment without exposing another
-/// user-facing preference. The frosted mode keeps the interaction while
-/// skipping the magnifier and moving reflection layers.
-enum LiquidGlassQuality { automatic, reflective, frosted }
+/// Chooses the visual/performance trade-off of the liquid-glass treatment.
+/// Frosted mode keeps the interaction while skipping the magnifier and moving
+/// reflection layers.
+enum LiquidGlassQuality implements EnumWithLabel {
+  automatic('自动（推荐）'),
+  reflective('液态玻璃'),
+  // Keep frosted at index 2 for compatibility with the original reader.
+  frosted('磨砂玻璃（性能优先）'),
+  soft('柔光玻璃（半透明）');
+
+  const LiquidGlassQuality(this.label);
+
+  @override
+  final String label;
+
+  /// Reads the persisted index without allowing a damaged or newer value to
+  /// crash startup. Missing and invalid values preserve the old automatic
+  /// behavior.
+  static LiquidGlassQuality fromIndex(Object? value) {
+    final index = value is int
+        ? value
+        : value is double && value.isFinite
+        ? value.toInt()
+        : -1;
+    return index >= 0 && index < values.length ? values[index] : automatic;
+  }
+}
 
 abstract final class LiquidGlassQualityResolver {
   static LiquidGlassQuality get immediateDefault =>

@@ -17,6 +17,7 @@ import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
+import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/update.dart';
@@ -61,6 +62,8 @@ class MainController extends GetxController
   final enableMYBar = Pref.enableMYBar;
   final floatingNavBar = Pref.floatingNavBar;
   late final liquidGlassNavBar = floatingNavBar && Pref.liquidGlassNavBar;
+  late final Rx<LiquidGlassQuality> liquidGlassQuality =
+      Pref.liquidGlassQuality.obs;
   final useSideBar = Pref.useSideBar;
   final mainTabBarView = Pref.mainTabBarView;
   late final optTabletNav = Pref.optTabletNav;

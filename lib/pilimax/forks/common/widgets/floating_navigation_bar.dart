@@ -1066,6 +1066,22 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     final disableAnimations =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final reflective = _usesReflectiveQuality && !disableAnimations;
+    final soft = widget.liquidGlassQuality == LiquidGlassQuality.soft;
+    final glassLayer = DecoratedBox(
+      decoration: BoxDecoration(
+        color: glassColor,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: isDark ? 0.06 : 0.11),
+            Colors.transparent,
+            Colors.black.withValues(alpha: isDark ? 0.07 : 0.025),
+          ],
+          stops: const [0.0, 0.44, 1.0],
+        ),
+      ),
+    );
 
     return UnconstrainedBox(
       child: Padding(
@@ -1113,33 +1129,17 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          // Clip the filter to the pill so only the bar's
-                          // backdrop is sampled and the rest of the page stays
-                          // untouched.
-                          BackdropFilter(
-                            filter: reflective
-                                ? _kLiquidReflectiveBlur
-                                : _kLiquidFrostedBlur,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: glassColor,
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Colors.white.withValues(
-                                      alpha: isDark ? 0.06 : 0.11,
-                                    ),
-                                    Colors.transparent,
-                                    Colors.black.withValues(
-                                      alpha: isDark ? 0.07 : 0.025,
-                                    ),
-                                  ],
-                                  stops: const [0.0, 0.44, 1.0],
-                                ),
-                              ),
+                          // Clip the glass layer to the pill so the bar never
+                          // paints outside its visual shell.
+                          if (soft)
+                            glassLayer
+                          else
+                            BackdropFilter(
+                              filter: reflective
+                                  ? _kLiquidReflectiveBlur
+                                  : _kLiquidFrostedBlur,
+                              child: glassLayer,
                             ),
-                          ),
                           AnimatedBuilder(
                             animation: _pressController,
                             builder: (context, child) {

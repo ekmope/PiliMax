@@ -201,6 +201,7 @@ abstract final class SettingBoxKey {
       touchSlopH = 'touchSlopH',
       floatingNavBar = 'floatingNavBar',
       liquidGlassNavBar = 'liquidGlassNavBar',
+      liquidGlassQuality = 'liquidGlassQuality',
       mixWithOthers = 'mixWithOthers',
       removeSafeArea = 'removeSafeArea',
       angleDegrees = 'angleDegrees',

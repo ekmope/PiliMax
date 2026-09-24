@@ -548,6 +548,7 @@ class _MainAppState extends PopScopeState<MainApp>
         bottomNav = Obx(
           () => FloatingNavigationBar(
             liquidGlass: _mainController.liquidGlassNavBar,
+            liquidGlassQuality: _mainController.liquidGlassQuality.value,
             labelBehavior: _mainController.showNavBarLabel.value
                 ? NavigationDestinationLabelBehavior.alwaysShow
                 : NavigationDestinationLabelBehavior.alwaysHide,

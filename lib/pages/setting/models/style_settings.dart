@@ -30,6 +30,7 @@ import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliMax/pilimax/utils/app_font.dart';
 import 'package:PiliMax/pilimax/utils/danmaku_font.dart';
+import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
 import 'package:PiliMax/utils/extension/file_ext.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -185,6 +186,28 @@ List<SettingsModel> get styleSettings => [
     needReboot: true,
     enabled: () => Pref.floatingNavBar,
     enabledByKey: SettingBoxKey.floatingNavBar,
+  ),
+  PopupModel<LiquidGlassQuality>(
+    title: '液态玻璃效果',
+    leading: const Icon(Icons.auto_awesome_mosaic_outlined),
+    value: () => Pref.liquidGlassQuality,
+    items: const [
+      LiquidGlassQuality.automatic,
+      LiquidGlassQuality.reflective,
+      LiquidGlassQuality.soft,
+    ],
+    onSelected: (value, setState) {
+      GStorage.setting
+          .put(SettingBoxKey.liquidGlassQuality, value.index)
+          .whenComplete(() {
+            try {
+              Get.find<MainController>().liquidGlassQuality.value = value;
+            } catch (_) {
+              // The settings page can be opened before the main controller.
+            }
+            setState();
+          });
+    },
   ),
   SwitchModel(
     title: 'Navbar显示文字',

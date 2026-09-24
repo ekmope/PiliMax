@@ -43,6 +43,7 @@ import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/pilimax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/login_utils.dart';
+import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/pilimax/utils/cache_policy.dart';
@@ -1796,6 +1797,14 @@ abstract final class Pref {
 
   static bool get liquidGlassNavBar =>
       _setting.get(SettingBoxKey.liquidGlassNavBar, defaultValue: false);
+
+  static LiquidGlassQuality get liquidGlassQuality =>
+      LiquidGlassQuality.fromIndex(
+        _setting.get(
+          SettingBoxKey.liquidGlassQuality,
+          defaultValue: LiquidGlassQuality.automatic.index,
+        ),
+      );
 
   static bool get removeSafeArea =>
       _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);

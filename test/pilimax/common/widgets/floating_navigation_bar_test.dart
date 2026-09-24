@@ -1,6 +1,6 @@
 import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -256,6 +256,24 @@ void main() {
     );
 
     expect(find.byType(RawMagnifier), findsNothing);
+  });
+
+  testWidgets('soft quality skips both backdrop filters and magnifier', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        onSelected: (_) {},
+        liquidGlassQuality: LiquidGlassQuality.soft,
+      ),
+    );
+
+    expect(find.byType(BackdropFilter), findsNothing);
+    expect(find.byType(RawMagnifier), findsNothing);
+    expect(
+      find.byKey(const ValueKey('liquidGlassNavigationBar')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('icon wrappers stay outside the gradient mask', (tester) async {

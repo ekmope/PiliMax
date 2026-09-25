@@ -59,8 +59,14 @@ void main() {
     r'SettingBoxKey\.(\w+)\s*:',
   ).allMatches(registrySource).map((match) => match.group(1)!).toSet();
 
+  // These readers are retained for upgrades from older builds and no longer
+  // have a direct setting tile in the current UI.
+  const compatibilityOnlyKeys = <String>{'liquidGlassNavBar'};
+
   final unregistered = uiKeys.difference(registeredKeys);
-  final stale = registeredKeys.difference(uiKeys);
+  final stale = registeredKeys
+      .difference(uiKeys)
+      .difference(compatibilityOnlyKeys);
   if (unregistered.isNotEmpty) {
     _fail('UI keys missing Pref readers: ${unregistered.toList()..sort()}');
   }

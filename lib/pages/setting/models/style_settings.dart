@@ -30,7 +30,7 @@ import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliMax/pilimax/utils/app_font.dart';
 import 'package:PiliMax/pilimax/utils/danmaku_font.dart';
-import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
+import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/utils/extension/file_ext.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -178,36 +178,36 @@ List<SettingsModel> get styleSettings => [
     setKey: SettingBoxKey.floatingNavBar,
     needReboot: true,
   ),
-  SwitchModel(
-    title: '液态玻璃底栏',
-    subtitle: '为悬浮底栏启用实时液态效果',
-    leading: const Icon(Icons.blur_on_rounded),
-    setKey: SettingBoxKey.liquidGlassNavBar,
-    needReboot: true,
-    enabled: () => Pref.floatingNavBar,
-    enabledByKey: SettingBoxKey.floatingNavBar,
-  ),
-  PopupModel<LiquidGlassQuality>(
-    title: '液态玻璃效果',
+  PopupModel<GlassStyle>(
+    title: '悬浮底栏样式',
+    // The value remains visible for discoverability, but is only actionable
+    // when the floating bar itself is enabled by the preceding setting.
     leading: const Icon(Icons.auto_awesome_mosaic_outlined),
-    value: () => Pref.liquidGlassQuality,
-    items: const [
-      LiquidGlassQuality.automatic,
-      LiquidGlassQuality.reflective,
-      LiquidGlassQuality.soft,
-    ],
+    value: () => Pref.glassStyle,
+    items: GlassStyle.values,
+    enabledByKey: SettingBoxKey.floatingNavBar,
+    allowSameSelection: true,
     onSelected: (value, setState) {
-      GStorage.setting
-          .put(SettingBoxKey.liquidGlassQuality, value.index)
-          .whenComplete(() {
-            try {
-              Get.find<MainController>().liquidGlassQuality.value = value;
-            } catch (_) {
-              // The settings page can be opened before the main controller.
-            }
-            setState();
-          });
+      GStorage.setting.put(SettingBoxKey.glassStyle, value.index).whenComplete(
+        () {
+          try {
+            Get.find<MainController>()
+              ..legacyLiquidGlass = false
+              ..glassStyle.value = value;
+          } catch (_) {
+            // The settings page can be opened before the main controller.
+          }
+          setState();
+        },
+      );
     },
+  ),
+  NormalModel(
+    title: '悬浮底栏底部高度',
+    leading: const Icon(Icons.vertical_align_top_rounded),
+    getSubtitle: () => '${Pref.floatingNavBottomLift.toStringAsFixed(0)} dp',
+    enabledByKey: SettingBoxKey.floatingNavBar,
+    onTap: _showFloatingNavigationLiftDialog,
   ),
   SwitchModel(
     title: 'Navbar显示文字',
@@ -1095,6 +1095,38 @@ Future<void> _showToastDialog(
     SmartDialog.showToast('设置成功');
     setState();
   }
+}
+
+Future<void> _showFloatingNavigationLiftDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final result = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('悬浮底栏底部高度'),
+      value: Pref.floatingNavBottomLift,
+      min: 0,
+      max: 48,
+      divisions: 48,
+      suffix: ' dp',
+      precise: 0,
+    ),
+  );
+  if (result == null) return;
+
+  final normalized = result.isFinite ? result.clamp(0.0, 48.0).toDouble() : 0.0;
+  await GStorage.setting.put(
+    SettingBoxKey.floatingNavBottomLift,
+    normalized,
+  );
+  try {
+    Get.find<MainController>().floatingNavBottomLift.value = normalized;
+  } catch (_) {
+    // The settings page can be opened before the main controller.
+  }
+  SmartDialog.showToast('设置成功');
+  setState();
 }
 
 Future<void> _showThemeTypeDialog(

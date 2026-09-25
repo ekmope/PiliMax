@@ -1,4 +1,5 @@
 import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 
 final class SettingsImportReport {
   final String? source;
@@ -193,11 +194,36 @@ abstract final class SettingsTransferService {
       );
     }
 
+    _normalizeGlassSettings(values);
+
     values
       ..remove(SettingBoxKey.appFontWeight)
       ..remove(SettingBoxKey.reply2SortType)
       ..remove(SettingBoxKey.appRcmd);
     return values;
+  }
+
+  static void _normalizeGlassSettings(Map<dynamic, dynamic> values) {
+    if (values.containsKey(SettingBoxKey.glassStyle)) {
+      final style = GlassStyle.tryFromIndex(
+        values[SettingBoxKey.glassStyle],
+      );
+      if (style == null) {
+        // Omitting an invalid new key lets Pref preserve a valid legacy
+        // liquidGlassNavBar preference instead of silently disabling it.
+        values.remove(SettingBoxKey.glassStyle);
+      } else {
+        values[SettingBoxKey.glassStyle] = style.index;
+      }
+    }
+
+    if (values.containsKey(SettingBoxKey.floatingNavBottomLift)) {
+      final value = values[SettingBoxKey.floatingNavBottomLift];
+      final lift = value is num ? value.toDouble() : 0.0;
+      values[SettingBoxKey.floatingNavBottomLift] = lift.isFinite
+          ? lift.clamp(0.0, 48.0).toDouble()
+          : 0.0;
+    }
   }
 
   static Map<dynamic, dynamic> _normalizeMap(

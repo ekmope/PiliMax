@@ -79,6 +79,9 @@ class PopupModel<T extends EnumWithLabel> extends SettingsModel {
     required this.value,
     required this.items,
     required this.onSelected,
+    this.enabled,
+    this.enabledByKey,
+    this.allowSameSelection = false,
   });
 
   @override
@@ -93,6 +96,9 @@ class PopupModel<T extends EnumWithLabel> extends SettingsModel {
   final ValueGetter<T> value;
   final Iterable<T> items;
   final PopupMenuItemSelected<T> onSelected;
+  final bool Function()? enabled;
+  final String? enabledByKey;
+  final bool allowSameSelection;
 
   @override
   Widget get widget => PopupListTile<T>(
@@ -105,6 +111,9 @@ class PopupModel<T extends EnumWithLabel> extends SettingsModel {
     },
     itemBuilder: (_) => enumItemBuilder(items),
     onSelected: onSelected,
+    enabled: enabled?.call() ?? true,
+    enabledByKey: enabledByKey,
+    allowSameSelection: allowSameSelection,
   );
 }
 
@@ -115,6 +124,8 @@ class NormalModel extends SettingsModel {
   final ValueGetter<String>? getSubtitle;
   final Widget Function(ThemeData theme)? getTrailing;
   final void Function(BuildContext context, VoidCallback setState)? onTap;
+  final bool Function()? enabled;
+  final String? enabledByKey;
 
   const NormalModel({
     super.subtitle,
@@ -126,6 +137,8 @@ class NormalModel extends SettingsModel {
     this.getSubtitle,
     this.getTrailing,
     this.onTap,
+    this.enabled,
+    this.enabledByKey,
   }) : assert(title != null || getTitle != null);
 
   const NormalModel.split({
@@ -138,6 +151,8 @@ class NormalModel extends SettingsModel {
     this.getSubtitle,
     this.getTrailing,
   }) : onTap = null,
+       enabled = null,
+       enabledByKey = null,
        assert(title != null || getTitle != null);
 
   @override
@@ -154,6 +169,8 @@ class NormalModel extends SettingsModel {
     leading: leading,
     getTrailing: getTrailing,
     onTap: onTap,
+    enabled: enabled,
+    enabledByKey: enabledByKey,
     contentPadding: contentPadding,
     titleStyle: titleStyle,
   );

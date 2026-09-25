@@ -2,6 +2,9 @@ import 'dart:async' show unawaited;
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:PiliMax/pilimax/common/widgets/glass_capability.dart';
+import 'package:PiliMax/pilimax/common/widgets/liquid_glass_filter.dart';
+import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind, kTouchSlop;
 import 'package:material_ui/material_ui.dart';
@@ -32,6 +35,11 @@ const BorderRadius _kBorderRadius = BorderRadius.all(
 const ShapeBorder _kNavigationShape = RoundedSuperellipseBorder(
   borderRadius: _kBorderRadius,
 );
+// Hyper-PiliPlus's soft fallback uses a readable translucent surface rather
+// than a low-alpha blur wash. Keep these values local to the glass shell so
+// the ordinary floating bar remains unchanged.
+const Color _softIndicatorDark = Color(0x24FFFFFF);
+const Color _softIndicatorLight = Color(0x13000000);
 const Color _indicatorDark = Color(0x15FFFFFF);
 const Color _indicatorLight = Color(0x10000000);
 
@@ -55,13 +63,17 @@ class FloatingNavigationBar extends StatelessWidget {
     this.labelTextStyle,
     this.labelPadding,
     this.bottomPadding = 8.0,
+    this.bottomLift = 0.0,
     this.liquidGlass = false,
+    this.glassStyle,
+    this.legacyLiquidGlass = false,
     this.liquidGlassQuality = LiquidGlassQuality.automatic,
   }) : assert(destinations.length >= 2),
        assert(0 <= selectedIndex && selectedIndex < destinations.length),
        assert(!animationDuration.isNegative),
        assert(elevation == null || elevation >= 0),
-       assert(bottomPadding >= 0);
+       assert(bottomPadding >= 0),
+       assert(bottomLift.isFinite && bottomLift >= 0);
 
   final Duration animationDuration;
   final int selectedIndex;
@@ -78,12 +90,21 @@ class FloatingNavigationBar extends StatelessWidget {
   final WidgetStateProperty<TextStyle?>? labelTextStyle;
   final EdgeInsetsGeometry? labelPadding;
   final double bottomPadding;
+
+  /// Moves the rendered bar upward without changing the Scaffold slot size.
+  final double bottomLift;
+
+  /// Legacy compatibility switch. New call sites should use [glassStyle].
   final bool liquidGlass;
+  final GlassStyle? glassStyle;
+  final bool legacyLiquidGlass;
   final LiquidGlassQuality liquidGlassQuality;
 
   @override
   Widget build(BuildContext context) {
-    if (liquidGlass) {
+    final effectiveGlassStyle =
+        glassStyle ?? (liquidGlass ? GlassStyle.liquid : GlassStyle.none);
+    if (effectiveGlassStyle != GlassStyle.none) {
       return _LiquidGlassNavigationBar(
         animationDuration: animationDuration,
         selectedIndex: selectedIndex,
@@ -100,6 +121,10 @@ class FloatingNavigationBar extends StatelessWidget {
         labelTextStyle: labelTextStyle,
         labelPadding: labelPadding,
         bottomPadding: bottomPadding,
+        bottomLift: bottomLift,
+        glassStyle: effectiveGlassStyle,
+        legacyLiquidGlass:
+            legacyLiquidGlass || (glassStyle == null && liquidGlass),
         liquidGlassQuality: liquidGlassQuality,
       );
     }
@@ -137,108 +162,115 @@ class FloatingNavigationBar extends StatelessWidget {
       return sourceOverlayColor?.resolve(states);
     });
 
-    return UnconstrainedBox(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          viewPadding.left,
-          0,
-          viewPadding.right,
-          bottomPadding + viewPadding.bottom,
-        ),
-        child: SizedBox(
-          key: const ValueKey('liquidGlassNavigationBar'),
-          height: _kNavigationHeight,
-          width: barWidth,
-          child: Material(
-            color:
-                backgroundColor ??
-                navigationBarTheme.backgroundColor ??
-                theme.colorScheme.surfaceContainer,
-            elevation: effectiveElevation,
-            shadowColor:
-                shadowColor ??
-                navigationBarTheme.shadowColor ??
-                Colors.transparent,
-            surfaceTintColor:
-                surfaceTintColor ??
-                navigationBarTheme.surfaceTintColor ??
-                Colors.transparent,
-            shape: RoundedSuperellipseBorder(
-              side: BorderSide(
-                color: isDark
-                    ? const Color(0x08FFFFFF)
-                    : const Color(0x08000000),
+    return Transform.translate(
+      offset: Offset(0, -bottomLift),
+      child: UnconstrainedBox(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            viewPadding.left,
+            0,
+            viewPadding.right,
+            bottomPadding + viewPadding.bottom,
+          ),
+          child: SizedBox(
+            key: const ValueKey('liquidGlassNavigationBar'),
+            height: _kNavigationHeight,
+            width: barWidth,
+            child: Material(
+              color:
+                  backgroundColor ??
+                  navigationBarTheme.backgroundColor ??
+                  theme.colorScheme.surfaceContainer,
+              elevation: effectiveElevation,
+              shadowColor:
+                  shadowColor ??
+                  navigationBarTheme.shadowColor ??
+                  Colors.transparent,
+              surfaceTintColor:
+                  surfaceTintColor ??
+                  navigationBarTheme.surfaceTintColor ??
+                  Colors.transparent,
+              shape: RoundedSuperellipseBorder(
+                side: BorderSide(
+                  color: isDark
+                      ? const Color(0x08FFFFFF)
+                      : const Color(0x08000000),
+                ),
+                borderRadius: _kBorderRadius,
               ),
-              borderRadius: _kBorderRadius,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(_kIndicatorPadding),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var index = 0; index < destinations.length; index++)
-                        Expanded(
-                          child: OverflowBox(
-                            minWidth: indicatorWidth,
-                            maxWidth: indicatorWidth,
-                            child: AnimatedOpacity(
-                              opacity: index == selectedIndex ? 1 : 0,
-                              duration: const Duration(milliseconds: 100),
-                              child: AnimatedScale(
-                                scale: index == selectedIndex ? 1 : 0.5,
-                                duration: animationDuration,
-                                curve: Curves.easeInOutCubicEmphasized,
-                                child: DecoratedBox(
-                                  decoration: ShapeDecoration(
-                                    color: effectiveIndicatorColor,
-                                    shape: effectiveIndicatorShape,
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(_kIndicatorPadding),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (
+                          var index = 0;
+                          index < destinations.length;
+                          index++
+                        )
+                          Expanded(
+                            child: OverflowBox(
+                              minWidth: indicatorWidth,
+                              maxWidth: indicatorWidth,
+                              child: AnimatedOpacity(
+                                opacity: index == selectedIndex ? 1 : 0,
+                                duration: const Duration(milliseconds: 100),
+                                child: AnimatedScale(
+                                  scale: index == selectedIndex ? 1 : 0.5,
+                                  duration: animationDuration,
+                                  curve: Curves.easeInOutCubicEmphasized,
+                                  child: DecoratedBox(
+                                    decoration: ShapeDecoration(
+                                      color: effectiveIndicatorColor,
+                                      shape: effectiveIndicatorShape,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(_kIndicatorPadding),
-                  child: MediaQuery.removePadding(
-                    context: context,
-                    removeLeft: true,
-                    removeTop: true,
-                    removeRight: true,
-                    removeBottom: true,
-                    child: NavigationBar(
-                      animationDuration: animationDuration,
-                      selectedIndex: selectedIndex,
-                      destinations: destinations,
-                      onDestinationSelected: onDestinationSelected,
-                      backgroundColor: Colors.transparent,
-                      elevation: 0,
-                      shadowColor: Colors.transparent,
-                      surfaceTintColor: Colors.transparent,
-                      indicatorColor: Colors.transparent,
-                      height: _kNavigationHeight - 2 * _kIndicatorPadding,
-                      labelBehavior: labelBehavior,
-                      // The floating bar already paints the complete destination
-                      // indicator behind both the icon and label. Keep the
-                      // framework's hover/focus feedback, but suppress its
-                      // icon-only pressed splash so there is only one effect.
-                      overlayColor: effectiveOverlayColor,
-                      labelTextStyle: labelTextStyle,
-                      labelPadding:
-                          labelPadding ??
-                          navigationBarTheme.labelPadding ??
-                          const EdgeInsets.only(top: 2),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.all(_kIndicatorPadding),
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeLeft: true,
+                      removeTop: true,
+                      removeRight: true,
+                      removeBottom: true,
+                      child: NavigationBar(
+                        animationDuration: animationDuration,
+                        selectedIndex: selectedIndex,
+                        destinations: destinations,
+                        onDestinationSelected: onDestinationSelected,
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        surfaceTintColor: Colors.transparent,
+                        indicatorColor: Colors.transparent,
+                        height: _kNavigationHeight - 2 * _kIndicatorPadding,
+                        labelBehavior: labelBehavior,
+                        // The floating bar already paints the complete destination
+                        // indicator behind both the icon and label. Keep the
+                        // framework's hover/focus feedback, but suppress its
+                        // icon-only pressed splash so there is only one effect.
+                        overlayColor: effectiveOverlayColor,
+                        labelTextStyle: labelTextStyle,
+                        labelPadding:
+                            labelPadding ??
+                            navigationBarTheme.labelPadding ??
+                            const EdgeInsets.only(top: 2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -264,6 +296,9 @@ class _LiquidGlassNavigationBar extends StatefulWidget {
     required this.labelTextStyle,
     required this.labelPadding,
     required this.bottomPadding,
+    required this.bottomLift,
+    required this.glassStyle,
+    required this.legacyLiquidGlass,
     required this.liquidGlassQuality,
   });
 
@@ -282,6 +317,9 @@ class _LiquidGlassNavigationBar extends StatefulWidget {
   final WidgetStateProperty<TextStyle?>? labelTextStyle;
   final EdgeInsetsGeometry? labelPadding;
   final double bottomPadding;
+  final double bottomLift;
+  final GlassStyle glassStyle;
+  final bool legacyLiquidGlass;
   final LiquidGlassQuality liquidGlassQuality;
 
   @override
@@ -319,6 +357,8 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
   double _releaseTravel = 0;
   double _releaseDragProgress = 0;
   late LiquidGlassQuality _resolvedQuality;
+  GlassFallbackMode? _runtimeFallbackMode;
+  bool _fallbackAdvanceScheduled = false;
 
   double get _animatedIndex =>
       _fromIndex + (_targetIndex - _fromIndex) * _selectionController.value;
@@ -374,10 +414,37 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
               .toDouble();
   }
 
-  bool get _usesReflectiveQuality =>
-      widget.liquidGlassQuality == LiquidGlassQuality.reflective ||
-      (widget.liquidGlassQuality == LiquidGlassQuality.automatic &&
-          _resolvedQuality == LiquidGlassQuality.reflective);
+  bool get _isNewLiquidGlass =>
+      widget.glassStyle == GlassStyle.liquid && !widget.legacyLiquidGlass;
+
+  bool get _legacyUsesReflective =>
+      widget.legacyLiquidGlass &&
+      (widget.liquidGlassQuality == LiquidGlassQuality.reflective ||
+          (widget.liquidGlassQuality == LiquidGlassQuality.automatic &&
+              _resolvedQuality == LiquidGlassQuality.reflective));
+
+  GlassFallbackMode get _newLiquidMode {
+    if (_runtimeFallbackMode case final mode?) return mode;
+    // A user-selected new liquid style must try the real shader immediately.
+    // Device-memory probing belongs to the legacy automatic path; delaying a
+    // deliberate liquid selection would create a visible frosted -> shader
+    // transition and would not follow the documented fallback chain.
+    return GlassCapability.preferredLiquidMode();
+  }
+
+  GlassFallbackMode get _renderMode {
+    if (widget.glassStyle == GlassStyle.soft ||
+        (widget.legacyLiquidGlass &&
+            widget.liquidGlassQuality == LiquidGlassQuality.soft)) {
+      return GlassFallbackMode.soft;
+    }
+    if (_isNewLiquidGlass) return _newLiquidMode;
+    return _legacyUsesReflective && GlassCapability.supportsReflective
+        ? GlassFallbackMode.reflective
+        : GlassFallbackMode.frosted;
+  }
+
+  bool get _usesShaderLiquid => _renderMode == GlassFallbackMode.shader;
 
   @override
   void initState() {
@@ -398,16 +465,23 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     _resolveAutomaticQuality();
   }
 
-  LiquidGlassQuality get _initialQuality =>
-      widget.liquidGlassQuality == LiquidGlassQuality.automatic
-      ? LiquidGlassQualityResolver.immediateDefault
-      : widget.liquidGlassQuality;
+  LiquidGlassQuality get _initialQuality {
+    return widget.liquidGlassQuality == LiquidGlassQuality.automatic
+        ? LiquidGlassQualityResolver.immediateDefault
+        : widget.liquidGlassQuality;
+  }
 
   void _resolveAutomaticQuality() {
-    if (widget.liquidGlassQuality != LiquidGlassQuality.automatic) return;
+    final shouldResolve =
+        widget.legacyLiquidGlass &&
+        widget.liquidGlassQuality == LiquidGlassQuality.automatic;
+    if (!shouldResolve) {
+      return;
+    }
     unawaited(
       LiquidGlassQualityResolver.resolve().then((quality) {
         if (mounted &&
+            widget.legacyLiquidGlass &&
             widget.liquidGlassQuality == LiquidGlassQuality.automatic) {
           setState(() => _resolvedQuality = quality);
         }
@@ -415,11 +489,39 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     );
   }
 
+  void _handleGlassFailure() {
+    if (!mounted || !_isNewLiquidGlass || _fallbackAdvanceScheduled) {
+      return;
+    }
+    final currentMode = _renderMode;
+    if (currentMode == GlassFallbackMode.solid) return;
+
+    // Background and indicator can report the same failure in one frame.
+    // Coalesce those reports so a single failure advances exactly one level.
+    _fallbackAdvanceScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isNewLiquidGlass) {
+        _fallbackAdvanceScheduled = false;
+        return;
+      }
+      final mode = _renderMode;
+      final nextMode = GlassCapability.nextFallback(mode);
+      if (nextMode != mode) {
+        setState(() => _runtimeFallbackMode = nextMode);
+      }
+      _fallbackAdvanceScheduled = false;
+    });
+  }
+
   @override
   void didUpdateWidget(_LiquidGlassNavigationBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.liquidGlassQuality != widget.liquidGlassQuality) {
+    if (oldWidget.liquidGlassQuality != widget.liquidGlassQuality ||
+        oldWidget.glassStyle != widget.glassStyle ||
+        oldWidget.legacyLiquidGlass != widget.legacyLiquidGlass) {
       _resolvedQuality = _initialQuality;
+      _runtimeFallbackMode = null;
+      _fallbackAdvanceScheduled = false;
       _resolveAutomaticQuality();
     }
     if (oldWidget.destinations.length != widget.destinations.length) {
@@ -771,6 +873,9 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     required ColorScheme colorScheme,
     required NavigationBarThemeData navigationBarTheme,
   }) {
+    final mode = _renderMode;
+    final soft = mode == GlassFallbackMode.soft && !widget.legacyLiquidGlass;
+    final solid = mode == GlassFallbackMode.solid;
     final defaultIconTheme = navigationBarTheme.iconTheme;
     final inactiveTheme =
         defaultIconTheme?.resolve(const <WidgetState>{}) ??
@@ -781,6 +886,12 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     final activeTheme =
         defaultIconTheme?.resolve(const <WidgetState>{WidgetState.selected}) ??
         IconThemeData(color: colorScheme.onSecondaryContainer, size: 24);
+    final disabledTheme =
+        defaultIconTheme?.resolve(const <WidgetState>{WidgetState.disabled}) ??
+        IconThemeData(
+          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.38),
+          size: 24,
+        );
 
     return List<Widget>.generate(widget.destinations.length, (index) {
       final destination = _LiquidDestinationData.fromWidget(
@@ -790,13 +901,20 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
 
       final rawProgress = (1 - (indicatorIndex - index).abs()).clamp(0.0, 1.0);
       final selectionProgress = Curves.easeInOutCubic.transform(rawProgress);
+      final destinationInactiveTheme = destination.enabled
+          ? inactiveTheme
+          : disabledTheme;
+      final destinationActiveTheme = destination.enabled
+          ? activeTheme
+          : disabledTheme;
       final icon = _LiquidDestinationIcon(
         icon: destination.icon,
         selectedIcon: destination.selectedIcon,
         iconWrapper: destination.iconWrapper,
+        useGradient: !soft && !solid,
         selectionProgress: destination.enabled ? selectionProgress : 0,
-        inactiveTheme: inactiveTheme,
-        activeTheme: activeTheme,
+        inactiveTheme: destinationInactiveTheme,
+        activeTheme: destinationActiveTheme,
       );
       return NavigationDestination(
         icon: icon,
@@ -804,9 +922,10 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           icon: destination.icon,
           selectedIcon: destination.selectedIcon,
           iconWrapper: destination.iconWrapper,
+          useGradient: !soft && !solid,
           selectionProgress: destination.enabled ? selectionProgress : 0,
-          inactiveTheme: inactiveTheme,
-          activeTheme: activeTheme,
+          inactiveTheme: destinationInactiveTheme,
+          activeTheme: destinationActiveTheme,
         ),
         label: destination.label,
         tooltip: destination.tooltip,
@@ -817,6 +936,8 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
 
   Widget _buildLiquidLens({
     required bool reflective,
+    required bool soft,
+    required bool solid,
     required bool isDark,
     required Color effectiveIndicatorColor,
     required ShapeBorder effectiveIndicatorShape,
@@ -825,6 +946,8 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
       animation: _indicatorListenable,
       builder: (context, _) {
         final dragIndex = _dragIndex;
+        final shaderLiquid = _usesShaderLiquid;
+        final reflectiveFallback = GlassCapability.supportsReflective;
         final indicatorIndex = dragIndex ?? _animatedIndex;
         final pressProgress = Curves.easeOutCubic.transform(
           _pressController.value,
@@ -920,7 +1043,40 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (reflective)
+                  if (shaderLiquid)
+                    LiquidGlassFilter(
+                      key: const ValueKey('liquidGlassShaderIndicator'),
+                      // Keep the existing optical treatment visible while the
+                      // shader asset is loading. If creation fails, the
+                      // centralized failure callback advances to the same
+                      // reflective fallback explicitly.
+                      fallback: reflectiveFallback
+                          ? RawMagnifier(
+                              size: Size(indicatorWidth, indicatorHeight),
+                              magnificationScale: 1.055 + pressProgress * 0.12,
+                              focalPointOffset: Offset(-refractionOffset, 0),
+                              decoration: MagnifierDecoration(
+                                opacity:
+                                    (isDark ? 0.90 : 0.88) +
+                                    pressProgress * 0.08,
+                                shape: lensShape,
+                              ),
+                            )
+                          : const SizedBox.expand(),
+                      refractionAmount:
+                          0.07 + pressProgress * 0.05 + dragProgress * 0.02,
+                      refractionHeight:
+                          (14.0 + pressProgress * 10.0) /
+                          math.max(
+                            1.0,
+                            math.min(indicatorWidth, indicatorHeight),
+                          ),
+                      chromaticAberration: 0.0005,
+                      lensRadius: 0.5,
+                      onFailure: _handleGlassFailure,
+                      child: const SizedBox.expand(),
+                    )
+                  else if (reflective)
                     RawMagnifier(
                       size: Size(indicatorWidth, indicatorHeight),
                       magnificationScale: 1.055 + pressProgress * 0.12,
@@ -932,37 +1088,41 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                     ),
                   DecoratedBox(
                     decoration: ShapeDecoration(
-                      color: effectiveIndicatorColor.withValues(
-                        alpha:
-                            (effectiveIndicatorColor.a *
-                                        (reflective ? 0.22 : 0.40) -
-                                    pressProgress * 0.05)
-                                .clamp(0.0, 1.0)
-                                .toDouble(),
-                      ),
+                      color: solid
+                          ? effectiveIndicatorColor.withValues(alpha: 1)
+                          : effectiveIndicatorColor.withValues(
+                              alpha: soft
+                                  ? effectiveIndicatorColor.a
+                                  : (effectiveIndicatorColor.a *
+                                                (reflective ? 0.22 : 0.40) -
+                                            pressProgress * 0.05)
+                                        .clamp(0.0, 1.0)
+                                        .toDouble(),
+                            ),
                       shape: lensShape,
                     ),
                   ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.white.withValues(
-                            alpha: reflective
-                                ? (isDark ? 0.10 : 0.16)
-                                : (isDark ? 0.07 : 0.11),
-                          ),
-                          Colors.transparent,
-                          Colors.black.withValues(
-                            alpha: isDark ? 0.06 : 0.025,
-                          ),
-                        ],
-                        stops: const [0.0, 0.48, 1.0],
+                  if (!soft && !solid)
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.white.withValues(
+                              alpha: reflective
+                                  ? (isDark ? 0.10 : 0.16)
+                                  : (isDark ? 0.07 : 0.11),
+                            ),
+                            Colors.transparent,
+                            Colors.black.withValues(
+                              alpha: isDark ? 0.06 : 0.025,
+                            ),
+                          ],
+                          stops: const [0.0, 0.48, 1.0],
+                        ),
                       ),
                     ),
-                  ),
                   CustomPaint(
                     painter: _LiquidIndicatorBorderPainter(
                       shape: lensShape,
@@ -999,6 +1159,12 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     final colorScheme = theme.colorScheme;
     final viewPadding = MediaQuery.viewPaddingOf(context);
     final isDark = colorScheme.brightness == Brightness.dark;
+    final mode = _renderMode;
+    final soft = mode == GlassFallbackMode.soft && !widget.legacyLiquidGlass;
+    final legacySoft =
+        mode == GlassFallbackMode.soft && widget.legacyLiquidGlass;
+    final solid = mode == GlassFallbackMode.solid;
+    final shaderLiquid = mode == GlassFallbackMode.shader;
     final preferredWidth = widget.destinations.length * _kIndicatorWidth;
     final availableWidth = math.max(
       0.0,
@@ -1015,18 +1181,20 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         navigationBarTheme.surfaceTintColor ??
         colorScheme.surfaceTint;
     final defaultGlassColor = colorScheme.surfaceContainer.withValues(
-      alpha: isDark ? 0.22 : 0.32,
+      alpha: soft ? (isDark ? 0.82 : 0.78) : (isDark ? 0.22 : 0.32),
+    );
+    final legacyGlassColor = Color.alphaBlend(
+      tintColor.withValues(alpha: isDark ? 0.06 : 0.05),
+      Color.alphaBlend(
+        isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.06),
+        defaultGlassColor,
+      ),
     );
     final glassColor =
-        widget.backgroundColor ??
-        Color.alphaBlend(
-          tintColor.withValues(alpha: isDark ? 0.06 : 0.05),
-          Color.alphaBlend(
-            isDark ? Colors.transparent : Colors.black.withValues(alpha: 0.06),
-            defaultGlassColor,
-          ),
-        );
-    final borderColor = isDark
+        widget.backgroundColor ?? (soft ? defaultGlassColor : legacyGlassColor);
+    final borderColor = soft
+        ? (isDark ? const Color(0x24FFFFFF) : const Color(0xB8FFFFFF))
+        : isDark
         ? Colors.white.withValues(alpha: 0.30)
         : colorScheme.outlineVariant.withValues(alpha: 0.52);
     final effectiveShadowColor =
@@ -1035,9 +1203,36 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         Colors.black.withValues(alpha: isDark ? 0.34 : 0.18);
     final effectiveElevation =
         widget.elevation ?? navigationBarTheme.elevation ?? 3.0;
+    final shellShadows = soft
+        ? <BoxShadow>[
+            BoxShadow(
+              color:
+                  widget.shadowColor ??
+                  Colors.black.withValues(alpha: isDark ? 0.45 : 0.17),
+              blurRadius: isDark ? 16 : 10,
+              spreadRadius: -2,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.34 : 0.12),
+              blurRadius: isDark ? 12 : 8,
+              spreadRadius: -3,
+              offset: const Offset(0, 2),
+            ),
+          ]
+        : <BoxShadow>[
+            BoxShadow(
+              color: effectiveShadowColor,
+              blurRadius: 20 + effectiveElevation * 2,
+              spreadRadius: -6,
+              offset: Offset(0, 5 + effectiveElevation),
+            ),
+          ];
     final effectiveIndicatorColor =
         widget.indicatorColor ??
-        (isDark
+        (soft
+            ? (isDark ? _softIndicatorDark : _softIndicatorLight)
+            : isDark
             ? Color.alphaBlend(
                 colorScheme.primary.withValues(alpha: 0.20),
                 Colors.white.withValues(alpha: 0.10),
@@ -1065,8 +1260,13 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     });
     final disableAnimations =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final reflective = _usesReflectiveQuality && !disableAnimations;
-    final soft = widget.liquidGlassQuality == LiquidGlassQuality.soft;
+    // The shader path already supplies the optical treatment. Keep the older
+    // moving reflection painter limited to its explicit fallback mode so a
+    // capable device does not pay for two visual pipelines per frame.
+    final reflective =
+        mode == GlassFallbackMode.reflective &&
+        GlassCapability.supportsReflective &&
+        !disableAnimations;
     final glassLayer = DecoratedBox(
       decoration: BoxDecoration(
         color: glassColor,
@@ -1082,153 +1282,195 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         ),
       ),
     );
+    final softGlassLayer = ColoredBox(color: glassColor);
+    final solidGlassLayer = ColoredBox(
+      color: Color.alphaBlend(glassColor, colorScheme.surface),
+    );
+    Widget frostedGlassLayer({required bool useReflectiveBlur}) =>
+        BackdropFilter(
+          filter: useReflectiveBlur
+              ? _kLiquidReflectiveBlur
+              : _kLiquidFrostedBlur,
+          child: glassLayer,
+        );
+    final Widget fallbackGlassLayer = switch (mode) {
+      GlassFallbackMode.shader => frostedGlassLayer(
+        useReflectiveBlur: GlassCapability.supportsReflective,
+      ),
+      GlassFallbackMode.reflective => frostedGlassLayer(
+        useReflectiveBlur: true,
+      ),
+      GlassFallbackMode.frosted => frostedGlassLayer(
+        useReflectiveBlur: false,
+      ),
+      GlassFallbackMode.soft => legacySoft ? glassLayer : softGlassLayer,
+      GlassFallbackMode.solid => solidGlassLayer,
+    };
+    final Widget visualGlassLayer;
+    if (soft) {
+      visualGlassLayer = softGlassLayer;
+    } else if (legacySoft) {
+      visualGlassLayer = glassLayer;
+    } else if (solid) {
+      visualGlassLayer = solidGlassLayer;
+    } else if (shaderLiquid) {
+      visualGlassLayer = LiquidGlassFilter(
+        key: const ValueKey('liquidGlassShaderBackground'),
+        fallback: fallbackGlassLayer,
+        onFailure: _handleGlassFailure,
+        // AndroidLiquidGlass' LiquidBottomTabs uses a 24 dp refraction height
+        // and amount for its 64 dp capsule. Normalize both values so the
+        // Flutter filter keeps the same optical strength at any device scale.
+        refractionAmount: 24.0 / _kNavigationHeight,
+        refractionHeight: 24.0 / _kNavigationHeight,
+        // AndroidLiquidGlass keeps chromatic aberration optional and very
+        // weak. Start neutral so text and icons do not acquire coloured edges.
+        chromaticAberration: 0.0,
+        lensRadius: 0.5,
+        child: glassLayer,
+      );
+    } else {
+      visualGlassLayer = fallbackGlassLayer;
+    }
 
-    return UnconstrainedBox(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          viewPadding.left,
-          0,
-          viewPadding.right,
-          widget.bottomPadding + viewPadding.bottom,
-        ),
-        child: SizedBox(
-          key: const ValueKey('liquidGlassNavigationBar'),
-          height: _kNavigationHeight,
-          width: barWidth,
-          child: AnimatedBuilder(
-            animation: _indicatorListenable,
-            // The bar follows the liquid motion visually, while the fixed
-            // layout coordinates keep touch targets aligned with the page.
-            builder: (context, child) => Transform.translate(
-              offset: Offset(_visualBarOffset, 0),
-              transformHitTests: false,
-              child: child,
-            ),
-            child: RepaintBoundary(
-              key: const ValueKey('liquidGlassVisualShell'),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: _kBorderRadius,
-                  boxShadow: [
-                    BoxShadow(
-                      color: effectiveShadowColor,
-                      blurRadius: 20 + effectiveElevation * 2,
-                      spreadRadius: -6,
-                      offset: Offset(0, 5 + effectiveElevation),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  clipBehavior: Clip.none,
-                  children: [
-                    ClipPath(
-                      clipper: const ShapeBorderClipper(
-                        shape: _kNavigationShape,
-                      ),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          // Clip the glass layer to the pill so the bar never
-                          // paints outside its visual shell.
-                          if (soft)
-                            glassLayer
-                          else
-                            BackdropFilter(
-                              filter: reflective
-                                  ? _kLiquidReflectiveBlur
-                                  : _kLiquidFrostedBlur,
-                              child: glassLayer,
+    return Transform.translate(
+      offset: Offset(0, -widget.bottomLift),
+      child: UnconstrainedBox(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            viewPadding.left,
+            0,
+            viewPadding.right,
+            widget.bottomPadding + viewPadding.bottom,
+          ),
+          child: SizedBox(
+            key: const ValueKey('liquidGlassNavigationBar'),
+            height: _kNavigationHeight,
+            width: barWidth,
+            child: AnimatedBuilder(
+              animation: _indicatorListenable,
+              // The bar follows the liquid motion visually, while the fixed
+              // layout coordinates keep touch targets aligned with the page.
+              builder: (context, child) => Transform.translate(
+                offset: Offset(_visualBarOffset, 0),
+                transformHitTests: false,
+                child: child,
+              ),
+              child: RepaintBoundary(
+                key: const ValueKey('liquidGlassVisualShell'),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: _kBorderRadius,
+                    boxShadow: shellShadows,
+                  ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    clipBehavior: Clip.none,
+                    children: [
+                      ClipPath(
+                        clipper: const ShapeBorderClipper(
+                          shape: _kNavigationShape,
+                        ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            // Clip the glass layer to the pill so the bar never
+                            // paints outside its visual shell.
+                            visualGlassLayer,
+                            AnimatedBuilder(
+                              animation: _pressController,
+                              builder: (context, child) {
+                                final pressProgress = Curves.easeOutCubic
+                                    .transform(
+                                      _pressController.value,
+                                    );
+                                return ColoredBox(
+                                  color: Colors.white.withValues(
+                                    alpha:
+                                        (isDark ? 0.07 : 0.04) * pressProgress,
+                                  ),
+                                  child: child,
+                                );
+                              },
+                              child: const SizedBox.expand(),
                             ),
-                          AnimatedBuilder(
-                            animation: _pressController,
-                            builder: (context, child) {
-                              final pressProgress = Curves.easeOutCubic
-                                  .transform(
-                                    _pressController.value,
-                                  );
-                              return ColoredBox(
-                                color: Colors.white.withValues(
-                                  alpha: (isDark ? 0.07 : 0.04) * pressProgress,
-                                ),
-                                child: child,
-                              );
-                            },
-                            child: const SizedBox.expand(),
-                          ),
-                          IgnorePointer(
-                            child: DecoratedBox(
-                              decoration: ShapeDecoration(
-                                color: Colors.transparent,
-                                shape: RoundedSuperellipseBorder(
-                                  side: BorderSide(color: borderColor),
-                                  borderRadius: _kBorderRadius,
+                            IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: ShapeDecoration(
+                                  color: Colors.transparent,
+                                  shape: RoundedSuperellipseBorder(
+                                    side: BorderSide(color: borderColor),
+                                    borderRadius: _kBorderRadius,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    Listener(
-                      behavior: HitTestBehavior.opaque,
-                      onPointerDown: _handlePointerDown,
-                      onPointerMove: _handlePointerMove,
-                      onPointerUp: _handlePointerUp,
-                      onPointerCancel: _handlePointerCancel,
-                      child: AnimatedBuilder(
-                        animation: _indicatorListenable,
-                        builder: (context, _) {
-                          final visualIndex = _dragIndex ?? _animatedIndex;
-                          return Padding(
-                            padding: const EdgeInsets.all(_kIndicatorPadding),
-                            child: MediaQuery.removePadding(
-                              context: context,
-                              removeLeft: true,
-                              removeTop: true,
-                              removeRight: true,
-                              removeBottom: true,
-                              child: NavigationBar(
-                                // NavigationBar keeps its committed semantic
-                                // selection. The icons below interpolate from
-                                // the continuous glass position instead of
-                                // switching at a rounded drag index.
-                                animationDuration: Duration.zero,
-                                selectedIndex: widget.selectedIndex,
-                                destinations: _buildVisualDestinations(
-                                  indicatorIndex: visualIndex,
-                                  colorScheme: colorScheme,
-                                  navigationBarTheme: navigationBarTheme,
+                      Listener(
+                        behavior: HitTestBehavior.opaque,
+                        onPointerDown: _handlePointerDown,
+                        onPointerMove: _handlePointerMove,
+                        onPointerUp: _handlePointerUp,
+                        onPointerCancel: _handlePointerCancel,
+                        child: AnimatedBuilder(
+                          animation: _indicatorListenable,
+                          builder: (context, _) {
+                            final visualIndex = _dragIndex ?? _animatedIndex;
+                            return Padding(
+                              padding: const EdgeInsets.all(_kIndicatorPadding),
+                              child: MediaQuery.removePadding(
+                                context: context,
+                                removeLeft: true,
+                                removeTop: true,
+                                removeRight: true,
+                                removeBottom: true,
+                                child: NavigationBar(
+                                  // NavigationBar keeps its committed semantic
+                                  // selection. The icons below interpolate from
+                                  // the continuous glass position instead of
+                                  // switching at a rounded drag index.
+                                  animationDuration: Duration.zero,
+                                  selectedIndex: widget.selectedIndex,
+                                  destinations: _buildVisualDestinations(
+                                    indicatorIndex: visualIndex,
+                                    colorScheme: colorScheme,
+                                    navigationBarTheme: navigationBarTheme,
+                                  ),
+                                  onDestinationSelected:
+                                      _handleDestinationSelected,
+                                  backgroundColor: Colors.transparent,
+                                  elevation: 0,
+                                  shadowColor: Colors.transparent,
+                                  surfaceTintColor: Colors.transparent,
+                                  indicatorColor: Colors.transparent,
+                                  height:
+                                      _kNavigationHeight -
+                                      2 * _kIndicatorPadding,
+                                  labelBehavior: widget.labelBehavior,
+                                  overlayColor: effectiveOverlayColor,
+                                  labelTextStyle: widget.labelTextStyle,
+                                  labelPadding:
+                                      widget.labelPadding ??
+                                      navigationBarTheme.labelPadding ??
+                                      const EdgeInsets.only(top: 2),
                                 ),
-                                onDestinationSelected:
-                                    _handleDestinationSelected,
-                                backgroundColor: Colors.transparent,
-                                elevation: 0,
-                                shadowColor: Colors.transparent,
-                                surfaceTintColor: Colors.transparent,
-                                indicatorColor: Colors.transparent,
-                                height:
-                                    _kNavigationHeight - 2 * _kIndicatorPadding,
-                                labelBehavior: widget.labelBehavior,
-                                overlayColor: effectiveOverlayColor,
-                                labelTextStyle: widget.labelTextStyle,
-                                labelPadding:
-                                    widget.labelPadding ??
-                                    navigationBarTheme.labelPadding ??
-                                    const EdgeInsets.only(top: 2),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    _buildLiquidLens(
-                      reflective: reflective,
-                      isDark: isDark,
-                      effectiveIndicatorColor: effectiveIndicatorColor,
-                      effectiveIndicatorShape: effectiveIndicatorShape,
-                    ),
-                  ],
+                      _buildLiquidLens(
+                        reflective: reflective,
+                        soft: soft,
+                        solid: solid,
+                        isDark: isDark,
+                        effectiveIndicatorColor: effectiveIndicatorColor,
+                        effectiveIndicatorShape: effectiveIndicatorShape,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1286,6 +1528,7 @@ class _LiquidDestinationIcon extends StatelessWidget {
     required this.icon,
     required this.selectedIcon,
     required this.iconWrapper,
+    required this.useGradient,
     required this.selectionProgress,
     required this.inactiveTheme,
     required this.activeTheme,
@@ -1294,6 +1537,7 @@ class _LiquidDestinationIcon extends StatelessWidget {
   final Widget icon;
   final Widget? selectedIcon;
   final Widget Function(Widget icon)? iconWrapper;
+  final bool useGradient;
   final double selectionProgress;
   final IconThemeData inactiveTheme;
   final IconThemeData activeTheme;
@@ -1341,30 +1585,34 @@ class _LiquidDestinationIcon extends StatelessWidget {
     // Keep both glyphs on the same fixed visual baseline while their opacity
     // changes. This avoids a vertical jump when outlined and filled icons
     // have different intrinsic metrics.
-    final transitionIcon = ShaderMask(
-      blendMode: BlendMode.srcIn,
-      shaderCallback: (bounds) => LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [highlightColor, color],
-      ).createShader(bounds),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          iconLayer(
-            icon,
-            selectedIcon == null ? 1.0 : 1.0 - progress,
-          ),
-          if (selectedIcon != null) iconLayer(selectedIcon!, progress),
-        ],
-      ),
-    );
-    return ExcludeSemantics(
-      child: SizedBox.square(
-        dimension: iconBoxSize,
-        child: Center(
-          child: iconWrapper?.call(transitionIcon) ?? transitionIcon,
+    final iconStack = Stack(
+      alignment: Alignment.center,
+      children: [
+        iconLayer(
+          icon,
+          selectedIcon == null ? 1.0 : 1.0 - progress,
         ),
+        if (selectedIcon != null) iconLayer(selectedIcon!, progress),
+      ],
+    );
+    final transitionIcon = useGradient
+        ? ShaderMask(
+            blendMode: BlendMode.srcIn,
+            shaderCallback: (bounds) => LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [highlightColor, color],
+            ).createShader(bounds),
+            child: iconStack,
+          )
+        : iconStack;
+    // NavigationBar supplies the tab semantics around this destination. Do
+    // not exclude the wrapped icon subtree: PiliMax uses the wrapper for
+    // badges and it may also carry useful accessibility information.
+    return SizedBox.square(
+      dimension: iconBoxSize,
+      child: Center(
+        child: iconWrapper?.call(transitionIcon) ?? transitionIcon,
       ),
     );
   }

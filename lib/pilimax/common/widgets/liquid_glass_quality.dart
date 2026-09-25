@@ -22,11 +22,13 @@ enum LiquidGlassQuality implements EnumWithLabel {
   /// crash startup. Missing and invalid values preserve the old automatic
   /// behavior.
   static LiquidGlassQuality fromIndex(Object? value) {
-    final index = value is int
-        ? value
-        : value is double && value.isFinite
-        ? value.toInt()
-        : -1;
+    final index = switch (value) {
+      final int index => index,
+      final double index
+          when index.isFinite && index == index.truncateToDouble() =>
+        index.toInt(),
+      _ => -1,
+    };
     return index >= 0 && index < values.length ? values[index] : automatic;
   }
 }

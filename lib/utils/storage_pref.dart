@@ -43,6 +43,7 @@ import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/pilimax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/login_utils.dart';
+import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
@@ -1797,6 +1798,42 @@ abstract final class Pref {
 
   static bool get liquidGlassNavBar =>
       _setting.get(SettingBoxKey.liquidGlassNavBar, defaultValue: false);
+
+  /// Returns the new three-way style when it has been stored. Older installs
+  /// are mapped without writing a value so their original visual treatment is
+  /// preserved until the user explicitly chooses a new style.
+  static GlassStyle get glassStyle {
+    final stored = GlassStyle.tryFromIndex(
+      _setting.get(SettingBoxKey.glassStyle),
+    );
+    if (stored != null) return stored;
+    return GlassStyle.fromLegacy(
+      floatingNavBar: floatingNavBar,
+      liquidGlassNavBar: liquidGlassNavBar,
+      quality: liquidGlassQuality,
+    );
+  }
+
+  static bool get _hasValidGlassStyle {
+    return GlassStyle.tryFromIndex(
+          _setting.get(SettingBoxKey.glassStyle),
+        ) !=
+        null;
+  }
+
+  /// True only for an old liquid-glass preference that has not been migrated
+  /// by an explicit, valid user selection.
+  static bool get usesLegacyLiquidGlass =>
+      floatingNavBar && !_hasValidGlassStyle && liquidGlassNavBar;
+
+  static double get floatingNavBottomLift {
+    final value = _setting.get(
+      SettingBoxKey.floatingNavBottomLift,
+      defaultValue: 0.0,
+    );
+    final lift = value is num ? value.toDouble() : 0.0;
+    return lift.isFinite ? lift.clamp(0.0, 48.0).toDouble() : 0.0;
+  }
 
   static LiquidGlassQuality get liquidGlassQuality =>
       LiquidGlassQuality.fromIndex(

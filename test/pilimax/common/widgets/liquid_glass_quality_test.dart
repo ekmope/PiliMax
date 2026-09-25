@@ -1,3 +1,5 @@
+import 'package:PiliMax/pilimax/common/widgets/glass_capability.dart';
+import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -17,6 +19,10 @@ void main() {
       LiquidGlassQuality.fromIndex(double.nan),
       LiquidGlassQuality.automatic,
     );
+    expect(LiquidGlassQuality.fromIndex(1.5), LiquidGlassQuality.automatic);
+    expect(GlassStyle.fromIndex(1.5), GlassStyle.none);
+    expect(GlassStyle.tryFromIndex(2), GlassStyle.liquid);
+    expect(GlassStyle.tryFromIndex(3), isNull);
     expect(LiquidGlassQuality.soft.label, '柔光玻璃（半透明）');
     expect(LiquidGlassQuality.frosted.label, '磨砂玻璃（性能优先）');
   });
@@ -58,4 +64,74 @@ void main() {
       LiquidGlassQuality.reflective,
     );
   });
+
+  test('keeps the runtime fallback order explicit', () {
+    expect(
+      GlassCapability.liquidFallbackMode(LiquidGlassQuality.frosted),
+      GlassFallbackMode.frosted,
+    );
+    expect(
+      GlassCapability.nextFallback(GlassFallbackMode.shader),
+      anyOf(GlassFallbackMode.reflective, GlassFallbackMode.frosted),
+    );
+    expect(
+      GlassCapability.nextFallback(GlassFallbackMode.reflective),
+      GlassFallbackMode.frosted,
+    );
+    expect(
+      GlassCapability.nextFallback(GlassFallbackMode.frosted),
+      GlassFallbackMode.soft,
+    );
+    expect(
+      GlassCapability.nextFallback(GlassFallbackMode.soft),
+      GlassFallbackMode.solid,
+    );
+  });
+
+  test('new liquid style prefers the shader capability path', () {
+    final expected = GlassCapability.supportsShaderFilter
+        ? GlassFallbackMode.shader
+        : GlassCapability.supportsReflective
+        ? GlassFallbackMode.reflective
+        : GlassFallbackMode.frosted;
+    expect(GlassCapability.preferredLiquidMode(), expected);
+  });
+
+  test(
+    'maps legacy glass settings without changing the selected appearance',
+    () {
+      expect(
+        GlassStyle.fromLegacy(
+          floatingNavBar: false,
+          liquidGlassNavBar: true,
+          quality: LiquidGlassQuality.reflective,
+        ),
+        GlassStyle.none,
+      );
+      expect(
+        GlassStyle.fromLegacy(
+          floatingNavBar: true,
+          liquidGlassNavBar: false,
+          quality: LiquidGlassQuality.reflective,
+        ),
+        GlassStyle.none,
+      );
+      expect(
+        GlassStyle.fromLegacy(
+          floatingNavBar: true,
+          liquidGlassNavBar: true,
+          quality: LiquidGlassQuality.soft,
+        ),
+        GlassStyle.soft,
+      );
+      expect(
+        GlassStyle.fromLegacy(
+          floatingNavBar: true,
+          liquidGlassNavBar: true,
+          quality: LiquidGlassQuality.reflective,
+        ),
+        GlassStyle.liquid,
+      );
+    },
+  );
 }

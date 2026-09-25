@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/models/common/enum_with_label.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
+import 'package:hive_ce/hive.dart' show BoxEvent;
 
 typedef PopupMenuItemSelected<T> = void Function(
   T value,
@@ -20,6 +25,8 @@ class PopupListTile<T> extends StatefulWidget {
     this.dense,
     this.safeArea = true,
     this.enabled = true,
+    this.enabledByKey,
+    this.allowSameSelection = false,
     this.leading,
     required this.title,
     this.descPosType = .subtitle,
@@ -33,6 +40,8 @@ class PopupListTile<T> extends StatefulWidget {
   final bool? dense;
   final bool safeArea;
   final bool enabled;
+  final String? enabledByKey;
+  final bool allowSameSelection;
   final Widget? leading;
   final Widget title;
 
@@ -49,6 +58,28 @@ class PopupListTile<T> extends StatefulWidget {
 
 class _PopupListTileState<T> extends State<PopupListTile<T>> {
   final _key = PlatformUtils.isDesktop ? null : GlobalKey();
+  Stream<BoxEvent>? _enabledStream;
+
+  void _setEnabledStream() {
+    final enabledByKey = widget.enabledByKey;
+    _enabledStream = enabledByKey == null
+        ? null
+        : GStorage.setting.watch(key: enabledByKey);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _setEnabledStream();
+  }
+
+  @override
+  void didUpdateWidget(PopupListTile<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enabledByKey != widget.enabledByKey) {
+      _setEnabledStream();
+    }
+  }
 
   void _showButtonMenu(
     BuildContext menuContext,
@@ -73,7 +104,10 @@ class _PopupListTileState<T> extends State<PopupListTile<T>> {
       requestFocus: false,
     ).then<void>((newValue) {
       if (!mounted) return;
-      if (newValue == null || newValue == value) return;
+      if (newValue == null ||
+          (newValue == value && !widget.allowSameSelection)) {
+        return;
+      }
       widget.onSelected(newValue, _refresh);
     });
   }
@@ -86,7 +120,21 @@ class _PopupListTileState<T> extends State<PopupListTile<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final enabledStream = _enabledStream;
+    if (enabledStream != null) {
+      return StreamBuilder<BoxEvent>(
+        stream: enabledStream,
+        builder: (context, _) => _build(context),
+      );
+    }
+    return _build(context);
+  }
+
+  Widget _build(BuildContext context) {
     final theme = Theme.of(context);
+    final enabled =
+        widget.enabled &&
+        (widget.enabledByKey == null || Pref.settingBool(widget.enabledByKey!));
     final (value, descStr) = widget.value();
     Widget title = KeyedSubtree(key: _key, child: widget.title);
     Widget? subtitle;
@@ -94,9 +142,7 @@ class _PopupListTileState<T> extends State<PopupListTile<T>> {
     final desc = Text(
       descStr,
       style: (widget.descStyle ?? theme.textTheme.labelMedium!).copyWith(
-        color: widget.enabled
-            ? theme.colorScheme.secondary
-            : theme.disabledColor,
+        color: enabled ? theme.colorScheme.secondary : theme.disabledColor,
       ),
     );
     switch (widget.descPosType) {
@@ -120,12 +166,14 @@ class _PopupListTileState<T> extends State<PopupListTile<T>> {
           child: ListTile(
             dense: widget.dense,
             safeArea: widget.safeArea,
-            enabled: widget.enabled,
-            onTapUp: (details) => _showButtonMenu(
-              menuContext,
-              details,
-              value,
-            ),
+            enabled: enabled,
+            onTapUp: enabled
+                ? (details) => _showButtonMenu(
+                    menuContext,
+                    details,
+                    value,
+                  )
+                : null,
             leading: widget.leading,
             title: title,
             titleTextStyle: widget.titleStyle ?? theme.textTheme.titleMedium,

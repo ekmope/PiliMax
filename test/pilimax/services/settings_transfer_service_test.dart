@@ -83,4 +83,32 @@ void main() {
     expect(payload.video, isEmpty);
     expect(payload.localCache, isEmpty);
   });
+
+  test('round-trips the glass style and bottom lift as ordinary settings', () {
+    final exported = SettingsTransferService.buildExportMap(
+      setting: {
+        SettingBoxKey.glassStyle: 2,
+        SettingBoxKey.floatingNavBottomLift: 24.0,
+      },
+      video: const <String, dynamic>{},
+      localCache: const <String, dynamic>{},
+    );
+    final payload = SettingsTransferService.normalize(exported);
+
+    expect(payload.setting[SettingBoxKey.glassStyle], 2);
+    expect(payload.setting[SettingBoxKey.floatingNavBottomLift], 24.0);
+    expect(payload.report.skippedSensitiveKeys, isEmpty);
+  });
+
+  test('normalizes invalid glass style and bottom lift values', () {
+    final payload = SettingsTransferService.normalize({
+      'setting': {
+        SettingBoxKey.glassStyle: 1.5,
+        SettingBoxKey.floatingNavBottomLift: 99,
+      },
+    });
+
+    expect(payload.setting.containsKey(SettingBoxKey.glassStyle), isFalse);
+    expect(payload.setting[SettingBoxKey.floatingNavBottomLift], 48.0);
+  });
 }

@@ -1,4 +1,7 @@
 import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
+import 'package:PiliMax/pilimax/common/widgets/glass_capability.dart';
+import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
+import 'package:PiliMax/pilimax/common/widgets/liquid_glass_filter.dart';
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +26,9 @@ void main() {
     ValueChanged<int>? onSelected,
     int selectedIndex = 0,
     LiquidGlassQuality liquidGlassQuality = LiquidGlassQuality.reflective,
+    GlassStyle? glassStyle,
+    double bottomPadding = 8.0,
+    double bottomLift = 0.0,
   }) {
     return MaterialApp(
       theme: ThemeData(useMaterial3: true),
@@ -31,6 +37,9 @@ void main() {
         onSelected: onSelected,
         destinations: destinations(),
         liquidGlassQuality: liquidGlassQuality,
+        glassStyle: glassStyle,
+        bottomPadding: bottomPadding,
+        bottomLift: bottomLift,
       ),
     );
   }
@@ -276,6 +285,151 @@ void main() {
     );
   });
 
+  testWidgets('legacy soft quality keeps the legacy visual layer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        onSelected: (_) {},
+        liquidGlassQuality: LiquidGlassQuality.soft,
+      ),
+    );
+
+    expect(find.byType(BackdropFilter), findsNothing);
+    expect(find.byType(RawMagnifier), findsNothing);
+    expect(find.byType(ShaderMask), findsWidgets);
+  });
+
+  testWidgets('soft glass style keeps the lightweight visual path', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        onSelected: (_) {},
+        glassStyle: GlassStyle.soft,
+      ),
+    );
+
+    expect(find.byType(BackdropFilter), findsNothing);
+    expect(find.byType(RawMagnifier), findsNothing);
+    expect(find.byType(ShaderMask), findsNothing);
+    expect(find.byType(LiquidGlassFilter), findsNothing);
+    expect(
+      find.byKey(const ValueKey('liquidGlassNavigationBar')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'new liquid style follows the centralized fallback when shader is unsupported',
+    (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host(
+          onSelected: (_) {},
+          glassStyle: GlassStyle.liquid,
+        ),
+      );
+
+      if (!GlassCapability.supportsShaderFilter) {
+        final initialMode = GlassCapability.preferredLiquidMode();
+        expect(
+          find.byType(RawMagnifier),
+          initialMode == GlassFallbackMode.reflective
+              ? findsOneWidget
+              : findsNothing,
+        );
+        expect(find.byType(BackdropFilter), findsOneWidget);
+      }
+    },
+  );
+
+  testWidgets('explicit liquid style ignores the legacy soft quality', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        onSelected: (_) {},
+        glassStyle: GlassStyle.liquid,
+        liquidGlassQuality: LiquidGlassQuality.soft,
+      ),
+    );
+
+    // The old quality key must not turn an explicit new liquid selection into
+    // the shader-free soft path. A filter may still be the visible fallback
+    // while the shader asset is loading.
+    expect(find.byType(BackdropFilter), findsOneWidget);
+  });
+
+  testWidgets('none glass style keeps the ordinary navigation path', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        onSelected: (_) {},
+        glassStyle: GlassStyle.none,
+      ),
+    );
+
+    expect(find.byType(BackdropFilter), findsNothing);
+    expect(find.byType(RawMagnifier), findsNothing);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byKey(const ValueKey('liquidGlassVisualShell')), findsNothing);
+  });
+
+  testWidgets('bottom lift changes only the floating bar position', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        onSelected: (_) {},
+        glassStyle: GlassStyle.soft,
+        bottomPadding: 8,
+        bottomLift: 0,
+      ),
+    );
+    final bar = find.byKey(const ValueKey('liquidGlassNavigationBar'));
+    final baseTop = tester.getTopLeft(bar).dy;
+    final baseSize = tester.getSize(bar);
+
+    await tester.pumpWidget(
+      host(
+        onSelected: (_) {},
+        glassStyle: GlassStyle.soft,
+        bottomPadding: 8,
+        bottomLift: 24,
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.getTopLeft(bar).dy, closeTo(baseTop - 24, 0.01));
+    expect(tester.getSize(bar), baseSize);
+  });
+
+  testWidgets('bottom lift does not resize the Scaffold body', (tester) async {
+    await tester.pumpWidget(
+      host(
+        onSelected: (_) {},
+        glassStyle: GlassStyle.soft,
+        bottomLift: 0,
+      ),
+    );
+    final body = find.byKey(const ValueKey('navigationBody'));
+    final baseBodySize = tester.getSize(body);
+
+    await tester.pumpWidget(
+      host(
+        onSelected: (_) {},
+        glassStyle: GlassStyle.soft,
+        bottomLift: 24,
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.getSize(body), baseBodySize);
+  });
+
   testWidgets('icon wrappers stay outside the gradient mask', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -324,6 +478,44 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('icon wrapper semantics remain available in glass mode', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: Scaffold(
+          body: const SizedBox.expand(),
+          bottomNavigationBar: FloatingNavigationBar(
+            glassStyle: GlassStyle.soft,
+            destinations: [
+              const FloatingNavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                label: 'Home',
+              ),
+              FloatingNavigationDestination(
+                icon: const Icon(Icons.bolt_outlined),
+                label: 'Dynamic',
+                iconWrapper: (icon) => Semantics(
+                  label: 'Dynamic unread 1',
+                  child: icon,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final dynamicTab = find.bySemanticsLabel(
+      RegExp(r'Dynamic(?:.*Dynamic unread 1|.*unread 1)'),
+    );
+    expect(dynamicTab, findsOneWidget);
+    semantics.dispose();
+  });
 }
 
 class _NavigationHost extends StatefulWidget {
@@ -332,12 +524,18 @@ class _NavigationHost extends StatefulWidget {
     this.initialIndex = 0,
     this.onSelected,
     this.liquidGlassQuality = LiquidGlassQuality.reflective,
+    this.glassStyle,
+    this.bottomPadding = 8.0,
+    this.bottomLift = 0.0,
   });
 
   final List<Widget> destinations;
   final int initialIndex;
   final ValueChanged<int>? onSelected;
   final LiquidGlassQuality liquidGlassQuality;
+  final GlassStyle? glassStyle;
+  final double bottomPadding;
+  final double bottomLift;
 
   @override
   State<_NavigationHost> createState() => _NavigationHostState();
@@ -348,10 +546,13 @@ class _NavigationHostState extends State<_NavigationHost> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: const SizedBox.expand(),
+    body: const SizedBox.expand(key: ValueKey('navigationBody')),
     bottomNavigationBar: FloatingNavigationBar(
       liquidGlass: true,
+      glassStyle: widget.glassStyle,
       liquidGlassQuality: widget.liquidGlassQuality,
+      bottomPadding: widget.bottomPadding,
+      bottomLift: widget.bottomLift,
       selectedIndex: selectedIndex,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       destinations: widget.destinations,

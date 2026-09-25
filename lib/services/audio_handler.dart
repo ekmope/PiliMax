@@ -468,6 +468,11 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     _clearCurrentSession(clearItems: false);
   }
 
+  void clearIfNeeded() {
+    if (!enableBackgroundPlay) return;
+    if (_item.isEmpty) clear();
+  }
+
   void clear() {
     if (!enableBackgroundPlay) return;
     _clearCurrentSession();

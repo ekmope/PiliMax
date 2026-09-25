@@ -17,7 +17,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
 # update when release
-version: 2.1.4+1
+version: 2.1.5+1
 
 environment:
   sdk: ">=3.13.0"
@@ -43,12 +43,15 @@ dependencies:
     git:
       url: https://github.com/bggRGjQaUbCoE/audio_service.git
       path: audio_service
-      ref: main
+      ref: dev
   audio_service_win:
     git:
       url: https://github.com/Starfallan/audio_service_win.git
       ref: main
-  audio_session: ^0.2.2
+  audio_session:
+    git:
+      url: https://github.com/bggRGjQaUbCoE/audio_session.git
+      ref: dev
   battery_plus: ^7.0.0
   brotli: ^0.6.0
   cached_network_image_ce:

@@ -73,15 +73,16 @@ abstract final class GlassShaderProgram {
   /// [ui.ImageFilter.shader] and is populated by the engine. The shader
   /// returns null when its program cannot create or accept an instance, so the
   /// caller can keep the existing visual fallback. Refraction amount, edge
-  /// height, chromatic aberration, and lens radius are normalized to the
-  /// shorter filter dimension; this keeps them independent of device pixel
-  /// ratio.
+  /// height, chromatic aberration, lens radius, and depth effect are
+  /// normalized to the shorter filter dimension; this keeps them independent
+  /// of device pixel ratio.
   static ui.FragmentShader? createShader(
     ui.FragmentProgram program, {
     required double refractionAmount,
     required double refractionHeight,
     required double chromaticAberration,
     required double lensRadius,
+    required double depthEffect,
     ui.Offset center = const ui.Offset(0.5, 0.5),
   }) {
     ui.FragmentShader? shader;
@@ -95,6 +96,7 @@ abstract final class GlassShaderProgram {
         refractionHeight: refractionHeight,
         chromaticAberration: chromaticAberration,
         lensRadius: lensRadius,
+        depthEffect: depthEffect,
         center: center,
       );
       return created;
@@ -111,6 +113,7 @@ abstract final class GlassShaderProgram {
     required double refractionHeight,
     required double chromaticAberration,
     required double lensRadius,
+    required double depthEffect,
     ui.Offset center = const ui.Offset(0.5, 0.5),
   }) {
     shader
@@ -119,7 +122,8 @@ abstract final class GlassShaderProgram {
       ..setFloat(4, _nonNegative(chromaticAberration))
       ..setFloat(5, _nonNegative(lensRadius))
       ..setFloat(6, _unit(center.dx, 0.5))
-      ..setFloat(7, _unit(center.dy, 0.5));
+      ..setFloat(7, _unit(center.dy, 0.5))
+      ..setFloat(8, _nonNegative(depthEffect));
   }
 
   static double _nonNegative(double value) {

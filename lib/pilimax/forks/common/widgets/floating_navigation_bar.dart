@@ -1075,6 +1075,8 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                           ),
                       chromaticAberration: 0.0005,
                       lensRadius: 0.5,
+                      // Preserve the small selected-lens depth treatment.
+                      depthEffect: 0.18,
                       onFailure: _handleGlassFailure,
                       child: const SizedBox.expand(),
                     )
@@ -1320,15 +1322,17 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         key: const ValueKey('liquidGlassShaderBackground'),
         fallback: fallbackGlassLayer,
         onFailure: _handleGlassFailure,
-        // AndroidLiquidGlass' LiquidBottomTabs uses a 24 dp refraction height
-        // and amount for its 64 dp capsule. Normalize both values so the
-        // Flutter filter keeps the same optical strength at any device scale.
-        refractionAmount: 24.0 / _kNavigationHeight,
-        refractionHeight: 24.0 / _kNavigationHeight,
+        // Keep the shell's refraction shallow. The original 24 dp values
+        // displaced high-contrast content across too much of the capsule.
+        refractionAmount: 8.0 / _kNavigationHeight,
+        refractionHeight: 12.0 / _kNavigationHeight,
         // AndroidLiquidGlass keeps chromatic aberration optional and very
         // weak. Start neutral so text and icons do not acquire coloured edges.
         chromaticAberration: 0.0,
         lensRadius: 0.5,
+        // A radial normal is appropriate for the selected lens, but it makes
+        // the full shell look like a second, off-center circular lens.
+        depthEffect: 0.0,
         child: glassLayer,
       );
     } else {

@@ -16,6 +16,7 @@ class LiquidGlassFilter extends StatefulWidget {
     this.refractionHeight = 0.24,
     this.chromaticAberration = 0.0,
     this.lensRadius = 0.5,
+    this.depthEffect = 0.18,
   });
 
   final Widget child;
@@ -25,6 +26,12 @@ class LiquidGlassFilter extends StatefulWidget {
   final double refractionHeight;
   final double chromaticAberration;
   final double lensRadius;
+  /// Adds the optional radial component to the rounded-box normal.
+  ///
+  /// The default preserves the original lens appearance. Large backdrop
+  /// shells can set this to zero to avoid introducing a second, circular
+  /// optical center inside the capsule.
+  final double depthEffect;
 
   @override
   State<LiquidGlassFilter> createState() => _LiquidGlassFilterState();
@@ -51,6 +58,7 @@ class _LiquidGlassFilterState extends State<LiquidGlassFilter> {
       refractionHeight: widget.refractionHeight,
       chromaticAberration: widget.chromaticAberration,
       lensRadius: widget.lensRadius,
+      depthEffect: widget.depthEffect,
     );
     try {
       if (_program != program) {
@@ -73,6 +81,7 @@ class _LiquidGlassFilterState extends State<LiquidGlassFilter> {
           refractionHeight: parameters.refractionHeight,
           chromaticAberration: parameters.chromaticAberration,
           lensRadius: parameters.lensRadius,
+          depthEffect: parameters.depthEffect,
         );
         _lastParameters = parameters;
         // The shader instance is reused; rebuilding the filter only changes
@@ -168,12 +177,14 @@ final class _ShaderParameters {
     required this.refractionHeight,
     required this.chromaticAberration,
     required this.lensRadius,
+    required this.depthEffect,
   });
 
   final double refractionAmount;
   final double refractionHeight;
   final double chromaticAberration;
   final double lensRadius;
+  final double depthEffect;
 
   @override
   bool operator ==(Object other) {
@@ -181,7 +192,8 @@ final class _ShaderParameters {
         other.refractionAmount == refractionAmount &&
         other.refractionHeight == refractionHeight &&
         other.chromaticAberration == chromaticAberration &&
-        other.lensRadius == lensRadius;
+        other.lensRadius == lensRadius &&
+        other.depthEffect == depthEffect;
   }
 
   @override
@@ -190,5 +202,6 @@ final class _ShaderParameters {
     refractionHeight,
     chromaticAberration,
     lensRadius,
+    depthEffect,
   );
 }

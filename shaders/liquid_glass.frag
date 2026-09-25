@@ -13,6 +13,9 @@ uniform float u_chromatic_aberration;
 uniform float u_lens_radius;
 // Lens center in normalized filter coordinates.
 uniform vec2 u_center;
+// Optional radial contribution to the rounded-box surface normal. Set to
+// zero for a large shell so it cannot create a second circular optical center.
+uniform float u_depth_effect;
 
 // The first sampler is populated with the input of ImageFilter.shader.
 uniform sampler2D u_texture;
@@ -79,9 +82,11 @@ void main() {
   vec2 radial_normal = centered_length > 0.0001
       ? centered / centered_length
       : vec2(0.0);
-  // A small depth term avoids a flat-looking capsule while keeping the
-  // rounded-rectangle SDF as the dominant normal.
-  vec2 normal_input = geometric_normal + 0.18 * radial_normal;
+  // Keep the radial depth term caller-controlled. It is useful for the small
+  // selected lens, but a full-width shell becomes visibly curved when it is
+  // combined with the rounded-box normal.
+  vec2 normal_input = geometric_normal +
+      clamp(u_depth_effect, 0.0, 1.0) * radial_normal;
   float normal_length = length(normal_input);
   vec2 normal = normal_length > 0.0001
       ? normal_input / normal_length

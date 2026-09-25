@@ -1107,15 +1107,17 @@ Future<void> _showFloatingNavigationLiftDialog(
       title: const Text('悬浮底栏底部高度'),
       value: Pref.floatingNavBottomLift,
       min: 0,
-      max: 48,
-      divisions: 48,
+      max: kMaxFloatingNavBottomLift,
+      divisions: kMaxFloatingNavBottomLift.toInt(),
       suffix: ' dp',
       precise: 0,
     ),
   );
   if (result == null) return;
 
-  final normalized = result.isFinite ? result.clamp(0.0, 48.0).toDouble() : 0.0;
+  final normalized = result.isFinite
+      ? result.clamp(0.0, kMaxFloatingNavBottomLift).toDouble()
+      : 0.0;
   await GStorage.setting.put(
     SettingBoxKey.floatingNavBottomLift,
     normalized,

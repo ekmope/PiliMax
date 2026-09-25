@@ -1832,7 +1832,9 @@ abstract final class Pref {
       defaultValue: 0.0,
     );
     final lift = value is num ? value.toDouble() : 0.0;
-    return lift.isFinite ? lift.clamp(0.0, 48.0).toDouble() : 0.0;
+    return lift.isFinite
+        ? lift.clamp(0.0, kMaxFloatingNavBottomLift).toDouble()
+        : 0.0;
   }
 
   static LiquidGlassQuality get liquidGlassQuality =>

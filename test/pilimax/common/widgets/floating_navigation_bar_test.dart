@@ -3,6 +3,7 @@ import 'package:PiliMax/pilimax/common/widgets/glass_capability.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_filter.dart';
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -204,6 +205,31 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
     expect(selected, 2);
+  });
+
+  testWidgets('mouse drag keeps the lens vertically expanded', (tester) async {
+    await tester.pumpWidget(host(onSelected: (_) {}));
+
+    final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
+    final idleHeight = tester.getSize(indicator).height;
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('Home')),
+      kind: PointerDeviceKind.mouse,
+    );
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    final shellRect = tester.getRect(
+      find.byKey(const ValueKey('liquidGlassNavigationBar')),
+    );
+    final indicatorRect = tester.getRect(indicator);
+    expect(indicatorRect.height, greaterThan(idleHeight));
+    expect(indicatorRect.top, lessThan(shellRect.top));
+    expect(indicatorRect.bottom, greaterThan(shellRect.bottom));
+
+    await gesture.cancel();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('drag release keeps the lens and shell visually continuous', (

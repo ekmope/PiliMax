@@ -221,7 +221,7 @@ abstract final class SettingsTransferService {
       final value = values[SettingBoxKey.floatingNavBottomLift];
       final lift = value is num ? value.toDouble() : 0.0;
       values[SettingBoxKey.floatingNavBottomLift] = lift.isFinite
-          ? lift.clamp(0.0, 48.0).toDouble()
+          ? lift.clamp(0.0, kMaxFloatingNavBottomLift).toDouble()
           : 0.0;
     }
   }

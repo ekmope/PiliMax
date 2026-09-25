@@ -6,7 +6,7 @@ import 'package:PiliMax/pilimax/common/widgets/glass_capability.dart';
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_filter.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
-import 'package:flutter/gestures.dart' show PointerDeviceKind, kTouchSlop;
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
 
@@ -682,7 +682,9 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     _gestureDirectionLocked = false;
     _isVerticalGesture = false;
     _dragStartIndex = index;
-    _expandPressIndicator = event.kind != PointerDeviceKind.mouse;
+    // Keep the lens geometry consistent across touch, mouse, and high-DPI
+    // desktop windows. Pointer kind should not change the logical dp shape.
+    _expandPressIndicator = true;
     _interactionCommitted = false;
     _dragVelocity = 0;
     _dragOverscroll = _overscrollForX(event.localPosition.dx);

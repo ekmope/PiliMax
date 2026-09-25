@@ -109,6 +109,6 @@ void main() {
     });
 
     expect(payload.setting.containsKey(SettingBoxKey.glassStyle), isFalse);
-    expect(payload.setting[SettingBoxKey.floatingNavBottomLift], 48.0);
+    expect(payload.setting[SettingBoxKey.floatingNavBottomLift], 50.0);
   });
 }

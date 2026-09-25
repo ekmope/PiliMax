@@ -1,5 +1,7 @@
 // ignore_for_file: constant_identifier_names
 
+const double kMaxFloatingNavBottomLift = 50.0;
+
 abstract final class SettingBoxKey {
   static const String btmProgressBehavior = 'btmProgressBehavior',
       defaultVideoQa = 'defaultVideoQa',

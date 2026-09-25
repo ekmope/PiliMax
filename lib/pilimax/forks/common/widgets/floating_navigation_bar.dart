@@ -872,6 +872,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
 
   List<Widget> _buildVisualDestinations({
     required double indicatorIndex,
+    required double interactionScale,
     required ColorScheme colorScheme,
     required NavigationBarThemeData navigationBarTheme,
   }) {
@@ -915,6 +916,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         iconWrapper: destination.iconWrapper,
         useGradient: !soft && !solid,
         selectionProgress: destination.enabled ? selectionProgress : 0,
+        interactionScale: selectionProgress * (interactionScale - 1.0) + 1.0,
         inactiveTheme: destinationInactiveTheme,
         activeTheme: destinationActiveTheme,
       );
@@ -926,6 +928,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           iconWrapper: destination.iconWrapper,
           useGradient: !soft && !solid,
           selectionProgress: destination.enabled ? selectionProgress : 0,
+          interactionScale: selectionProgress * (interactionScale - 1.0) + 1.0,
           inactiveTheme: destinationInactiveTheme,
           activeTheme: destinationActiveTheme,
         ),
@@ -1066,16 +1069,16 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                             )
                           : const SizedBox.expand(),
                       refractionAmount:
-                          0.07 + pressProgress * 0.05 + dragProgress * 0.02,
+                          pressProgress * 0.05 + dragProgress * 0.02,
                       refractionHeight:
                           (14.0 + pressProgress * 10.0) /
                           math.max(
                             1.0,
                             math.min(indicatorWidth, indicatorHeight),
                           ),
-                      chromaticAberration: 0.0005,
+                      chromaticAberration:
+                          pressProgress * 0.0005 + dragProgress * 0.0003,
                       lensRadius: 0.5,
-                      // Preserve the small selected-lens depth treatment.
                       depthEffect: 0.18,
                       onFailure: _handleGlassFailure,
                       child: const SizedBox.expand(),
@@ -1136,7 +1139,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                       width: 1 + pressProgress * 0.5,
                     ),
                   ),
-                  if (reflective)
+                  if (reflective && (pressProgress > 0.001 || dragProgress > 0))
                     CustomPaint(
                       painter: _LiquidReflectionPainter(
                         shape: lensShape,
@@ -1322,16 +1325,13 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         key: const ValueKey('liquidGlassShaderBackground'),
         fallback: fallbackGlassLayer,
         onFailure: _handleGlassFailure,
-        // Keep the shell's refraction shallow. The original 24 dp values
-        // displaced high-contrast content across too much of the capsule.
-        refractionAmount: 8.0 / _kNavigationHeight,
+        // Preserve the shell's original blur and gradients while disabling
+        // its displacement pass; the selected lens remains the only displaced
+        // region, preventing stretched text and image bands.
+        refractionAmount: 0.0,
         refractionHeight: 12.0 / _kNavigationHeight,
-        // AndroidLiquidGlass keeps chromatic aberration optional and very
-        // weak. Start neutral so text and icons do not acquire coloured edges.
         chromaticAberration: 0.0,
         lensRadius: 0.5,
-        // A radial normal is appropriate for the selected lens, but it makes
-        // the full shell look like a second, off-center circular lens.
         depthEffect: 0.0,
         child: glassLayer,
       );
@@ -1339,16 +1339,16 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
       visualGlassLayer = fallbackGlassLayer;
     }
 
-    return Transform.translate(
-      offset: Offset(0, -widget.bottomLift),
-      child: UnconstrainedBox(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            viewPadding.left,
-            0,
-            viewPadding.right,
-            widget.bottomPadding + viewPadding.bottom,
-          ),
+    return UnconstrainedBox(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          viewPadding.left,
+          0,
+          viewPadding.right,
+          widget.bottomPadding + viewPadding.bottom,
+        ),
+        child: Transform.translate(
+          offset: Offset(0, -widget.bottomLift),
           child: SizedBox(
             key: const ValueKey('liquidGlassNavigationBar'),
             height: _kNavigationHeight,
@@ -1383,23 +1383,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                             // Clip the glass layer to the pill so the bar never
                             // paints outside its visual shell.
                             visualGlassLayer,
-                            AnimatedBuilder(
-                              animation: _pressController,
-                              builder: (context, child) {
-                                final pressProgress = Curves.easeOutCubic
-                                    .transform(
-                                      _pressController.value,
-                                    );
-                                return ColoredBox(
-                                  color: Colors.white.withValues(
-                                    alpha:
-                                        (isDark ? 0.07 : 0.04) * pressProgress,
-                                  ),
-                                  child: child,
-                                );
-                              },
-                              child: const SizedBox.expand(),
-                            ),
                             IgnorePointer(
                               child: DecoratedBox(
                                 decoration: ShapeDecoration(
@@ -1441,6 +1424,17 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                                   selectedIndex: widget.selectedIndex,
                                   destinations: _buildVisualDestinations(
                                     indicatorIndex: visualIndex,
+                                    interactionScale:
+                                        1.0 +
+                                        (Curves.easeOutCubic.transform(
+                                              _pressController.value,
+                                            ) *
+                                            0.035) +
+                                        (_dragIndex != null &&
+                                                _gestureDirectionLocked &&
+                                                !_isVerticalGesture
+                                            ? 0.015
+                                            : 0.0),
                                     colorScheme: colorScheme,
                                     navigationBarTheme: navigationBarTheme,
                                   ),
@@ -1536,6 +1530,7 @@ class _LiquidDestinationIcon extends StatelessWidget {
     required this.iconWrapper,
     required this.useGradient,
     required this.selectionProgress,
+    required this.interactionScale,
     required this.inactiveTheme,
     required this.activeTheme,
   });
@@ -1545,6 +1540,7 @@ class _LiquidDestinationIcon extends StatelessWidget {
   final Widget Function(Widget icon)? iconWrapper;
   final bool useGradient;
   final double selectionProgress;
+  final double interactionScale;
   final IconThemeData inactiveTheme;
   final IconThemeData activeTheme;
 
@@ -1615,10 +1611,14 @@ class _LiquidDestinationIcon extends StatelessWidget {
     // NavigationBar supplies the tab semantics around this destination. Do
     // not exclude the wrapped icon subtree: PiliMax uses the wrapper for
     // badges and it may also carry useful accessibility information.
+    final interactiveIcon = Transform.scale(
+      scale: interactionScale,
+      child: transitionIcon,
+    );
     return SizedBox.square(
       dimension: iconBoxSize,
       child: Center(
-        child: iconWrapper?.call(transitionIcon) ?? transitionIcon,
+        child: iconWrapper?.call(interactiveIcon) ?? interactiveIcon,
       ),
     );
   }

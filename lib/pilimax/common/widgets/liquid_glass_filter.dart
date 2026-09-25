@@ -28,9 +28,7 @@ class LiquidGlassFilter extends StatefulWidget {
   final double lensRadius;
   /// Adds the optional radial component to the rounded-box normal.
   ///
-  /// The default preserves the original lens appearance. Large backdrop
-  /// shells can set this to zero to avoid introducing a second, circular
-  /// optical center inside the capsule.
+  /// The default preserves the original lens appearance.
   final double depthEffect;
 
   @override

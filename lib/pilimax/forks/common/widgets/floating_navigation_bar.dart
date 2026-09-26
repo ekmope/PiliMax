@@ -16,8 +16,6 @@ const double _kIndicatorPadding = 4.0;
 const double _kDragShellMotionFactor = 0.9;
 const double _kDragShellVelocityFactor = 0.8;
 const double _kDragShellMaxOffset = 3.0;
-const double _kDragOpticalMotionFactor = 0.9;
-const double _kDragOpticalVelocityFactor = 1.2;
 const Duration _kLiquidPressDuration = Duration(milliseconds: 130);
 final ui.ImageFilter _kLiquidReflectiveBlur = ui.ImageFilter.blur(
   sigmaX: 7,
@@ -350,7 +348,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
   double _dragDirection = 0;
   double _dragVelocity = 0;
   double _dragOverscroll = 0;
-  double _releaseVisualOffset = 0;
   double _releaseShellOffset = 0;
   double _releaseMotionIndex = 0;
   double _releaseVelocityNorm = 0;
@@ -555,12 +552,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         ? 0.0
         : currentIndex - _dragStartIndex;
     final dragEdgeOffset = dragIndex == null ? 0.0 : _dragEdgeOffset;
-    _releaseVisualOffset = dragIndex == null
-        ? 0
-        : (dragMotionIndex * _kDragOpticalMotionFactor +
-                  dragVelocityNorm * _kDragOpticalVelocityFactor)
-              .clamp(-4.0, 4.0)
-              .toDouble();
     _releaseShellOffset = dragIndex == null
         ? 0
         : (dragMotionIndex * _kDragShellMotionFactor +
@@ -688,7 +679,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     _interactionCommitted = false;
     _dragVelocity = 0;
     _dragOverscroll = _overscrollForX(event.localPosition.dx);
-    _releaseVisualOffset = 0;
     _releaseShellOffset = 0;
     _releaseMotionIndex = 0;
     _releaseVelocityNorm = 0;
@@ -972,7 +962,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                 NavigationDestinationLabelBehavior.alwaysHide
             ? math.max(48.0, math.min(60.0, _itemExtent - 12))
             : math.max(56.0, math.min(78.0, _itemExtent - 4));
-        final indicatorWidth =
+        final rawIndicatorWidth =
             baseWidth + stretchAmount + 24 * pressProgress + 8 * dragProgress;
         // Keep mouse presses vertically stable on desktop. Touch input keeps
         // the tactile press and drag swell.
@@ -980,13 +970,28 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
             ? pressProgress
             : 0.0;
         final verticalDragProgress = _expandPressIndicator ? dragProgress : 0.0;
-        final indicatorHeight =
+        final rawIndicatorHeight =
             _kNavigationHeight -
             12 +
             20 * verticalPressProgress +
             3 * verticalDragProgress;
         final centerX =
             _kIndicatorPadding + _itemExtent * (indicatorIndex + 0.5);
+        final shellWidth =
+            _itemExtent * widget.destinations.length + 2 * _kIndicatorPadding;
+        // Keep the expanded lens centered on the selected destination while
+        // making the shell bounds the canonical visual and hit-test region.
+        // This preserves press feedback without letting the backdrop or rim
+        // leak beyond the floating bar at the first/last destination.
+        final maxCenteredWidth =
+            (2 * math.min(centerX, shellWidth - centerX).clamp(1.0, shellWidth))
+                .toDouble();
+        final indicatorWidth = math
+            .min(rawIndicatorWidth, maxCenteredWidth)
+            .toDouble();
+        final indicatorHeight = rawIndicatorHeight
+            .clamp(1.0, _kNavigationHeight)
+            .toDouble();
         final transitionProgress = math.sin(
           math.pi * _selectionController.value,
         );
@@ -1000,16 +1005,10 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         final velocityNorm = dragIndex != null
             ? _activeDragVelocityNorm
             : _releaseVelocityNorm * _releaseProgress;
-        final visualOffset = dragIndex != null
-            ? (motionIndex * _kDragOpticalMotionFactor +
-                      velocityNorm * _kDragOpticalVelocityFactor)
-                  .clamp(-4.0, 4.0)
-                  .toDouble()
-            : (motionIndex * _kDragOpticalMotionFactor +
-                      _releaseVisualOffset * _releaseProgress)
-                  .clamp(-4.0, 4.0)
-                  .toDouble();
-        final left = centerX - indicatorWidth / 2 + visualOffset;
+        // The shell already carries the shared visual motion. Applying a
+        // second optical offset to the lens made its backdrop drift away from
+        // the hit target, especially at the first and last destinations.
+        final left = centerX - indicatorWidth / 2;
         final reflectionStrength =
             (0.22 + pressProgress * 0.58 + dragProgress * 0.16)
                 .clamp(0.0, 1.0)
@@ -1020,11 +1019,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
             opticalMotionIndex * 0.04 +
             velocityNorm * 0.03;
         final reflectionPhase = rawReflectionPhase;
-        final refractionOffset =
-            (opticalMotionIndex * 2.2 +
-                    velocityNorm * (0.8 + pressProgress * 1.2))
-                .clamp(-10.0, 10.0)
-                .toDouble();
         final signedDragOffset = dragIndex != null
             ? motionIndex * _itemExtent
             : _releaseMotionIndex * _itemExtent * releaseProgress;
@@ -1043,114 +1037,134 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           width: indicatorWidth,
           height: indicatorHeight,
           child: IgnorePointer(
-            child: ClipPath(
-              clipper: ShapeBorderClipper(shape: lensShape),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (shaderLiquid)
-                    LiquidGlassFilter(
-                      key: const ValueKey('liquidGlassShaderIndicator'),
-                      // Keep the existing optical treatment visible while the
-                      // shader asset is loading. If creation fails, the
-                      // centralized failure callback advances to the same
-                      // reflective fallback explicitly.
-                      fallback: reflectiveFallback
-                          ? RawMagnifier(
-                              size: Size(indicatorWidth, indicatorHeight),
-                              magnificationScale: 1.055 + pressProgress * 0.12,
-                              focalPointOffset: Offset(-refractionOffset, 0),
-                              decoration: MagnifierDecoration(
-                                opacity:
-                                    (isDark ? 0.90 : 0.88) +
-                                    pressProgress * 0.08,
-                                shape: lensShape,
-                              ),
-                            )
-                          : const SizedBox.expand(),
-                      refractionAmount:
-                          pressProgress * 0.05 + dragProgress * 0.02,
-                      refractionHeight:
-                          (14.0 + pressProgress * 10.0) /
-                          math.max(
-                            1.0,
-                            math.min(indicatorWidth, indicatorHeight),
-                          ),
-                      chromaticAberration:
-                          pressProgress * 0.0005 + dragProgress * 0.0003,
-                      lensRadius: 0.5,
-                      depthEffect: 0.18,
-                      onFailure: _handleGlassFailure,
-                      child: const SizedBox.expand(),
-                    )
-                  else if (reflective)
-                    RawMagnifier(
-                      size: Size(indicatorWidth, indicatorHeight),
-                      magnificationScale: 1.055 + pressProgress * 0.12,
-                      focalPointOffset: Offset(-refractionOffset, 0),
-                      decoration: MagnifierDecoration(
-                        opacity: (isDark ? 0.90 : 0.88) + pressProgress * 0.08,
-                        shape: lensShape,
-                      ),
-                    ),
-                  DecoratedBox(
-                    decoration: ShapeDecoration(
-                      color: solid
-                          ? effectiveIndicatorColor.withValues(alpha: 1)
-                          : effectiveIndicatorColor.withValues(
-                              alpha: soft
-                                  ? effectiveIndicatorColor.a
-                                  : (effectiveIndicatorColor.a *
-                                                (reflective ? 0.22 : 0.40) -
-                                            pressProgress * 0.05)
-                                        .clamp(0.0, 1.0)
-                                        .toDouble(),
+            // RawMagnifier and BackdropFilter are composited layers. Keep a
+            // hard rectangular paint bound around the final lens path so their
+            // sampled backdrop cannot escape through an expanded path or a
+            // blurred edge.
+            child: ClipRect(
+              clipBehavior: Clip.hardEdge,
+              child: ClipPath(
+                clipBehavior: Clip.antiAlias,
+                clipper: ShapeBorderClipper(shape: lensShape),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (shaderLiquid)
+                      LiquidGlassFilter(
+                        key: const ValueKey('liquidGlassShaderIndicator'),
+                        // Keep the existing optical treatment visible while the
+                        // shader asset is loading. If creation fails, the
+                        // centralized failure callback advances to the same
+                        // reflective fallback explicitly.
+                        fallback: reflectiveFallback
+                            ? RawMagnifier(
+                                size: Size(indicatorWidth, indicatorHeight),
+                                magnificationScale:
+                                    1.055 + pressProgress * 0.12,
+                                focalPointOffset: Offset.zero,
+                                clipBehavior: Clip.hardEdge,
+                                decoration: MagnifierDecoration(
+                                  opacity:
+                                      (isDark ? 0.90 : 0.88) +
+                                      pressProgress * 0.08,
+                                  shape: lensShape,
+                                ),
+                              )
+                            : const SizedBox.expand(),
+                        refractionAmount:
+                            pressProgress * 0.05 + dragProgress * 0.02,
+                        refractionHeight:
+                            (14.0 + pressProgress * 10.0) /
+                            math.max(
+                              1.0,
+                              math.min(indicatorWidth, indicatorHeight),
                             ),
-                      shape: lensShape,
-                    ),
-                  ),
-                  if (!soft && !solid)
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withValues(
-                              alpha: reflective
-                                  ? (isDark ? 0.10 : 0.16)
-                                  : (isDark ? 0.07 : 0.11),
-                            ),
-                            Colors.transparent,
-                            Colors.black.withValues(
-                              alpha: isDark ? 0.06 : 0.025,
-                            ),
-                          ],
-                          stops: const [0.0, 0.48, 1.0],
+                        // Keep dispersion confined to the interactive lens.
+                        // The normalized values below produce a sub-pixel to
+                        // roughly one-pixel channel split on a 50-60 dp lens.
+                        chromaticAberration:
+                            pressProgress * 0.012 + dragProgress * 0.006,
+                        lensRadius: 0.5,
+                        // The rounded-box normal already describes this
+                        // capsule. A radial contribution would introduce a
+                        // second optical center and can pull the backdrop
+                        // upward at the lower corners.
+                        depthEffect: 0.0,
+                        onFailure: _handleGlassFailure,
+                        child: const SizedBox.expand(),
+                      )
+                    else if (reflective)
+                      RawMagnifier(
+                        size: Size(indicatorWidth, indicatorHeight),
+                        magnificationScale: 1.055 + pressProgress * 0.12,
+                        focalPointOffset: Offset.zero,
+                        clipBehavior: Clip.hardEdge,
+                        decoration: MagnifierDecoration(
+                          opacity:
+                              (isDark ? 0.90 : 0.88) + pressProgress * 0.08,
+                          shape: lensShape,
                         ),
                       ),
-                    ),
-                  CustomPaint(
-                    painter: _LiquidIndicatorBorderPainter(
-                      shape: lensShape,
-                      color: Colors.white.withValues(
-                        alpha: (isDark ? 0.28 : 0.42) + pressProgress * 0.24,
-                      ),
-                      width: 1 + pressProgress * 0.5,
-                    ),
-                  ),
-                  if (reflective && (pressProgress > 0.001 || dragProgress > 0))
-                    CustomPaint(
-                      painter: _LiquidReflectionPainter(
+                    DecoratedBox(
+                      decoration: ShapeDecoration(
+                        color: solid
+                            ? effectiveIndicatorColor.withValues(alpha: 1)
+                            : effectiveIndicatorColor.withValues(
+                                alpha: soft
+                                    ? effectiveIndicatorColor.a
+                                    : (effectiveIndicatorColor.a *
+                                                  (reflective ? 0.22 : 0.40) -
+                                              pressProgress * 0.05)
+                                          .clamp(0.0, 1.0)
+                                          .toDouble(),
+                              ),
                         shape: lensShape,
-                        phase: reflectionPhase,
-                        velocity: velocityNorm,
-                        pressProgress: pressProgress,
-                        progress: reflectionStrength,
-                        isDark: isDark,
                       ),
                     ),
-                ],
+                    if (!soft && !solid)
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.white.withValues(
+                                alpha: reflective
+                                    ? (isDark ? 0.10 : 0.16)
+                                    : (isDark ? 0.07 : 0.11),
+                              ),
+                              Colors.transparent,
+                              Colors.black.withValues(
+                                alpha: isDark ? 0.06 : 0.025,
+                              ),
+                            ],
+                            stops: const [0.0, 0.48, 1.0],
+                          ),
+                        ),
+                      ),
+                    CustomPaint(
+                      painter: _LiquidIndicatorBorderPainter(
+                        shape: lensShape,
+                        color: Colors.white.withValues(
+                          alpha: (isDark ? 0.28 : 0.42) + pressProgress * 0.24,
+                        ),
+                        width: 1 + pressProgress * 0.5,
+                      ),
+                    ),
+                    if ((reflective || shaderLiquid) &&
+                        (pressProgress > 0.001 || dragProgress > 0))
+                      CustomPaint(
+                        painter: _LiquidReflectionPainter(
+                          shape: lensShape,
+                          phase: reflectionPhase,
+                          velocity: velocityNorm,
+                          pressProgress: pressProgress,
+                          progress: reflectionStrength,
+                          isDark: isDark,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1321,19 +1335,25 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
     } else if (solid) {
       visualGlassLayer = solidGlassLayer;
     } else if (shaderLiquid) {
-      visualGlassLayer = LiquidGlassFilter(
-        key: const ValueKey('liquidGlassShaderBackground'),
-        fallback: fallbackGlassLayer,
-        onFailure: _handleGlassFailure,
-        // Preserve the shell's original blur and gradients while disabling
-        // its displacement pass; the selected lens remains the only displaced
-        // region, preventing stretched text and image bands.
-        refractionAmount: 0.0,
-        refractionHeight: 12.0 / _kNavigationHeight,
-        chromaticAberration: 0.0,
-        lensRadius: 0.5,
-        depthEffect: 0.0,
-        child: glassLayer,
+      // Keep a real backdrop blur under the shader. The shader supplies the
+      // shallow edge lens; the blur supplies the depth cue that distinguishes
+      // glass from a flat translucent acrylic tint. The navigation content is
+      // painted after this layer, so neither pass can stretch its labels.
+      visualGlassLayer = BackdropFilter(
+        filter: _kLiquidReflectiveBlur,
+        child: LiquidGlassFilter(
+          key: const ValueKey('liquidGlassShaderBackground'),
+          // The ancestor blur remains active while the shader asset is
+          // loading or unsupported, so avoid applying a second blur here.
+          fallback: glassLayer,
+          onFailure: _handleGlassFailure,
+          refractionAmount: 4.0 / _kNavigationHeight,
+          refractionHeight: 14.0 / _kNavigationHeight,
+          chromaticAberration: 0.0,
+          lensRadius: 0.5,
+          depthEffect: 0.0,
+          child: glassLayer,
+        ),
       );
     } else {
       visualGlassLayer = fallbackGlassLayer;
@@ -1371,7 +1391,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                   ),
                   child: Stack(
                     fit: StackFit.expand,
-                    clipBehavior: Clip.none,
+                    clipBehavior: Clip.hardEdge,
                     children: [
                       ClipPath(
                         clipper: const ShapeBorderClipper(
@@ -1397,6 +1417,17 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                           ],
                         ),
                       ),
+                      _buildLiquidLens(
+                        reflective: reflective,
+                        soft: soft,
+                        solid: solid,
+                        isDark: isDark,
+                        effectiveIndicatorColor: effectiveIndicatorColor,
+                        effectiveIndicatorShape: effectiveIndicatorShape,
+                      ),
+                      // Paint the navigation content after the optical layer.
+                      // The lens then samples only the page/shell backdrop,
+                      // instead of magnifying already-painted labels and icons.
                       Listener(
                         behavior: HitTestBehavior.opaque,
                         onPointerDown: _handlePointerDown,
@@ -1460,14 +1491,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                             );
                           },
                         ),
-                      ),
-                      _buildLiquidLens(
-                        reflective: reflective,
-                        soft: soft,
-                        solid: solid,
-                        isDark: isDark,
-                        effectiveIndicatorColor: effectiveIndicatorColor,
-                        effectiveIndicatorShape: effectiveIndicatorShape,
                       ),
                     ],
                   ),
@@ -1701,7 +1724,25 @@ Path _buildLiquidLensPath(
   required double velocity,
   TextDirection? textDirection,
 }) {
-  final bounds = rect.deflate(0.6);
+  final pressure = pressProgress.clamp(0.0, 1.0).toDouble();
+  // Use the final indicator rectangle as the canonical paint bound. The old
+  // path sampled a nearly full rect and then pushed its points outward, so
+  // the custom border could escape the RenderBox that was meant to contain
+  // the magnifier and its backdrop filter.
+  final motion =
+      (dragOffset / math.max(1.0, rect.width * 0.45) + velocity * 0.24)
+          .clamp(-1.0, 1.0)
+          .toDouble();
+  final maxPathDisplacement = pressure * 1.5 + motion.abs() * 2.4;
+  final maxInset = math
+      .max(
+        0.0,
+        math.min(rect.width, rect.height) / 2 - 0.5,
+      )
+      .toDouble();
+  final bounds = rect.deflate(
+    math.min(0.6 + maxPathDisplacement, maxInset).toDouble(),
+  );
   if (bounds.width <= 1 || bounds.height <= 1) {
     return Path()..addRect(rect);
   }
@@ -1717,11 +1758,6 @@ Path _buildLiquidLensPath(
   );
   if (metric.length <= 0) return basePath;
 
-  final motion =
-      (dragOffset / math.max(1.0, bounds.width * 0.45) + velocity * 0.24)
-          .clamp(-1.0, 1.0)
-          .toDouble();
-  final pressure = pressProgress.clamp(0.0, 1.0).toDouble();
   final center = bounds.center;
   const sampleCount = 64;
   final points = <Offset>[];
@@ -1741,19 +1777,22 @@ Path _buildLiquidLensPath(
       normal = -normal;
     }
 
-    final signedExposure = normal.dx * motion;
-    final leadingWeight = _smoothStep(
-      ((signedExposure + 0.08) / 0.92).clamp(0.0, 1.0).toDouble(),
-    );
-    final trailingWeight = _smoothStep(
-      ((-signedExposure + 0.08) / 0.92).clamp(0.0, 1.0).toDouble(),
-    );
     final dragStrength = motion.abs();
     final pressSwell = pressure * 1.5;
-    final dragBulge =
-        dragStrength * (leadingWeight * 4.6 - trailingWeight * 1.2);
-    final displacement = (pressSwell + dragBulge).clamp(-1.6, 5.2).toDouble();
-    points.add(point + normal * displacement);
+    // Pressure remains radial, while drag stretch is a symmetric horizontal
+    // swell. Direction-dependent leading/trailing weights made the lower
+    // corners drift by different amounts as the lens crossed destinations.
+    final dragBulge = dragStrength * 2.4;
+    final horizontalDisplacement = (pressSwell + dragBulge)
+        .clamp(0.0, 3.9)
+        .toDouble();
+    points.add(
+      point +
+          Offset(
+            normal.dx * horizontalDisplacement,
+            normal.dy * pressSwell,
+          ),
+    );
   }
 
   if (points.length < 4) return basePath;
@@ -1778,11 +1817,6 @@ Path _buildLiquidLensPath(
     );
   }
   return smoothPath..close();
-}
-
-double _smoothStep(double value) {
-  final t = value.clamp(0.0, 1.0).toDouble();
-  return t * t * (3.0 - 2.0 * t);
 }
 
 class _LiquidReflectionPainter extends CustomPainter {

@@ -50,7 +50,9 @@ void main() {
   ) async {
     await tester.pumpWidget(host(onSelected: (_) {}));
 
-    expect(find.byType(BackdropFilter), findsOneWidget);
+    // Shader-capable engines have the shell blur plus the shader-backed
+    // filter; fallback engines keep only the shell blur.
+    expect(find.byType(BackdropFilter), findsWidgets);
     expect(find.byType(RawMagnifier), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
   });
@@ -207,7 +209,9 @@ void main() {
     expect(selected, 2);
   });
 
-  testWidgets('mouse drag keeps the lens vertically expanded', (tester) async {
+  testWidgets('mouse drag keeps the lens expanded inside the shell', (
+    tester,
+  ) async {
     await tester.pumpWidget(host(onSelected: (_) {}));
 
     final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
@@ -225,8 +229,8 @@ void main() {
     );
     final indicatorRect = tester.getRect(indicator);
     expect(indicatorRect.height, greaterThan(idleHeight));
-    expect(indicatorRect.top, lessThan(shellRect.top));
-    expect(indicatorRect.bottom, greaterThan(shellRect.bottom));
+    expect(indicatorRect.top, greaterThanOrEqualTo(shellRect.top));
+    expect(indicatorRect.bottom, lessThanOrEqualTo(shellRect.bottom));
 
     await gesture.cancel();
     await tester.pumpAndSettle();
@@ -259,7 +263,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('pressed lens can flow outside the floating bar', (tester) async {
+  testWidgets('pressed lens remains inside the floating bar', (tester) async {
     await tester.pumpWidget(host(onSelected: (_) {}));
 
     final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
@@ -275,7 +279,19 @@ void main() {
 
     expect(
       tester.getTopLeft(indicator).dx,
-      lessThan(tester.getTopLeft(navigationBar).dx),
+      greaterThanOrEqualTo(tester.getTopLeft(navigationBar).dx),
+    );
+    expect(
+      tester.getBottomRight(indicator).dx,
+      lessThanOrEqualTo(tester.getBottomRight(navigationBar).dx),
+    );
+    expect(
+      tester.getTopLeft(indicator).dy,
+      greaterThanOrEqualTo(tester.getTopLeft(navigationBar).dy),
+    );
+    expect(
+      tester.getBottomRight(indicator).dy,
+      lessThanOrEqualTo(tester.getBottomRight(navigationBar).dy),
     );
 
     await gesture.cancel();
@@ -385,7 +401,7 @@ void main() {
     // The old quality key must not turn an explicit new liquid selection into
     // the shader-free soft path. A filter may still be the visible fallback
     // while the shader asset is loading.
-    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.byType(BackdropFilter), findsWidgets);
   });
 
   testWidgets('none glass style keeps the ordinary navigation path', (

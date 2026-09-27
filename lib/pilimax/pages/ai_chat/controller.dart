@@ -5,6 +5,7 @@ import 'package:PiliMax/pilimax/pages/ai_chat/models.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/pilimax/services/ai_chat/ai_chat_service.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -45,10 +46,20 @@ class AiChatController extends GetxController {
   int _contextLoadIndex = -1;
   bool _isLoadingContext = false;
 
+  // 思考耗时计时器（约 100ms 刷新，正文首字或流结束时冻结）。
+  Timer? _reasoningTimer;
+  ChatMessage? _reasoningTimerMsg;
+
   @override
   void onInit() {
     super.onInit();
     _videoCtl = Get.find<VideoDetailController>(tag: heroTag);
+  }
+
+  @override
+  void onClose() {
+    _stopReasoningTimer();
+    super.onClose();
   }
 
   bool get hasSubtitles => _videoCtl.subtitles.isNotEmpty;
@@ -56,8 +67,9 @@ class AiChatController extends GetxController {
   String _buildVideoInfo() {
     String info = '';
     try {
-      final videoDetail =
-          Get.find<UgcIntroController>(tag: heroTag).videoDetail.value;
+      final videoDetail = Get.find<UgcIntroController>(tag: heroTag)
+          .videoDetail
+          .value;
       final title = videoDetail.title;
       final desc = videoDetail.desc;
       if (title != null && title.isNotEmpty) {
@@ -98,10 +110,12 @@ class AiChatController extends GetxController {
       _contextLoadIndex = messages.length;
       messages.add(ChatMessage(role: 'system', content: '', isDivider: true));
       if (!hasSubtitles) {
-        messages.add(ChatMessage(
-          role: 'assistant',
-          content: '⚠️ 已载入视频标题与简介。由于未获取到字幕，AI 分析深度可能受限，请提问。',
-        ));
+        messages.add(
+          ChatMessage(
+            role: 'assistant',
+            content: '⚠️ 已载入视频标题与简介。由于未获取到字幕，AI 分析深度可能受限，请提问。',
+          ),
+        );
       }
     } finally {
       _isLoadingContext = false;
@@ -135,7 +149,10 @@ class AiChatController extends GetxController {
   }
 
   /// Start analysis with a template prompt.
-  Future<void> startAnalysis(String templatePrompt, {String? templateName}) async {
+  Future<void> startAnalysis(
+    String templatePrompt, {
+    String? templateName,
+  }) async {
     if (isAnalyzing.value) return;
 
     try {
@@ -190,9 +207,7 @@ class AiChatController extends GetxController {
     final chatMessages = <Map<String, String>>[
       {
         'role': 'system',
-        'content': hasVideoContext.value
-            ? _systemPromptB
-            : _systemPromptA,
+        'content': hasVideoContext.value ? _systemPromptB : _systemPromptA,
       },
     ];
 
@@ -204,39 +219,100 @@ class AiChatController extends GetxController {
       });
     }
 
-    // Add conversation history, truncating at context load boundary
+    // 思考内容只保留在本地供 UI 展示，出站历史只用 role + 正文；
+    // 空正文助手消息不发送。
     final startIdx = _contextLoadIndex >= 0 ? _contextLoadIndex : 0;
     for (final m in messages.skip(startIdx)) {
       if (m.isDivider) continue;
-      if (!m.isStreaming || m.content.isNotEmpty) {
-        chatMessages.add({'role': m.role, 'content': m.content});
-      }
+      if (m.role == 'assistant' && m.content.isEmpty) continue;
+      chatMessages.add({'role': m.role, 'content': m.content});
     }
 
     final lastMsg = messages.last;
     try {
-      await for (final token in AiChatService.streamChat(
+      await for (final delta in AiChatService.streamChat(
         messages: chatMessages,
+        reasoningEffort: Pref.aiReasoningEffort,
       )) {
-        lastMsg.appendContent(token);
-        messages.refresh();
+        if (delta.reasoningDelta.isNotEmpty) {
+          _appendReasoningDelta(lastMsg, delta.reasoningDelta);
+        }
+        if (delta.contentDelta.isNotEmpty) {
+          _appendContentDelta(lastMsg, delta.contentDelta);
+        }
       }
       lastMsg.isStreaming = false;
+      _freezeReasoningDuration(lastMsg);
       messages.refresh();
     } catch (e) {
       lastMsg.isStreaming = false;
+      _freezeReasoningDuration(lastMsg);
       messages.refresh();
       rethrow;
     }
   }
 
+  void _appendReasoningDelta(ChatMessage msg, String delta) {
+    if (msg.reasoningStartedAt == null) {
+      msg.reasoningStartedAt = DateTime.now();
+      if (msg.content.isEmpty) {
+        msg
+          ..isReasoningExpanded = true
+          ..isReasoningFullHeight = false;
+      }
+      _startReasoningTimer(msg);
+    }
+    msg.appendReasoningContent(delta);
+    messages.refresh();
+  }
+
+  void _appendContentDelta(ChatMessage msg, String delta) {
+    if (msg.content.isEmpty) {
+      _freezeReasoningDuration(msg);
+      msg.isReasoningExpanded = false;
+    }
+    msg.appendContent(delta);
+    messages.refresh();
+  }
+
+  void _startReasoningTimer(ChatMessage msg) {
+    _stopReasoningTimer();
+    _reasoningTimerMsg = msg;
+    _reasoningTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      final target = _reasoningTimerMsg;
+      if (target == null || target.reasoningDurationSeconds != null) {
+        _stopReasoningTimer();
+        return;
+      }
+      messages.refresh();
+    });
+  }
+
+  void _stopReasoningTimer() {
+    _reasoningTimer?.cancel();
+    _reasoningTimer = null;
+    _reasoningTimerMsg = null;
+  }
+
+  void _freezeReasoningDuration(ChatMessage msg) {
+    if (msg.reasoningStartedAt != null) {
+      msg.reasoningDurationSeconds = msg.reasoningSeconds;
+    }
+    if (identical(_reasoningTimerMsg, msg)) _stopReasoningTimer();
+  }
+
   void _removeLastIfStreaming() {
-    if (messages.isNotEmpty && messages.last.isStreaming) {
+    if (messages.isEmpty) return;
+    final last = messages.last;
+    if (last.role == 'assistant' &&
+        last.content.isEmpty &&
+        !last.hasReasoning) {
       messages.removeLast();
     }
   }
 
   void clearMessages() {
+    _stopReasoningTimer();
     messages.clear();
     subtitleWarning.value = false;
     hasVideoContext.value = false;

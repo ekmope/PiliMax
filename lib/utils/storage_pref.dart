@@ -109,6 +109,7 @@ abstract final class Pref {
         SettingBoxKey.enableCommAntifraud: () => enableCommAntifraud,
         SettingBoxKey.enableCreateDynAntifraud: () => enableCreateDynAntifraud,
         SettingBoxKey.enableCustomDanmakuFont: () => enableCustomDanmakuFont,
+        SettingBoxKey.enableGradientBg: () => enableGradientBg,
         SettingBoxKey.enableDragSubtitle: () => enableDragSubtitle,
         SettingBoxKey.enableEmoteTooltip: () => enableEmoteTooltip,
         SettingBoxKey.enableHA: () => enableHA,
@@ -122,6 +123,7 @@ abstract final class Pref {
         SettingBoxKey.enableLongShowControl: () => enableLongShowControl,
         SettingBoxKey.enableMYBar: () => enableMYBar,
         SettingBoxKey.enableOnlineTotal: () => enableOnlineTotal,
+        SettingBoxKey.enableDmCount: () => enableDmCount,
         SettingBoxKey.enablePinchRotate: () => enablePinchRotate,
         SettingBoxKey.enablePredictiveBack: () => enablePredictiveBack,
         SettingBoxKey.enableQuickDouble: () => enableQuickDouble,
@@ -172,6 +174,7 @@ abstract final class Pref {
         SettingBoxKey.recordSearchHistory: () => recordSearchHistory,
         SettingBoxKey.removeBlockedDyn: () => removeBlockedDyn,
         SettingBoxKey.removeOnlyFansVideoDyn: () => removeOnlyFansVideoDyn,
+        SettingBoxKey.removeDynVideoDyn: () => removeDynVideoDyn,
         SettingBoxKey.removeSafeArea: () => removeSafeArea,
         SettingBoxKey.reverseFromFirst: () => reverseFromFirst,
         SettingBoxKey.savedRcmdTip: () => savedRcmdTip,
@@ -1056,6 +1059,9 @@ abstract final class Pref {
   static bool get removeOnlyFansVideoDyn =>
       _setting.get(SettingBoxKey.removeOnlyFansVideoDyn, defaultValue: false);
 
+  static bool get removeDynVideoDyn =>
+      _setting.get(SettingBoxKey.removeDynVideoDyn, defaultValue: false);
+
   static bool get antiGoodsReply =>
       _setting.get(SettingBoxKey.antiGoodsReply, defaultValue: false);
 
@@ -1589,6 +1595,12 @@ abstract final class Pref {
   static bool get enableOnlineTotal =>
       _setting.get(SettingBoxKey.enableOnlineTotal, defaultValue: false);
 
+  static bool get enableGradientBg =>
+      _setting.get(SettingBoxKey.enableGradientBg, defaultValue: false);
+
+  static bool get enableDmCount =>
+      _setting.get(SettingBoxKey.enableDmCount, defaultValue: false);
+
   static bool get autoEnterFullScreen =>
       _setting.get(SettingBoxKey.enableAutoEnter, defaultValue: false);
 
@@ -1896,6 +1908,24 @@ abstract final class Pref {
 
   static set aiPromptTemplates(String value) =>
       _setting.put(SettingBoxKey.aiPromptTemplates, value);
+
+  static bool get aiAutoScroll =>
+      _setting.get(SettingBoxKey.aiAutoScroll, defaultValue: true);
+
+  static set aiAutoScroll(bool value) =>
+      _setting.put(SettingBoxKey.aiAutoScroll, value);
+
+  /// 思考强度：default/旧 auto 表示使用服务商默认值。
+  static String get aiReasoningEffort {
+    final value = _setting.get(
+      SettingBoxKey.aiReasoningEffort,
+      defaultValue: 'default',
+    );
+    return value == 'auto' ? 'default' : value;
+  }
+
+  static set aiReasoningEffort(String value) =>
+      _setting.put(SettingBoxKey.aiReasoningEffort, value);
 
   static int get angleDegrees =>
       _setting.get(SettingBoxKey.angleDegrees, defaultValue: 30);

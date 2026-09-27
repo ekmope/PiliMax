@@ -1,4 +1,4 @@
-import 'dart:async' show StreamSubscription, Timer;
+import 'dart:async' show StreamSubscription, Timer, unawaited;
 import 'dart:convert' show jsonDecode, utf8;
 import 'dart:io' show Platform, File;
 import 'dart:typed_data' show Uint8List;
@@ -558,6 +558,23 @@ class HeaderControlState extends State<HeaderControl>
                   leading: const Icon(Icons.watch_later_outlined, size: 20),
                   title: const Text('添加至「稍后再看」', style: titleStyle),
                 ),
+                if (!plPlayerController.isDesktopPip &&
+                    !plPlayerController.isPipMode &&
+                    (isFullScreen ||
+                        videoDetailCtr.canPopPage(isPortrait: isPortrait)))
+                  ListTile(
+                    dense: true,
+                    onTap: () {
+                      Get.back();
+                      final request = videoDetailCtr.onRequestInAppPip?.call();
+                      if (request != null) unawaited(request);
+                    },
+                    leading: const Icon(
+                      Icons.picture_in_picture_alt_outlined,
+                      size: 20,
+                    ),
+                    title: const Text('应用内画中画', style: titleStyle),
+                  ),
                 if (videoDetailCtr.epId == null)
                   ListTile(
                     dense: true,
@@ -2053,21 +2070,29 @@ class HeaderControlState extends State<HeaderControl>
                 },
               ),
             ),
-            if (introController.isShowOnlineTotal)
+            if (introController.isShowOnlineTotal ||
+                introController.isShowDmCount)
               Positioned(
                 left: 0,
                 bottom: 0,
                 child: FractionalTranslation(
                   translation: const Offset(0, 1),
-                  child: Obx(
-                    () => Text(
-                      '${introController.total.value}人正在看',
+                  child: Obx(() {
+                    final parts = <String>[
+                      if (introController.isShowOnlineTotal)
+                        '${introController.total.value}人正在看',
+                      if (introController.isShowDmCount &&
+                          videoDetailCtr.dmCount.value != null)
+                        '${videoDetailCtr.dmCount.value}条弹幕',
+                    ];
+                    return Text(
+                      parts.join('  '),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                 ),
               ),
           ],
@@ -2091,7 +2116,7 @@ class HeaderControlState extends State<HeaderControl>
       // Include the translated viewer-count line in AppBarAni's slide extent.
       toolbarHeight: showFSActionItem
           ? 112
-          : introController.isShowOnlineTotal
+          : introController.isShowOnlineTotal || introController.isShowDmCount
           ? 60
           : null,
       flexibleSpace: Column(

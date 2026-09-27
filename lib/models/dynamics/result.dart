@@ -56,6 +56,7 @@ class DynamicsDataModel {
   static bool antiGoodsDyn = Pref.antiGoodsDyn;
   static bool removeBlockedDyn = Pref.removeBlockedDyn;
   static bool removeOnlyFansVideoDyn = Pref.removeOnlyFansVideoDyn;
+  static bool removeDynVideoDyn = Pref.removeDynVideoDyn;
   static Set<int> dynamicsBlockedMids = Pref.dynamicsBlockedMids;
 
   DynamicsDataModel.fromJson(
@@ -91,6 +92,11 @@ class DynamicsDataModel {
         if (removeOnlyFansVideoDyn &&
             (item.hasOnlyFansVideoBadge ||
                 (item.orig?.hasOnlyFansVideoBadge ?? false))) {
+          continue;
+        }
+        if (removeDynVideoDyn &&
+            type != DynamicsTabType.up &&
+            item.hasDynVideoBadge) {
           continue;
         }
         if (antiGoodsDyn &&
@@ -179,6 +185,9 @@ class DynamicItemModel {
       (basic?.isOnlyFans ?? false) &&
       type == 'DYNAMIC_TYPE_AV' &&
       modules.moduleDynamic?.major?.archive?.badge?.text == '充电专属';
+
+  bool get hasDynVideoBadge =>
+      modules.moduleDynamic?.major?.archive?.badge?.text == '动态视频';
 }
 
 class Fallback {

@@ -7,6 +7,7 @@ import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/pilimax/services/pip_transition_coordinator.dart';
+import 'package:PiliMax/pilimax/services/pip_route_stack_observer.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/device_utils.dart';
@@ -92,6 +93,40 @@ class PipOverlayService {
 
   static bool isVideoLikeRoute(String route) {
     return route.startsWith('/video') || route.startsWith('/liveRoom');
+  }
+
+  /// Removes consecutive nested player routes below the current route without
+  /// invoking didPopNext on them. Exact route names avoid matching /videoWeb.
+  static int removeNestedVideoLikeRoutesBelow(BuildContext context) {
+    final navigator = Navigator.maybeOf(context);
+    final current = ModalRoute.of(context);
+    if (navigator == null || current == null) {
+      return 0;
+    }
+    const playerRoutes = {'/videoV', '/liveRoom'};
+    final nested = pipRouteStackObserver.routesBelowWhile(
+      current,
+      (route) => playerRoutes.contains(route.settings.name),
+    );
+    for (final route in nested) {
+      navigator.removeRoute(route);
+    }
+    if (kDebugMode && nested.isNotEmpty) {
+      debugPrint('[PiP] Removed ${nested.length} nested player routes');
+    }
+    return nested.length;
+  }
+
+  /// Waits for a full-screen exit to settle before measuring page geometry.
+  static Future<void> awaitLayoutSettled(
+    bool Function() isReady, {
+    Duration timeout = const Duration(milliseconds: 600),
+  }) async {
+    await WidgetsBinding.instance.endOfFrame;
+    final stopwatch = Stopwatch()..start();
+    while (!isReady() && stopwatch.elapsed < timeout) {
+      await WidgetsBinding.instance.endOfFrame;
+    }
   }
 
   static void _setEnteringPipFlag(dynamic controller, bool value) {
@@ -702,21 +737,8 @@ class _PipWidgetState extends State<PipWidget>
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final viewportScale = _clampScale(_scale, screenSize);
-    if (viewportScale != _scale) {
-      _scale = viewportScale;
-      PipWindowMemory.scale = _scale;
-    }
-
-    _left ??= (PipWindowMemory.position?.dx ?? screenSize.width - _width - 16)
-        .clamp(0.0, max(0.0, screenSize.width - _width))
-        .toDouble();
-    _top ??= (PipWindowMemory.position?.dy ?? screenSize.height - _height - 100)
-        .clamp(0.0, max(0.0, screenSize.height - _height))
-        .toDouble();
-
     return Obx(() {
+      final screenSize = MediaQuery.of(context).size;
       final bool isNative = PipOverlayService.isNativePip;
 
       // 系统 PiP 模式下，直接铺满窗口，不执行任何自定义尺寸或位置计算
@@ -734,6 +756,22 @@ class _PipWidgetState extends State<PipWidget>
           ),
         );
       }
+
+      // 系统 PiP 的 MediaQuery 尺寸属于系统小窗，不能用于更新应用内小窗
+      // 的缩放和位置记忆；只有离开系统 PiP 后才执行这些计算。
+      final viewportScale = _clampScale(_scale, screenSize);
+      if (viewportScale != _scale) {
+        _scale = viewportScale;
+        PipWindowMemory.scale = _scale;
+      }
+
+      _left ??= (PipWindowMemory.position?.dx ?? screenSize.width - _width - 16)
+          .clamp(0.0, max(0.0, screenSize.width - _width))
+          .toDouble();
+      _top ??=
+          (PipWindowMemory.position?.dy ?? screenSize.height - _height - 100)
+              .clamp(0.0, max(0.0, screenSize.height - _height))
+              .toDouble();
 
       return AnimatedBuilder(
         animation: Listenable.merge([

@@ -12,6 +12,7 @@ abstract final class DateFormatUtils {
     int? time, {
     DateFormat? short,
     DateFormat? long,
+    bool showYesterdayTime = true,
   }) {
     if (time == null || time == 0) {
       return '';
@@ -32,7 +33,9 @@ abstract final class DateFormatUtils {
     final dateDay = DateTime(date.year, date.month, date.day);
     final dayDiff = today.difference(dateDay).inDays;
     if (dayDiff == 1) {
-      return '昨天 ${_twoDigits(date.hour)}:${_twoDigits(date.minute)}';
+      return showYesterdayTime
+          ? '昨天 ${_twoDigits(date.hour)}:${_twoDigits(date.minute)}'
+          : '昨天';
     }
     if (dayDiff < 4) {
       return '$dayDiff天前';

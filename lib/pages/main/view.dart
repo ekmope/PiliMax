@@ -762,6 +762,7 @@ class _MainAppState extends PopScopeState<MainApp>
     child = Scaffold(
       extendBody: true,
       resizeToAvoidBottomInset: false,
+      backgroundColor: Pref.enableGradientBg ? Colors.transparent : null,
       appBar: AppBar(toolbarHeight: 0),
       body: Padding(
         padding: EdgeInsets.only(
@@ -772,6 +773,18 @@ class _MainAppState extends PopScopeState<MainApp>
       ),
       bottomNavigationBar: bottomNav,
     );
+
+    if (Pref.enableGradientBg) {
+      child = Material(
+        color: Colors.transparent,
+        child: Stack(
+          children: [
+            Positioned.fill(child: _gradientBg()),
+            child,
+          ],
+        ),
+      );
+    }
 
     if (PlatformUtils.isMobile) {
       child = AnnotatedRegion<SystemUiOverlayStyle>(
@@ -802,6 +815,27 @@ class _MainAppState extends PopScopeState<MainApp>
     }
 
     return child;
+  }
+
+  Widget _gradientBg() {
+    final colorScheme = theme.colorScheme;
+    return Opacity(
+      opacity: .6,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.primary.withValues(alpha: .6),
+              colorScheme.primaryContainer.withValues(alpha: .6),
+              colorScheme.surface,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            stops: const [.1, .4, .7],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildIcon({required NavigationBarType type, bool selected = false}) {

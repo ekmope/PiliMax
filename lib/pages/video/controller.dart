@@ -10,6 +10,8 @@ import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:PiliMax/grpc/bilibili/community/service/dm/v1.pbenum.dart'
     show SubtitleType;
+import 'package:PiliMax/grpc/bilibili/community/service/dm/v1.pb.dart'
+    show DanmakuElem;
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
 import 'package:PiliMax/grpc/bilibili/app/playurl/v1.pb.dart'
@@ -193,6 +195,15 @@ class VideoDetailController extends GetxController
 
   // 是否正在进入应用内小窗
   bool isEnteringPip = false;
+
+  /// Bound by the page so the more menu can use the page's pop lifecycle.
+  Future<void> Function()? onRequestInAppPip;
+
+  /// Matches the page PopScope gate used by the manual PiP entry.
+  bool canPopPage({required bool isPortrait}) =>
+      !plPlayerController.isFullScreen.value &&
+      !plPlayerController.isDesktopPip &&
+      (horizontalScreen || isPortrait);
 
   /// tabs相关配置
   late TabController tabCtr;
@@ -1418,6 +1429,10 @@ class VideoDetailController extends GetxController
         _getDmTrend();
       }
 
+      if (Pref.enableDmCount && dmCount.value == null) {
+        _getDmCount();
+      }
+
       if (plPlayerController.enableBlock) {
         initSkip();
       }
@@ -2529,6 +2544,10 @@ class VideoDetailController extends GetxController
     }
     cancelBlockListener();
     _dmTrendTaskId++;
+    _dmFetchTaskId++;
+    _dmElemsFuture = null;
+    _dmElemsCid = null;
+    dmCount.value = null;
     _mediaListCoordinator.invalidate();
     _playbackSession.invalidate();
     _steinEdgeQueryGeneration++;
@@ -2558,6 +2577,10 @@ class VideoDetailController extends GetxController
 
     playedTime = null;
     _dmTrendTaskId++;
+    _dmFetchTaskId++;
+    _dmElemsFuture = null;
+    _dmElemsCid = null;
+    dmCount.value = null;
     _playbackSession.invalidate();
     _steinEdgeQueryGeneration++;
     defaultST = null;
@@ -2606,6 +2629,36 @@ class VideoDetailController extends GetxController
       Rx<LoadingState<List<double>>?>(null);
   late final RxBool showDmTrendChart = true.obs;
   int _dmTrendTaskId = 0;
+
+  /// 当前分 P 的全量弹幕数量；null 表示尚未完成请求。
+  late final Rx<int?> dmCount = Rx<int?>(null);
+  int _dmFetchTaskId = 0;
+  int? _dmElemsCid;
+  Future<List<DanmakuElem>?>? _dmElemsFuture;
+
+  Future<List<DanmakuElem>?> _fetchAllDanmaku() {
+    final cached = _dmElemsFuture;
+    if (_dmElemsCid == cid.value && cached != null) {
+      return cached;
+    }
+    final taskId = ++_dmFetchTaskId;
+    bool shouldCancel() => taskId != _dmFetchTaskId || isClosed;
+    final durationMs =
+        data.timeLength ?? plPlayerController.durationInMilliseconds;
+    _dmElemsCid = cid.value;
+    return _dmElemsFuture = DanmakuDensityTrend.fetchAll(
+      cid: cid.value,
+      durationMs: durationMs,
+      shouldCancel: shouldCancel,
+    );
+  }
+
+  Future<void> _getDmCount() async {
+    if (isFileSource) return;
+    final elems = await _fetchAllDanmaku();
+    if (elems == null || isClosed) return;
+    dmCount.value = elems.length;
+  }
 
   Future<void> _getDmTrend() async {
     final source = plPlayerController.dmChartSource;
@@ -2693,10 +2746,13 @@ class VideoDetailController extends GetxController
     try {
       final durationMs =
           data.timeLength ?? plPlayerController.durationInMilliseconds;
+      final elems = await _fetchAllDanmaku();
+      if (shouldCancel() || elems == null) return null;
       return await DanmakuDensityTrend.build(
         cid: cid.value,
         durationMs: durationMs,
         shouldCancel: shouldCancel,
+        elems: elems,
       );
     } catch (e, s) {
       if (kDebugMode) debugPrint('_tryBuildLocalDmTrend: $e');

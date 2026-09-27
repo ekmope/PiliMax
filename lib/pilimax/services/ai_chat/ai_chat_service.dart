@@ -32,6 +32,78 @@ class AiPromptTemplate {
       AiPromptTemplate(name: json['name'] ?? '', prompt: json['prompt'] ?? '');
 }
 
+/// 规范化流式增量：服务层负责协议字段提取与 `<think>` 解析，
+/// 控制器只负责把两个增量追加到当前助手消息。
+class AiStreamDelta {
+  const AiStreamDelta({this.contentDelta = '', this.reasoningDelta = ''});
+
+  final String contentDelta;
+  final String reasoningDelta;
+}
+
+enum _ReasoningSource { field, thinkTag }
+
+/// Handles `<think>` tags which may be split across SSE chunks.
+class _ThinkTagParser {
+  static const _openTag = '<think>';
+  static const _closeTag = '</think>';
+
+  String _buffer = '';
+  bool _inThinking = false;
+
+  ({String content, String reasoning}) add(String chunk) {
+    if (chunk.isEmpty) return (content: '', reasoning: '');
+    _buffer += chunk;
+    return _drain(isEnd: false);
+  }
+
+  ({String content, String reasoning}) flush() => _drain(isEnd: true);
+
+  ({String content, String reasoning}) _drain({required bool isEnd}) {
+    final content = StringBuffer();
+    final reasoning = StringBuffer();
+    while (_buffer.isNotEmpty) {
+      if (_inThinking) {
+        final close = _buffer.indexOf(_closeTag);
+        if (close >= 0) {
+          reasoning.write(_buffer.substring(0, close));
+          _buffer = _buffer.substring(close + _closeTag.length);
+          _inThinking = false;
+          continue;
+        }
+        final keep = isEnd ? 0 : _partialSuffix(_buffer, _closeTag);
+        reasoning.write(
+          keep == 0 ? _buffer : _buffer.substring(0, _buffer.length - keep),
+        );
+        _buffer = keep == 0 ? '' : _buffer.substring(_buffer.length - keep);
+      } else {
+        final open = _buffer.indexOf(_openTag);
+        if (open >= 0) {
+          content.write(_buffer.substring(0, open));
+          _buffer = _buffer.substring(open + _openTag.length);
+          _inThinking = true;
+          continue;
+        }
+        final keep = isEnd ? 0 : _partialSuffix(_buffer, _openTag);
+        content.write(
+          keep == 0 ? _buffer : _buffer.substring(0, _buffer.length - keep),
+        );
+        _buffer = keep == 0 ? '' : _buffer.substring(_buffer.length - keep);
+      }
+      break;
+    }
+    return (content: content.toString(), reasoning: reasoning.toString());
+  }
+
+  static int _partialSuffix(String text, String tag) {
+    final max = text.length < tag.length - 1 ? text.length : tag.length - 1;
+    for (var len = max; len > 0; len--) {
+      if (text.endsWith(tag.substring(0, len))) return len;
+    }
+    return 0;
+  }
+}
+
 class AiChatService {
   static Options _options({Duration? receiveTimeout}) {
     final apiKey = Pref.aiApiKey;
@@ -235,10 +307,11 @@ class AiChatService {
   }
 
   /// Stream chat completion from {base}/chat/completions.
-  /// Returns a stream of content strings (each token/chunk)
-  static Stream<String> streamChat({
+  /// Returns structured content/reasoning deltas.
+  static Stream<AiStreamDelta> streamChat({
     required List<Map<String, String>> messages,
     String? model,
+    String? reasoningEffort,
   }) async* {
     final baseUrl = _baseUrl();
     if (baseUrl.isEmpty) throw Exception('请先配置 API 地址');
@@ -256,6 +329,11 @@ class AiChatService {
           'model': useModel,
           'messages': messages,
           'stream': true,
+          if (reasoningEffort != null &&
+              reasoningEffort.isNotEmpty &&
+              reasoningEffort != 'default' &&
+              reasoningEffort != 'auto')
+            'reasoning_effort': reasoningEffort,
         }),
         options: opts,
       );
@@ -275,6 +353,19 @@ class AiChatService {
     var sawData = false;
     var sawContent = false;
     final nonSse = StringBuffer();
+    final parser = _ThinkTagParser();
+    _ReasoningSource? reasoningSource;
+
+    String? acceptReasoning(String text, _ReasoningSource source) {
+      if (text.isEmpty) return null;
+      if (reasoningSource == null) {
+        reasoningSource = source;
+      } else if (reasoningSource != source) {
+        return null;
+      }
+      return text;
+    }
+
     try {
       await for (final line
           in body.stream
@@ -289,7 +380,22 @@ class AiChatService {
         }
         sawData = true;
         final data = trimmed.replaceFirst('data:', '').trim();
-        if (data == '[DONE]') break;
+        if (data == '[DONE]') {
+          final split = parser.flush();
+          final reasoning = acceptReasoning(
+            split.reasoning,
+            _ReasoningSource.thinkTag,
+          );
+          if (reasoning != null) {
+            sawContent = true;
+            yield AiStreamDelta(reasoningDelta: reasoning);
+          }
+          if (split.content.isNotEmpty) {
+            sawContent = true;
+            yield AiStreamDelta(contentDelta: split.content);
+          }
+          break;
+        }
         if (data.isEmpty) continue;
         try {
           final decoded = jsonDecode(data);
@@ -312,8 +418,30 @@ class AiChatService {
             final delta = choices[0]['delta'] as Map<String, dynamic>?;
             final content = delta?['content'] as String?;
             if (content != null && content.isNotEmpty) {
-              sawContent = true;
-              yield content;
+              final split = parser.add(content);
+              final reasoning = acceptReasoning(
+                split.reasoning,
+                _ReasoningSource.thinkTag,
+              );
+              if (reasoning != null) {
+                sawContent = true;
+                yield AiStreamDelta(reasoningDelta: reasoning);
+              }
+              if (split.content.isNotEmpty) {
+                sawContent = true;
+                yield AiStreamDelta(contentDelta: split.content);
+              }
+            }
+            final reasoningContent = delta?['reasoning_content'] as String?;
+            if (reasoningContent != null && reasoningContent.isNotEmpty) {
+              final reasoning = acceptReasoning(
+                reasoningContent,
+                _ReasoningSource.field,
+              );
+              if (reasoning != null) {
+                sawContent = true;
+                yield AiStreamDelta(reasoningDelta: reasoning);
+              }
             }
           }
         } on AiApiException {
@@ -341,6 +469,21 @@ class AiChatService {
       );
     }
 
+    // Flush a parser buffer when a server closes the stream without [DONE].
+    final split = parser.flush();
+    final reasoning = acceptReasoning(
+      split.reasoning,
+      _ReasoningSource.thinkTag,
+    );
+    if (reasoning != null) {
+      sawContent = true;
+      yield AiStreamDelta(reasoningDelta: reasoning);
+    }
+    if (split.content.isNotEmpty) {
+      sawContent = true;
+      yield AiStreamDelta(contentDelta: split.content);
+    }
+
     if (!sawData) {
       final contentType = response.headers.value(Headers.contentTypeHeader);
       throw _responseError(
@@ -366,7 +509,8 @@ class AiChatService {
   static final List<AiPromptTemplate> defaultTemplates = [
     AiPromptTemplate(
       name: '概貌总结',
-      prompt: '请对这个视频内容进行概貌总结。考虑到视频可能较长，请避免过度省略。\n'
+      prompt:
+          '请对这个视频内容进行概貌总结。考虑到视频可能较长，请避免过度省略。\n'
           '要求：\n'
           '1. 【核心主旨】用 1-2 句话精准概括视频的核心价值与主题。\n'
           '2. 【高光时刻】列出 3-5 个最具争议、最有趣或最重要的核心观点。\n'
@@ -375,7 +519,8 @@ class AiChatService {
     ),
     AiPromptTemplate(
       name: '详细分析',
-      prompt: '请对这个视频进行极具深度的拆解分析。请克服长文本的省略倾向，尽可能保留具体细节、案例和逻辑推演。\n'
+      prompt:
+          '请对这个视频进行极具深度的拆解分析。请克服长文本的省略倾向，尽可能保留具体细节、案例和逻辑推演。\n'
           '要求：\n'
           '1. 【结构脉络】根据视频的话题转换，将其划分为几个清晰的章节，每个章节必须标明时间跨度（如 `[01:00] - [15:30]`）。\n'
           '2. 【深度提取】在每个章节下，详细阐述其核心观点、使用的论据（如有案例请务必写出）。\n'
@@ -422,6 +567,8 @@ class AiChatService {
   }
 
   static void saveTemplates(List<AiPromptTemplate> templates) {
-    Pref.aiPromptTemplates = jsonEncode(templates.map((e) => e.toJson()).toList());
+    Pref.aiPromptTemplates = jsonEncode(
+      templates.map((e) => e.toJson()).toList(),
+    );
   }
 }

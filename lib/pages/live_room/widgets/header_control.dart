@@ -1,3 +1,4 @@
+import 'dart:async' show unawaited;
 import 'dart:io' show Platform;
 import 'dart:math' as math;
 
@@ -24,6 +25,7 @@ import 'package:PiliMax/utils/storage_key.dart';
 import 'package:collection/collection.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding;
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -262,6 +264,26 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                 padding: .zero,
                 iconColor: Colors.white,
                 itemBuilder: (context) => [
+                  if (!plPlayerController.isDesktopPip &&
+                      !plPlayerController.isPipMode)
+                    PopupMenuItem(
+                      height: 42,
+                      onTap: () {
+                        SchedulerBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          final request = liveController.onRequestInAppPip
+                              ?.call();
+                          if (request != null) unawaited(request);
+                        });
+                      },
+                      child: const Row(
+                        spacing: 8,
+                        children: [
+                          Icon(Icons.picture_in_picture_alt_outlined, size: 20),
+                          Text('应用内画中画', style: TextStyle(fontSize: 14)),
+                        ],
+                      ),
+                    ),
                   PopupMenuItem(
                     height: 35,
                     onTap: _showLiveStreamDialog,

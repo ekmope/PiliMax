@@ -74,6 +74,13 @@ class LiveRoomController extends GetxController {
   // PiP 妯″紡鏍囧織
   RxBool isInPipMode = false.obs;
 
+  /// Bound by the page so the more menu can use the page's pop lifecycle.
+  Future<void> Function()? onRequestInAppPip;
+
+  bool get canPopPage =>
+      !plPlayerController.isFullScreen.value &&
+      !plPlayerController.isDesktopPip;
+
   Timer? liveTimeTimer;
 
   void startLiveTimer() {

@@ -564,21 +564,8 @@ class _LivePipWidgetState extends State<LivePipWidget>
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final viewportScale = _clampScale(_scale, screenSize);
-    if (viewportScale != _scale) {
-      _scale = viewportScale;
-      PipWindowMemory.scale = _scale;
-    }
-
-    _left ??= (PipWindowMemory.position?.dx ?? screenSize.width - _width - 16)
-        .clamp(0.0, max(0.0, screenSize.width - _width))
-        .toDouble();
-    _top ??= (PipWindowMemory.position?.dy ?? screenSize.height - _height - 100)
-        .clamp(0.0, max(0.0, screenSize.height - _height))
-        .toDouble();
-
     return Obx(() {
+      final screenSize = MediaQuery.of(context).size;
       final bool isNative = LivePipOverlayService.isNativePip;
 
       if (isNative) {
@@ -595,6 +582,22 @@ class _LivePipWidgetState extends State<LivePipWidget>
           ),
         );
       }
+
+      // 系统 PiP 的 MediaQuery 尺寸属于系统小窗，不能用于更新应用内小窗
+      // 的缩放和位置记忆；只有离开系统 PiP 后才执行这些计算。
+      final viewportScale = _clampScale(_scale, screenSize);
+      if (viewportScale != _scale) {
+        _scale = viewportScale;
+        PipWindowMemory.scale = _scale;
+      }
+
+      _left ??= (PipWindowMemory.position?.dx ?? screenSize.width - _width - 16)
+          .clamp(0.0, max(0.0, screenSize.width - _width))
+          .toDouble();
+      _top ??=
+          (PipWindowMemory.position?.dy ?? screenSize.height - _height - 100)
+              .clamp(0.0, max(0.0, screenSize.height - _height))
+              .toDouble();
 
       return AnimatedBuilder(
         animation: Listenable.merge([

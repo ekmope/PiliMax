@@ -204,9 +204,11 @@ class _VideoCardVState extends State<VideoCardV> {
                               ),
                             ),
                           ),
-                        if (videoItem case RcmdVideoItemAppModel(
-                          :final canPlay,
-                        ) when canPlay != 1)
+                        if (videoItem
+                            case RcmdVideoItemAppModel(
+                              :final canPlay,
+                            )
+                            when canPlay != 1)
                           const VideoDetailHeroFlightOverlay(
                             top: 6,
                             right: 6,
@@ -244,9 +246,11 @@ class _VideoCardVState extends State<VideoCardV> {
                                       videoItem.duration,
                                     ),
                                   ),
-                                if (videoItem case RcmdVideoItemAppModel(
-                                  :final canPlay,
-                                ) when canPlay != 1)
+                                if (videoItem
+                                    case RcmdVideoItemAppModel(
+                                      :final canPlay,
+                                    )
+                                    when canPlay != 1)
                                   const PBadge(
                                     text: '充电专属',
                                     top: 6,
@@ -402,6 +406,7 @@ class _VideoCardVState extends State<VideoCardV> {
                 videoItem.pubdate,
                 short: VideoCardV.shortFormat,
                 long: VideoCardV.longFormat,
+                showYesterdayTime: false,
               ),
             ),
           ),

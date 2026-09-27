@@ -283,6 +283,12 @@ List<SettingsModel> get playSettings => [
     leading: Icon(Icons.people_outlined),
     setKey: SettingBoxKey.enableOnlineTotal,
   ),
+  const SwitchModel(
+    title: '弹幕数',
+    subtitle: '展示当前播放分 P 的弹幕数',
+    leading: Icon(CustomIcons.dm_on),
+    setKey: SettingBoxKey.enableDmCount,
+  ),
   NormalModel(
     title: '默认全屏方向',
     leading: const Icon(Icons.open_with_outlined),

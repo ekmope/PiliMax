@@ -24,6 +24,7 @@ import 'package:PiliMax/pilimax/services/download/download_collection_service.da
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/pilimax/services/route_restore_service.dart';
+import 'package:PiliMax/pilimax/services/pip_route_stack_observer.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/pilimax/utils/app_font.dart';
 import 'package:PiliMax/pilimax/utils/android/android_mmkv_box.dart';
@@ -443,6 +444,7 @@ class MyApp extends StatelessWidget {
         ),
         navigatorObservers: [
           routeObserver,
+          pipRouteStackObserver,
           CrashBreadcrumbNavigatorObserver(),
           FlutterSmartDialog.observer,
         ],

@@ -19,19 +19,14 @@ abstract final class DanmakuDensityTrend {
   static const double _minWindowMs = 2000.0;
   static const double _maxWindowMs = 20000.0;
 
-  static Future<List<double>?> build({
+  /// 拉取指定分 P 的全部弹幕。趋势图和数量展示共用这份请求结果，
+  /// 避免在同一页面重复下载所有分段。
+  static Future<List<DanmakuElem>?> fetchAll({
     required int cid,
     required int durationMs,
     bool Function()? shouldCancel,
   }) async {
     if (durationMs <= 0 || cid <= 0) return null;
-
-    final int stepMs = math.max(
-      _minStepMs,
-      durationMs ~/ _targetPointCount,
-    ).toInt();
-    final pointCount = (durationMs / stepMs).ceil() + 1;
-    if (pointCount <= 1) return null;
 
     final segmentCount = (durationMs / segmentLengthMs).ceil();
     var successCount = 0;
@@ -71,6 +66,34 @@ abstract final class DanmakuDensityTrend {
 
     if (shouldCancel?.call() == true) return null;
     if (successCount == 0 || allElems.isEmpty) return null;
+    return allElems;
+  }
+
+  static Future<List<double>?> build({
+    required int cid,
+    required int durationMs,
+    bool Function()? shouldCancel,
+    List<DanmakuElem>? elems,
+  }) async {
+    if (durationMs <= 0 || cid <= 0) return null;
+
+    final int stepMs = math
+        .max(
+          _minStepMs,
+          durationMs ~/ _targetPointCount,
+        )
+        .toInt();
+    final pointCount = (durationMs / stepMs).ceil() + 1;
+    if (pointCount <= 1) return null;
+
+    final allElems =
+        elems ??
+        await fetchAll(
+          cid: cid,
+          durationMs: durationMs,
+          shouldCancel: shouldCancel,
+        );
+    if (allElems == null) return null;
 
     final validElems = allElems.where(_isDensityElem).toList();
     if (validElems.isEmpty) return null;
@@ -107,11 +130,15 @@ abstract final class DanmakuDensityTrend {
     final durationMinutes = durationMs / 1000 / 60;
     final density = elemCount / durationMinutes;
 
-    final densityFactor = math.sqrt(math.max(1.0, density / _baseDensityPerMin));
+    final densityFactor = math.sqrt(
+      math.max(1.0, density / _baseDensityPerMin),
+    );
     final calculatedWindow = _baseWindowMs / densityFactor;
 
     final maxAllowedWindow = durationMs * 0.12;
-    return calculatedWindow.clamp(_minWindowMs, _maxWindowMs).clamp(0, maxAllowedWindow);
+    return calculatedWindow
+        .clamp(_minWindowMs, _maxWindowMs)
+        .clamp(0, maxAllowedWindow);
   }
 
   static List<double>? _buildGaussian(
@@ -133,8 +160,14 @@ abstract final class DanmakuDensityTrend {
       final weight = _dispval(elem);
       if (weight <= 0) continue;
 
-      final startIdx = ((progress - range) / stepMs).floor().clamp(0, pointCount - 1);
-      final endIdx = ((progress + range) / stepMs).ceil().clamp(0, pointCount - 1);
+      final startIdx = ((progress - range) / stepMs).floor().clamp(
+        0,
+        pointCount - 1,
+      );
+      final endIdx = ((progress + range) / stepMs).ceil().clamp(
+        0,
+        pointCount - 1,
+      );
 
       for (var i = startIdx; i <= endIdx; i++) {
         final ti = i * stepMs;

@@ -82,6 +82,9 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   // 标志位：是否正在进入 PiP 模式
   bool _isEnteringPipMode = false;
 
+  // One-shot bypass set by the manual PiP menu action.
+  bool _manualPipRequested = false;
+
   late final GlobalKey pageKey = GlobalKey();
   late final GlobalKey chatKey = GlobalKey();
   late final GlobalKey scKey = GlobalKey();
@@ -203,6 +206,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     plPlayerController = _liveRoomController.plPlayerController
       ..addStatusLister(playerListener);
     PlPlayerController.setPlayCallBack(plPlayerController.play);
+    _liveRoomController.onRequestInAppPip = _enterLivePipManually;
 
     if (isReturningFromPip) {
       _liveRoomController.isInPipMode.value = false;
@@ -338,8 +342,9 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     removeObserverMobile(this);
     plPlayerController.removeStatusLister(playerListener);
     // 如果正在播放且不是全屏状态，启动小窗
-    if (plPlayerController.playerStatus.isPlaying && !isFullScreen) {
-      _startLivePipIfNeeded();
+    if (plPlayerController.playerStatus.isPlaying &&
+        (!isFullScreen || _manualPipRequested)) {
+      _startLivePipIfNeeded(manual: _manualPipRequested);
     } else {
       // 不启动小窗，只暂停
       _liveRoomController
@@ -385,6 +390,9 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       PlPlayerController.setPlayCallBack(null);
     }
     plPlayerController.removeStatusLister(playerListener);
+    if (_liveRoomController.onRequestInAppPip == _enterLivePipManually) {
+      _liveRoomController.onRequestInAppPip = null;
+    }
     if (!isInLivePip && !_isEnteringPipMode) {
       plPlayerController.dispose();
     }
@@ -621,7 +629,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       ],
     );
     final result = popScope(
-      canPop: !isFullScreen && !plPlayerController.isDesktopPip,
+      canPop: _liveRoomController.canPopPage,
       onPopInvokedWithResult: _onPopInvokedWithResult,
       child: player,
     );
@@ -632,7 +640,11 @@ class _LiveRoomPageState extends State<LiveRoomPage>
 
   void _onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
-      _startLivePipIfNeeded();
+      final manual = _manualPipRequested;
+      _manualPipRequested = false;
+      _startLivePipIfNeeded(manual: manual);
+    } else {
+      _manualPipRequested = false;
     }
     plPlayerController.onPopInvokedWithResult(
       didPop,
@@ -641,8 +653,36 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     );
   }
 
-  bool _shouldStartLivePip() {
-    if (!Pref.enableInAppPip) {
+  Future<void> _enterLivePipManually() async {
+    if (!mounted || _isEnteringPipMode || _manualPipRequested) return;
+    if (plPlayerController.isFullScreen.value) {
+      final rectBeforeExit = _livePlayerRect();
+      await plPlayerController.triggerFullScreen(status: false);
+      if (!mounted) return;
+      await PipOverlayService.awaitLayoutSettled(
+        () => rectBeforeExit == null || _livePlayerRect() != rectBeforeExit,
+      );
+      if (!mounted) return;
+    }
+    if (plPlayerController.videoController != null &&
+        !plPlayerController.playerStatus.isPlaying) {
+      await plPlayerController.play();
+      if (!mounted) return;
+    }
+    if (!_liveRoomController.canPopPage || !_shouldStartLivePip(manual: true)) {
+      SmartDialog.showToast('当前无法进入小窗');
+      return;
+    }
+    if (PipOverlayService.removeNestedVideoLikeRoutesBelow(context) > 0) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+    }
+    _manualPipRequested = true;
+    unawaited(Navigator.of(context).maybePop());
+  }
+
+  bool _shouldStartLivePip({bool manual = false}) {
+    if (!manual && !Pref.enableInAppPip) {
       return false;
     }
     if (LivePipOverlayService.isInPipMode) {
@@ -661,8 +701,8 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     return true;
   }
 
-  void _startLivePipIfNeeded() {
-    if (!_shouldStartLivePip()) {
+  void _startLivePipIfNeeded({bool manual = false}) {
+    if (!_shouldStartLivePip(manual: manual)) {
       return;
     }
     // 设置小窗模式标志

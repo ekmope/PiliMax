@@ -218,6 +218,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   // 标志位：_onPopInvokedWithResult 触发了 didPop=true 但 PiP 被其他视频/直播抢占，
   // 需要在 didPopNext 关闭其他 PiP 后重试启动
   bool _pipRetryPending = false;
+
+  // One-shot bypass set by the manual PiP menu action.
+  bool _manualPipRequested = false;
   Animation<double>? _pendingPipRouteAnimation;
   AnimationStatusListener? _pendingPipRouteListener;
   VoidCallback? _pendingPipStart;
@@ -268,6 +271,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   bool get isFullScreen =>
       videoDetailController.plPlayerController.isFullScreen.value;
+
+  bool get _canPopPage =>
+      videoDetailController.canPopPage(isPortrait: isPortrait);
 
   bool get _canPopVideoRouteWithoutFullScreenSettle {
     if (!_layoutReadyForRoutePop) {
@@ -811,6 +817,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     if (!Get.isRegistered<AiChatController>(tag: heroTag)) {
       Get.put(AiChatController(heroTag: heroTag), tag: heroTag);
     }
+
+    videoDetailController.onRequestInAppPip = _enterInAppPipManually;
 
     _pipExitIntentProvider = _canUseInAppPipExit;
     _videoArgs[videoDetailPipExitIntentKey] = _pipExitIntentProvider;
@@ -1986,6 +1994,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       super.dispose();
       return;
     }
+    if (videoDetailController.onRequestInAppPip == _enterInAppPipManually) {
+      videoDetailController.onRequestInAppPip = null;
+    }
     _initialVisualReadyGeneration++;
     if (identical(
       _videoArgs[videoDetailPipExitIntentKey],
@@ -2078,7 +2089,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         plPlayerController != null &&
         playerStatusBeforePush?.isPlaying == true &&
         !plPlayerController!.isFullScreen.value &&
-        _shouldStartInAppPip();
+        _shouldStartInAppPip(manual: _manualPipRequested);
 
     // 确定是否需要释放/暂停资源
     final bool shouldKeepAlive =
@@ -2113,7 +2124,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       _unbindPlayerListeners();
 
       if (willStartPip) {
-        _startInAppPipIfNeeded();
+        _startInAppPipIfNeeded(manual: _manualPipRequested);
       } else if (!shouldKeepAlive) {
         // 只有在确定不进入小窗时才暂停播放
         plPlayerController!.pause();
@@ -4168,7 +4179,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       plPlayerController?.disableAutoEnterPip();
     }
     if (didPop) {
-      _startInAppPipIfNeeded();
+      final manual = _manualPipRequested;
+      _manualPipRequested = false;
+      _startInAppPipIfNeeded(manual: manual);
       // 消费 didPopNext else 分支设的重试标志（用户真的继续 pop 了）。
       // 立即调用通常足够（didPopNext 已同步关闭其他 PiP，playerInit 多半已完成）；
       // 若立即失败（rapid back press 时 playerInit 还在 await，playerStatus 不是 playing），
@@ -4185,6 +4198,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           });
         }
       }
+    } else {
+      _manualPipRequested = false;
     }
     videoDetailController.plPlayerController.onPopInvokedWithResult(
       didPop,
@@ -4242,11 +4257,40 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             !previousRoute.startsWith('/liveRoom'));
   }
 
-  bool _shouldStartInAppPip() {
+  Future<void> _enterInAppPipManually() async {
+    if (!mounted || _isEnteringPipMode || _manualPipRequested) {
+      return;
+    }
+    plPlayerController ??= videoDetailController.plPlayerController;
+    final controller = plPlayerController!;
+    if (controller.isFullScreen.value) {
+      await controller.triggerFullScreen(status: false);
+      if (!mounted) return;
+      await PipOverlayService.awaitLayoutSettled(() => _canPopPage);
+      if (!mounted) return;
+    }
+    if (controller.videoController != null &&
+        !controller.playerStatus.isPlaying) {
+      await controller.play(repeat: controller.playerStatus.isCompleted);
+      if (!mounted) return;
+    }
+    if (!_canPopPage || !_shouldStartInAppPip(manual: true)) {
+      SmartDialog.showToast('当前无法进入小窗');
+      return;
+    }
+    if (PipOverlayService.removeNestedVideoLikeRoutesBelow(context) > 0) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+    }
+    _manualPipRequested = true;
+    unawaited(Navigator.of(context).maybePop());
+  }
+
+  bool _shouldStartInAppPip({bool manual = false}) {
     _logSponsorBlock(
       'Checking PiP: count=${VideoStackManager.getCount()}, previousRoute=${Get.previousRoute}',
     );
-    if (!Pref.enableInAppPip) {
+    if (!manual && !Pref.enableInAppPip) {
       _logSponsorBlock('Reject PiP: in-app PiP is disabled in settings');
       return false;
     }
@@ -4285,7 +4329,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       return false;
     }
     final prevRoute = Get.previousRoute;
-    if (VideoStackManager.isReturningToVideo()) {
+    if (!manual && VideoStackManager.isReturningToVideo()) {
       // 如果返回的页面不是视频或直播详情页，允许开启小窗
       if (!prevRoute.startsWith('/video') &&
           !prevRoute.startsWith('/liveRoom')) {
@@ -4302,11 +4346,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     return true;
   }
 
-  void _startInAppPipIfNeeded() {
+  void _startInAppPipIfNeeded({bool manual = false}) {
     if (_isEnteringPipMode || _pendingPipStart != null) {
       return;
     }
-    if (!_shouldStartInAppPip()) {
+    if (!_shouldStartInAppPip(manual: manual)) {
       return;
     }
 

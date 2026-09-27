@@ -39,6 +39,12 @@ abstract final class GStorage {
   static late final WatchProgressStore watchProgressStore;
   static const exportableLocalCacheKeys =
       SettingsTransferService.exportableLocalCacheKeys;
+
+  /// 本机临时模型列表缓存不随设置导出。
+  static const nonExportableSettingKeys = {
+    SettingBoxKey.aiModelListCache,
+    SettingBoxKey.aiModelListCacheTime,
+  };
   static SettingsImportReport? lastSettingsImportReport;
   static late final Box<Uint8List>? reply;
   static late final ReplyCacheStore replyCacheStore;
@@ -292,9 +298,12 @@ abstract final class GStorage {
       }
     }
 
+    final settingData = Map<String, dynamic>.from(setting.toMap())
+      ..removeWhere((key, _) => nonExportableSettingKeys.contains(key));
+
     return Utils.jsonEncoder.convert(
       SettingsTransferService.buildExportMap(
-        setting: setting.toMap(),
+        setting: settingData,
         video: video.toMap(),
         localCache: localCacheData,
         includeSensitive: includeSensitive,

@@ -615,9 +615,13 @@ class _MainAppState extends PopScopeState<MainApp>
 
       if (_mainController.hideBottomBar) {
         if (_mainController.barOffset case final barOffset?) {
+          // 计算实际底栏高度：导航栏高度 + 底部padding + 底部提升量
+          final actualBarHeight = (_mainController.enableMYBar ? 80.0 : 64.0) +
+                                  8.0 +
+                                  _mainController.floatingNavBottomLift.value;
           return Obx(
             () => FractionalTranslation(
-              translation: Offset(0.0, barOffset.value / Style.topBarHeight),
+              translation: Offset(0.0, barOffset.value / actualBarHeight),
               child: bottomNav,
             ),
           );
@@ -761,9 +765,12 @@ class _MainAppState extends PopScopeState<MainApp>
 
     child = Scaffold(
       extendBody: true,
+      extendBodyBehindAppBar: Pref.enableGradientBg,
       resizeToAvoidBottomInset: false,
       backgroundColor: Pref.enableGradientBg ? Colors.transparent : null,
-      appBar: AppBar(toolbarHeight: 0),
+      appBar: Pref.enableGradientBg
+          ? null
+          : AppBar(toolbarHeight: 0),
       body: Padding(
         padding: EdgeInsets.only(
           left: _mainController.useBottomNav ? _padding.left : 0.0,
@@ -789,6 +796,9 @@ class _MainAppState extends PopScopeState<MainApp>
     if (PlatformUtils.isMobile) {
       child = AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: theme.brightness.reverse,
+          statusBarBrightness: theme.brightness,
           systemNavigationBarColor: Colors.transparent,
           systemNavigationBarIconBrightness: theme.brightness.reverse,
         ),
@@ -819,20 +829,19 @@ class _MainAppState extends PopScopeState<MainApp>
 
   Widget _gradientBg() {
     final colorScheme = theme.colorScheme;
-    return Opacity(
-      opacity: .6,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              colorScheme.primary.withValues(alpha: .6),
-              colorScheme.primaryContainer.withValues(alpha: .6),
-              colorScheme.surface,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            stops: const [.1, .4, .7],
-          ),
+    final isDark = theme.brightness == Brightness.dark;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary.withValues(alpha: isDark ? .3 : .15),
+            colorScheme.primaryContainer.withValues(alpha: isDark ? .4 : .25),
+            colorScheme.surface,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          stops: const [.1, .4, .7],
         ),
       ),
     );

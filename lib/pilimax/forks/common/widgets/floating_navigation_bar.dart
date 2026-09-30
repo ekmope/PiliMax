@@ -1347,7 +1347,10 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           // loading or unsupported, so avoid applying a second blur here.
           fallback: glassLayer,
           onFailure: _handleGlassFailure,
-          refractionAmount: 4.0 / _kNavigationHeight,
+          // The selected lens is the only layer allowed to refract the
+          // backdrop. Keeping the shell blur-only prevents a second optical
+          // pass from stretching labels and icons underneath the bar.
+          refractionAmount: 0.0,
           refractionHeight: 14.0 / _kNavigationHeight,
           chromaticAberration: 0.0,
           lensRadius: 0.5,
@@ -1389,110 +1392,118 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                     borderRadius: _kBorderRadius,
                     boxShadow: shellShadows,
                   ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      ClipPath(
-                        clipper: const ShapeBorderClipper(
-                          shape: _kNavigationShape,
-                        ),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            // Clip the glass layer to the pill so the bar never
-                            // paints outside its visual shell.
-                            visualGlassLayer,
-                            IgnorePointer(
-                              child: DecoratedBox(
-                                decoration: ShapeDecoration(
-                                  color: Colors.transparent,
-                                  shape: RoundedSuperellipseBorder(
-                                    side: BorderSide(color: borderColor),
-                                    borderRadius: _kBorderRadius,
+                  child: ClipPath(
+                    clipper: const ShapeBorderClipper(
+                      shape: _kNavigationShape,
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        ClipPath(
+                          clipper: const ShapeBorderClipper(
+                            shape: _kNavigationShape,
+                          ),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              // Clip the glass layer to the pill so the bar never
+                              // paints outside its visual shell.
+                              visualGlassLayer,
+                              IgnorePointer(
+                                child: DecoratedBox(
+                                  decoration: ShapeDecoration(
+                                    color: Colors.transparent,
+                                    shape: RoundedSuperellipseBorder(
+                                      side: BorderSide(color: borderColor),
+                                      borderRadius: _kBorderRadius,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      _buildLiquidLens(
-                        reflective: reflective,
-                        soft: soft,
-                        solid: solid,
-                        isDark: isDark,
-                        effectiveIndicatorColor: effectiveIndicatorColor,
-                        effectiveIndicatorShape: effectiveIndicatorShape,
-                      ),
-                      // Paint the navigation content after the optical layer.
-                      // The lens then samples only the page/shell backdrop,
-                      // instead of magnifying already-painted labels and icons.
-                      Listener(
-                        behavior: HitTestBehavior.opaque,
-                        onPointerDown: _handlePointerDown,
-                        onPointerMove: _handlePointerMove,
-                        onPointerUp: _handlePointerUp,
-                        onPointerCancel: _handlePointerCancel,
-                        child: AnimatedBuilder(
-                          animation: _indicatorListenable,
-                          builder: (context, _) {
-                            final visualIndex = _dragIndex ?? _animatedIndex;
-                            return Padding(
-                              padding: const EdgeInsets.all(_kIndicatorPadding),
-                              child: MediaQuery.removePadding(
-                                context: context,
-                                removeLeft: true,
-                                removeTop: true,
-                                removeRight: true,
-                                removeBottom: true,
-                                child: NavigationBar(
-                                  // NavigationBar keeps its committed semantic
-                                  // selection. The icons below interpolate from
-                                  // the continuous glass position instead of
-                                  // switching at a rounded drag index.
-                                  animationDuration: Duration.zero,
-                                  selectedIndex: widget.selectedIndex,
-                                  destinations: _buildVisualDestinations(
-                                    indicatorIndex: visualIndex,
-                                    interactionScale:
-                                        1.0 +
-                                        (Curves.easeOutCubic.transform(
-                                              _pressController.value,
-                                            ) *
-                                            0.035) +
-                                        (_dragIndex != null &&
-                                                _gestureDirectionLocked &&
-                                                !_isVerticalGesture
-                                            ? 0.015
-                                            : 0.0),
-                                    colorScheme: colorScheme,
-                                    navigationBarTheme: navigationBarTheme,
-                                  ),
-                                  onDestinationSelected:
-                                      _handleDestinationSelected,
-                                  backgroundColor: Colors.transparent,
-                                  elevation: 0,
-                                  shadowColor: Colors.transparent,
-                                  surfaceTintColor: Colors.transparent,
-                                  indicatorColor: Colors.transparent,
-                                  height:
-                                      _kNavigationHeight -
-                                      2 * _kIndicatorPadding,
-                                  labelBehavior: widget.labelBehavior,
-                                  overlayColor: effectiveOverlayColor,
-                                  labelTextStyle: widget.labelTextStyle,
-                                  labelPadding:
-                                      widget.labelPadding ??
-                                      navigationBarTheme.labelPadding ??
-                                      const EdgeInsets.only(top: 2),
+                        _buildLiquidLens(
+                          reflective: reflective,
+                          soft: soft,
+                          solid: solid,
+                          isDark: isDark,
+                          effectiveIndicatorColor: effectiveIndicatorColor,
+                          effectiveIndicatorShape: effectiveIndicatorShape,
+                        ),
+                        // Paint the navigation content after the optical layer.
+                        // The lens then samples only the page/shell backdrop,
+                        // instead of magnifying already-painted labels and icons.
+                        Listener(
+                          behavior: HitTestBehavior.opaque,
+                          onPointerDown: _handlePointerDown,
+                          onPointerMove: _handlePointerMove,
+                          onPointerUp: _handlePointerUp,
+                          onPointerCancel: _handlePointerCancel,
+                          child: AnimatedBuilder(
+                            animation: _indicatorListenable,
+                            builder: (context, _) {
+                              final visualIndex = _dragIndex ?? _animatedIndex;
+                              return Padding(
+                                padding: const EdgeInsets.all(
+                                  _kIndicatorPadding,
                                 ),
-                              ),
-                            );
-                          },
+                                child: MediaQuery.removePadding(
+                                  context: context,
+                                  removeLeft: true,
+                                  removeTop: true,
+                                  removeRight: true,
+                                  removeBottom: true,
+                                  child: NavigationBar(
+                                    // NavigationBar keeps its committed semantic
+                                    // selection. The icons below interpolate from
+                                    // the continuous glass position instead of
+                                    // switching at a rounded drag index.
+                                    animationDuration: Duration.zero,
+                                    selectedIndex: widget.selectedIndex,
+                                    destinations: _buildVisualDestinations(
+                                      indicatorIndex: visualIndex,
+                                      interactionScale:
+                                          1.0 +
+                                          (Curves.easeOutCubic.transform(
+                                                _pressController.value,
+                                              ) *
+                                              0.035) +
+                                          (_dragIndex != null &&
+                                                  _gestureDirectionLocked &&
+                                                  !_isVerticalGesture
+                                              ? 0.015
+                                              : 0.0),
+                                      colorScheme: colorScheme,
+                                      navigationBarTheme: navigationBarTheme,
+                                    ),
+                                    onDestinationSelected:
+                                        _handleDestinationSelected,
+                                    backgroundColor: Colors.transparent,
+                                    elevation: 0,
+                                    shadowColor: Colors.transparent,
+                                    surfaceTintColor: Colors.transparent,
+                                    indicatorColor: Colors.transparent,
+                                    height:
+                                        _kNavigationHeight -
+                                        2 * _kIndicatorPadding,
+                                    labelBehavior: widget.labelBehavior,
+                                    overlayColor: effectiveOverlayColor,
+                                    labelTextStyle: widget.labelTextStyle,
+                                    labelPadding:
+                                        widget.labelPadding ??
+                                        navigationBarTheme.labelPadding ??
+                                        const EdgeInsets.only(top: 2),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

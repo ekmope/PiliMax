@@ -366,6 +366,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (plPlayerController.continuePlayInBackground.value &&
+        const <AppLifecycleState>[.inactive, .paused, .detached].contains(
+          state,
+        )) {
+      // Refresh the notification snapshot at the exact foreground transition;
+      // the next position event may not arrive until after the app is hidden.
+      plPlayerController.syncBackgroundMediaSession();
+    }
     if (!plPlayerController.continuePlayInBackground.value) {
       late final player = plPlayerController.videoPlayerController;
       if (const <AppLifecycleState>[.paused, .detached].contains(state)) {

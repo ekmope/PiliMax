@@ -2041,13 +2041,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         final posInSeconds = position.inSeconds;
 
         if (posInSeconds != this.position.value) {
-          if (posInSeconds == 0 && playerStatus.isPlaying) {
-          }
+          if (posInSeconds == 0 && playerStatus.isPlaying) {}
 
           this.position.value = posInSeconds;
 
           makeHeartBeat(posInSeconds);
         }
+
+        // Keep the system media session on the native, sub-second position
+        // instead of waiting for a page rebuild or a whole-second tick.
+        videoPlayerServiceHandler?.onPositionChange(position);
 
         for (final element in _positionListeners) {
           element(position);
@@ -2692,9 +2695,15 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (handler == null || !handler.enableBackgroundPlay) {
       return;
     }
+    final nativePosition = videoPlayerController?.state.position;
+    final positionSnapshot =
+        nativePosition != null &&
+            (nativePosition > Duration.zero || position.value == 0)
+        ? nativePosition
+        : Duration(seconds: position.value);
     handler
       ..onStatusChange(playerStatus.value, isBuffering.value, isLive)
-      ..onPositionChange(Duration(seconds: position.value));
+      ..onPositionChange(positionSnapshot);
   }
 
   set controls(bool visible) {

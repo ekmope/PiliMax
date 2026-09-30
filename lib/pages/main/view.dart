@@ -761,9 +761,10 @@ class _MainAppState extends PopScopeState<MainApp>
 
     child = Scaffold(
       extendBody: true,
+      extendBodyBehindAppBar: Pref.enableGradientBg,
       resizeToAvoidBottomInset: false,
       backgroundColor: Pref.enableGradientBg ? Colors.transparent : null,
-      appBar: AppBar(toolbarHeight: 0),
+      appBar: Pref.enableGradientBg ? null : AppBar(toolbarHeight: 0),
       body: Padding(
         padding: EdgeInsets.only(
           left: _mainController.useBottomNav ? _padding.left : 0.0,
@@ -789,7 +790,12 @@ class _MainAppState extends PopScopeState<MainApp>
     if (PlatformUtils.isMobile) {
       child = AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarBrightness: theme.brightness,
+          statusBarIconBrightness: theme.brightness.reverse,
+          systemStatusBarContrastEnforced: false,
           systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
           systemNavigationBarIconBrightness: theme.brightness.reverse,
         ),
         child: child,
@@ -819,20 +825,25 @@ class _MainAppState extends PopScopeState<MainApp>
 
   Widget _gradientBg() {
     final colorScheme = theme.colorScheme;
-    return Opacity(
-      opacity: .6,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              colorScheme.primary.withValues(alpha: .6),
-              colorScheme.primaryContainer.withValues(alpha: .6),
-              colorScheme.surface,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            stops: const [.1, .4, .7],
-          ),
+    final isDark = theme.brightness == Brightness.dark;
+
+    // Keep the gradient as one compositing pass. The previous outer Opacity
+    // multiplied the alpha of the first two stops and washed out light mode.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary.withValues(alpha: isDark ? .30 : .20),
+            colorScheme.primaryContainer.withValues(
+              alpha: isDark ? .38 : .26,
+            ),
+            // The old outer Opacity made this stop effectively 0.6 opaque.
+            // Keep that visual weight while avoiding a second alpha pass.
+            colorScheme.surface.withValues(alpha: .60),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          stops: const [.1, .4, .7],
         ),
       ),
     );

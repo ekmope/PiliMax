@@ -952,8 +952,8 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
             ? (indicatorIndex - _dragStartIndex).abs()
             : _releaseTravel * releaseProgress;
         final stretchAmount = dragIndex != null
-            ? math.min(28.0, travel * 16) * math.min(1.0, travel)
-            : math.min(28.0, _releaseTravel * 16) * releaseProgress;
+            ? math.min(22.0, travel * 14) * math.min(1.0, travel)
+            : math.min(22.0, _releaseTravel * 14) * releaseProgress;
         final dragProgress = dragIndex != null
             ? (_gestureDirectionLocked && !_isVerticalGesture ? 1.0 : 0.0)
             : _releaseDragProgress * releaseProgress;
@@ -963,7 +963,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
             ? math.max(48.0, math.min(60.0, _itemExtent - 12))
             : math.max(56.0, math.min(78.0, _itemExtent - 4));
         final rawIndicatorWidth =
-            baseWidth + stretchAmount + 28 * pressProgress + 10 * dragProgress;
+            baseWidth + stretchAmount + 24 * pressProgress + 8 * dragProgress;
         // Keep mouse presses vertically stable on desktop. Touch input keeps
         // the tactile press and drag swell.
         final verticalPressProgress = _expandPressIndicator
@@ -1005,14 +1005,12 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
         final velocityNorm = dragIndex != null
             ? _activeDragVelocityNorm
             : _releaseVelocityNorm * _releaseProgress;
-        // The shell already carries the shared visual motion. Compensate the
-        // indicator position by the shell's offset to keep it aligned with
-        // the destination. This prevents the lens from drifting when the bar
-        // moves during transitions.
-        final shellOffset = _visualBarOffset;
-        final left = centerX - indicatorWidth / 2 - shellOffset;
+        // The shell already carries the shared visual motion. Applying a
+        // second optical offset to the lens made its backdrop drift away from
+        // the hit target, especially at the first and last destinations.
+        final left = centerX - indicatorWidth / 2;
         final reflectionStrength =
-            (0.28 + pressProgress * 0.62 + dragProgress * 0.18)
+            (0.22 + pressProgress * 0.58 + dragProgress * 0.16)
                 .clamp(0.0, 1.0)
                 .toDouble();
         final rawReflectionPhase =
@@ -1062,29 +1060,31 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                             ? RawMagnifier(
                                 size: Size(indicatorWidth, indicatorHeight),
                                 magnificationScale:
-                                    1.065 + pressProgress * 0.15,
+                                    1.055 + pressProgress * 0.12,
                                 focalPointOffset: Offset.zero,
                                 clipBehavior: Clip.hardEdge,
                                 decoration: MagnifierDecoration(
                                   opacity:
-                                      (isDark ? 0.92 : 0.90) +
-                                      pressProgress * 0.06,
+                                      (isDark ? 0.90 : 0.88) +
+                                      pressProgress * 0.08,
                                   shape: lensShape,
                                 ),
                               )
                             : const SizedBox.expand(),
                         refractionAmount:
-                            0.025 + pressProgress * 0.06 + dragProgress * 0.035,
+                            pressProgress * 0.05 + dragProgress * 0.02,
                         refractionHeight:
-                            (16.0 + pressProgress * 12.0) /
+                            (14.0 + pressProgress * 10.0) /
                             math.max(
                               1.0,
                               math.min(indicatorWidth, indicatorHeight),
                             ),
-                        // 常规状态下也有轻微色散，按压时增强
+                        // Keep dispersion confined to the interactive lens.
+                        // The normalized values below produce a sub-pixel to
+                        // roughly one-pixel channel split on a 50-60 dp lens.
                         chromaticAberration:
-                            0.008 + pressProgress * 0.012 + dragProgress * 0.009,
-                        lensRadius: 0.52,
+                            pressProgress * 0.012 + dragProgress * 0.006,
+                        lensRadius: 0.5,
                         // The rounded-box normal already describes this
                         // capsule. A radial contribution would introduce a
                         // second optical center and can pull the backdrop
@@ -1096,12 +1096,12 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                     else if (reflective)
                       RawMagnifier(
                         size: Size(indicatorWidth, indicatorHeight),
-                        magnificationScale: 1.065 + pressProgress * 0.15,
+                        magnificationScale: 1.055 + pressProgress * 0.12,
                         focalPointOffset: Offset.zero,
                         clipBehavior: Clip.hardEdge,
                         decoration: MagnifierDecoration(
                           opacity:
-                              (isDark ? 0.92 : 0.90) + pressProgress * 0.06,
+                              (isDark ? 0.90 : 0.88) + pressProgress * 0.08,
                           shape: lensShape,
                         ),
                       ),
@@ -1130,15 +1130,15 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                             colors: [
                               Colors.white.withValues(
                                 alpha: reflective
-                                    ? (isDark ? 0.14 : 0.20)
-                                    : (isDark ? 0.10 : 0.15),
+                                    ? (isDark ? 0.10 : 0.16)
+                                    : (isDark ? 0.07 : 0.11),
                               ),
                               Colors.transparent,
                               Colors.black.withValues(
-                                alpha: isDark ? 0.08 : 0.04,
+                                alpha: isDark ? 0.06 : 0.025,
                               ),
                             ],
-                            stops: const [0.0, 0.52, 1.0],
+                            stops: const [0.0, 0.48, 1.0],
                           ),
                         ),
                       ),
@@ -1146,9 +1146,9 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                       painter: _LiquidIndicatorBorderPainter(
                         shape: lensShape,
                         color: Colors.white.withValues(
-                          alpha: (isDark ? 0.32 : 0.48) + pressProgress * 0.28,
+                          alpha: (isDark ? 0.28 : 0.42) + pressProgress * 0.24,
                         ),
-                        width: 1.2 + pressProgress * 0.6,
+                        width: 1 + pressProgress * 0.5,
                       ),
                     ),
                     if ((reflective || shaderLiquid) &&

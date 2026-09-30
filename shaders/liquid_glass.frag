@@ -113,13 +113,14 @@ void main() {
   vec4 blue_sample = texture(u_texture, clamp(uv + refraction_uv - chromatic_uv, vec2(0.0), vec2(1.0)));
 
   vec3 color = vec3(red_sample.r, center_sample.g, blue_sample.b);
-  // 增强光影效果，使液态玻璃更有立体感和生命力
-  // 使用更强的光照方向和更大的对比度
-  vec2 light_direction = normalize(vec2(-0.5, -0.7));
+  // Keep the bevel subtle so content remains readable on both video and
+  // static backgrounds. This is the same two-sided light idea as the
+  // reference shader, expressed with a fixed normalized light direction.
+  vec2 light_direction = normalize(vec2(-0.45, -0.65));
   float light = clamp(dot(normal, light_direction), 0.0, 1.0);
   float shadow = clamp(dot(normal, -light_direction), 0.0, 1.0);
-  color *= 1.0 + 0.22 * edge_factor * light;
-  color *= 1.0 - 0.08 * edge_factor * shadow;
+  color *= 1.0 + 0.16 * edge_factor * light;
+  color *= 1.0 - 0.06 * edge_factor * shadow;
 
   frag_color = vec4(color, center_sample.a);
 }

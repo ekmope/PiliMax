@@ -16,6 +16,9 @@ uniform vec2 u_center;
 // Optional radial contribution to the rounded-box surface normal. Set to
 // zero for a large shell so it cannot create a second circular optical center.
 uniform float u_depth_effect;
+// How strongly the glass leans toward the average hue of the backdrop
+// behind it (2.4 content-adaptive tint). Zero keeps the neutral glass.
+uniform float u_content_adaptive;
 
 // The first sampler is populated with the input of ImageFilter.shader.
 uniform sampler2D u_texture;
@@ -121,6 +124,30 @@ void main() {
   float shadow = clamp(dot(normal, -light_direction), 0.0, 1.0);
   color *= 1.0 + 0.16 * edge_factor * light;
   color *= 1.0 - 0.06 * edge_factor * shadow;
+
+  // 2.4: lean the glass toward the average hue of the content behind it.
+  // A five-tap average of the (already blurred) backdrop is a cheap proxy
+  // for its overall warmth, so the bar shifts warm/cold with the page.
+  if (u_content_adaptive > 0.001) {
+    vec2 tap1 = vec2(0.25, 0.5);
+    vec2 tap2 = vec2(0.5, 0.35);
+    vec2 tap3 = vec2(0.5, 0.5);
+    vec2 tap4 = vec2(0.5, 0.65);
+    vec2 tap5 = vec2(0.75, 0.5);
+#ifdef IMPELLER_TARGET_OPENGLES
+    tap1.y = 1.0 - tap1.y;
+    tap2.y = 1.0 - tap2.y;
+    tap3.y = 1.0 - tap3.y;
+    tap4.y = 1.0 - tap4.y;
+    tap5.y = 1.0 - tap5.y;
+#endif
+    vec3 average =
+        (texture(u_texture, tap1).rgb + texture(u_texture, tap2).rgb +
+         texture(u_texture, tap3).rgb + texture(u_texture, tap4).rgb +
+         texture(u_texture, tap5).rgb) /
+        5.0;
+    color = mix(color, average, u_content_adaptive);
+  }
 
   frag_color = vec4(color, center_sample.a);
 }

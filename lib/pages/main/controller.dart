@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/grpc/dyn.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -24,6 +25,7 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/update.dart';
 import 'package:collection/collection.dart';
 import 'package:easy_debounce/easy_throttle.dart';
+import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
@@ -41,6 +43,11 @@ class MainController extends GetxController
   bool useBottomNav = false;
   late dynamic controller;
   final RxInt selectedIndex = 0.obs;
+
+  /// Normalized vertical scroll velocity (-1..1) reported by pages, used by
+  /// the floating bar for its scroll sheen and directional edge light.
+  final ValueNotifier<double> navScrollVelocity = ValueNotifier<double>(0.0);
+  AnimationController? _barOffsetSettleController;
 
   final RxInt dynCount = 0.obs;
   late DynamicBadgeMode dynamicBadgeMode;
@@ -479,8 +486,65 @@ class MainController extends GetxController
     }
   }
 
+  /// Stops any in-flight settle of the scroll-synced bottom bar.
+  void cancelBarOffsetSettle() {
+    final controller = _barOffsetSettleController;
+    _barOffsetSettleController = null;
+    if (controller != null) {
+      controller.stop();
+      controller.dispose();
+    }
+  }
+
+  /// Springs the scroll-synced bottom bar to the nearest resting state
+  /// (fully shown or fully hidden) once the finger leaves the screen.
+  void settleBarOffset({double? forceTarget}) {
+    final offset = barOffset;
+    if (offset == null) return;
+    final target =
+        forceTarget ??
+        (offset.value >= Style.topBarHeight / 2 ? Style.topBarHeight : 0.0);
+    if ((offset.value - target).abs() < 0.5) {
+      offset.value = target;
+      return;
+    }
+    cancelBarOffsetSettle();
+    final controller = AnimationController.unbounded(
+      vsync: this,
+      value: offset.value,
+    );
+    _barOffsetSettleController = controller;
+    controller.addListener(() {
+      offset.value = controller.value.clamp(0.0, Style.topBarHeight);
+    });
+    controller
+        .animateWith(
+          SpringSimulation(
+            SpringDescription.withDampingRatio(
+              ratio: 0.9,
+              stiffness: 300,
+              mass: 1,
+            ),
+            offset.value,
+            target,
+            0,
+            snapToEnd: true,
+          ),
+        )
+        .whenComplete(() {
+          // Only the still-current controller cleans itself up; a cancelled
+          // one has already been disposed by cancelBarOffsetSettle.
+          if (_barOffsetSettleController == controller) {
+            _barOffsetSettleController = null;
+            controller.dispose();
+          }
+        });
+  }
+
   @override
   void onClose() {
+    cancelBarOffsetSettle();
+    navScrollVelocity.dispose();
     barOffset?.close();
     controller.dispose();
     super.onClose();

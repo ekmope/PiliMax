@@ -17,6 +17,7 @@ class LiquidGlassFilter extends StatefulWidget {
     this.chromaticAberration = 0.0,
     this.lensRadius = 0.5,
     this.depthEffect = 0.18,
+    this.contentAdaptive = 0.0,
   });
 
   final Widget child;
@@ -26,10 +27,15 @@ class LiquidGlassFilter extends StatefulWidget {
   final double refractionHeight;
   final double chromaticAberration;
   final double lensRadius;
+
   /// Adds the optional radial component to the rounded-box normal.
   ///
   /// The default preserves the original lens appearance.
   final double depthEffect;
+
+  /// Leans the glass toward the average hue of the backdrop behind it
+  /// (content-adaptive tint). Zero keeps the neutral glass.
+  final double contentAdaptive;
 
   @override
   State<LiquidGlassFilter> createState() => _LiquidGlassFilterState();
@@ -57,6 +63,7 @@ class _LiquidGlassFilterState extends State<LiquidGlassFilter> {
       chromaticAberration: widget.chromaticAberration,
       lensRadius: widget.lensRadius,
       depthEffect: widget.depthEffect,
+      contentAdaptive: widget.contentAdaptive,
     );
     try {
       if (_program != program) {
@@ -80,6 +87,7 @@ class _LiquidGlassFilterState extends State<LiquidGlassFilter> {
           chromaticAberration: parameters.chromaticAberration,
           lensRadius: parameters.lensRadius,
           depthEffect: parameters.depthEffect,
+          contentAdaptive: parameters.contentAdaptive,
         );
         _lastParameters = parameters;
         // The shader instance is reused; rebuilding the filter only changes
@@ -176,6 +184,7 @@ final class _ShaderParameters {
     required this.chromaticAberration,
     required this.lensRadius,
     required this.depthEffect,
+    required this.contentAdaptive,
   });
 
   final double refractionAmount;
@@ -183,6 +192,7 @@ final class _ShaderParameters {
   final double chromaticAberration;
   final double lensRadius;
   final double depthEffect;
+  final double contentAdaptive;
 
   @override
   bool operator ==(Object other) {
@@ -191,7 +201,8 @@ final class _ShaderParameters {
         other.refractionHeight == refractionHeight &&
         other.chromaticAberration == chromaticAberration &&
         other.lensRadius == lensRadius &&
-        other.depthEffect == depthEffect;
+        other.depthEffect == depthEffect &&
+        other.contentAdaptive == contentAdaptive;
   }
 
   @override
@@ -201,5 +212,6 @@ final class _ShaderParameters {
     chromaticAberration,
     lensRadius,
     depthEffect,
+    contentAdaptive,
   );
 }

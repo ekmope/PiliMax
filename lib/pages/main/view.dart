@@ -28,6 +28,7 @@ import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart'
     show
         HardwareKeyboard,
@@ -552,6 +553,7 @@ class _MainAppState extends PopScopeState<MainApp>
             liquidGlassQuality: _mainController.liquidGlassQuality.value,
             bottomPadding: 8.0,
             bottomLift: _mainController.floatingNavBottomLift.value,
+            scrollVelocity: _mainController.navScrollVelocity,
             labelBehavior: _mainController.showNavBarLabel.value
                 ? NavigationDestinationLabelBehavior.alwaysShow
                 : NavigationDestinationLabelBehavior.alwaysHide,
@@ -616,19 +618,53 @@ class _MainAppState extends PopScopeState<MainApp>
       if (_mainController.hideBottomBar) {
         if (_mainController.barOffset case final barOffset?) {
           return Obx(
-            () => FractionalTranslation(
-              translation: Offset(0.0, barOffset.value / Style.topBarHeight),
-              child: bottomNav,
+            () => Stack(
+              children: [
+                FractionalTranslation(
+                  translation: Offset(
+                    0.0,
+                    barOffset.value / Style.topBarHeight,
+                  ),
+                  child: bottomNav,
+                ),
+                // Tapping the strip where the bar rests expands it again.
+                if (barOffset.value >= Style.topBarHeight - 1)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: _padding.bottom + 2,
+                    height: 8,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () =>
+                          _mainController.settleBarOffset(forceTarget: 0.0),
+                    ),
+                  ),
+              ],
             ),
           );
         }
         if (_mainController.showBottomBar case final showBottomBar?) {
           return Obx(
-            () => AnimatedSlide(
-              curve: Curves.easeInOutCubicEmphasized,
-              duration: const Duration(milliseconds: 500),
-              offset: Offset(0, showBottomBar.value ? 0 : 1),
-              child: bottomNav,
+            () => Stack(
+              children: [
+                _SpringVisibilitySlide(
+                  visible: showBottomBar.value,
+                  child: bottomNav,
+                ),
+                // Tapping the strip where the bar rests expands it again.
+                if (!showBottomBar.value)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: _padding.bottom + 2,
+                    height: 8,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => showBottomBar.value = true,
+                    ),
+                  ),
+              ],
             ),
           );
         }
@@ -856,21 +892,70 @@ class _MainAppState extends PopScopeState<MainApp>
 
   Widget _buildDynamicBadge(Widget icon) => Obx(() {
     final dynCount = _mainController.dynCount.value;
+    final visible = _mainController.dynamicBadgeMode != .hidden && dynCount > 0;
+    final showNumber = _mainController.dynamicBadgeMode == .number;
+    final badgeText = dynCount > 99 ? '99+' : dynCount.toString();
     return Builder(
       builder: (context) {
         final iconSize = IconTheme.of(context).size ?? 24.0;
+        final colorScheme = Theme.of(context).colorScheme;
         return SizedBox.square(
           dimension: iconSize,
-          child: Center(
-            child: Badge(
-              isLabelVisible:
-                  _mainController.dynamicBadgeMode != .hidden && dynCount > 0,
-              label: _mainController.dynamicBadgeMode == .number
-                  ? Text(dynCount.toString())
-                  : null,
-              padding: const .symmetric(horizontal: 6),
-              child: icon,
-            ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Center(child: icon),
+              Positioned(
+                top: -2,
+                right: -8,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: visible ? 1.0 : 0.0),
+                  duration:
+                      MediaQuery.maybeOf(context)?.disableAnimations ?? false
+                      ? Duration.zero
+                      : const Duration(milliseconds: 200),
+                  // easeOutBack only overshoots above 1.0, so the scale never
+                  // goes negative on the way in; the way out eases in.
+                  curve: visible ? Curves.easeOutBack : Curves.easeInCubic,
+                  builder: (context, value, child) => Opacity(
+                    opacity: value.clamp(0.0, 1.0),
+                    child: Transform.scale(scale: value, child: child),
+                  ),
+                  child: Semantics(
+                    label: showNumber ? '$badgeText条未读动态' : '有新动态',
+                    child: Container(
+                      constraints: BoxConstraints(
+                        minWidth: showNumber ? 16 : 8,
+                        minHeight: showNumber ? 16 : 8,
+                      ),
+                      padding: showNumber
+                          ? const EdgeInsets.symmetric(horizontal: 4)
+                          : EdgeInsets.zero,
+                      decoration: BoxDecoration(
+                        color: colorScheme.error,
+                        borderRadius: BorderRadius.circular(showNumber ? 8 : 4),
+                        border: Border.all(
+                          color: colorScheme.surface,
+                          width: 1,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: showNumber
+                          ? Text(
+                              badgeText,
+                              style: TextStyle(
+                                color: colorScheme.onError,
+                                fontSize: 10,
+                                height: 1.1,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -892,6 +977,69 @@ class _MainAppState extends PopScopeState<MainApp>
           onPressed: () => Get.toNamed('/search'),
         ),
       ],
+    );
+  }
+}
+
+/// Slides the bottom bar in and out with a spring instead of a fixed
+/// duration curve, so hide/show keeps the Q-elastic feel required by the
+/// liquid-glass spec (6.3).
+class _SpringVisibilitySlide extends StatefulWidget {
+  const _SpringVisibilitySlide({required this.visible, required this.child});
+
+  final bool visible;
+  final Widget child;
+
+  @override
+  State<_SpringVisibilitySlide> createState() => _SpringVisibilitySlideState();
+}
+
+class _SpringVisibilitySlideState extends State<_SpringVisibilitySlide>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController.unbounded(
+    vsync: this,
+    value: widget.visible ? 0.0 : 1.0,
+  );
+
+  @override
+  void didUpdateWidget(_SpringVisibilitySlide oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.visible == widget.visible) return;
+    final target = widget.visible ? 0.0 : 1.0;
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+      _controller.value = target;
+      return;
+    }
+    _controller.animateWith(
+      SpringSimulation(
+        SpringDescription.withDampingRatio(
+          ratio: 0.86,
+          stiffness: 280,
+          mass: 1,
+        ),
+        _controller.value,
+        target,
+        _controller.velocity,
+        snapToEnd: true,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) => FractionalTranslation(
+        translation: Offset(0, _controller.value.clamp(-0.2, 1.2)),
+        child: child,
+      ),
+      child: widget.child,
     );
   }
 }

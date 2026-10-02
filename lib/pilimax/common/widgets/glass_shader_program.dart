@@ -84,6 +84,7 @@ abstract final class GlassShaderProgram {
     required double lensRadius,
     required double depthEffect,
     ui.Offset center = const ui.Offset(0.5, 0.5),
+    double contentAdaptive = 0.0,
   }) {
     ui.FragmentShader? shader;
     try {
@@ -98,6 +99,7 @@ abstract final class GlassShaderProgram {
         lensRadius: lensRadius,
         depthEffect: depthEffect,
         center: center,
+        contentAdaptive: contentAdaptive,
       );
       return created;
     } catch (_) {
@@ -115,6 +117,7 @@ abstract final class GlassShaderProgram {
     required double lensRadius,
     required double depthEffect,
     ui.Offset center = const ui.Offset(0.5, 0.5),
+    double contentAdaptive = 0.0,
   }) {
     shader
       ..setFloat(2, _nonNegative(refractionAmount))
@@ -123,7 +126,8 @@ abstract final class GlassShaderProgram {
       ..setFloat(5, _nonNegative(lensRadius))
       ..setFloat(6, _unit(center.dx, 0.5))
       ..setFloat(7, _unit(center.dy, 0.5))
-      ..setFloat(8, _nonNegative(depthEffect));
+      ..setFloat(8, _nonNegative(depthEffect))
+      ..setFloat(9, _unit(contentAdaptive, 0.0));
   }
 
   static double _nonNegative(double value) {

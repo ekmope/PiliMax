@@ -616,6 +616,9 @@ class _MainAppState extends PopScopeState<MainApp>
       }
 
       if (_mainController.hideBottomBar) {
+        // Hoist the promoted bar so closures below capture a non-nullable,
+        // effectively-final value instead of re-inferring it per capture.
+        final nav = bottomNav;
         if (_mainController.barOffset case final barOffset?) {
           return Obx(
             () => Stack(
@@ -625,7 +628,7 @@ class _MainAppState extends PopScopeState<MainApp>
                     0.0,
                     barOffset.value / Style.topBarHeight,
                   ),
-                  child: bottomNav,
+                  child: nav,
                 ),
                 // Tapping the strip where the bar rests expands it again.
                 if (barOffset.value >= Style.topBarHeight - 1)
@@ -650,7 +653,7 @@ class _MainAppState extends PopScopeState<MainApp>
               children: [
                 _SpringVisibilitySlide(
                   visible: showBottomBar.value,
-                  child: bottomNav,
+                  child: nav,
                 ),
                 // Tapping the strip where the bar rests expands it again.
                 if (!showBottomBar.value)
@@ -918,7 +921,7 @@ class _MainAppState extends PopScopeState<MainApp>
                   // goes negative on the way in; the way out eases in.
                   curve: visible ? Curves.easeOutBack : Curves.easeInCubic,
                   builder: (context, value, child) => Opacity(
-                    opacity: value.clamp(0.0, 1.0),
+                    opacity: value.clamp(0.0, 1.0).toDouble(),
                     child: Transform.scale(scale: value, child: child),
                   ),
                   child: Semantics(
@@ -1036,7 +1039,7 @@ class _SpringVisibilitySlideState extends State<_SpringVisibilitySlide>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) => FractionalTranslation(
-        translation: Offset(0, _controller.value.clamp(-0.2, 1.2)),
+        translation: Offset(0, _controller.value.clamp(-0.2, 1.2).toDouble()),
         child: child,
       ),
       child: widget.child,

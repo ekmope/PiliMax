@@ -2119,7 +2119,7 @@ class _ScrollSheenPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final v = value.clamp(-1.0, 1.0);
+    final v = value.clamp(-1.0, 1.0).toDouble();
     final strength = v.abs();
     if (strength < 0.01) return;
     final tone = isDark ? 0.8 : 1.0;
@@ -2140,9 +2140,9 @@ class _ScrollSheenPainter extends CustomPainter {
           Colors.transparent,
         ],
         stops: [
-          ((center - halfExtent) / size.height).clamp(0.0, 1.0),
-          (center / size.height).clamp(0.0, 1.0),
-          ((center + halfExtent) / size.height).clamp(0.0, 1.0),
+          ((center - halfExtent) / size.height).clamp(0.0, 1.0).toDouble(),
+          (center / size.height).clamp(0.0, 1.0).toDouble(),
+          ((center + halfExtent) / size.height).clamp(0.0, 1.0).toDouble(),
         ],
       ).createShader(rect);
     canvas.drawRect(rect, bandPaint);

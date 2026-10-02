@@ -72,7 +72,7 @@ class _MediaPageState extends CommonPageState<MinePage>
       _mainController.selectedIndex.value == 0;
 
   @override
-  bool onNotificationType1(UserScrollNotification notification) {
+  bool onNotificationType1(ScrollNotification notification) {
     if (checkPage) {
       return false;
     }

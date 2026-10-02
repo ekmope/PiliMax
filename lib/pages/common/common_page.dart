@@ -48,7 +48,8 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
     if (notification.metrics.axis == .horizontal) return false;
     if (notification is ScrollUpdateNotification) {
       final delta = notification.scrollDelta ?? 0;
-      _mainController.navScrollVelocity.value = (delta / 18).clamp(
+      _mainController.navScrollVelocity.value = clampDouble(
+        delta / 18,
         -1.0,
         1.0,
       );
@@ -94,7 +95,8 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
       if (notification.dragDetails == null) return false;
       final pixel = metrics.pixels;
       final scrollDelta = notification.scrollDelta ?? 0;
-      _mainController.navScrollVelocity.value = (scrollDelta / 18).clamp(
+      _mainController.navScrollVelocity.value = clampDouble(
+        scrollDelta / 18,
         -1.0,
         1.0,
       );
@@ -121,8 +123,11 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
     }
 
     if (notification is OverscrollNotification) {
-      _mainController.navScrollVelocity.value = (notification.overscroll / 18)
-          .clamp(-1.0, 1.0);
+      _mainController.navScrollVelocity.value = clampDouble(
+        notification.overscroll / 18,
+        -1.0,
+        1.0,
+      );
       _updateOffset(notification.overscroll);
       return false;
     }

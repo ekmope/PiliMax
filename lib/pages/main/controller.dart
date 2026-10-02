@@ -25,6 +25,7 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/update.dart';
 import 'package:collection/collection.dart';
 import 'package:easy_debounce/easy_throttle.dart';
+import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter/physics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
@@ -515,7 +516,7 @@ class MainController extends GetxController
     );
     _barOffsetSettleController = controller;
     controller.addListener(() {
-      offset.value = controller.value.clamp(0.0, Style.topBarHeight);
+      offset.value = clampDouble(controller.value, 0.0, Style.topBarHeight);
     });
     controller
         .animateWith(

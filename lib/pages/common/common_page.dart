@@ -9,7 +9,6 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
   RxDouble? _barOffset;
   RxBool? _showTopBar;
   RxBool? _showBottomBar;
-  double _accumulatedScroll = 0;
   final _mainController = Get.find<MainController>();
 
   bool get needsCorrection => false;
@@ -32,7 +31,7 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
       );
     }
     if (_showTopBar != null || _showBottomBar != null) {
-      return NotificationListener<ScrollNotification>(
+      return NotificationListener<UserScrollNotification>(
         onNotification: onNotificationType1,
         child: child,
       );
@@ -40,34 +39,17 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
     return child;
   }
 
-  // Hide/show with distance thresholds and hysteresis: scrolling down must
-  // accumulate 24 dp to collapse the bars, while 12 dp back up expands
-  // them, so slow jitter cannot toggle the bars repeatedly.
-  bool onNotificationType1(ScrollNotification notification) {
+  bool onNotificationType1(UserScrollNotification notification) {
     if (!_mainController.useBottomNav) return false;
     if (notification.metrics.axis == .horizontal) return false;
-    if (notification is ScrollUpdateNotification) {
-      final delta = notification.scrollDelta ?? 0;
-      _mainController.navScrollVelocity.value = clampDouble(
-        delta / 18,
-        -1.0,
-        1.0,
-      );
-      if ((delta > 0 && _accumulatedScroll < 0) ||
-          (delta < 0 && _accumulatedScroll > 0)) {
-        _accumulatedScroll = 0;
-      }
-      _accumulatedScroll += delta;
-      if (_accumulatedScroll >= 24) {
-        _showTopBar?.value = false;
-        _showBottomBar?.value = false;
-      } else if (_accumulatedScroll <= -12) {
+    switch (notification.direction) {
+      case .forward:
         _showTopBar?.value = true;
         _showBottomBar?.value = true;
-      }
-    } else if (notification is ScrollEndNotification) {
-      _accumulatedScroll = 0;
-      _mainController.navScrollVelocity.value = 0;
+      case .reverse:
+        _showTopBar?.value = false;
+        _showBottomBar?.value = false;
+      case _:
     }
     return false;
   }
@@ -86,20 +68,10 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
     final metrics = notification.metrics;
     if (metrics.axis == .horizontal) return false;
 
-    if (notification is ScrollStartNotification) {
-      _mainController.cancelBarOffsetSettle();
-      return false;
-    }
-
     if (notification is ScrollUpdateNotification) {
       if (notification.dragDetails == null) return false;
       final pixel = metrics.pixels;
       final scrollDelta = notification.scrollDelta ?? 0;
-      _mainController.navScrollVelocity.value = clampDouble(
-        scrollDelta / 18,
-        -1.0,
-        1.0,
-      );
       if (pixel < 0.0 && scrollDelta > 0) return false;
       if (needsCorrection) {
         final value = _barOffset!.value;
@@ -123,18 +95,7 @@ abstract class CommonPageState<T extends StatefulWidget> extends State<T> {
     }
 
     if (notification is OverscrollNotification) {
-      _mainController.navScrollVelocity.value = clampDouble(
-        notification.overscroll / 18,
-        -1.0,
-        1.0,
-      );
       _updateOffset(notification.overscroll);
-      return false;
-    }
-
-    if (notification is ScrollEndNotification) {
-      _mainController.navScrollVelocity.value = 0;
-      _mainController.settleBarOffset();
       return false;
     }
 

@@ -6,11 +6,9 @@ import 'package:PiliMax/pilimax/common/widgets/glass_capability.dart';
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_filter.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
-import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
-import 'package:flutter/scheduler.dart' show Ticker;
 
 const double _kNavigationHeight = 64.0;
 const double _kIndicatorWidth = 86.0;
@@ -64,7 +62,6 @@ class FloatingNavigationBar extends StatelessWidget {
     this.labelPadding,
     this.bottomPadding = 8.0,
     this.bottomLift = 0.0,
-    this.scrollVelocity,
     this.liquidGlass = false,
     this.glassStyle,
     this.legacyLiquidGlass = false,
@@ -95,11 +92,6 @@ class FloatingNavigationBar extends StatelessWidget {
   /// Moves the rendered bar upward without changing the Scaffold slot size.
   final double bottomLift;
 
-  /// Normalized content-scroll velocity (-1..1) that drives the scroll
-  /// sheen and the directional edge light on the glass shell. Passing null
-  /// keeps those effects off.
-  final ValueListenable<double>? scrollVelocity;
-
   /// Legacy compatibility switch. New call sites should use [glassStyle].
   final bool liquidGlass;
   final GlassStyle? glassStyle;
@@ -128,7 +120,6 @@ class FloatingNavigationBar extends StatelessWidget {
         labelPadding: labelPadding,
         bottomPadding: bottomPadding,
         bottomLift: bottomLift,
-        scrollVelocity: scrollVelocity,
         glassStyle: effectiveGlassStyle,
         legacyLiquidGlass:
             legacyLiquidGlass || (glassStyle == null && liquidGlass),
@@ -304,7 +295,6 @@ class _LiquidGlassNavigationBar extends StatefulWidget {
     required this.labelPadding,
     required this.bottomPadding,
     required this.bottomLift,
-    required this.scrollVelocity,
     required this.glassStyle,
     required this.legacyLiquidGlass,
     required this.liquidGlassQuality,
@@ -326,7 +316,6 @@ class _LiquidGlassNavigationBar extends StatefulWidget {
   final EdgeInsetsGeometry? labelPadding;
   final double bottomPadding;
   final double bottomLift;
-  final ValueListenable<double>? scrollVelocity;
   final GlassStyle glassStyle;
   final bool legacyLiquidGlass;
   final LiquidGlassQuality liquidGlassQuality;
@@ -363,7 +352,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
   double _releaseMotionIndex = 0;
   double _releaseVelocityNorm = 0;
   double _releaseDragProgress = 0;
-  double? _pressIndex;
   TextDirection _textDirection = TextDirection.ltr;
   late LiquidGlassQuality _resolvedQuality;
   GlassFallbackMode? _runtimeFallbackMode;
@@ -710,7 +698,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
       // The lens stays put on pointer-down: a tap flows from the old
       // position on release (4.1), while a horizontal drag grabs the lens
       // once the gesture passes the slop threshold (4.9).
-      _pressIndex = index;
       _isPressed = true;
       _dragDirection = 0;
     });
@@ -886,8 +873,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
 
   List<Widget> _buildVisualDestinations({
     required double indicatorIndex,
-    required double pressProgress,
-    required bool isHorizontalDragging,
     required ColorScheme colorScheme,
     required NavigationBarThemeData navigationBarTheme,
   }) {
@@ -919,19 +904,9 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
 
       final rawProgress = (1 - (indicatorIndex - index).abs()).clamp(0.0, 1.0);
       final selectionProgress = Curves.easeInOutCubic.transform(rawProgress);
-      // 3.2: the selected icon keeps a slight persistent magnification.
-      // Because selectionProgress tracks the lens position, the spring
-      // overshoot doubles as the arrival bounce required by 4.6.
-      final selectionScale = 1.0 + 0.10 * selectionProgress;
-      // 4.2/4.8: the pressed icon shrinks while held and rebounds on
-      // release; the shrink is suppressed once the gesture becomes a drag.
-      final isPressedTab =
-          !isHorizontalDragging &&
-          pressProgress > 0.001 &&
-          _pressIndex != null &&
-          _pressIndex!.round() == index;
-      final pressScale = isPressedTab ? 1.0 - 0.12 * pressProgress : 1.0;
-      final interactionScale = selectionScale * pressScale;
+      // Keep the icon scale neutral. The earlier persistent magnification
+      // made the selected glyph dominate the restored be8 material.
+      const interactionScale = 1.0;
       final destinationInactiveTheme = destination.enabled
           ? inactiveTheme
           : disabledTheme;
@@ -986,29 +961,23 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           _pressController.value,
         );
         final releaseProgress = _releaseProgress;
+        // The lens swells immediately on any press, then flows to the new
+        // destination on release. This is the be8 interaction timing.
+        final pressProgress = rawPressProgress;
         final isHorizontalDrag =
             dragIndex != null && _gestureDirectionLocked && !_isVerticalGesture;
-        // The press swell belongs to the lens only while the finger is on
-        // the tab the lens currently occupies, or once a drag starts. A
-        // press on another tab only shrinks that tab's icon; the lens
-        // itself flows over on release.
-        final pressAppliesToLens =
-            isHorizontalDrag ||
-            (_pressIndex != null &&
-                (_pressIndex! - indicatorIndex).abs() < 0.5);
-        final pressProgress = pressAppliesToLens ? rawPressProgress : 0.0;
         final transitionProgress = math.sin(
           math.pi * _selectionController.value,
         );
-        // Liquid stretch applies to every transition (tap flow included)
-        // and scales with travel distance; the lens is thinnest mid-flight.
+        // Limit stretch to a drag or the short release tail so a tap does not
+        // leave the lens visually elongated.
         final travel = dragIndex != null
             ? (indicatorIndex - _dragStartIndex).abs()
-            : (_targetIndex - _fromIndex).abs();
+            : _releaseMotionIndex.abs() * releaseProgress;
         final stretchAmount =
             (dragIndex != null
                     ? math.min(22.0, travel * 14) * math.min(1.0, travel)
-                    : math.min(22.0, travel * 14) * transitionProgress)
+                    : math.min(22.0, travel * 14) * releaseProgress)
                 .clamp(-6.0, 22.0)
                 .toDouble();
         final dragProgress = dragIndex != null
@@ -1051,10 +1020,10 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
             .min(rawIndicatorWidth, maxCenteredWidth)
             .toDouble();
         // 4.4: the pressed/dragged lens swells past the bar vertically.
-        // The shell no longer clips the lens, so the overflow — and the
-        // refraction ring around it — stays visible.
+        // The shell clip is the final paint bound for the lens and its
+        // refraction ring.
         final indicatorHeight = rawIndicatorHeight
-            .clamp(1.0, _kNavigationHeight + 12)
+            .clamp(1.0, _kNavigationHeight)
             .toDouble();
         final motionIndex = _visualMotionIndex(
           indicatorIndex,
@@ -1138,7 +1107,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                         // edge-ring refraction even at rest; pressing and
                         // dragging strengthen it.
                         refractionAmount:
-                            0.018 + pressProgress * 0.05 + dragProgress * 0.02,
+                            0.07 + pressProgress * 0.05 + dragProgress * 0.02,
                         refractionHeight:
                             (14.0 + pressProgress * 10.0) /
                             math.max(
@@ -1148,14 +1117,13 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                         // Keep dispersion confined to the interactive lens.
                         // The normalized values below produce a sub-pixel to
                         // roughly one-pixel channel split on a 50-60 dp lens.
-                        chromaticAberration:
-                            pressProgress * 0.012 + dragProgress * 0.006,
+                        chromaticAberration: 0.0005,
                         lensRadius: 0.5,
                         // The rounded-box normal already describes this
                         // capsule. A radial contribution would introduce a
                         // second optical center and can pull the backdrop
                         // upward at the lower corners.
-                        depthEffect: 0.0,
+                        depthEffect: 0.18,
                         onFailure: _handleGlassFailure,
                         child: const SizedBox.expand(),
                       )
@@ -1417,14 +1385,15 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
           // 2.2: the shell refracts only a shallow edge ring — enough to
           // read as glass thickness without distorting labels, which are
           // painted after this layer. The selected lens carries the
-          // stronger interactive refraction. The adaptive tint lets the
-          // glass lean toward the hue of the content behind it (2.4).
-          refractionAmount: 0.012,
+          // stronger interactive refraction without displacing the shell.
+          // Keep the shell neutral. Refraction belongs to the selected lens;
+          // applying it to the full capsule stretches page content.
+          refractionAmount: 0.0,
           refractionHeight: 14.0 / _kNavigationHeight,
           chromaticAberration: 0.0,
           lensRadius: 0.5,
           depthEffect: 0.0,
-          contentAdaptive: 0.15,
+          contentAdaptive: 0.0,
           child: glassLayer,
         ),
       );
@@ -1464,9 +1433,9 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                   ),
                   child: Stack(
                     fit: StackFit.expand,
-                    // 4.4: the lens overflows the pill vertically while
-                    // pressed or dragged; nothing here may clip it.
-                    clipBehavior: Clip.none,
+                    // Keep the shell and its optical layers inside the fixed
+                    // 64dp geometry so backdrop sampling cannot leak out.
+                    clipBehavior: Clip.hardEdge,
                     children: [
                       ClipPath(
                         clipper: const ShapeBorderClipper(
@@ -1498,16 +1467,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                                       ),
                                     ),
                                   ),
-                                  // 5.2/5.3: scroll-driven sheen and the
-                                  // directional edge light sit above the
-                                  // static rim, below lens and content.
-                                  if (!solid && widget.scrollVelocity != null)
-                                    IgnorePointer(
-                                      child: _ScrollSheenOverlay(
-                                        listenable: widget.scrollVelocity!,
-                                        isDark: isDark,
-                                      ),
-                                    ),
                                 ],
                               ),
                             ),
@@ -1544,14 +1503,6 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar>
                                         selectedIndex: widget.selectedIndex,
                                         destinations: _buildVisualDestinations(
                                           indicatorIndex: visualIndex,
-                                          pressProgress: Curves.easeOutCubic
-                                              .transform(
-                                                _pressController.value,
-                                              ),
-                                          isHorizontalDragging:
-                                              _dragIndex != null &&
-                                              _gestureDirectionLocked &&
-                                              !_isVerticalGesture,
                                           colorScheme: colorScheme,
                                           navigationBarTheme:
                                               navigationBarTheme,
@@ -2033,141 +1984,6 @@ class _LiquidIndicatorBorderPainter extends CustomPainter {
         oldDelegate.color != color ||
         oldDelegate.width != width;
   }
-}
-
-/// 5.2/5.3: paints the scroll-driven sheen band and the directional edge
-/// light over the glass shell. The overlay eases toward the latest
-/// normalized scroll velocity and decays back to rest when scrolling
-/// stops, so the highlight never freezes mid-sweep.
-class _ScrollSheenOverlay extends StatefulWidget {
-  const _ScrollSheenOverlay({required this.listenable, required this.isDark});
-
-  final ValueListenable<double> listenable;
-  final bool isDark;
-
-  @override
-  State<_ScrollSheenOverlay> createState() => _ScrollSheenOverlayState();
-}
-
-class _ScrollSheenOverlayState extends State<_ScrollSheenOverlay>
-    with SingleTickerProviderStateMixin {
-  double _displayed = 0;
-  double _target = 0;
-  Ticker? _ticker;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.listenable.addListener(_handleTargetChanged);
-  }
-
-  @override
-  void didUpdateWidget(_ScrollSheenOverlay oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.listenable != widget.listenable) {
-      oldWidget.listenable.removeListener(_handleTargetChanged);
-      widget.listenable.addListener(_handleTargetChanged);
-      _handleTargetChanged();
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.listenable.removeListener(_handleTargetChanged);
-    _ticker?.dispose();
-    super.dispose();
-  }
-
-  void _handleTargetChanged() {
-    _target = widget.listenable.value.clamp(-1.0, 1.0).toDouble();
-    _ensureTicker();
-  }
-
-  void _ensureTicker() {
-    if (_ticker?.isActive == true) return;
-    if (_displayed == 0 && _target == 0) return;
-    _ticker ??= createTicker(_onTick);
-    _ticker!.start();
-  }
-
-  void _onTick(Duration elapsed) {
-    final next = _displayed + (_target - _displayed) * 0.18;
-    final settled = (next - _displayed).abs() < 0.002;
-    final value = settled ? _target : next;
-    if ((value - _displayed).abs() > 0.001) {
-      setState(() => _displayed = value);
-    }
-    if (settled && _target == 0 && _displayed == 0) {
-      _ticker?.stop();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _ScrollSheenPainter(value: _displayed, isDark: widget.isDark),
-    );
-  }
-}
-
-class _ScrollSheenPainter extends CustomPainter {
-  const _ScrollSheenPainter({required this.value, required this.isDark});
-
-  /// Normalized scroll velocity: positive scrolls down, negative up.
-  final double value;
-  final bool isDark;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final v = value.clamp(-1.0, 1.0).toDouble();
-    final strength = v.abs();
-    if (strength < 0.01) return;
-    final tone = isDark ? 0.8 : 1.0;
-    final rect = Offset.zero & size;
-
-    // 5.2: the sheen band drifts with the scroll direction and grows
-    // brighter and taller with speed; it falls back once scrolling stops.
-    final center = size.height * (0.5 + v * 0.30);
-    final halfExtent = size.height * (0.16 + 0.20 * strength);
-    final peak = 0.30 * strength * tone;
-    final bandPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.transparent,
-          Colors.white.withValues(alpha: peak),
-          Colors.transparent,
-        ],
-        stops: [
-          ((center - halfExtent) / size.height).clamp(0.0, 1.0).toDouble(),
-          (center / size.height).clamp(0.0, 1.0).toDouble(),
-          ((center + halfExtent) / size.height).clamp(0.0, 1.0).toDouble(),
-        ],
-      ).createShader(rect);
-    canvas.drawRect(rect, bandPaint);
-
-    // 5.3: the edge the content scrolls toward brightens slightly, as if
-    // the glass were sweeping past a light source.
-    final edgeAlpha = 0.45 * strength * tone;
-    final edgeRect = v > 0
-        ? Rect.fromLTWH(0, size.height - 2, size.width, 2)
-        : Rect.fromLTWH(0, 0, size.width, 2);
-    final edgePaint = Paint()
-      ..shader = LinearGradient(
-        begin: v > 0 ? Alignment.topCenter : Alignment.bottomCenter,
-        end: v > 0 ? Alignment.bottomCenter : Alignment.topCenter,
-        colors: [
-          Colors.transparent,
-          Colors.white.withValues(alpha: edgeAlpha),
-        ],
-      ).createShader(edgeRect);
-    canvas.drawRect(edgeRect, edgePaint);
-  }
-
-  @override
-  bool shouldRepaint(_ScrollSheenPainter oldDelegate) =>
-      oldDelegate.value != value || oldDelegate.isDark != isDark;
 }
 
 /// Compatibility wrapper for existing PiliMax call sites.

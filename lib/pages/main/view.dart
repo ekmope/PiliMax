@@ -553,7 +553,6 @@ class _MainAppState extends PopScopeState<MainApp>
             liquidGlassQuality: _mainController.liquidGlassQuality.value,
             bottomPadding: 8.0,
             bottomLift: _mainController.floatingNavBottomLift.value,
-            scrollVelocity: _mainController.navScrollVelocity,
             labelBehavior: _mainController.showNavBarLabel.value
                 ? NavigationDestinationLabelBehavior.alwaysShow
                 : NavigationDestinationLabelBehavior.alwaysHide,
@@ -622,13 +621,26 @@ class _MainAppState extends PopScopeState<MainApp>
         if (_mainController.barOffset case final barOffset?) {
           return Obx(
             () => Stack(
+              fit: StackFit.expand,
+              alignment: Alignment.center,
               children: [
-                FractionalTranslation(
-                  translation: Offset(
-                    0.0,
-                    barOffset.value / Style.topBarHeight,
+                Transform.translate(
+                  offset: Offset(
+                    0,
+                    (_mainController.floatingNavBar
+                            ? _mainController.floatingNavBottomLift.value
+                            : 0.0) *
+                        (barOffset.value / Style.topBarHeight)
+                            .clamp(0.0, 1.0)
+                            .toDouble(),
                   ),
-                  child: nav,
+                  child: FractionalTranslation(
+                    translation: Offset(
+                      0.0,
+                      barOffset.value / Style.topBarHeight,
+                    ),
+                    child: nav,
+                  ),
                 ),
                 // Tapping the strip where the bar rests expands it again.
                 if (barOffset.value >= Style.topBarHeight - 1)
@@ -639,8 +651,7 @@ class _MainAppState extends PopScopeState<MainApp>
                     height: 8,
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTap: () =>
-                          _mainController.settleBarOffset(forceTarget: 0.0),
+                      onTap: () => barOffset.value = 0.0,
                     ),
                   ),
               ],
@@ -650,9 +661,14 @@ class _MainAppState extends PopScopeState<MainApp>
         if (_mainController.showBottomBar case final showBottomBar?) {
           return Obx(
             () => Stack(
+              fit: StackFit.expand,
+              alignment: Alignment.center,
               children: [
                 _SpringVisibilitySlide(
                   visible: showBottomBar.value,
+                  bottomLift: _mainController.floatingNavBar
+                      ? _mainController.floatingNavBottomLift.value
+                      : 0.0,
                   child: nav,
                 ),
                 // Tapping the strip where the bar rests expands it again.
@@ -806,6 +822,9 @@ class _MainAppState extends PopScopeState<MainApp>
       appBar: Pref.enableGradientBg ? null : AppBar(toolbarHeight: 0),
       body: Padding(
         padding: EdgeInsets.only(
+          top: Pref.enableGradientBg && PlatformUtils.isMobile
+              ? _padding.top
+              : 0.0,
           left: _mainController.useBottomNav ? _padding.left : 0.0,
           right: _padding.right,
         ),
@@ -816,7 +835,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
     if (Pref.enableGradientBg) {
       child = Material(
-        color: Colors.transparent,
+        color: theme.colorScheme.surface,
         child: Stack(
           children: [
             Positioned.fill(child: _gradientBg()),
@@ -841,24 +860,6 @@ class _MainAppState extends PopScopeState<MainApp>
       );
     }
 
-    if (PlatformUtils.isMobile && _padding.top > 0) {
-      child = Stack(
-        children: [
-          child,
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: _padding.top,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: _mainController.currentToTopOrRefresh,
-            ),
-          ),
-        ],
-      );
-    }
-
     return child;
   }
 
@@ -872,13 +873,11 @@ class _MainAppState extends PopScopeState<MainApp>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            colorScheme.primary.withValues(alpha: isDark ? .30 : .20),
+            colorScheme.primary.withValues(alpha: isDark ? .30 : .15),
             colorScheme.primaryContainer.withValues(
-              alpha: isDark ? .38 : .26,
+              alpha: isDark ? .40 : .25,
             ),
-            // The old outer Opacity made this stop effectively 0.6 opaque.
-            // Keep that visual weight while avoiding a second alpha pass.
-            colorScheme.surface.withValues(alpha: .60),
+            colorScheme.surface,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -988,9 +987,14 @@ class _MainAppState extends PopScopeState<MainApp>
 /// duration curve, so hide/show keeps the Q-elastic feel required by the
 /// liquid-glass spec (6.3).
 class _SpringVisibilitySlide extends StatefulWidget {
-  const _SpringVisibilitySlide({required this.visible, required this.child});
+  const _SpringVisibilitySlide({
+    required this.visible,
+    required this.bottomLift,
+    required this.child,
+  });
 
   final bool visible;
+  final double bottomLift;
   final Widget child;
 
   @override
@@ -1038,10 +1042,16 @@ class _SpringVisibilitySlideState extends State<_SpringVisibilitySlide>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      builder: (context, child) => FractionalTranslation(
-        translation: Offset(0, _controller.value.clamp(-0.2, 1.2).toDouble()),
-        child: child,
-      ),
+      builder: (context, child) {
+        final progress = _controller.value.clamp(-0.2, 1.2).toDouble();
+        return Transform.translate(
+          offset: Offset(0, widget.bottomLift * progress),
+          child: FractionalTranslation(
+            translation: Offset(0, progress),
+            child: child,
+          ),
+        );
+      },
       child: widget.child,
     );
   }

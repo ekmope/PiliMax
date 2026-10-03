@@ -1044,12 +1044,9 @@ class _SpringVisibilitySlideState extends State<_SpringVisibilitySlide>
       animation: _controller,
       builder: (context, child) {
         final progress = _controller.value.clamp(-0.2, 1.2).toDouble();
-        return Transform.translate(
-          offset: Offset(0, widget.bottomLift * progress),
-          child: FractionalTranslation(
-            translation: Offset(0, progress),
-            child: child,
-          ),
+        return FractionalTranslation(
+          translation: Offset(0, progress),
+          child: child,
         );
       },
       child: widget.child,

@@ -208,6 +208,10 @@ class PgcIntroController extends CommonIntroController {
                     title:
                         '${pgcItem.title}${item != null ? '\n${item.showTitle}' : ''}',
                     uname: '',
+                    replyInfo: (
+                      oid: videoDetailCtr.aid,
+                      replyType: videoDetailCtr.videoType.replyType,
+                    ),
                   ),
                 );
               },

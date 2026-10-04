@@ -65,7 +65,7 @@ class _AboutPageState extends State<AboutPage> {
   void getCacheSize() {
     CacheManager.loadApplicationCache().then((res) {
       if (mounted) {
-        cacheSize.value = CacheManager.formatSize(res);
+        cacheSize.value = res.formatSize;
       }
     });
   }
@@ -125,6 +125,7 @@ class _AboutPageState extends State<AboutPage> {
               TextField(
                 controller: maxCacheController,
                 autofocus: true,
+                maxLength: 6,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),

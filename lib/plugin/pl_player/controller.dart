@@ -46,6 +46,7 @@ import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/box_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
@@ -60,7 +61,8 @@ import 'package:archive/archive.dart' show getCrc32;
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart' show HapticFeedback, DeviceOrientation;
+import 'package:flutter/services.dart'
+    show DeviceOrientation, HapticFeedback, KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
@@ -334,6 +336,58 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       (PlatformUtils.isDesktop && isDesktopPip);
   late bool isDesktopPip = false;
   late Rect _lastWindowBounds;
+  static Rect? _lastPipBounds;
+
+  Rect _adjustPipBounds(Rect lastRect, Size size, double aspectRatio) {
+    final lastSize = lastRect.size;
+    final lastOrientation = lastSize.orientation;
+    final orientation = size.orientation;
+
+    if (lastOrientation != orientation) {
+      final double width, height;
+      switch (orientation) {
+        case .portrait:
+          if (lastSize.width > size.height) {
+            height = min(lastSize.width, _lastWindowBounds.size.height);
+            width = height * aspectRatio;
+          } else {
+            height = size.height;
+            width = size.width;
+          }
+        case .landscape:
+          if (lastSize.height > size.width) {
+            width = lastSize.height;
+            height = width / aspectRatio;
+          } else {
+            height = size.height;
+            width = size.width;
+          }
+      }
+
+      return _lastPipBounds = Rect.fromLTWH(
+        lastRect.left,
+        lastRect.top,
+        width,
+        height,
+      );
+    }
+    return _lastPipBounds = Rect.fromLTWH(
+      lastRect.left,
+      lastRect.top,
+      lastSize.width,
+      lastSize.width / aspectRatio,
+    );
+  }
+
+  bool updatePipBounds() {
+    if (isDesktopPip) {
+      windowManager.getBounds().then((rect) {
+        if (isDesktopPip) _lastPipBounds = rect;
+      });
+      return true;
+    }
+    return false;
+  }
 
   late final showWindowTitleBar = Pref.showWindowTitleBar;
   late final RxBool isAlwaysOnTop = false.obs;
@@ -365,27 +419,34 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       windowManager.setTitleBarStyle(TitleBarStyle.hidden);
     }
 
+    const shortSide = 280.0;
+    const minShortSide = 160.0;
     final Size size;
+    final Size minimumSize;
     final state = videoPlayerController!.state;
     int width = state.width;
     int height = state.height;
-    if (width == 0) {
-      width = this.width ?? 16;
-    }
-    if (height == 0) {
-      height = this.height ?? 9;
-    }
+    if (width == 0) width = this.width ?? 16;
+    if (height == 0) height = this.height ?? 9;
+    final aspectRatio = width / height;
     if (height > width) {
-      size = Size(280.0, 280.0 * height / width);
+      size = Size(shortSide, shortSide / aspectRatio);
+      minimumSize = Size(minShortSide, minShortSide / aspectRatio);
     } else {
-      size = Size(280.0 * width / height, 280.0);
+      size = Size(shortSide * aspectRatio, shortSide);
+      minimumSize = Size(minShortSide * aspectRatio, minShortSide);
     }
 
-    await windowManager.setMinimumSize(size);
+    await windowManager.setMinimumSize(minimumSize);
     setAlwaysOnTop(true);
-    windowManager
-      ..setSize(size)
-      ..setAspectRatio(width / height);
+    if (_lastPipBounds != null) {
+      windowManager.setBounds(
+        _adjustPipBounds(_lastPipBounds!, size, aspectRatio),
+      );
+    } else {
+      windowManager.setSize(size);
+    }
+    windowManager.setAspectRatio(width / height);
   }
 
   void toggleDesktopPip() {
@@ -3279,7 +3340,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       return;
     }
     if (image != null) {
-      SmartDialog.showToast('点击弹窗保存截图');
+      SmartDialog.showToast('点击弹窗或按 Enter 保存截图');
       final rootContext = Get.context;
       if (rootContext == null || !rootContext.mounted) {
         image.dispose();
@@ -3299,44 +3360,61 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
             }
             _screenshotDialogContext = context;
             _screenshotDialogGeneration = generation;
-            return GestureDetector(
-              onTap: () async {
-                final bytes = await image.toByteData(
-                  format: ui.ImageByteFormat.png,
+            var saved = false;
+            Future<void> save() async {
+              if (saved) return;
+              saved = true;
+              final bytes = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              if (bytes != null && _sourceCoordinator.isActive(generation)) {
+                final time = DurationUtils.formatDuration(
+                  positionInMilliseconds / 1000,
+                ).replaceAll(':', '-');
+                ImageUtils.saveByteImg(
+                  bytes: bytes.buffer.asUint8List(),
+                  fileName: 'screenshot_${sourceCid}_$time',
                 );
-                if (bytes != null && _sourceCoordinator.isActive(generation)) {
-                  final time = DurationUtils.formatDuration(
-                    positionInMilliseconds / 1000,
-                  ).replaceAll(':', '-');
-                  ImageUtils.saveByteImg(
-                    bytes: bytes.buffer.asUint8List(),
-                    fileName: 'screenshot_${sourceCid}_$time',
-                  );
-                } else {
-                  SmartDialog.showToast('保存失败');
+              } else {
+                SmartDialog.showToast('保存失败');
+              }
+              if (context.mounted) {
+                Navigator.of(context).pop();
+              }
+            }
+
+            return Focus(
+              autofocus: true,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.enter ||
+                        event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
+                  unawaited(save());
+                  return KeyEventResult.handled;
                 }
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
+                return KeyEventResult.ignored;
               },
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: min(MediaQuery.widthOf(context) / 3, 350),
-                    ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          width: 5,
-                          color: ColorScheme.of(context).surface,
-                        ),
+              child: GestureDetector(
+                onTap: () => unawaited(save()),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: min(MediaQuery.widthOf(context) / 3, 350),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(5),
-                        child: RawImage(image: image),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            width: 5,
+                            color: ColorScheme.of(context).surface,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: RawImage(image: image),
+                        ),
                       ),
                     ),
                   ),

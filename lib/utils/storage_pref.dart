@@ -44,7 +44,6 @@ import 'package:PiliMax/pilimax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/login_utils.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
-import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/pilimax/utils/cache_policy.dart';
@@ -146,7 +145,6 @@ abstract final class Pref {
         SettingBoxKey.expandIntroPanelH: () => expandIntroPanelH,
         SettingBoxKey.feedBackEnable: () => feedBackEnable,
         SettingBoxKey.floatingNavBar: () => floatingNavBar,
-        SettingBoxKey.liquidGlassNavBar: () => liquidGlassNavBar,
         SettingBoxKey.fullScreenGestureReverse: () => fullScreenGestureReverse,
         SettingBoxKey.hideBottomBar: () => hideBottomBar,
         SettingBoxKey.hideTopBar: () => hideTopBar,
@@ -1808,35 +1806,9 @@ abstract final class Pref {
   static bool get floatingNavBar =>
       _setting.get(SettingBoxKey.floatingNavBar, defaultValue: false);
 
-  static bool get liquidGlassNavBar =>
-      _setting.get(SettingBoxKey.liquidGlassNavBar, defaultValue: false);
-
-  /// Returns the new three-way style when it has been stored. Older installs
-  /// are mapped without writing a value so their original visual treatment is
-  /// preserved until the user explicitly chooses a new style.
   static GlassStyle get glassStyle {
-    final stored = GlassStyle.tryFromIndex(
-      _setting.get(SettingBoxKey.glassStyle),
-    );
-    if (stored != null) return stored;
-    return GlassStyle.fromLegacy(
-      floatingNavBar: floatingNavBar,
-      liquidGlassNavBar: liquidGlassNavBar,
-      quality: liquidGlassQuality,
-    );
+    return GlassStyle.fromIndex(_setting.get(SettingBoxKey.glassStyle));
   }
-
-  static bool get _hasValidGlassStyle {
-    return GlassStyle.tryFromIndex(
-          _setting.get(SettingBoxKey.glassStyle),
-        ) !=
-        null;
-  }
-
-  /// True only for an old liquid-glass preference that has not been migrated
-  /// by an explicit, valid user selection.
-  static bool get usesLegacyLiquidGlass =>
-      floatingNavBar && !_hasValidGlassStyle && liquidGlassNavBar;
 
   static double get floatingNavBottomLift {
     final value = _setting.get(
@@ -1848,14 +1820,6 @@ abstract final class Pref {
         ? lift.clamp(0.0, kMaxFloatingNavBottomLift).toDouble()
         : 0.0;
   }
-
-  static LiquidGlassQuality get liquidGlassQuality =>
-      LiquidGlassQuality.fromIndex(
-        _setting.get(
-          SettingBoxKey.liquidGlassQuality,
-          defaultValue: LiquidGlassQuality.automatic.index,
-        ),
-      );
 
   static bool get removeSafeArea =>
       _setting.get(SettingBoxKey.removeSafeArea, defaultValue: false);

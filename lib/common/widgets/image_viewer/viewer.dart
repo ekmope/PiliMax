@@ -514,6 +514,10 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
   }
 
   void _onPointerPanZoomStart(PointerPanZoomStartEvent event) {
+    _horizontalDragGestureRecognizer.addPointerPanZoom(
+      event,
+      isPointerAllowed: _isAtEdge(event.localPosition),
+    );
     _scaleGestureRecognizer.addPointerPanZoom(event);
   }
 

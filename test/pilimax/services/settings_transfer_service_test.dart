@@ -84,10 +84,10 @@ void main() {
     expect(payload.localCache, isEmpty);
   });
 
-  test('round-trips the glass style and bottom lift as ordinary settings', () {
+  test('drops invalid glass styles and preserves bottom lift', () {
     final exported = SettingsTransferService.buildExportMap(
       setting: {
-        SettingBoxKey.glassStyle: 2,
+        SettingBoxKey.glassStyle: 99,
         SettingBoxKey.floatingNavBottomLift: 24.0,
       },
       video: const <String, dynamic>{},
@@ -95,7 +95,7 @@ void main() {
     );
     final payload = SettingsTransferService.normalize(exported);
 
-    expect(payload.setting[SettingBoxKey.glassStyle], 2);
+    expect(payload.setting.containsKey(SettingBoxKey.glassStyle), isFalse);
     expect(payload.setting[SettingBoxKey.floatingNavBottomLift], 24.0);
     expect(payload.report.skippedSensitiveKeys, isEmpty);
   });

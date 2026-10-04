@@ -6,6 +6,7 @@ import 'package:PiliMax/http/dynamics.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/reply.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
+import 'package:PiliMax/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliMax/pages/common/dyn/common_dyn_controller.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -19,6 +20,8 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
   @override
   late int replyType;
   late DynamicItemModel dynItem;
+  @override
+  MentionItem? get mentionItem => dynItem.modules.moduleAuthor?.mentionItem;
   final RxInt detailVersion = 0.obs;
   ValueChanged<DynamicItemModel>? _onUpdate;
 

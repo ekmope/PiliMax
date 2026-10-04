@@ -3840,9 +3840,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                     aid: videoDetailController.aid,
                     cid: videoDetailController.cid.value,
                     listOrder: videoDetail.listOrder,
-                    onChangeEpisode: videoDetailController.isUgc
-                        ? ugcIntroController.onChangeEpisode
-                        : pgcIntroController.onChangeEpisode,
+                    onChangeEpisode: ugcIntroController.onChangeEpisode,
                     showTitle: false,
                     isSupportReverse: videoDetailController.isUgc,
                     onReverse: () => onReversePlay(isSeason: false),

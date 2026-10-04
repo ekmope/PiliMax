@@ -28,6 +28,7 @@ import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart'
     show
         HardwareKeyboard,
@@ -355,7 +356,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   Future<void> onWindowMoved() async {
-    if (PlPlayerController.instance?.isDesktopPip ?? false) {
+    if (PlPlayerController.instance?.updatePipBounds() ?? false) {
       return;
     }
     final Offset offset = await windowManager.getPosition();
@@ -364,7 +365,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
   @override
   Future<void> onWindowResized() async {
-    if (PlPlayerController.instance?.isDesktopPip ?? false) {
+    if (PlPlayerController.instance?.updatePipBounds() ?? false) {
       return;
     }
     final Rect bounds = await windowManager.getBounds();
@@ -548,8 +549,6 @@ class _MainAppState extends PopScopeState<MainApp>
         bottomNav = Obx(
           () => FloatingNavigationBar(
             glassStyle: _mainController.glassStyle.value,
-            legacyLiquidGlass: _mainController.legacyLiquidGlass,
-            liquidGlassQuality: _mainController.liquidGlassQuality.value,
             bottomPadding: 8.0,
             bottomLift: _mainController.floatingNavBottomLift.value,
             labelBehavior: _mainController.showNavBarLabel.value
@@ -614,21 +613,75 @@ class _MainAppState extends PopScopeState<MainApp>
       }
 
       if (_mainController.hideBottomBar) {
+        // Hoist the promoted bar so closures below capture a non-nullable,
+        // effectively-final value instead of re-inferring it per capture.
+        final nav = bottomNav;
         if (_mainController.barOffset case final barOffset?) {
           return Obx(
-            () => FractionalTranslation(
-              translation: Offset(0.0, barOffset.value / Style.topBarHeight),
-              child: bottomNav,
+            () => Stack(
+              fit: StackFit.passthrough,
+              alignment: Alignment.center,
+              children: [
+                Transform.translate(
+                  offset: Offset(
+                    0,
+                    (_mainController.floatingNavBar
+                            ? _mainController.floatingNavBottomLift.value
+                            : 0.0) *
+                        (barOffset.value / Style.topBarHeight)
+                            .clamp(0.0, 1.0)
+                            .toDouble(),
+                  ),
+                  child: FractionalTranslation(
+                    translation: Offset(
+                      0.0,
+                      barOffset.value / Style.topBarHeight,
+                    ),
+                    child: nav,
+                  ),
+                ),
+                // Tapping the strip where the bar rests expands it again.
+                if (barOffset.value >= Style.topBarHeight - 1)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: _padding.bottom + 2,
+                    height: 8,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => barOffset.value = 0.0,
+                    ),
+                  ),
+              ],
             ),
           );
         }
         if (_mainController.showBottomBar case final showBottomBar?) {
           return Obx(
-            () => AnimatedSlide(
-              curve: Curves.easeInOutCubicEmphasized,
-              duration: const Duration(milliseconds: 500),
-              offset: Offset(0, showBottomBar.value ? 0 : 1),
-              child: bottomNav,
+            () => Stack(
+              fit: StackFit.passthrough,
+              alignment: Alignment.center,
+              children: [
+                _SpringVisibilitySlide(
+                  visible: showBottomBar.value,
+                  bottomLift: _mainController.floatingNavBar
+                      ? _mainController.floatingNavBottomLift.value
+                      : 0.0,
+                  child: nav,
+                ),
+                // Tapping the strip where the bar rests expands it again.
+                if (!showBottomBar.value)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: _padding.bottom + 2,
+                    height: 8,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => showBottomBar.value = true,
+                    ),
+                  ),
+              ],
             ),
           );
         }
@@ -767,6 +820,9 @@ class _MainAppState extends PopScopeState<MainApp>
       appBar: Pref.enableGradientBg ? null : AppBar(toolbarHeight: 0),
       body: Padding(
         padding: EdgeInsets.only(
+          top: Pref.enableGradientBg && PlatformUtils.isMobile
+              ? _padding.top
+              : 0.0,
           left: _mainController.useBottomNav ? _padding.left : 0.0,
           right: _padding.right,
         ),
@@ -777,7 +833,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
     if (Pref.enableGradientBg) {
       child = Material(
-        color: Colors.transparent,
+        color: theme.colorScheme.surface,
         child: Stack(
           children: [
             Positioned.fill(child: _gradientBg()),
@@ -802,24 +858,6 @@ class _MainAppState extends PopScopeState<MainApp>
       );
     }
 
-    if (PlatformUtils.isMobile && _padding.top > 0) {
-      child = Stack(
-        children: [
-          child,
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: _padding.top,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: _mainController.currentToTopOrRefresh,
-            ),
-          ),
-        ],
-      );
-    }
-
     return child;
   }
 
@@ -833,13 +871,11 @@ class _MainAppState extends PopScopeState<MainApp>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            colorScheme.primary.withValues(alpha: isDark ? .30 : .20),
+            colorScheme.primary.withValues(alpha: isDark ? .30 : .15),
             colorScheme.primaryContainer.withValues(
-              alpha: isDark ? .38 : .26,
+              alpha: isDark ? .40 : .25,
             ),
-            // The old outer Opacity made this stop effectively 0.6 opaque.
-            // Keep that visual weight while avoiding a second alpha pass.
-            colorScheme.surface.withValues(alpha: .60),
+            colorScheme.surface,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -856,21 +892,70 @@ class _MainAppState extends PopScopeState<MainApp>
 
   Widget _buildDynamicBadge(Widget icon) => Obx(() {
     final dynCount = _mainController.dynCount.value;
+    final visible = _mainController.dynamicBadgeMode != .hidden && dynCount > 0;
+    final showNumber = _mainController.dynamicBadgeMode == .number;
+    final badgeText = dynCount > 99 ? '99+' : dynCount.toString();
     return Builder(
       builder: (context) {
         final iconSize = IconTheme.of(context).size ?? 24.0;
+        final colorScheme = Theme.of(context).colorScheme;
         return SizedBox.square(
           dimension: iconSize,
-          child: Center(
-            child: Badge(
-              isLabelVisible:
-                  _mainController.dynamicBadgeMode != .hidden && dynCount > 0,
-              label: _mainController.dynamicBadgeMode == .number
-                  ? Text(dynCount.toString())
-                  : null,
-              padding: const .symmetric(horizontal: 6),
-              child: icon,
-            ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Center(child: icon),
+              Positioned(
+                top: -2,
+                right: -8,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: visible ? 1.0 : 0.0),
+                  duration:
+                      MediaQuery.maybeOf(context)?.disableAnimations ?? false
+                      ? Duration.zero
+                      : const Duration(milliseconds: 200),
+                  // easeOutBack only overshoots above 1.0, so the scale never
+                  // goes negative on the way in; the way out eases in.
+                  curve: visible ? Curves.easeOutBack : Curves.easeInCubic,
+                  builder: (context, value, child) => Opacity(
+                    opacity: value.clamp(0.0, 1.0).toDouble(),
+                    child: Transform.scale(scale: value, child: child),
+                  ),
+                  child: Semantics(
+                    label: showNumber ? '$badgeText条未读动态' : '有新动态',
+                    child: Container(
+                      constraints: BoxConstraints(
+                        minWidth: showNumber ? 16 : 8,
+                        minHeight: showNumber ? 16 : 8,
+                      ),
+                      padding: showNumber
+                          ? const EdgeInsets.symmetric(horizontal: 4)
+                          : EdgeInsets.zero,
+                      decoration: BoxDecoration(
+                        color: colorScheme.error,
+                        borderRadius: BorderRadius.circular(showNumber ? 8 : 4),
+                        border: Border.all(
+                          color: colorScheme.surface,
+                          width: 1,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: showNumber
+                          ? Text(
+                              badgeText,
+                              style: TextStyle(
+                                color: colorScheme.onError,
+                                fontSize: 10,
+                                height: 1.1,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -892,6 +977,75 @@ class _MainAppState extends PopScopeState<MainApp>
           onPressed: () => Get.toNamed('/search'),
         ),
       ],
+    );
+  }
+}
+
+/// Slides the bottom bar in and out with a spring so hide/show remains smooth.
+class _SpringVisibilitySlide extends StatefulWidget {
+  const _SpringVisibilitySlide({
+    required this.visible,
+    required this.bottomLift,
+    required this.child,
+  });
+
+  final bool visible;
+  final double bottomLift;
+  final Widget child;
+
+  @override
+  State<_SpringVisibilitySlide> createState() => _SpringVisibilitySlideState();
+}
+
+class _SpringVisibilitySlideState extends State<_SpringVisibilitySlide>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController.unbounded(
+    vsync: this,
+    value: widget.visible ? 0.0 : 1.0,
+  );
+
+  @override
+  void didUpdateWidget(_SpringVisibilitySlide oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.visible == widget.visible) return;
+    final target = widget.visible ? 0.0 : 1.0;
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+      _controller.value = target;
+      return;
+    }
+    _controller.animateWith(
+      SpringSimulation(
+        SpringDescription.withDampingRatio(
+          ratio: 0.86,
+          stiffness: 280,
+          mass: 1,
+        ),
+        _controller.value,
+        target,
+        _controller.velocity,
+        snapToEnd: true,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final progress = _controller.value.clamp(-0.2, 1.2).toDouble();
+        return FractionalTranslation(
+          translation: Offset(0, progress),
+          child: child,
+        );
+      },
+      child: widget.child,
     );
   }
 }

@@ -59,14 +59,8 @@ void main() {
     r'SettingBoxKey\.(\w+)\s*:',
   ).allMatches(registrySource).map((match) => match.group(1)!).toSet();
 
-  // These readers are retained for upgrades from older builds and no longer
-  // have a direct setting tile in the current UI.
-  const compatibilityOnlyKeys = <String>{'liquidGlassNavBar'};
-
   final unregistered = uiKeys.difference(registeredKeys);
-  final stale = registeredKeys
-      .difference(uiKeys)
-      .difference(compatibilityOnlyKeys);
+  final stale = registeredKeys.difference(uiKeys);
   if (unregistered.isNotEmpty) {
     _fail('UI keys missing Pref readers: ${unregistered.toList()..sort()}');
   }
@@ -96,7 +90,6 @@ void main() {
     'dynamicsCategoryTabBar': 'false',
     'slideDismissReplyPage': 'Platform.isIOS',
     'floatingNavBar': 'false',
-    'liquidGlassNavBar': 'false',
   };
   for (final entry in reviewedDefaults.entries) {
     final actual = _normalizedDefaultFor(prefSource, entry.key);

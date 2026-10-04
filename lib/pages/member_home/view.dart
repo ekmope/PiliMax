@@ -18,11 +18,21 @@ import 'package:PiliMax/pages/member_like_arc/view.dart';
 import 'package:PiliMax/pages/member_pgc/widgets/pgc_card_v_member_pgc.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
+import 'package:PiliMax/utils/page_utils.dart';
+import 'package:flutter/rendering.dart'
+    show BoxHitTestEntry, BoxHitTestResult, RenderObjectWithChildMixin;
+import 'package:flutter/services.dart'
+    show
+        MouseTrackerAnnotation,
+        PointerEnterEventListener,
+        PointerExitEventListener;
 import 'package:material_ui/material_ui.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart'
     show platformAlwaysClampingPhysics;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
+
+part 'package:PiliMax/pages/member_home/widgets/live_item.dart';
 
 class MemberHome extends StatefulWidget {
   const MemberHome({super.key, this.heroTag});
@@ -39,6 +49,14 @@ class _MemberHomeState extends State<MemberHome>
   bool get wantKeepAlive => true;
 
   late final _ctr = Get.find<MemberController>(tag: widget.heroTag);
+
+  late ColorScheme colorScheme;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    colorScheme = ColorScheme.of(context);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +86,7 @@ class _MemberHomeState extends State<MemberHome>
     final isVertical = context.width < 600;
     final setting = _ctr.spaceSetting;
     final isOwner = setting != null;
-    final color = Theme.of(context).colorScheme.outline;
+    final color = colorScheme.outline;
     return switch (loadingState) {
       Loading() => m3eLoading,
       Success(response: final res) =>
@@ -275,6 +293,7 @@ class _MemberHomeState extends State<MemberHome>
                       ),
                     ),
                   ],
+                  ?_buildLiveItem,
                   SliverToBoxAdapter(
                     child: SizedBox(
                       height: 100 + MediaQuery.viewPaddingOf(context).bottom,
@@ -285,6 +304,45 @@ class _MemberHomeState extends State<MemberHome>
             : scrollableError,
       Error(:final errMsg) => scrollErrorWidget(errMsg: errMsg),
     };
+  }
+
+  Widget? get _buildLiveItem {
+    final live = _ctr.live;
+    if (live != null && live.roomStatus == 1 && live.liveStatus != 1) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const .only(top: 20),
+          child: _LiveItem(
+            color: colorScheme.surfaceContainerHigh,
+            child: GestureDetector(
+              behavior: .opaque,
+              onTap: () => PageUtils.toLiveRoom(live.roomid),
+              child: Padding(
+                padding: const .symmetric(vertical: 11),
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      WidgetSpan(
+                        alignment: .middle,
+                        child: Icon(
+                          size: 18,
+                          Icons.bar_chart_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const TextSpan(text: ' TA现在并没有直播，去TA直播间'),
+                    ],
+                  ),
+                  textAlign: .center,
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return null;
   }
 
   Widget _header(

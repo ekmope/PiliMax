@@ -161,3 +161,42 @@ CLAUDE.md
 .claude
 /pubspec_overrides.yaml
 .mindfs
+
+# Local dependencies, caches and build output
+**/build/
+node_modules/
+.cache/
+.kotlin/
+.cxx/
+DerivedData/
+*.apk
+*.aab
+*.ipa
+*.exe
+*.dll
+*.pdb
+*.msi
+*.msix
+*.msixbundle
+*.dmg
+*.deb
+*.rpm
+
+# Signing credentials and certificates
+key.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.p8
+*.mobileprovision
+*.provisionprofile
+
+# Local environment credentials
+.env
+.env.*

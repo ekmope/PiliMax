@@ -4,7 +4,7 @@ import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/pilimax/models_new/download/download_collection.dart';
 import 'package:PiliMax/pilimax/services/download/download_collection_service.dart';
 import 'package:PiliMax/services/download/download_service.dart';
-import 'package:PiliMax/utils/cache_manager.dart';
+import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -333,5 +333,5 @@ String _formatEntriesSize(List<BiliDownloadEntryInfo> entries) {
     0,
     (previous, entry) => previous + entry.totalBytes,
   );
-  return CacheManager.formatSize(total);
+  return total.formatSize;
 }

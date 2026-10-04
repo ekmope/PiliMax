@@ -150,6 +150,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                         null,
                         oid: _videoReplyController.aid,
                         replyType: _videoReplyController.videoType.replyType,
+                        mentionItem: _videoReplyController.mentionItem,
                       );
                     },
                     tooltip: '发表评论',

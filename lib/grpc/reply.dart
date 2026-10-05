@@ -6,6 +6,7 @@ import 'package:PiliMax/grpc/url.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pilimax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/pilimax/utils/user_whitelist.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:fixnum/fixnum.dart';
@@ -55,6 +56,7 @@ abstract final class ReplyGrpc {
     Int64? upMid,
   }) {
     final mid = reply.mid.toInt();
+    if (GlobalData().blackMids.contains(mid)) return true;
     if (replyBlockedMids.isNotEmpty && replyBlockedMids.containsKey(mid)) {
       return true;
     }

@@ -19,6 +19,7 @@ import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/video_header.dart';
 import 'package:PiliMax/common/widgets/svg/play_icon.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
+import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/pilimax/models/common/list_order.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart' as ugc;
@@ -38,6 +39,8 @@ import 'package:PiliMax/pages/video/introduction/local/view.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/view.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/widgets/intro_detail.dart';
+import 'package:PiliMax/pages/video/introduction/pgc/widgets/season.dart'
+    as pgc;
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/view.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/page.dart';
@@ -86,8 +89,7 @@ import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
 
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
-    hide ExtendedVisibilityDetector;
+import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
@@ -517,13 +519,16 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   bool get _shouldShowSeasonPanel {
     if (videoDetailController.isFileSource ||
         isPortrait ||
-        !videoDetailController.isUgc) {
+        !videoDetailController.plPlayerController.horizontalSeasonPanel) {
       return false;
     }
-    late final videoDetail = ugcIntroController.videoDetail.value;
-    return videoDetailController.plPlayerController.horizontalSeasonPanel &&
-        (videoDetail.ugcSeason != null ||
-            ((videoDetail.pages?.length ?? 0) > 1));
+    if (videoDetailController.isUgc) {
+      final videoDetail = ugcIntroController.videoDetail.value;
+      return videoDetail.ugcSeason != null ||
+          ((videoDetail.pages?.length ?? 0) > 1);
+    }
+    return videoDetailController.videoType == VideoType.pgc &&
+        pgcIntroController.pgcItem.hasEpisodes;
   }
 
   void _resetEnteringPipFlags() {
@@ -3809,6 +3814,55 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   }
 
   Widget get seasonPanel {
+    if (videoDetailController.videoType == VideoType.pgc) {
+      return pgcSeasonPanel;
+    }
+    return ugcSeasonPanel;
+  }
+
+  Widget get pgcSeasonPanel {
+    final episodes = pgcIntroController.pgcItem.episodes;
+    if (episodes == null || episodes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    Widget child = Obx(
+      () => EpisodePanel(
+        heroTag: heroTag,
+        enableSlide: false,
+        ugcIntroController: null,
+        type: EpisodeType.pgc,
+        cover: null,
+        list: [episodes],
+        bvid: videoDetailController.bvid,
+        aid: videoDetailController.aid,
+        cid: videoDetailController.cid.value,
+        onChangeEpisode: pgcIntroController.onChangeEpisode,
+        showTitle: false,
+        isSupportReverse: false,
+      ),
+    );
+    final seasons = pgcIntroController.pgcItem.seasons;
+    if (pgcIntroController.pgcItem.hasSeasons && seasons != null) {
+      child = Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 12, top: 8, right: 12),
+            child: pgc.SeasonPanel(
+              seasons: seasons,
+              pgcController: pgcIntroController,
+              onSeasonChanged: () {
+                if (mounted) setState(() {});
+              },
+            ),
+          ),
+          Expanded(child: child),
+        ],
+      );
+    }
+    return KeepAliveWrapper(child: child);
+  }
+
+  Widget get ugcSeasonPanel {
     final videoDetail = ugcIntroController.videoDetail.value;
     return KeepAliveWrapper(
       child: Column(

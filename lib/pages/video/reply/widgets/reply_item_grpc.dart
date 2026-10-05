@@ -860,7 +860,6 @@ class ReplyItemGrpc extends StatelessWidget {
               : emote.url;
           spanChildren.add(
             WidgetSpan(
-              rawText: matchStr,
               child: emoteTooltipBuilder(
                 url: url,
                 emote: matchStr,
@@ -880,7 +879,6 @@ class ReplyItemGrpc extends StatelessWidget {
           // 接口或翻译结果缺 emotes 时，用官方表情表兜底渲染。
           spanChildren.add(
             WidgetSpan(
-              rawText: matchStr,
               child: NetworkImgLayer(
                 src: fallback.url,
                 type: ImageType.emote,
@@ -1227,7 +1225,19 @@ class ReplyItemGrpc extends StatelessWidget {
               leading: Icon(Icons.delete_outlined, color: errorColor, size: 19),
               title: Text('删除', style: style.copyWith(color: errorColor)),
             ),
-          if (ownerMid != Int64.ZERO)
+          if (ownerMid == Int64.ZERO)
+            ListTile(
+              onTap: () {
+                Get.back();
+                Pref.setBlackMid(item.mid.toInt());
+                onDelete();
+                SmartDialog.showToast('屏蔽成功');
+              },
+              minLeadingWidth: 0,
+              leading: Icon(Icons.block, color: errorColor, size: 19),
+              title: Text('屏蔽', style: style.copyWith(color: errorColor)),
+            )
+          else
             ListTile(
               onTap: () {
                 Get.back();
@@ -1236,6 +1246,8 @@ class ReplyItemGrpc extends StatelessWidget {
                 autoWrapReportDialog(
                   context,
                   ReportOptions.commentReport,
+                  mid: () => item.mid.toInt(),
+                  onRemove: onDelete,
                   withContent: ReportOptions.withContentReply,
                   contentRequired: ReportOptions.contentRequiredReply,
                   reportUrl:

@@ -227,7 +227,20 @@ class AudioController extends GetxController
     videoPlayerServiceHandler
       ?..onPlay = onPlay
       ..onPause = onPause
-      ..onSeek = onSeek;
+      ..onSeek = onSeek
+      ..onSkipToNext = () async {
+        playNext(nextPart: true);
+      }
+      ..onSkipToPrevious = () async {
+        playPrev();
+      }
+      ..hasEpisodes = () {
+        if (audioItem.value case DetailItem(:final parts)
+            when parts.length > 1) {
+          return true;
+        }
+        return playlist != null && playlist!.length > 1;
+      };
 
     animController = AnimationController(
       vsync: this,
@@ -1439,6 +1452,9 @@ class AudioController extends GetxController
       ?..onPlay = null
       ..onPause = null
       ..onSeek = null
+      ..onSkipToNext = null
+      ..onSkipToPrevious = null
+      ..hasEpisodes = null
       ..onVideoDetailDispose(hashCode.toString())
       ..clearIfNeeded();
     _subscriptions?.forEach((e) => e.cancel());

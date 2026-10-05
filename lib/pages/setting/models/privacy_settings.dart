@@ -2,11 +2,9 @@ import 'dart:io' show Platform;
 
 import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
-import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/api_type.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 List<SettingsModel> get privacySettings => [
@@ -18,13 +16,7 @@ List<SettingsModel> get privacySettings => [
       setKey: SettingBoxKey.autoOpenClipboardVideoLink,
     ),
   NormalModel(
-    onTap: (context, setState) {
-      if (!Accounts.main.isLogin) {
-        SmartDialog.showToast('登录后查看');
-        return;
-      }
-      Get.toNamed('/blackListPage');
-    },
+    onTap: (context, setState) => Get.toNamed('/blackListPage'),
     title: '黑名单管理',
     subtitle: '已拉黑用户',
     leading: const Icon(Icons.block),

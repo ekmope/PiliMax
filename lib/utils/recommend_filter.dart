@@ -55,6 +55,10 @@ abstract final class RecommendFilter {
     return filterAll(videoItem);
   }
 
+  // Explicit name for callers that only want recommendation exemptions.
+  static bool filterWithExempt(BaseVideoItemModel videoItem) =>
+      filter(videoItem);
+
   static bool filterLikeRatio(int? like, int? view) {
     if (view != null) {
       return (view > -1 && view < minPlayForRcmd) ||
@@ -76,9 +80,10 @@ abstract final class RecommendFilter {
   }
 
   static bool filterUser(int? mid) {
-    return recommendBlockedMids.isNotEmpty &&
-        mid != null &&
-        recommendBlockedMids.containsKey(mid);
+    if (mid == null) return false;
+    return GlobalData().blackMids.contains(mid) ||
+        (recommendBlockedMids.isNotEmpty &&
+            recommendBlockedMids.containsKey(mid));
   }
 
   static bool filterAll(BaseVideoItemModel videoItem) {
@@ -97,8 +102,8 @@ abstract final class RecommendFilter {
   }
 
   static bool searchShouldRemove(int? mid, String title) {
-    if (!applyFilterToSearch) return false;
     if (filterUser(mid)) return true;
+    if (!applyFilterToSearch) return false;
     if (isWhitelisted(mid)) return false;
     return filterTitle(title);
   }

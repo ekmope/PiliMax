@@ -19,6 +19,7 @@ import 'package:PiliMax/utils/android/bindings.g.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
+import 'package:PiliMax/utils/ios/pip_helper.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
@@ -170,7 +171,9 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
               ),
               onTap: widget.onSendDanmaku,
             ),
-          if (Platform.isAndroid || (PlatformUtils.isDesktop && !isFullScreen))
+          if (Platform.isAndroid ||
+              IOSPipHelper.isAvailable ||
+              (PlatformUtils.isDesktop && !isFullScreen))
             ComBtn(
               height: 30,
               tooltip: '画中画',
@@ -179,7 +182,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
                   plPlayerController.toggleDesktopPip();
                   return;
                 }
-                if (AndroidHelper.isPipAvailable) {
+                if (Platform.isIOS || AndroidHelper.isPipAvailable) {
                   plPlayerController.enterPip();
                 }
               },

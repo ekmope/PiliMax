@@ -62,6 +62,7 @@ import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/image_utils.dart';
+import 'package:PiliMax/utils/ios/pip_helper.dart';
 import 'package:PiliMax/utils/mobile_observer.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
@@ -366,6 +367,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The native iOS PiP controller owns playback while its window is active.
+    if (Platform.isIOS && IOSPipHelper.isActive) return;
     if (plPlayerController.continuePlayInBackground.value &&
         const <AppLifecycleState>[.inactive, .paused, .detached].contains(
           state,
@@ -1049,16 +1052,14 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       if (!plPlayerController.isDesktopPip) .fullscreen,
     ];
     return PlayerBar(
-      children: [
-        Row(
-          mainAxisSize: .min,
-          children: userSpecifyItemLeft.map(progressWidget).toList(),
-        ),
-        Row(
-          mainAxisSize: .min,
-          children: userSpecifyItemRight.map(progressWidget).toList(),
-        ),
-      ],
+      left: Row(
+        mainAxisSize: .min,
+        children: userSpecifyItemLeft.map(progressWidget).toList(),
+      ),
+      right: Row(
+        mainAxisSize: .min,
+        children: userSpecifyItemRight.map(progressWidget).toList(),
+      ),
     );
   }
 

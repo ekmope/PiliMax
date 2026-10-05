@@ -272,49 +272,59 @@ class VideoPopupMenu extends StatelessWidget {
                       }
                     },
                   ),
-                  _VideoCustomAction(
-                    '拉黑：${videoItem.owner.name}',
-                    const Icon(MdiIcons.cancel, size: 16),
-                    () => showDialog(
-                      context: context,
-                      builder: (context) {
-                        return AlertDialog(
-                          title: const Text('提示'),
-                          content: Text(
-                            '确定拉黑:${videoItem.owner.name}(${videoItem.owner.mid})?'
-                            '\n\n注：被拉黑的Up可以在隐私设置-黑名单管理中解除',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: Get.back,
-                              child: Text(
-                                '点错了',
-                                style: TextStyle(
-                                  color: ColorScheme.of(context).outline,
+                  if (videoItem.owner.mid != null)
+                    _VideoCustomAction(
+                      '拉黑：${videoItem.owner.name}',
+                      const Icon(MdiIcons.cancel, size: 16),
+                      () => showDialog(
+                        context: context,
+                        builder: (context) {
+                          return AlertDialog(
+                            title: const Text('提示'),
+                            content: Text(
+                              '确定拉黑:${videoItem.owner.name}(${videoItem.owner.mid})?'
+                              '\n\n注：被拉黑的Up可以在隐私设置-黑名单管理中解除',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () {
+                                  Get.back();
+                                  Pref.setBlackMid(videoItem.owner.mid!);
+                                  onRemove?.call();
+                                  SmartDialog.showToast('屏蔽成功');
+                                },
+                                child: const Text('本地屏蔽'),
+                              ),
+                              TextButton(
+                                onPressed: Get.back,
+                                child: Text(
+                                  '取消',
+                                  style: TextStyle(
+                                    color: ColorScheme.of(context).outline,
+                                  ),
                                 ),
                               ),
-                            ),
-                            TextButton(
-                              onPressed: () async {
-                                Get.back();
-                                final res = await VideoHttp.relationMod(
-                                  mid: videoItem.owner.mid!,
-                                  act: 5,
-                                  reSrc: 11,
-                                );
-                                if (res.isSuccess) {
-                                  onRemove?.call();
-                                } else {
-                                  res.toast();
-                                }
-                              },
-                              child: const Text('确认'),
-                            ),
-                          ],
-                        );
-                      },
+                              TextButton(
+                                onPressed: () async {
+                                  Get.back();
+                                  final res = await VideoHttp.relationMod(
+                                    mid: videoItem.owner.mid!,
+                                    act: 5,
+                                    reSrc: 11,
+                                  );
+                                  if (res.isSuccess) {
+                                    onRemove?.call();
+                                  } else {
+                                    res.toast();
+                                  }
+                                },
+                                child: const Text('确认'),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
-                  ),
                 ],
                 _VideoCustomAction(
                   "${MineController.anonymity.value ? '退出' : '进入'}无痕模式",

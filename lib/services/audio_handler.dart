@@ -51,6 +51,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   Future<void>? Function(Duration position)? onSeek;
   Future<void>? Function()? onSkipToNext;
   Future<void>? Function()? onSkipToPrevious;
+  bool Function()? hasEpisodes;
   String? currentHeroTag;
 
   @override
@@ -65,6 +66,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     onSeek = null;
     onSkipToNext = null;
     onSkipToPrevious = null;
+    hasEpisodes = null;
   }
 
   void _emitIdleState() {
@@ -180,6 +182,8 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   }
 
   bool _hasEpisodes() {
+    final callback = hasEpisodes;
+    if (callback != null) return callback();
     if (currentHeroTag == null) return false;
     // 优先匹配 AudioController（听视频模式）
     try {
@@ -409,7 +413,6 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     bool Function()? isCurrent,
   }) async {
     if (!enableBackgroundPlay) return;
-    if (!PlPlayerController.instanceExists()) return;
     if (isCurrent?.call() == false) return;
     currentHeroTag = herotag;
 
@@ -427,7 +430,6 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
           ? <String, dynamic>{'artCacheFile': artUri!.toFilePath()}
           : null,
     );
-    if (!PlPlayerController.instanceExists()) return;
     _item
       ..removeWhere((item) => item.id == id || item.id.endsWith(herotag))
       ..add(item);

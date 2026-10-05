@@ -82,7 +82,7 @@ jobs:
               run: dart tool/pilimax/check_setting_bool_defaults.dart
 
             - name: Audit fork references
-              run: dart run tool/pilimax/check_fork_references.dart
+              run: dart tool/pilimax/check_fork_references.dart
 
             - name: Fetch upstream ref
               run: |

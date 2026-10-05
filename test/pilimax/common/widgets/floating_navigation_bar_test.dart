@@ -211,8 +211,9 @@ void main() {
           final icon = tester.getRect(
             find.byKey(ValueKey('safeAreaIcon-$index')),
           );
+          final contentWidth = shell.width - 2 * 4.0;
           final expectedCenterX =
-              shell.left + shell.width * (index + 0.5) / count;
+              shell.left + 4.0 + contentWidth * (index + 0.5) / count;
           expect(icon.center.dx, moreOrLessEquals(expectedCenterX));
           expect(
             icon.center.dy - shell.top,
@@ -310,6 +311,44 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
     expect(tester.getSize(indicator).width, moreOrLessEquals(idleWidth));
+  });
+
+  testWidgets('keeps idle edge gaps and expands to the rim while pressed', (
+    tester,
+  ) async {
+    setViewport(tester, 390);
+    final indicator = find.byKey(
+      const ValueKey('floatingNavigationIndicator'),
+    );
+
+    await tester.pumpWidget(host(selectedIndex: 0));
+    await tester.pumpAndSettle();
+    final shell = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
+    );
+    final idleFirst = tester.getRect(indicator);
+    expect(idleFirst.left, greaterThan(shell.left));
+
+    final gesture = await tester.startGesture(
+      Offset(shell.left + shell.width / 4, shell.center.dy),
+    );
+    await tester.pump(const Duration(milliseconds: 130));
+    expect(tester.getRect(indicator).left, lessThanOrEqualTo(shell.left));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(host(selectedIndex: 2));
+    await tester.pumpAndSettle();
+    final idleLast = tester.getRect(indicator);
+    expect(idleLast.right, lessThan(shell.right));
+
+    final lastGesture = await tester.startGesture(
+      Offset(shell.left + shell.width * 0.75, shell.center.dy),
+    );
+    await tester.pump(const Duration(milliseconds: 130));
+    expect(tester.getRect(indicator).right, greaterThanOrEqualTo(shell.right));
+    await lastGesture.up();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('horizontal drag previews and selects on release', (

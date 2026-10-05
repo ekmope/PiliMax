@@ -871,11 +871,11 @@ class _MainAppState extends PopScopeState<MainApp>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            colorScheme.primary.withValues(alpha: isDark ? .30 : .15),
+            colorScheme.primary.withValues(alpha: isDark ? .30 : .36),
             colorScheme.primaryContainer.withValues(
-              alpha: isDark ? .40 : .25,
+              alpha: isDark ? .40 : .36,
             ),
-            colorScheme.surface,
+            colorScheme.surface.withValues(alpha: .60),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

@@ -118,34 +118,47 @@ class FloatingNavigationBar extends StatelessWidget {
     final bar = DecoratedBox(
       key: const ValueKey('glassVisualShell'),
       decoration: shellDecoration,
-      child: ClipRRect(
-        borderRadius: _kBorderRadius,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (isSoft)
-              BackdropFilter(
-                key: const ValueKey('softGlassBackdropFilter'),
-                filter: ui.ImageFilter.blur(
-                  sigmaX: _kSoftGlassBlurSigma,
-                  sigmaY: _kSoftGlassBlurSigma,
-                ),
-                child: ColoredBox(
-                  key: const ValueKey('softGlassSurfaceTint'),
-                  color: effectiveBackground,
-                ),
-              )
-            else
-              ColoredBox(
-                key: const ValueKey('softGlassSurfaceTint'),
-                color: effectiveBackground,
+      child: Stack(
+        fit: StackFit.expand,
+        // The shell background keeps its rounded clip, while the pressed
+        // indicator is allowed to reach the rim by a small amount.
+        clipBehavior: Clip.none,
+        children: [
+          ClipRRect(
+            borderRadius: _kBorderRadius,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (isSoft)
+                  BackdropFilter(
+                    key: const ValueKey('softGlassBackdropFilter'),
+                    filter: ui.ImageFilter.blur(
+                      sigmaX: _kSoftGlassBlurSigma,
+                      sigmaY: _kSoftGlassBlurSigma,
+                    ),
+                    child: ColoredBox(
+                      key: const ValueKey('softGlassSurfaceTint'),
+                      color: effectiveBackground,
+                    ),
+                  )
+                else
+                  ColoredBox(
+                    key: const ValueKey('softGlassSurfaceTint'),
+                    color: effectiveBackground,
+                  ),
+              ],
+            ),
+          ),
+          MediaQuery.removePadding(
+            context: context,
+            removeLeft: true,
+            removeTop: true,
+            removeRight: true,
+            removeBottom: true,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: _kIndicatorPadding,
               ),
-            MediaQuery.removePadding(
-              context: context,
-              removeLeft: true,
-              removeTop: true,
-              removeRight: true,
-              removeBottom: true,
               child: _InteractiveFloatingNavigationBar(
                 key: const ValueKey('glassNavigationBar'),
                 animationDuration: animationDuration,
@@ -164,8 +177,8 @@ class FloatingNavigationBar extends StatelessWidget {
                     const EdgeInsets.only(top: 2),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
 
@@ -493,7 +506,7 @@ class _InteractiveFloatingNavigationBarState
     final center = _isRtl
         ? _itemExtent * widget.destinations.length - logicalCenter
         : logicalCenter;
-    final width = _itemExtent * (1 + 0.06 * progress);
+    final width = _kIndicatorWidth * (1 + 0.08 * progress);
     final height = _kNavigationHeight - 2 * _kIndicatorPadding + 4 * progress;
     final shape =
         widget.indicatorShape ??
@@ -536,6 +549,7 @@ class _InteractiveFloatingNavigationBarState
             onPointerCancel: _handlePointerCancel,
             child: Stack(
               fit: StackFit.expand,
+              clipBehavior: Clip.none,
               children: [
                 _buildIndicator(),
                 MediaQuery.removePadding(

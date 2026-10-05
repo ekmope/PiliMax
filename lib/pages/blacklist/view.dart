@@ -131,6 +131,7 @@ class _BlackListPageState extends State<BlackListPage>
       key: const PageStorageKey(_BlockType.local),
       slivers: [
         ViewSliverSafeArea(
+          bottom: 180,
           sliver: SliverPadding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
             sliver: SliverFixedWrap(

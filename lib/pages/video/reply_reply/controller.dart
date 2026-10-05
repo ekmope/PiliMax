@@ -2,6 +2,7 @@ import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo, DetailListReply;
 import 'package:PiliMax/grpc/reply.dart';
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliMax/models/common/reply/reply_sort_type.dart';
 import 'package:PiliMax/pages/common/publish/publish_route.dart';
 import 'package:PiliMax/pages/common/reply_controller.dart';
@@ -153,6 +154,7 @@ class VideoReplyReplyController extends ReplyController
     int? oid,
     int? replyType,
     int? index,
+    MentionItem? mentionItem,
   }) {
     assert(replyItem != null && index != null);
 
@@ -176,6 +178,7 @@ class VideoReplyReplyController extends ReplyController
                 parent: root,
                 replyType: this.replyType,
                 replyItem: replyItem,
+                mentionItem: mentionItem,
                 items: savedReplies[key],
                 onSave: (reply) {
                   if (reply.isEmpty) {
@@ -207,6 +210,6 @@ class VideoReplyReplyController extends ReplyController
   void onClose() {
     _controller?.dispose();
     _controller = null;
-    super.dispose();
+    super.onClose();
   }
 }

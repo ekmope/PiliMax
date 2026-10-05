@@ -47,6 +47,8 @@ class PgcIntroController extends CommonIntroController {
       cancelTimer();
       return;
     }
+    _seasonController?.dispose();
+    _seasonController = null;
     super.onClose();
   }
 
@@ -55,7 +57,15 @@ class PgcIntroController extends CommonIntroController {
       : '追剧';
 
   late final bool isPgc;
-  late final PgcInfoModel pgcItem;
+  late PgcInfoModel pgcItem;
+
+  ScrollController? _seasonController;
+
+  ScrollController seasonController(int index) {
+    return _seasonController ??= ScrollController(
+      initialScrollOffset: index * 160,
+    );
+  }
 
   @override
   (Object, int) get getFavRidType => (epId!, 24);
@@ -77,6 +87,10 @@ class PgcIntroController extends CommonIntroController {
 
     super.onInit();
 
+    _refreshPgcState();
+  }
+
+  void _refreshPgcState() {
     if (isPgc) {
       if (isLogin) {
         queryIsFollowed();
@@ -86,6 +100,41 @@ class PgcIntroController extends CommonIntroController {
       }
       queryVideoTags();
     }
+  }
+
+  bool _changingSeason = false;
+
+  bool get changingSeason => _changingSeason;
+
+  Future<bool> changeSeason(int nextSeasonId) async {
+    if (_changingSeason || nextSeasonId == seasonId) return false;
+    _changingSeason = true;
+    SmartDialog.showLoading();
+    try {
+      final result = await SearchHttp.pgcInfo(
+        seasonId: nextSeasonId,
+        epId: epId,
+      );
+      if (result case Success(:final response)) {
+        final episodes = response.episodes;
+        if (episodes == null || episodes.isEmpty) {
+          SmartDialog.showToast('剧集为空');
+          return false;
+        }
+        pgcItem = response;
+        seasonId = nextSeasonId;
+        final changed = await onChangeEpisode(episodes.first);
+        if (changed) _refreshPgcState();
+        return changed;
+      }
+      result.toast();
+    } catch (_) {
+      SmartDialog.showToast('切换分季失败');
+    } finally {
+      SmartDialog.dismiss();
+      _changingSeason = false;
+    }
+    return false;
   }
 
   // 获取点赞/投币/收藏状态
@@ -208,6 +257,10 @@ class PgcIntroController extends CommonIntroController {
                     title:
                         '${pgcItem.title}${item != null ? '\n${item.showTitle}' : ''}',
                     uname: '',
+                    replyInfo: (
+                      oid: videoDetailCtr.aid,
+                      replyType: videoDetailCtr.videoType.replyType,
+                    ),
                   ),
                 );
               },

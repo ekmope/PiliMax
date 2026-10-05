@@ -1,14 +1,13 @@
-import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
-import 'package:PiliMax/pilimax/common/widgets/glass_capability.dart';
+import 'dart:ui' show Tristate;
+
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
-import 'package:PiliMax/pilimax/common/widgets/liquid_glass_filter.dart';
-import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
-import 'package:flutter/gestures.dart' show PointerDeviceKind;
+import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
+import 'package:flutter/semantics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  List<Widget> destinations() => const [
+  const destinations = [
     FloatingNavigationDestination(
       icon: Icon(Icons.home_outlined),
       label: 'Home',
@@ -17,591 +16,608 @@ void main() {
       icon: Icon(Icons.bolt_outlined),
       label: 'Dynamic',
     ),
-    FloatingNavigationDestination(
-      icon: Icon(Icons.person_outline),
-      label: 'Mine',
-    ),
   ];
 
   Widget host({
-    ValueChanged<int>? onSelected,
+    GlassStyle? style = GlassStyle.soft,
+    List<Widget>? items,
     int selectedIndex = 0,
-    LiquidGlassQuality liquidGlassQuality = LiquidGlassQuality.reflective,
-    GlassStyle? glassStyle,
-    double bottomPadding = 8.0,
-    double bottomLift = 0.0,
+    ValueChanged<int>? onSelected,
+    Brightness brightness = Brightness.light,
+    NavigationDestinationLabelBehavior? labelBehavior,
+    double bottomLift = 0,
+    EdgeInsets safePadding = EdgeInsets.zero,
+    Widget Function(Widget bar)? wrapBar,
   }) {
+    final bar = FloatingNavigationBar(
+      glassStyle: style,
+      selectedIndex: selectedIndex,
+      destinations: items ?? destinations,
+      onDestinationSelected: onSelected,
+      labelBehavior: labelBehavior,
+      bottomLift: bottomLift,
+    );
     return MaterialApp(
-      theme: ThemeData(useMaterial3: true),
-      home: _NavigationHost(
-        initialIndex: selectedIndex,
-        onSelected: onSelected,
-        destinations: destinations(),
-        liquidGlassQuality: liquidGlassQuality,
-        glassStyle: glassStyle,
-        bottomPadding: bottomPadding,
-        bottomLift: bottomLift,
+      theme: ThemeData(useMaterial3: true, brightness: brightness),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          padding: safePadding,
+          viewPadding: safePadding,
+        ),
+        child: child!,
+      ),
+      home: Scaffold(
+        body: const SizedBox.expand(key: ValueKey('content')),
+        bottomNavigationBar: wrapBar?.call(bar) ?? bar,
       ),
     );
   }
 
-  testWidgets('liquid glass mode adds a clipped backdrop filter', (
+  void setViewport(WidgetTester tester, double width) {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = Size(width, 800);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+  }
+
+  double labelOpacity(WidgetTester tester, String label) {
+    final fade = find.ancestor(
+      of: find.text(label),
+      matching: find.byType(FadeTransition),
+    );
+    return tester.widget<FadeTransition>(fade.first).opacity.value;
+  }
+
+  testWidgets('renders regular and soft glass styles with only soft blur', (
     tester,
   ) async {
-    await tester.pumpWidget(host(onSelected: (_) {}));
+    await tester.pumpWidget(host(style: GlassStyle.none));
+    expect(find.byKey(const ValueKey('glassNavigationBar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('glassVisualShell')), findsOneWidget);
+    expect(find.byType(BackdropFilter), findsNothing);
 
-    // Shader-capable engines have the shell blur plus the shader-backed
-    // filter; fallback engines keep only the shell blur.
-    expect(find.byType(BackdropFilter), findsWidgets);
-    expect(find.byType(RawMagnifier), findsOneWidget);
-    expect(find.text('Home'), findsOneWidget);
+    await tester.pumpWidget(host(style: GlassStyle.soft));
+    expect(find.byKey(const ValueKey('glassNavigationBar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('glassVisualShell')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('softGlassBackdropFilter')),
+      findsOneWidget,
+    );
+    expect(find.byType(BackdropFilter), findsOneWidget);
+    expect(find.byType(ShaderMask), findsNothing);
+
+    final nav = tester.widget<NavigationBar>(
+      find.byKey(const ValueKey('floatingNavigationSemanticsBar')),
+    );
+    for (final state in [
+      {WidgetState.pressed},
+      {WidgetState.hovered},
+      {WidgetState.focused},
+      {WidgetState.pressed, WidgetState.focused},
+    ]) {
+      expect(nav.overlayColor?.resolve(state), Colors.transparent);
+    }
+    expect(nav.indicatorColor, Colors.transparent);
   });
 
-  testWidgets('tap and horizontal drag select destinations', (tester) async {
-    var selected = 0;
-    final selections = <int>[];
-    await tester.pumpWidget(
-      host(
-        onSelected: (value) {
-          selected = value;
-          selections.add(value);
+  for (final count in [3, 4, 5]) {
+    for (final (width, padding) in [
+      (390.0, EdgeInsets.zero),
+      (390.0, const EdgeInsets.fromLTRB(24, 0, 8, 24)),
+      (600.0, EdgeInsets.zero),
+    ]) {
+      testWidgets(
+        'centers $count destinations within $width px and $padding',
+        (tester) async {
+          setViewport(tester, width);
+          await tester.pumpWidget(
+            host(
+              safePadding: padding,
+              items: List.generate(
+                count,
+                (index) => FloatingNavigationDestination(
+                  icon: const Icon(Icons.circle_outlined),
+                  label: 'Tab $index',
+                ),
+              ),
+            ),
+          );
+          final bar = tester.getRect(
+            find.byKey(const ValueKey('glassVisualShell')),
+          );
+          final availableWidth = width - padding.horizontal;
+          expect(
+            bar.center.dx,
+            moreOrLessEquals(padding.left + availableWidth / 2),
+          );
+          expect(bar.left, greaterThanOrEqualTo(padding.left));
+          expect(bar.right, lessThanOrEqualTo(width - padding.right));
+          expect(bar.width / count, greaterThanOrEqualTo(48));
+          expect(bar.height, greaterThanOrEqualTo(48));
+          expect(tester.takeException(), isNull);
         },
-      ),
+      );
+    }
+  }
+
+  testWidgets(
+    'keeps the indicator aligned with compressed narrow destinations',
+    (
+      tester,
+    ) async {
+      setViewport(tester, 390);
+      final items = List.generate(
+        5,
+        (index) => FloatingNavigationDestination(
+          icon: Icon(
+            key: ValueKey('narrow-icon-$index'),
+            Icons.circle_outlined,
+          ),
+          label: 'Tab $index',
+        ),
+      );
+      await tester.pumpWidget(host(items: items, selectedIndex: 4));
+      await tester.pumpAndSettle();
+      final indicator = tester.getRect(
+        find.byKey(const ValueKey('floatingNavigationIndicator')),
+      );
+      final icon = tester.getRect(find.byKey(const ValueKey('narrow-icon-4')));
+      expect(indicator.center.dx, moreOrLessEquals(icon.center.dx));
+      expect(indicator.right, lessThanOrEqualTo(390));
+    },
+  );
+
+  for (final count in [3, 4, 5]) {
+    testWidgets(
+      'keeps $count destination icons and tap targets inside the safe shell',
+      (tester) async {
+        setViewport(tester, 390);
+        final items = List.generate(
+          count,
+          (index) => FloatingNavigationDestination(
+            icon: Icon(
+              Icons.circle_outlined,
+              key: ValueKey('safeAreaIcon-$index'),
+            ),
+            label: 'Tab $index',
+          ),
+        );
+        await tester.pumpWidget(host(items: items));
+        await tester.pumpAndSettle();
+        final originalShell = tester.getRect(
+          find.byKey(const ValueKey('glassVisualShell')),
+        );
+        final originalIcons = List.generate(
+          count,
+          (index) => tester.getRect(
+            find.byKey(ValueKey('safeAreaIcon-$index')),
+          ),
+        );
+
+        final selected = <int>[];
+        await tester.pumpWidget(
+          host(
+            items: items,
+            safePadding: const EdgeInsets.fromLTRB(24, 0, 8, 24),
+            onSelected: selected.add,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final shell = tester.getRect(
+          find.byKey(const ValueKey('glassVisualShell')),
+        );
+        expect(shell.height, 64);
+        for (var index = 0; index < count; index++) {
+          final icon = tester.getRect(
+            find.byKey(ValueKey('safeAreaIcon-$index')),
+          );
+          final contentWidth = shell.width - 2 * 4.0;
+          final expectedCenterX =
+              shell.left + 4.0 + contentWidth * (index + 0.5) / count;
+          expect(icon.center.dx, moreOrLessEquals(expectedCenterX));
+          expect(
+            icon.center.dy - shell.top,
+            moreOrLessEquals(
+              originalIcons[index].center.dy - originalShell.top,
+            ),
+          );
+          expect(
+            icon.width,
+            moreOrLessEquals(originalIcons[index].width),
+          );
+          expect(
+            icon.height,
+            moreOrLessEquals(originalIcons[index].height),
+          );
+          final destination = tester.getRect(
+            find.byType(NavigationDestination).at(index),
+          );
+          expect(destination.height, greaterThanOrEqualTo(48));
+          expect(destination.width, greaterThanOrEqualTo(48));
+          await tester.tapAt(Offset(expectedCenterX, shell.center.dy));
+        }
+        expect(selected, List.generate(count, (index) => index));
+        expect(tester.takeException(), isNull);
+      },
     );
+  }
 
-    await tester.tap(find.text('Mine'));
-    await tester.pumpAndSettle();
-    expect(selected, 2);
-
-    final mineCenter = tester.getCenter(find.text('Mine'));
-    final gesture = await tester.startGesture(mineCenter);
-    await gesture.moveBy(const Offset(-80, 0));
-    await tester.pump();
-
-    final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
-    expect(tester.getCenter(indicator).dx, lessThan(mineCenter.dx));
+  testWidgets('supports light and dark themes with each label mode', (
+    tester,
+  ) async {
+    final colors = <Brightness, Color>{};
+    for (final brightness in Brightness.values) {
+      for (final mode in NavigationDestinationLabelBehavior.values) {
+        await tester.pumpWidget(
+          host(brightness: brightness, labelBehavior: mode),
+        );
+        await tester.pumpAndSettle();
+        final tint = tester.widget<ColoredBox>(
+          find.byKey(const ValueKey('softGlassSurfaceTint')),
+        );
+        final color = tint.color;
+        colors[brightness] = color;
+        expect(color.a, inExclusiveRange(0, 1));
+        expect(
+          labelOpacity(tester, 'Home'),
+          mode == NavigationDestinationLabelBehavior.alwaysHide ? 0 : 1,
+        );
+        expect(
+          labelOpacity(tester, 'Dynamic'),
+          mode == NavigationDestinationLabelBehavior.alwaysShow ? 1 : 0,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    }
     expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      2,
+      colors[Brightness.dark]!.computeLuminance(),
+      lessThan(colors[Brightness.light]!.computeLuminance()),
     );
+  });
+
+  testWidgets(
+    'reports selection and repeated taps on the current destination',
+    (
+      tester,
+    ) async {
+      final selected = <int>[];
+      await tester.pumpWidget(host(onSelected: selected.add));
+      await tester.tap(find.text('Home'));
+      await tester.tap(find.text('Dynamic'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(host(selectedIndex: 1, onSelected: selected.add));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dynamic'));
+      expect(selected, [0, 1, 1]);
+    },
+  );
+
+  testWidgets('press feedback expands the indicator before release', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    final indicator = find.byKey(
+      const ValueKey('floatingNavigationIndicator'),
+    );
+    final idleWidth = tester.getSize(indicator).width;
+    final shell = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
+    );
+    final gesture = await tester.startGesture(
+      Offset(shell.left + shell.width / 4, shell.center.dy),
+    );
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(tester.getSize(indicator).width, greaterThan(idleWidth));
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(selected, 1);
-    expect(selections, [2, 1]);
+    expect(tester.getSize(indicator).width, moreOrLessEquals(idleWidth));
   });
 
-  testWidgets('tapping the current destination still dispatches', (
+  testWidgets('keeps idle edge gaps and expands to the rim while pressed', (
     tester,
   ) async {
-    final selections = <int>[];
-    await tester.pumpWidget(
-      host(onSelected: selections.add),
+    setViewport(tester, 390);
+    final indicator = find.byKey(
+      const ValueKey('floatingNavigationIndicator'),
     );
 
-    await tester.tap(find.text('Home'));
+    await tester.pumpWidget(host(selectedIndex: 0));
     await tester.pumpAndSettle();
-
-    expect(selections, [0]);
-  });
-
-  testWidgets('vertical drags cancel without changing destination', (
-    tester,
-  ) async {
-    var selected = -1;
-    await tester.pumpWidget(host(onSelected: (value) => selected = value));
+    final shell = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
+    );
+    final idleFirst = tester.getRect(indicator);
+    expect(idleFirst.left, greaterThan(shell.left));
 
     final gesture = await tester.startGesture(
-      tester.getCenter(find.text('Mine')),
+      Offset(shell.left + shell.width / 4, shell.center.dy),
+    );
+    await tester.pump(const Duration(milliseconds: 130));
+    expect(tester.getRect(indicator).left, lessThanOrEqualTo(shell.left));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(host(selectedIndex: 2));
+    await tester.pumpAndSettle();
+    final idleLast = tester.getRect(indicator);
+    expect(idleLast.right, lessThan(shell.right));
+
+    final lastGesture = await tester.startGesture(
+      Offset(shell.left + shell.width * 0.75, shell.center.dy),
+    );
+    await tester.pump(const Duration(milliseconds: 130));
+    expect(tester.getRect(indicator).right, greaterThanOrEqualTo(shell.right));
+    await lastGesture.up();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('horizontal drag previews and selects on release', (
+    tester,
+  ) async {
+    final selected = <int>[];
+    await tester.pumpWidget(host(onSelected: selected.add));
+    final shell = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
+    );
+    final indicator = find.byKey(
+      const ValueKey('floatingNavigationIndicator'),
+    );
+    final idleCenter = tester.getCenter(indicator);
+    final gesture = await tester.startGesture(
+      Offset(shell.left + shell.width / 4, shell.center.dy),
+    );
+    await gesture.moveBy(Offset(shell.width / 2, 0));
+    await tester.pump();
+    expect(tester.getCenter(indicator).dx, greaterThan(idleCenter.dx));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(selected, [1]);
+  });
+
+  testWidgets('vertical drag cancels without selecting a destination', (
+    tester,
+  ) async {
+    final selected = <int>[];
+    await tester.pumpWidget(host(onSelected: selected.add));
+    final shell = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
+    );
+    final indicator = find.byKey(
+      const ValueKey('floatingNavigationIndicator'),
+    );
+    final idleCenter = tester.getCenter(indicator);
+    final gesture = await tester.startGesture(
+      Offset(shell.left + shell.width / 4, shell.center.dy),
     );
     await gesture.moveBy(const Offset(2, -64));
     await tester.pump();
     await gesture.up();
     await tester.pumpAndSettle();
+    expect(selected, isEmpty);
+    expect(tester.getCenter(indicator).dx, moreOrLessEquals(idleCenter.dx));
+  });
 
-    expect(selected, -1);
+  testWidgets('pointer cancellation restores the committed destination', (
+    tester,
+  ) async {
+    final selected = <int>[];
+    await tester.pumpWidget(host(onSelected: selected.add));
+    final shell = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
+    );
+    final indicator = find.byKey(
+      const ValueKey('floatingNavigationIndicator'),
+    );
+    final gesture = await tester.startGesture(
+      Offset(shell.left + shell.width / 4, shell.center.dy),
+    );
+    await gesture.moveBy(Offset(shell.width / 2, 0));
+    await tester.pump();
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(selected, isEmpty);
     expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      0,
+      tester.getCenter(indicator).dx,
+      moreOrLessEquals(shell.left + shell.width / 4),
     );
   });
 
-  testWidgets('tapping a disabled destination is a no-op', (tester) async {
-    var selected = -1;
+  testWidgets('horizontal drag skips disabled destinations', (tester) async {
+    final selected = <int>[];
     await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(useMaterial3: true),
-        home: Scaffold(
-          body: const SizedBox.expand(),
-          bottomNavigationBar: FloatingNavigationBar(
-            liquidGlass: true,
-            destinations: const [
-              FloatingNavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                label: 'Home',
-              ),
-              FloatingNavigationDestination(
-                icon: Icon(Icons.bolt_outlined),
-                label: 'Dynamic',
-                enabled: false,
-              ),
-              FloatingNavigationDestination(
-                icon: Icon(Icons.person_outline),
-                label: 'Mine',
-              ),
-            ],
-            onDestinationSelected: (value) => selected = value,
+      host(
+        onSelected: selected.add,
+        items: const [
+          FloatingNavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            label: 'Home',
           ),
+          FloatingNavigationDestination(
+            icon: Icon(Icons.bolt_outlined),
+            label: 'Disabled',
+            enabled: false,
+          ),
+          FloatingNavigationDestination(
+            icon: Icon(Icons.person_outline),
+            label: 'Profile',
+          ),
+        ],
+      ),
+    );
+    final shell = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
+    );
+    final gesture = await tester.startGesture(
+      Offset(shell.left + shell.width / 6, shell.center.dy),
+    );
+    await gesture.moveBy(Offset(shell.width * 2 / 3, 0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(selected, [2]);
+  });
+
+  testWidgets('does not activate disabled destinations', (tester) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      final selected = <int>[];
+      await tester.pumpWidget(
+        host(
+          onSelected: selected.add,
+          items: const [
+            FloatingNavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              label: 'Home',
+            ),
+            FloatingNavigationDestination(
+              icon: Icon(Icons.bolt_outlined),
+              label: 'Dynamic',
+              enabled: false,
+            ),
+          ],
         ),
-      ),
-    );
-
-    await tester.tap(find.text('Dynamic'));
-    await tester.pumpAndSettle();
-
-    expect(selected, -1);
-    expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      0,
-    );
-  });
-
-  testWidgets('semantic selection callbacks do not lock later selections', (
-    tester,
-  ) async {
-    final selections = <int>[];
-    await tester.pumpWidget(host(onSelected: selections.add));
-
-    final navigationBar = tester.widget<NavigationBar>(
-      find.byType(NavigationBar),
-    );
-    navigationBar.onDestinationSelected!(0);
-    await tester.pump();
-    navigationBar.onDestinationSelected!(1);
-    await tester.pump();
-
-    expect(selections, [0, 1]);
-  });
-
-  testWidgets('press moves and enlarges the glass lens before release', (
-    tester,
-  ) async {
-    var selected = -1;
-    await tester.pumpWidget(host(onSelected: (value) => selected = value));
-
-    final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
-    final idleWidth = tester.getSize(indicator).width;
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.text('Mine')),
-    );
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 16));
+      );
+      await tester.tap(find.text('Dynamic'));
+      await tester.pumpAndSettle();
+      expect(selected, isEmpty);
+      final data = tester
+          .getSemantics(find.bySemanticsLabel(RegExp('Dynamic')))
+          .getSemanticsData();
+      expect(data.flagsCollection.isEnabled, Tristate.isFalse);
+      expect(data.hasAction(SemanticsAction.tap), isFalse);
+    } finally {
+      semantics.dispose();
     }
-
-    expect(selected, -1);
-    expect(
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      0,
-    );
-    expect(tester.getSize(indicator).width, greaterThan(idleWidth));
-
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(selected, 2);
-  });
-
-  testWidgets('mouse drag keeps the lens expanded inside the shell', (
-    tester,
-  ) async {
-    await tester.pumpWidget(host(onSelected: (_) {}));
-
-    final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
-    final idleHeight = tester.getSize(indicator).height;
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.text('Home')),
-      kind: PointerDeviceKind.mouse,
-    );
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-
-    final shellRect = tester.getRect(
-      find.byKey(const ValueKey('liquidGlassNavigationBar')),
-    );
-    final indicatorRect = tester.getRect(indicator);
-    expect(indicatorRect.height, greaterThan(idleHeight));
-    expect(indicatorRect.top, greaterThanOrEqualTo(shellRect.top));
-    expect(indicatorRect.bottom, lessThanOrEqualTo(shellRect.bottom));
-
-    await gesture.cancel();
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('drag release keeps the lens and shell visually continuous', (
-    tester,
-  ) async {
-    await tester.pumpWidget(host(onSelected: (_) {}));
-
-    final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
-    final shell = find.byKey(const ValueKey('liquidGlassVisualShell'));
-    final mineCenter = tester.getCenter(find.text('Mine'));
-    final idleShellX = tester.getTopLeft(shell).dx;
-    final gesture = await tester.startGesture(mineCenter);
-    await gesture.moveBy(const Offset(-48, 0));
-    await tester.pump();
-
-    final draggedLensCenter = tester.getCenter(indicator).dx;
-    final draggedShellX = tester.getTopLeft(shell).dx;
-    expect((draggedShellX - idleShellX).abs(), greaterThan(0.1));
-
-    await gesture.up();
-    await tester.pump();
-
-    expect(
-      (tester.getCenter(indicator).dx - draggedLensCenter).abs(),
-      lessThan(1.5),
-    );
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('pressed lens remains inside the floating bar', (tester) async {
-    await tester.pumpWidget(host(onSelected: (_) {}));
-
-    final indicator = find.byKey(const ValueKey('liquidGlassIndicator'));
-    final navigationBar = find.byKey(
-      const ValueKey('liquidGlassNavigationBar'),
-    );
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.text('Home')),
-    );
-    for (var i = 0; i < 10; i++) {
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-
-    expect(
-      tester.getTopLeft(indicator).dx,
-      greaterThanOrEqualTo(tester.getTopLeft(navigationBar).dx),
-    );
-    expect(
-      tester.getBottomRight(indicator).dx,
-      lessThanOrEqualTo(tester.getBottomRight(navigationBar).dx),
-    );
-    expect(
-      tester.getTopLeft(indicator).dy,
-      greaterThanOrEqualTo(tester.getTopLeft(navigationBar).dy),
-    );
-    expect(
-      tester.getBottomRight(indicator).dy,
-      lessThanOrEqualTo(tester.getBottomRight(navigationBar).dy),
-    );
-
-    await gesture.cancel();
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('frosted quality skips the reflective magnifier', (tester) async {
-    await tester.pumpWidget(
-      host(
-        onSelected: (_) {},
-        liquidGlassQuality: LiquidGlassQuality.frosted,
-      ),
-    );
-
-    expect(find.byType(RawMagnifier), findsNothing);
-  });
-
-  testWidgets('soft quality skips both backdrop filters and magnifier', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        onSelected: (_) {},
-        liquidGlassQuality: LiquidGlassQuality.soft,
-      ),
-    );
-
-    expect(find.byType(BackdropFilter), findsNothing);
-    expect(find.byType(RawMagnifier), findsNothing);
-    expect(
-      find.byKey(const ValueKey('liquidGlassNavigationBar')),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('legacy soft quality keeps the legacy visual layer', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        onSelected: (_) {},
-        liquidGlassQuality: LiquidGlassQuality.soft,
-      ),
-    );
-
-    expect(find.byType(BackdropFilter), findsNothing);
-    expect(find.byType(RawMagnifier), findsNothing);
-    expect(find.byType(ShaderMask), findsWidgets);
-  });
-
-  testWidgets('soft glass style keeps the lightweight visual path', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        onSelected: (_) {},
-        glassStyle: GlassStyle.soft,
-      ),
-    );
-
-    expect(find.byType(BackdropFilter), findsNothing);
-    expect(find.byType(RawMagnifier), findsNothing);
-    expect(find.byType(ShaderMask), findsNothing);
-    expect(find.byType(LiquidGlassFilter), findsNothing);
-    expect(
-      find.byKey(const ValueKey('liquidGlassNavigationBar')),
-      findsOneWidget,
-    );
   });
 
   testWidgets(
-    'new liquid style follows the centralized fallback when shader is unsupported',
+    'keeps wrapped badges and destination semantics after selection',
     (
       tester,
     ) async {
-      await tester.pumpWidget(
-        host(
-          onSelected: (_) {},
-          glassStyle: GlassStyle.liquid,
-        ),
-      );
-
-      if (!GlassCapability.supportsShaderFilter) {
-        final initialMode = GlassCapability.preferredLiquidMode();
-        expect(
-          find.byType(RawMagnifier),
-          initialMode == GlassFallbackMode.reflective
-              ? findsOneWidget
-              : findsNothing,
-        );
-        expect(find.byType(BackdropFilter), findsOneWidget);
+      final semantics = tester.ensureSemantics();
+      try {
+        final items = [
+          destinations.first,
+          FloatingNavigationDestination(
+            icon: const Icon(Icons.bolt_outlined),
+            selectedIcon: const Icon(Icons.bolt),
+            label: 'Dynamic',
+            iconWrapper: (icon) => Semantics(
+              label: '4 unread messages',
+              child: Badge(label: const Text('4'), child: icon),
+            ),
+          ),
+        ];
+        for (final index in [0, 1]) {
+          await tester.pumpWidget(host(items: items, selectedIndex: index));
+          await tester.pumpAndSettle();
+          expect(find.text('4'), findsOneWidget);
+          expect(
+            find.byIcon(index == 1 ? Icons.bolt : Icons.bolt_outlined),
+            findsOneWidget,
+          );
+          final data = tester
+              .getSemantics(find.bySemanticsLabel(RegExp('Dynamic')))
+              .getSemanticsData();
+          expect(data.label, contains('4 unread messages'));
+          expect(
+            data.flagsCollection.isSelected,
+            index == 1 ? Tristate.isTrue : Tristate.isFalse,
+          );
+          expect(data.hasAction(SemanticsAction.tap), isTrue);
+        }
+      } finally {
+        semantics.dispose();
       }
     },
   );
 
-  testWidgets('explicit liquid style ignores the legacy soft quality', (
+  testWidgets('bottom lift moves the bar without resizing the page body', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      host(
-        onSelected: (_) {},
-        glassStyle: GlassStyle.liquid,
-        liquidGlassQuality: LiquidGlassQuality.soft,
-      ),
+    await tester.pumpWidget(host());
+    final body = tester.getRect(find.byKey(const ValueKey('content')));
+    final bar = tester.getRect(find.byKey(const ValueKey('glassVisualShell')));
+    await tester.pumpWidget(host(bottomLift: 24));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.byKey(const ValueKey('content'))), body);
+    final lifted = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
     );
-
-    // The old quality key must not turn an explicit new liquid selection into
-    // the shader-free soft path. A filter may still be the visible fallback
-    // while the shader asset is loading.
-    expect(find.byType(BackdropFilter), findsWidgets);
+    expect(lifted.size, bar.size);
+    expect(lifted.center.dx, bar.center.dx);
+    expect(lifted.top, moreOrLessEquals(bar.top - 24));
   });
 
-  testWidgets('none glass style keeps the ordinary navigation path', (
+  testWidgets('hide and restore wrapper keeps the bottom slot content-sized', (
     tester,
   ) async {
+    setViewport(tester, 390);
+    const safePadding = EdgeInsets.fromLTRB(24, 0, 8, 24);
+    const bottomLift = 24.0;
     await tester.pumpWidget(
-      host(
-        onSelected: (_) {},
-        glassStyle: GlassStyle.none,
-      ),
+      host(safePadding: safePadding, bottomLift: bottomLift),
     );
+    final body = tester.getRect(find.byKey(const ValueKey('content')));
+    final bar = tester.getRect(find.byKey(const ValueKey('glassVisualShell')));
+    final screen = tester.getRect(find.byType(Scaffold));
 
-    expect(find.byType(BackdropFilter), findsNothing);
-    expect(find.byType(RawMagnifier), findsNothing);
-    expect(find.byType(NavigationBar), findsOneWidget);
-    expect(find.byKey(const ValueKey('liquidGlassVisualShell')), findsNothing);
-  });
-
-  testWidgets('bottom lift changes only the floating bar position', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        onSelected: (_) {},
-        glassStyle: GlassStyle.soft,
-        bottomPadding: 8,
-        bottomLift: 0,
-      ),
-    );
-    final bar = find.byKey(const ValueKey('liquidGlassNavigationBar'));
-    final baseTop = tester.getTopLeft(bar).dy;
-    final baseSize = tester.getSize(bar);
-
-    await tester.pumpWidget(
-      host(
-        onSelected: (_) {},
-        glassStyle: GlassStyle.soft,
-        bottomPadding: 8,
-        bottomLift: 24,
-      ),
-    );
-    await tester.pump();
-
-    expect(tester.getTopLeft(bar).dy, closeTo(baseTop - 24, 0.01));
-    expect(tester.getSize(bar), baseSize);
-  });
-
-  testWidgets('bottom lift does not resize the Scaffold body', (tester) async {
-    await tester.pumpWidget(
-      host(
-        onSelected: (_) {},
-        glassStyle: GlassStyle.soft,
-        bottomLift: 0,
-      ),
-    );
-    final body = find.byKey(const ValueKey('navigationBody'));
-    final baseBodySize = tester.getSize(body);
-
-    await tester.pumpWidget(
-      host(
-        onSelected: (_) {},
-        glassStyle: GlassStyle.soft,
-        bottomLift: 24,
-      ),
-    );
-    await tester.pump();
-
-    expect(tester.getSize(body), baseBodySize);
-  });
-
-  testWidgets('icon wrappers stay outside the gradient mask', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(useMaterial3: true),
-        home: Scaffold(
-          body: const SizedBox.expand(),
-          bottomNavigationBar: FloatingNavigationBar(
-            liquidGlass: true,
-            liquidGlassQuality: LiquidGlassQuality.reflective,
-            destinations: [
-              const FloatingNavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                label: 'Home',
-              ),
-              FloatingNavigationDestination(
-                icon: const Icon(Icons.bolt_outlined),
-                label: 'Dynamic',
-                iconWrapper: (icon) => Badge(
-                  label: const Text('1'),
-                  child: icon,
+    for (final progress in [0.0, 1.0, 0.0]) {
+      await tester.pumpWidget(
+        host(
+          safePadding: safePadding,
+          bottomLift: bottomLift,
+          wrapBar: (bar) => Stack(
+            key: const ValueKey('bottomSlot'),
+            fit: StackFit.passthrough,
+            alignment: Alignment.center,
+            children: [
+              Transform.translate(
+                offset: Offset(0, bottomLift * progress),
+                child: FractionalTranslation(
+                  translation: Offset(0, progress),
+                  child: bar,
                 ),
               ),
-              const FloatingNavigationDestination(
-                icon: Icon(Icons.person_outline),
-                label: 'Mine',
-              ),
+              if (progress == 1)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: safePadding.bottom + 2,
+                  height: 8,
+                  child: GestureDetector(
+                    key: const ValueKey('restoreStrip'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {},
+                  ),
+                ),
             ],
           ),
         ),
-      ),
-    );
-
-    expect(find.byType(Badge), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(ShaderMask),
-        matching: find.byType(Badge),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.descendant(
-        of: find.byType(Badge),
-        matching: find.byType(ShaderMask),
-      ),
-      findsOneWidget,
-    );
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.byKey(const ValueKey('content'))), body);
+      final slot = tester.getRect(find.byKey(const ValueKey('bottomSlot')));
+      expect(slot.top, body.bottom);
+      expect(slot.bottom, screen.bottom);
+      final currentBar = tester.getRect(
+        find.byKey(const ValueKey('glassVisualShell')),
+      );
+      expect(currentBar.center.dx, bar.center.dx);
+      expect(currentBar.size, bar.size);
+      if (progress == 0) {
+        expect(currentBar, bar);
+        expect(currentBar.bottom, lessThan(screen.bottom));
+        expect(find.byKey(const ValueKey('restoreStrip')), findsNothing);
+      } else {
+        expect(currentBar.top, greaterThanOrEqualTo(screen.bottom));
+        final strip = tester.getRect(
+          find.byKey(const ValueKey('restoreStrip')),
+        );
+        expect(strip.bottom, lessThanOrEqualTo(screen.bottom));
+        expect(strip.center.dx, screen.center.dx);
+      }
+      expect(tester.takeException(), isNull);
+    }
   });
-
-  testWidgets('icon wrapper semantics remain available in glass mode', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(useMaterial3: true),
-        home: Scaffold(
-          body: const SizedBox.expand(),
-          bottomNavigationBar: FloatingNavigationBar(
-            glassStyle: GlassStyle.soft,
-            destinations: [
-              const FloatingNavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                label: 'Home',
-              ),
-              FloatingNavigationDestination(
-                icon: const Icon(Icons.bolt_outlined),
-                label: 'Dynamic',
-                iconWrapper: (icon) => Semantics(
-                  label: 'Dynamic unread 1',
-                  child: icon,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    final dynamicTab = find.bySemanticsLabel(
-      RegExp(r'Dynamic(?:.*Dynamic unread 1|.*unread 1)'),
-    );
-    expect(dynamicTab, findsOneWidget);
-    semantics.dispose();
-  });
-}
-
-class _NavigationHost extends StatefulWidget {
-  const _NavigationHost({
-    required this.destinations,
-    this.initialIndex = 0,
-    this.onSelected,
-    this.liquidGlassQuality = LiquidGlassQuality.reflective,
-    this.glassStyle,
-    this.bottomPadding = 8.0,
-    this.bottomLift = 0.0,
-  });
-
-  final List<Widget> destinations;
-  final int initialIndex;
-  final ValueChanged<int>? onSelected;
-  final LiquidGlassQuality liquidGlassQuality;
-  final GlassStyle? glassStyle;
-  final double bottomPadding;
-  final double bottomLift;
-
-  @override
-  State<_NavigationHost> createState() => _NavigationHostState();
-}
-
-class _NavigationHostState extends State<_NavigationHost> {
-  late int selectedIndex = widget.initialIndex;
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    body: const SizedBox.expand(key: ValueKey('navigationBody')),
-    bottomNavigationBar: FloatingNavigationBar(
-      liquidGlass: true,
-      glassStyle: widget.glassStyle,
-      liquidGlassQuality: widget.liquidGlassQuality,
-      bottomPadding: widget.bottomPadding,
-      bottomLift: widget.bottomLift,
-      selectedIndex: selectedIndex,
-      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      destinations: widget.destinations,
-      onDestinationSelected: (index) {
-        setState(() => selectedIndex = index);
-        widget.onSelected?.call(index);
-      },
-    ),
-  );
 }

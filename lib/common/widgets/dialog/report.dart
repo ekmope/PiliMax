@@ -2,6 +2,7 @@ import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/radio_widget.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -23,6 +24,8 @@ Future<void> autoWrapReportDialog(
   Map<String, Map<int, String>> options,
   OnReport onReport, {
   bool ban = true,
+  ValueGetter<int>? mid,
+  VoidCallback? onRemove,
   String? reportUrl,
   ReasonCheck withContent = _kReportCheck,
   ReasonCheck contentRequired = _kReportCheck,
@@ -140,6 +143,16 @@ Future<void> autoWrapReportDialog(
         ],
       ),
       actions: [
+        if (mid != null)
+          TextButton(
+            onPressed: () {
+              Get.back();
+              Pref.setBlackMid(mid());
+              onRemove?.call();
+              SmartDialog.showToast('屏蔽成功');
+            },
+            child: const Text('本地屏蔽'),
+          ),
         TextButton(
           onPressed: Get.back,
           child: Text(

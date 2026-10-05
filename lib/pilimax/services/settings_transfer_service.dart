@@ -209,8 +209,6 @@ abstract final class SettingsTransferService {
         values[SettingBoxKey.glassStyle],
       );
       if (style == null) {
-        // Omitting an invalid new key lets Pref preserve a valid legacy
-        // liquidGlassNavBar preference instead of silently disabling it.
         values.remove(SettingBoxKey.glassStyle);
       } else {
         values[SettingBoxKey.glassStyle] = style.index;

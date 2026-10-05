@@ -14,6 +14,7 @@ import 'package:PiliMax/models_new/pgc/pgc_info_model/stat.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/widgets/pgc_panel.dart';
+import 'package:PiliMax/pages/video/introduction/pgc/widgets/season.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:PiliMax/pilimax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
@@ -79,6 +80,19 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
           const SizedBox(height: VideoDetailLayoutMetrics.pgcActionTopGap),
           // 点赞收藏转发 布局样式2
           if (introController.isPgc) actionGrid(item.stat!, introController),
+          if (item.hasSeasons &&
+              (!widget.isLandscape ||
+                  !videoDetailCtr.plPlayerController.horizontalSeasonPanel))
+            Padding(
+              padding: const EdgeInsets.only(top: 5),
+              child: SeasonPanel(
+                seasons: item.seasons!,
+                pgcController: introController,
+                onSeasonChanged: () {
+                  if (mounted) setState(() {});
+                },
+              ),
+            ),
           // 番剧分集
           if (item.episodes?.isNotEmpty == true)
             PgcPanel(

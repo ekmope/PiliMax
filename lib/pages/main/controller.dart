@@ -18,7 +18,6 @@ import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
-import 'package:PiliMax/pilimax/common/widgets/liquid_glass_quality.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/update.dart';
@@ -63,12 +62,6 @@ class MainController extends GetxController
   final enableMYBar = Pref.enableMYBar;
   final floatingNavBar = Pref.floatingNavBar;
   late final Rx<GlassStyle> glassStyle = Pref.glassStyle.obs;
-  late bool legacyLiquidGlass = floatingNavBar && Pref.usesLegacyLiquidGlass;
-  // Kept for compatibility with code that still reads the old preference.
-  late final liquidGlassNavBar =
-      floatingNavBar && (legacyLiquidGlass || glassStyle.value == .liquid);
-  late final Rx<LiquidGlassQuality> liquidGlassQuality =
-      Pref.liquidGlassQuality.obs;
   late final RxDouble floatingNavBottomLift = Pref.floatingNavBottomLift.obs;
   final useSideBar = Pref.useSideBar;
   final mainTabBarView = Pref.mainTabBarView;

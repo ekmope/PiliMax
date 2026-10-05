@@ -5,6 +5,7 @@ import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/new_ep.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/publish.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/rating.dart';
+import 'package:PiliMax/models_new/pgc/pgc_info_model/season.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/section.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/stat.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/up_info.dart';
@@ -31,6 +32,11 @@ class PgcInfoModel {
   UserStatus? userStatus;
   List<Cooperator>? cooperators;
   Brief? brief;
+  List<Season>? seasons;
+
+  bool get hasSeasons => seasons != null && seasons!.length > 1;
+
+  bool get hasEpisodes => episodes?.isNotEmpty ?? false;
 
   PgcInfoModel({
     this.actors,
@@ -53,6 +59,7 @@ class PgcInfoModel {
     this.userStatus,
     this.cooperators,
     this.brief,
+    this.seasons,
   });
 
   factory PgcInfoModel.fromJson(Map<String, dynamic> json) => PgcInfoModel(
@@ -98,5 +105,9 @@ class PgcInfoModel {
     brief: json['brief'] == null
         ? null
         : Brief.fromJson(json['brief'] as Map<String, dynamic>),
+    seasons: (json['seasons'] as List<dynamic>?)
+        ?.whereType<Map<String, dynamic>>()
+        .map(Season.fromJson)
+        .toList(),
   );
 }

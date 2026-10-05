@@ -30,6 +30,7 @@ import 'package:PiliMax/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/plugin/pl_player/models/video_fit_type.dart';
+import 'package:PiliMax/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliMax/pilimax/plugin/pl_player/pl_player_source_coordinator.dart';
 import 'package:PiliMax/pilimax/plugin/pl_player/pl_player_source_error_policy.dart';
 import 'package:PiliMax/pilimax/plugin/pl_player/preview_request_coordinator.dart';
@@ -46,8 +47,10 @@ import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/box_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/image_utils.dart';
+import 'package:PiliMax/utils/ios/pip_helper.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
@@ -60,7 +63,8 @@ import 'package:archive/archive.dart' show getCrc32;
 import 'package:canvas_danmaku/canvas_danmaku.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart' show HapticFeedback, DeviceOrientation;
+import 'package:flutter/services.dart'
+    show DeviceOrientation, HapticFeedback, KeyDownEvent, LogicalKeyboardKey;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
@@ -334,6 +338,58 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       (PlatformUtils.isDesktop && isDesktopPip);
   late bool isDesktopPip = false;
   late Rect _lastWindowBounds;
+  static Rect? _lastPipBounds;
+
+  Rect _adjustPipBounds(Rect lastRect, Size size, double aspectRatio) {
+    final lastSize = lastRect.size;
+    final lastOrientation = lastSize.orientation;
+    final orientation = size.orientation;
+
+    if (lastOrientation != orientation) {
+      final double width, height;
+      switch (orientation) {
+        case .portrait:
+          if (lastSize.width > size.height) {
+            height = min(lastSize.width, _lastWindowBounds.size.height);
+            width = height * aspectRatio;
+          } else {
+            height = size.height;
+            width = size.width;
+          }
+        case .landscape:
+          if (lastSize.height > size.width) {
+            width = lastSize.height;
+            height = width / aspectRatio;
+          } else {
+            height = size.height;
+            width = size.width;
+          }
+      }
+
+      return _lastPipBounds = Rect.fromLTWH(
+        lastRect.left,
+        lastRect.top,
+        width,
+        height,
+      );
+    }
+    return _lastPipBounds = Rect.fromLTWH(
+      lastRect.left,
+      lastRect.top,
+      lastSize.width,
+      lastSize.width / aspectRatio,
+    );
+  }
+
+  bool updatePipBounds() {
+    if (isDesktopPip) {
+      windowManager.getBounds().then((rect) {
+        if (isDesktopPip) _lastPipBounds = rect;
+      });
+      return true;
+    }
+    return false;
+  }
 
   late final showWindowTitleBar = Pref.showWindowTitleBar;
   late final RxBool isAlwaysOnTop = false.obs;
@@ -365,27 +421,34 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       windowManager.setTitleBarStyle(TitleBarStyle.hidden);
     }
 
+    const shortSide = 280.0;
+    const minShortSide = 160.0;
     final Size size;
+    final Size minimumSize;
     final state = videoPlayerController!.state;
     int width = state.width;
     int height = state.height;
-    if (width == 0) {
-      width = this.width ?? 16;
-    }
-    if (height == 0) {
-      height = this.height ?? 9;
-    }
+    if (width == 0) width = this.width ?? 16;
+    if (height == 0) height = this.height ?? 9;
+    final aspectRatio = width / height;
     if (height > width) {
-      size = Size(280.0, 280.0 * height / width);
+      size = Size(shortSide, shortSide / aspectRatio);
+      minimumSize = Size(minShortSide, minShortSide / aspectRatio);
     } else {
-      size = Size(280.0 * width / height, 280.0);
+      size = Size(shortSide * aspectRatio, shortSide);
+      minimumSize = Size(minShortSide * aspectRatio, minShortSide);
     }
 
-    await windowManager.setMinimumSize(size);
+    await windowManager.setMinimumSize(minimumSize);
     setAlwaysOnTop(true);
-    windowManager
-      ..setSize(size)
-      ..setAspectRatio(width / height);
+    if (_lastPipBounds != null) {
+      windowManager.setBounds(
+        _adjustPipBounds(_lastPipBounds!, size, aspectRatio),
+      );
+    } else {
+      windowManager.setSize(size);
+    }
+    windowManager.setAspectRatio(width / height);
   }
 
   void toggleDesktopPip() {
@@ -417,6 +480,18 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   void enterPip({bool autoEnter = false}) {
     if (videoPlayerController case NativePlayer(:final state)) {
+      if (Platform.isIOS) {
+        if (videoController?.id.value case final textureId?) {
+          IOSPipHelper.enter(
+            textureId,
+            width: state.width == 0 ? width : state.width,
+            height: state.height == 0 ? height : state.height,
+            autoEnter: autoEnter,
+            state: _iosPipState(state),
+          );
+        }
+        return;
+      }
       PageUtils.enterPip(
         autoEnter: autoEnter,
         width: state.width == 0 ? width : state.width,
@@ -438,7 +513,28 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   void _disableAutoEnterPip() {
     if (_isAutoEnterPip) {
-      PiliAndroidHelper.disableAutoEnterPip();
+      if (Platform.isIOS) {
+        IOSPipHelper.disableAutoEnter();
+      } else {
+        PiliAndroidHelper.disableAutoEnterPip();
+      }
+    }
+  }
+
+  Map<String, Object> _iosPipState(PlayerState state, [Duration? position]) => {
+    'isPlaying': playerStatus.isPlaying,
+    'isBuffering': isBuffering.value,
+    'isLive': isLive,
+    'position': (position ?? state.position).inMilliseconds,
+    'duration': durationInMilliseconds,
+    'speed': state.rate,
+  };
+
+  void _updateIOSPip([Duration? position]) {
+    if (!Platform.isIOS || !IOSPipHelper.needsUpdate) return;
+    final player = _videoPlayerController;
+    if (player != null) {
+      IOSPipHelper.update(_iosPipState(player.state, position));
     }
   }
 
@@ -809,6 +905,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
           _isAutoEnterPip = true;
         }
       }
+    } else if (Platform.isIOS && autoPiP && IOSPipHelper.isAvailable) {
+      _isAutoEnterPip = true;
     }
   }
 
@@ -2018,6 +2116,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         if (seconds != 0) {
           makeHeartBeat(seconds, type: .status);
         }
+        _updateIOSPip();
       }),
 
       ///completed
@@ -2041,13 +2140,17 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         final posInSeconds = position.inSeconds;
 
         if (posInSeconds != this.position.value) {
-          if (posInSeconds == 0 && playerStatus.isPlaying) {
-          }
+          if (posInSeconds == 0 && playerStatus.isPlaying) {}
 
           this.position.value = posInSeconds;
 
           makeHeartBeat(posInSeconds);
         }
+
+        // Keep the system media session on the native, sub-second position
+        // instead of waiting for a page rebuild or a whole-second tick.
+        videoPlayerServiceHandler?.onPositionChange(position);
+        _updateIOSPip(position);
 
         for (final element in _positionListeners) {
           element(position);
@@ -2056,6 +2159,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       stream.duration.listen((duration) {
         if (!isCurrent()) return;
         updateDuration(duration);
+        _updateIOSPip();
       }),
       stream.buffer.listen((Duration buffer) {
         if (!isCurrent()) return;
@@ -2306,6 +2410,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         if (!isCurrent()) return;
         danmakuController?.clear();
         await player.seek(position);
+        _updateIOSPip(position);
       } catch (e) {
         if (kDebugMode) debugPrint('seek failed: $e');
       }
@@ -2363,18 +2468,17 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     required double previousSpeed,
   }) {
     lastPlaybackSpeed = previousSpeed;
-    _playbackSpeed.value = speed;
+    if (!isLive) {
+      _playbackSpeed.value = speed;
+    }
     if (danmakuController != null) {
       try {
-        DanmakuOption currentOption = danmakuController!.option;
-        double defaultDuration = currentOption.duration * previousSpeed;
-        double defaultStaticDuration =
-            currentOption.staticDuration * previousSpeed;
-        DanmakuOption updatedOption = currentOption.copyWith(
-          duration: defaultDuration / speed,
-          staticDuration: defaultStaticDuration / speed,
+        danmakuController!.updateOption(
+          danmakuController!.option.copyWith(
+            duration: DanmakuOptions.danmakuDuration / speed,
+            staticDuration: DanmakuOptions.danmakuStaticDuration / speed,
+          ),
         );
-        danmakuController!.updateOption(updatedOption);
       } catch (_) {}
     }
   }
@@ -2692,9 +2796,15 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (handler == null || !handler.enableBackgroundPlay) {
       return;
     }
+    final nativePosition = videoPlayerController?.state.position;
+    final positionSnapshot =
+        nativePosition != null &&
+            (nativePosition > Duration.zero || position.value == 0)
+        ? nativePosition
+        : Duration(seconds: position.value);
     handler
       ..onStatusChange(playerStatus.value, isBuffering.value, isLive)
-      ..onPositionChange(Duration(seconds: position.value));
+      ..onPositionChange(positionSnapshot);
   }
 
   set controls(bool visible) {
@@ -3087,6 +3197,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (Platform.isAndroid) {
       AndroidHelper$ToDart.onUserLeaveHint?.release();
       AndroidHelper$ToDart.onUserLeaveHint = null;
+    } else if (Platform.isIOS) {
+      IOSPipHelper.dispose();
     }
     persistVideoPictureSettings();
     // _position.close();
@@ -3270,7 +3382,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       return;
     }
     if (image != null) {
-      SmartDialog.showToast('点击弹窗保存截图');
+      SmartDialog.showToast('点击弹窗或按 Enter 保存截图');
       final rootContext = Get.context;
       if (rootContext == null || !rootContext.mounted) {
         image.dispose();
@@ -3290,44 +3402,61 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
             }
             _screenshotDialogContext = context;
             _screenshotDialogGeneration = generation;
-            return GestureDetector(
-              onTap: () async {
-                final bytes = await image.toByteData(
-                  format: ui.ImageByteFormat.png,
+            var saved = false;
+            Future<void> save() async {
+              if (saved) return;
+              saved = true;
+              final bytes = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              if (bytes != null && _sourceCoordinator.isActive(generation)) {
+                final time = DurationUtils.formatDuration(
+                  positionInMilliseconds / 1000,
+                ).replaceAll(':', '-');
+                ImageUtils.saveByteImg(
+                  bytes: bytes.buffer.asUint8List(),
+                  fileName: 'screenshot_${sourceCid}_$time',
                 );
-                if (bytes != null && _sourceCoordinator.isActive(generation)) {
-                  final time = DurationUtils.formatDuration(
-                    positionInMilliseconds / 1000,
-                  ).replaceAll(':', '-');
-                  ImageUtils.saveByteImg(
-                    bytes: bytes.buffer.asUint8List(),
-                    fileName: 'screenshot_${sourceCid}_$time',
-                  );
-                } else {
-                  SmartDialog.showToast('保存失败');
+              } else {
+                SmartDialog.showToast('保存失败');
+              }
+              if (context.mounted) {
+                Navigator.of(context).pop();
+              }
+            }
+
+            return Focus(
+              autofocus: true,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    (event.logicalKey == LogicalKeyboardKey.enter ||
+                        event.logicalKey == LogicalKeyboardKey.numpadEnter)) {
+                  unawaited(save());
+                  return KeyEventResult.handled;
                 }
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
+                return KeyEventResult.ignored;
               },
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: min(MediaQuery.widthOf(context) / 3, 350),
-                    ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          width: 5,
-                          color: ColorScheme.of(context).surface,
-                        ),
+              child: GestureDetector(
+                onTap: () => unawaited(save()),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: min(MediaQuery.widthOf(context) / 3, 350),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(5),
-                        child: RawImage(image: image),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            width: 5,
+                            color: ColorScheme.of(context).surface,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: RawImage(image: image),
+                        ),
                       ),
                     ),
                   ),

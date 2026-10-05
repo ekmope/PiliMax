@@ -19,7 +19,6 @@ import 'package:PiliMax/pilimax/models_new/download/download_collection.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/pages/download/downloading/view.dart';
 import 'package:PiliMax/services/download/download_service.dart';
-import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/image_utils.dart';
@@ -441,7 +440,7 @@ class DetailItem extends StatelessWidget {
                           left: 0,
                           bottom: 0,
                           child: Text(
-                            '${CacheManager.formatSize(entry.totalBytes)}${entry.ownerName != null ? '  ${entry.ownerName}' : ''}',
+                            '${entry.totalBytes.formatSize}${entry.ownerName != null ? '  ${entry.ownerName}' : ''}',
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.6,
@@ -484,7 +483,7 @@ class DetailItem extends StatelessWidget {
       statusMsg: status.message,
       progressStr:
           status == DownloadStatus.downloading || status == DownloadStatus.pause
-          ? '${CacheManager.formatSize(entry.downloadedBytes)}/${CacheManager.formatSize(entry.totalBytes)}'
+          ? '${entry.downloadedBytes.formatSize}/${entry.totalBytes.formatSize}'
           : '',
       progress: entry.totalBytes == 0
           ? 0
@@ -498,7 +497,7 @@ class DetailItem extends StatelessWidget {
     statusMsg: entry.status.message,
     progressStr: entry.totalBytes == 0
         ? ''
-        : '${CacheManager.formatSize(entry.downloadedBytes)}/${CacheManager.formatSize(entry.totalBytes)}',
+        : '${entry.downloadedBytes.formatSize}/${entry.totalBytes.formatSize}',
     progress: entry.totalBytes == 0
         ? 0
         : entry.downloadedBytes / entry.totalBytes,

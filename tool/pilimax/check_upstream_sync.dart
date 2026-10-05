@@ -3,7 +3,7 @@ import 'dart:io';
 /// Detects drift between the recorded upstream snapshot and the current
 /// upstream ref for every tracked path. Run after each upstream fetch/merge:
 ///
-///   dart run tool/pilimax/check_upstream_sync.dart
+///   dart tool/pilimax/check_upstream_sync.dart
 ///
 /// The mapping lives in `tool/pilimax/fork_map.tsv`:
 ///   # snapshot=`<commit>`

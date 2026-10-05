@@ -8,7 +8,7 @@ import 'package:PiliMax/main.dart';
 import 'package:PiliMax/models/common/webview_menu_type.dart';
 import 'package:PiliMax/plugin/linux_webview.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
-import 'package:PiliMax/utils/cache_manager.dart';
+import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/linux_cookie_manager.dart';
 import 'package:PiliMax/utils/login_utils.dart';
@@ -248,7 +248,9 @@ class _WebviewPageState extends State<WebviewPage>
   }
 
   List<Map<String, dynamic>> _getLinuxUserScripts() {
-    final shouldInjectCookie = LinuxCookieManager.isBiliDomain(_linuxCurrentUrl);
+    final shouldInjectCookie = LinuxCookieManager.isBiliDomain(
+      _linuxCurrentUrl,
+    );
     final cookieJs = shouldInjectCookie
         ? LinuxCookieManager.generateCookieInjectionJs()
         : '';
@@ -494,9 +496,7 @@ document.addEventListener('click', function(e) {
                           builder: (context) {
                             String suggestedFilename = request.suggestedFilename
                                 .toString();
-                            String fileSize = CacheManager.formatSize(
-                              request.contentLength.toDouble(),
-                            );
+                            String fileSize = request.contentLength.formatSize;
                             try {
                               suggestedFilename = Uri.decodeComponent(
                                 suggestedFilename,

@@ -16,6 +16,7 @@ import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/dynamics/result.dart' show FilePicModel;
+import 'package:PiliMax/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliMax/pages/common/publish/common_rich_text_pub_page.dart';
 import 'package:PiliMax/pages/dynamics_mention/controller.dart';
 import 'package:PiliMax/pages/emote/controller.dart';
@@ -42,6 +43,7 @@ class ReplyPage extends CommonRichTextPubPage {
   final ReplyInfo? replyItem;
   final String? hint;
   final bool canUploadPic;
+  final MentionItem? mentionItem;
 
   const ReplyPage({
     super.key,
@@ -55,6 +57,7 @@ class ReplyPage extends CommonRichTextPubPage {
     this.replyItem,
     this.hint,
     this.canUploadPic = true,
+    this.mentionItem,
   });
 
   @override
@@ -507,5 +510,22 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
         ..syncRichText(delta)
         ..value = newValue;
     }
+  }
+
+  @override
+  MentionItem? get topMentionItem {
+    final mentionItem = widget.mentionItem;
+    if (mentionItem != null) return mentionItem;
+
+    final replyItem = widget.replyItem;
+    if (replyItem != null) {
+      final basic = replyItem.memberV2.basic;
+      return MentionItem(
+        face: basic.face,
+        name: basic.name,
+        uid: replyItem.mid.toString(),
+      );
+    }
+    return null;
   }
 }

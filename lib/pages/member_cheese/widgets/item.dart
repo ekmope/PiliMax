@@ -122,9 +122,6 @@ class MemberCheeseItem extends StatelessWidget {
                           src: item.cover,
                           width: boxConstraints.maxWidth,
                           height: boxConstraints.maxHeight,
-                          borderRadius: const BorderRadius.all(
-                            Radius.circular(4),
-                          ),
                           fadeInDuration: Duration.zero,
                           fadeOutDuration: Duration.zero,
                         );

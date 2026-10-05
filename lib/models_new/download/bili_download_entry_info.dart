@@ -11,6 +11,48 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/route_manager.dart';
 
+class SeasonInfo {
+  final int index;
+  final int id;
+  final String title;
+  final String cover;
+  final int mid;
+  final String uname;
+
+  const SeasonInfo({
+    required this.index,
+    required this.id,
+    required this.title,
+    required this.cover,
+    required this.mid,
+    required this.uname,
+  });
+
+  factory SeasonInfo.fromJson(Map<String, dynamic> json) => SeasonInfo(
+    index: json['index'] as int,
+    id: json['id'] as int,
+    title: json['title'] as String,
+    cover: json['cover'] as String,
+    mid: json['mid'] as int,
+    uname: json['uname'] as String,
+  );
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'index': index,
+    'id': id,
+    'title': title,
+    'cover': cover,
+    'mid': mid,
+    'uname': uname,
+  };
+
+  @override
+  bool operator ==(Object other) => other is SeasonInfo && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
 class BiliDownloadEntryInfo with MultiSelectData {
   int mediaType;
   bool hasDashAudio;
@@ -41,6 +83,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
   EpInfo? ep;
   final String? autoFolderTitle;
   final String? autoFolderSourceKey;
+  final SeasonInfo? seasonInfo;
 
   late String pageDirPath;
   late String entryDirPath;
@@ -201,6 +244,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
     this.ep,
     this.autoFolderTitle,
     this.autoFolderSourceKey,
+    this.seasonInfo,
   });
 
   factory BiliDownloadEntryInfo.fromJson(Map<String, dynamic> json) =>
@@ -241,6 +285,9 @@ class BiliDownloadEntryInfo with MultiSelectData {
             : null,
         autoFolderTitle: json['auto_folder_title'] as String?,
         autoFolderSourceKey: json['auto_folder_source_key'] as String?,
+        seasonInfo: json['season_info'] != null
+            ? SeasonInfo.fromJson(json['season_info'] as Map<String, dynamic>)
+            : null,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -273,6 +320,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
     'ep': ?ep?.toJson(),
     'auto_folder_title': ?autoFolderTitle,
     'auto_folder_source_key': ?autoFolderSourceKey,
+    'season_info': ?seasonInfo?.toJson(),
   };
 
   @override

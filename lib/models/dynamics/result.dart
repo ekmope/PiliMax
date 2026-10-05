@@ -76,8 +76,11 @@ class DynamicsDataModel {
       final whitelistMids = GlobalData().whitelistMids;
       for (final e in list) {
         DynamicItemModel item = DynamicItemModel.fromJson(e);
-        if (filterBlockedUsers &&
-            dynamicsBlockedMids.contains(item.modules.moduleAuthor?.mid)) {
+        final authorMid = item.modules.moduleAuthor?.mid;
+        if (GlobalData().blackMids.contains(authorMid)) {
+          continue;
+        }
+        if (filterBlockedUsers && dynamicsBlockedMids.contains(authorMid)) {
           continue;
         }
         if (whitelistMids.containsKey(item.modules.moduleAuthor?.mid)) {
@@ -450,6 +453,18 @@ class Basic {
   int? commentType;
   String? ridStr;
   bool? isOnlyFans;
+
+  ({int oid, int replyType})? get replyInfo {
+    if (commentIdStr != null && commentType != null) {
+      try {
+        return (
+          oid: int.parse(commentIdStr!),
+          replyType: commentType!,
+        );
+      } catch (_) {}
+    }
+    return null;
+  }
 
   Basic.fromJson(Map<String, dynamic> json) {
     commentIdStr = json['comment_id_str'];

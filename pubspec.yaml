@@ -17,11 +17,11 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
 # update when release
-version: 2.1.5+1
+version: 2.1.6+1
 
 environment:
   sdk: ">=3.13.0"
-  flutter: 3.47.5
+  flutter: 3.47.6
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -91,7 +91,7 @@ dependencies:
       url: https://github.com/bggRGjQaUbCoE/extended_nested_scroll_view.git
       ref: dev
   ffi: ^2.2.0
-  file_picker: ^12.0.0
+  file_picker: ^13.1.0
   fixnum: ^1.1.1
   fl_chart: ^1.0.0
   flex_seed_scheme: ^5.0.0
@@ -276,9 +276,6 @@ flutter_native_splash:
 
 flutter:
   uses-material-design: true
-
-  shaders:
-    - shaders/liquid_glass.frag
 
   assets:
     - path: assets/images/

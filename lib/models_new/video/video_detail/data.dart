@@ -1,4 +1,5 @@
 import 'package:PiliMax/models/model_owner.dart';
+import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/models_new/video/video_detail/argue_info.dart';
 import 'package:PiliMax/models_new/video/video_detail/desc_v2.dart';
 import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
@@ -36,6 +37,22 @@ class VideoDetailData {
   String? redirectUrl;
   ListOrder listOrder = ListOrder.asc;
   List<Part>? originalPages;
+
+  SeasonInfo? seasonInfo(int index) {
+    if (ugcSeason != null) {
+      try {
+        return SeasonInfo(
+          index: index,
+          id: ugcSeason!.id!,
+          title: ugcSeason!.title!,
+          cover: ugcSeason!.cover!,
+          mid: owner!.mid!,
+          uname: owner!.name!,
+        );
+      } catch (_) {}
+    }
+    return null;
+  }
 
   VideoDetailData({
     this.bvid,

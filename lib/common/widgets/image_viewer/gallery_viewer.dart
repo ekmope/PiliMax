@@ -21,7 +21,9 @@ import 'dart:io' show File, Platform;
 import 'package:PiliMax/common/widgets/colored_box_transition.dart';
 import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/pilimax/common/widgets/flutter/page/page_view.dart';
+import 'package:PiliMax/common/widgets/gesture/image_double_tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
+import 'package:PiliMax/common/widgets/gesture/image_tap_gesture_recognizer.dart';
 import 'package:PiliMax/common/widgets/image_viewer/image.dart';
 import 'package:PiliMax/common/widgets/image_viewer/image_hero_tag.dart';
 import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
@@ -95,8 +97,8 @@ class _GalleryViewerState extends State<GalleryViewer>
 
   late final PageController _pageController;
 
-  late final TapGestureRecognizer _tapGestureRecognizer;
-  late final DoubleTapGestureRecognizer _doubleTapGestureRecognizer;
+  late final ImageTapGestureRecognizer _tapGestureRecognizer;
+  late final ImageDoubleTapGestureRecognizer _doubleTapGestureRecognizer;
   late final ImageHorizontalDragGestureRecognizer
   _horizontalDragGestureRecognizer;
 
@@ -153,13 +155,13 @@ class _GalleryViewerState extends State<GalleryViewer>
     _pageController = PageController(initialPage: widget.initIndex);
 
     final gestureSettings = MediaQuery.maybeGestureSettingsOf(Get.context!);
-    _tapGestureRecognizer = TapGestureRecognizer()
+    _tapGestureRecognizer = ImageTapGestureRecognizer()
       // ..onTap = _onTap
       ..gestureSettings = gestureSettings;
     if (PlatformUtils.isDesktop) {
       _tapGestureRecognizer.onSecondaryTapUp = _showDesktopMenu;
     }
-    _doubleTapGestureRecognizer = DoubleTapGestureRecognizer()
+    _doubleTapGestureRecognizer = ImageDoubleTapGestureRecognizer()
       ..onDoubleTap = () {}
       ..gestureSettings = gestureSettings;
     _horizontalDragGestureRecognizer = ImageHorizontalDragGestureRecognizer();
@@ -575,6 +577,14 @@ class _GalleryViewerState extends State<GalleryViewer>
   }
 
   void _onTap() {
+    // A double tap also resolves the single-tap recognizer. Ignore that
+    // synthetic close callback when both recognizers saw the same release.
+    if (_doubleTapGestureRecognizer.timeStamp != Duration.zero &&
+        _tapGestureRecognizer.timeStamp -
+                _doubleTapGestureRecognizer.timeStamp <
+            const Duration(milliseconds: 300)) {
+      return;
+    }
     EasyThrottle.throttle(
       'VIEWER_TAP',
       const Duration(milliseconds: 555),

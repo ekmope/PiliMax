@@ -33,8 +33,10 @@ import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/calc_window_position.dart';
 import 'package:PiliMax/utils/date_utils.dart';
+import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/extension/core_palettes_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
+import 'package:PiliMax/utils/ios/pip_helper.dart';
 import 'package:PiliMax/utils/json_file_handler.dart';
 import 'package:PiliMax/utils/max_screen_size.dart';
 import 'package:PiliMax/utils/path_utils.dart';
@@ -207,7 +209,7 @@ Future<void> _main() async {
     );
     await Utils.copyText(e.toString());
     if (kDebugMode) debugPrint('GStorage init error: $e');
-    exit(0);
+    DeviceUtils.exitApp();
   }
   CrashBreadcrumbs.record('GStorage initialized');
   await AppFont.init();
@@ -228,6 +230,7 @@ Future<void> _main() async {
     await Future.wait([
       if (Pref.horizontalScreen) ?fullMode() else ?portraitUpMode(),
       setupServiceLocator(),
+      if (Platform.isIOS) IOSPipHelper.init(),
     ]);
   } else if (Platform.isWindows) {
     if (await WebViewEnvironment.getAvailableVersion() != null) {

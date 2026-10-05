@@ -174,7 +174,7 @@ List<SettingsModel> get styleSettings => [
   ),
   const SwitchModel(
     title: '首页背景渐变',
-    subtitle: '在液态玻璃布局下启用主题色渐变背景',
+    subtitle: '主框架背景由纯色改为渐变色',
     leading: Icon(Icons.gradient_outlined),
     setKey: SettingBoxKey.enableGradientBg,
     needReboot: true,
@@ -198,9 +198,7 @@ List<SettingsModel> get styleSettings => [
       GStorage.setting.put(SettingBoxKey.glassStyle, value.index).whenComplete(
         () {
           try {
-            Get.find<MainController>()
-              ..legacyLiquidGlass = false
-              ..glassStyle.value = value;
+            Get.find<MainController>().glassStyle.value = value;
           } catch (_) {
             // The settings page can be opened before the main controller.
           }

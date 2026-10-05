@@ -50,6 +50,7 @@ import 'package:PiliMax/utils/connectivity_utils.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/image_utils.dart';
+import 'package:PiliMax/utils/ios/pip_helper.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
@@ -399,6 +400,7 @@ class HeaderControl extends StatefulWidget {
       return autoWrapReportDialog(
         context,
         ReportOptions.danmakuReport,
+        mid: () => int.parse(extra.mid),
         withContent: ReportOptions.danmakuReportCheck,
         contentRequired: ReportOptions.danmakuReportCheck,
         (reasonType, reasonDesc, banUid) {
@@ -2302,6 +2304,7 @@ class HeaderControlState extends State<HeaderControl>
                 ),
               ),
               if (Platform.isAndroid ||
+                  IOSPipHelper.isAvailable ||
                   (PlatformUtils.isDesktop && !isFullScreen))
                 SizedBox(
                   width: btnWidth,
@@ -2314,7 +2317,7 @@ class HeaderControlState extends State<HeaderControl>
                         plPlayerController.toggleDesktopPip();
                         return;
                       }
-                      if (AndroidHelper.isPipAvailable) {
+                      if (Platform.isIOS || AndroidHelper.isPipAvailable) {
                         plPlayerController.enterPip();
                       }
                     },

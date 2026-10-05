@@ -31,7 +31,8 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
   SearchVideoData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
     list = (json['result'] as List?)
-        ?.map<SearchVideoItemModel>((e) => SearchVideoItemModel.fromJson(e))
+        ?.where((e) => !GlobalData().blackMids.contains(e['mid']))
+        .map<SearchVideoItemModel>((e) => SearchVideoItemModel.fromJson(e))
         .toList();
   }
 
@@ -47,7 +48,8 @@ class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
         switch (item['result_type']) {
           case 'video':
             list = (item['data'] as List?)
-                ?.map((e) => SearchVideoItemModel.fromJson(e))
+                ?.where((e) => !GlobalData().blackMids.contains(e['mid']))
+                .map((e) => SearchVideoItemModel.fromJson(e))
                 .toList();
           case 'bili_user':
             if (item['data'] case List users when users.isNotEmpty) {
@@ -252,7 +254,8 @@ class SearchUserData extends SearchNumData<SearchUserItemModel> {
   SearchUserData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
     list = (json['result'] as List?)
-        ?.map<SearchUserItemModel>((e) => SearchUserItemModel.fromJson(e))
+        ?.where((e) => !GlobalData().blackMids.contains(e['mid']))
+        .map<SearchUserItemModel>((e) => SearchUserItemModel.fromJson(e))
         .toList();
   }
 }
@@ -327,8 +330,9 @@ class SearchLiveData extends SearchNumData<SearchLiveItemModel> {
 
   SearchLiveData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
-    list = json['result']
-        ?.map<SearchLiveItemModel>((e) => SearchLiveItemModel.fromJson(e))
+    list = (json['result'] as List?)
+        ?.where((e) => !GlobalData().blackMids.contains(e['uid']))
+        .map<SearchLiveItemModel>((e) => SearchLiveItemModel.fromJson(e))
         .toList();
   }
 }
@@ -504,7 +508,8 @@ class SearchArticleData extends SearchNumData<SearchArticleItemModel> {
   SearchArticleData.fromJson(Map<String, dynamic> json) {
     numResults = (json['numResults'] as num?)?.toInt();
     list = (json['result'] as List?)
-        ?.map<SearchArticleItemModel>((e) => SearchArticleItemModel.fromJson(e))
+        ?.where((e) => !GlobalData().blackMids.contains(e['mid']))
+        .map<SearchArticleItemModel>((e) => SearchArticleItemModel.fromJson(e))
         .toList();
   }
 }

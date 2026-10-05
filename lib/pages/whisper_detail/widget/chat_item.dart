@@ -15,7 +15,6 @@ import 'package:PiliMax/grpc/bilibili/im/interfaces/v1.pb.dart'
 import 'package:PiliMax/grpc/bilibili/im/type.pb.dart' show Msg, MsgType;
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
-import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
@@ -869,7 +868,6 @@ class ChatItem extends StatelessWidget {
             final url = emoji['url'];
             children.add(
               WidgetSpan(
-                rawText: matchStr,
                 child: emoteTooltipBuilder(
                   url: url,
                   emote: matchStr,

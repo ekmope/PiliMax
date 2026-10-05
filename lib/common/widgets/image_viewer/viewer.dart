@@ -21,7 +21,6 @@ import 'package:PiliMax/common/widgets/gesture/horizontal_drag_gesture_recognize
     show touchSlopH;
 import 'package:PiliMax/common/widgets/gesture/image_horizontal_drag_gesture_recognizer.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
-import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
@@ -92,7 +91,6 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       ..[13] = value.dy;
   }
 
-  Offset? _scalePos;
   double? _scaleStart;
   Offset? _referenceFocalPoint;
 
@@ -239,21 +237,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     return _clampPosition(_position + translation * _scale, _scale);
   }
 
-  void _onDoubleTapDown(TapDownDetails details) {
-    _downPos = details.localPosition;
-  }
-
   void _onDoubleTap() {
-    if (!mounted) return;
-    if (_animationController.isAnimating) return;
-    EasyThrottle.throttle(
-      'VIEWER_TAP',
-      const Duration(milliseconds: 555),
-      _handleDoubleTap,
-    );
-  }
-
-  void _handleDoubleTap() {
     if (!mounted) return;
     if (_animationController.isAnimating) return;
     _scaleFrom = _scale;
@@ -295,9 +279,9 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       if (widget.isLongPic) {
         final imageHeight = _scale * _imageSize.height;
         final containerHeight = widget.containerSize.height;
-        if (_scalePos != null && _calc(_scalePos!, details.focalPoint)) {
+        if (_downPos != null && _calc(_downPos!, details.focalPoint)) {
           final bool drag;
-          if (details.focalPoint.dy > _scalePos!.dy) {
+          if (details.focalPoint.dy > _downPos!.dy) {
             drag = _position.dy.equals(0, 1e-6);
           } else {
             drag = _position.dy.equals(
@@ -480,7 +464,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
         widget.onDragEnd?.call(details);
       case null:
     }
-    _scalePos = null;
+    _downPos = null;
     _gestureType = null;
   }
 
@@ -502,10 +486,8 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
 
   void _onPointerDown(PointerDownEvent event) {
     _stopFling();
-    _scalePos = event.position;
-    _doubleTapGestureRecognizer
-      ..onDoubleTapDown = _onDoubleTapDown
-      ..onDoubleTap = _onDoubleTap;
+    _downPos = event.localPosition;
+    _doubleTapGestureRecognizer.onDoubleTap = _onDoubleTap;
     _horizontalDragGestureRecognizer.addPointer(
       event,
       isPointerAllowed: _isAtEdge(event.localPosition),
@@ -514,6 +496,11 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
   }
 
   void _onPointerPanZoomStart(PointerPanZoomStartEvent event) {
+    _stopFling();
+    _horizontalDragGestureRecognizer.addPointerPanZoom(
+      event,
+      isPointerAllowed: _isAtEdge(event.localPosition),
+    );
     _scaleGestureRecognizer.addPointerPanZoom(event);
   }
 

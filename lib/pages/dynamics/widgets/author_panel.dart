@@ -694,7 +694,27 @@ class AuthorPanel extends StatelessWidget {
                     ),
                   ),
               ],
-              if (Accounts.main.isLogin)
+              if (!Accounts.main.isLogin)
+                ListTile(
+                  title: Text(
+                    '屏蔽',
+                    style: theme.textTheme.titleSmall!.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                  leading: Icon(
+                    Icons.block,
+                    size: 19,
+                    color: theme.colorScheme.error,
+                  ),
+                  onTap: () {
+                    Get.back();
+                    Pref.setBlackMid(moduleAuthor.mid!);
+                    SmartDialog.showToast('屏蔽成功');
+                  },
+                  minLeadingWidth: 0,
+                )
+              else
                 ListTile(
                   title: Text(
                     '举报',
@@ -709,25 +729,33 @@ class AuthorPanel extends StatelessWidget {
                   ),
                   onTap: () {
                     Get.back();
-                    autoWrapReportDialog(context, ReportOptions.dynamicReport, (
-                      reasonType,
-                      reasonDesc,
-                      banUid,
-                    ) {
-                      if (banUid) {
-                        VideoHttp.relationMod(
+                    autoWrapReportDialog(
+                      context,
+                      ReportOptions.dynamicReport,
+                      (
+                        reasonType,
+                        reasonDesc,
+                        banUid,
+                      ) {
+                        if (banUid) {
+                          VideoHttp.relationMod(
+                            mid: moduleAuthor.mid!,
+                            act: 5,
+                            reSrc: 11,
+                          );
+                        }
+                        return UserHttp.dynamicReport(
                           mid: moduleAuthor.mid!,
-                          act: 5,
-                          reSrc: 11,
+                          dynId: item.idStr,
+                          reasonType: reasonType,
+                          reasonDesc: reasonDesc,
                         );
-                      }
-                      return UserHttp.dynamicReport(
-                        mid: moduleAuthor.mid!,
-                        dynId: item.idStr,
-                        reasonType: reasonType,
-                        reasonDesc: reasonDesc,
-                      );
-                    });
+                      },
+                      mid: () => moduleAuthor.mid!,
+                      onRemove: onRemove == null
+                          ? null
+                          : () => onRemove!(item.idStr),
+                    );
                   },
                   minLeadingWidth: 0,
                 ),

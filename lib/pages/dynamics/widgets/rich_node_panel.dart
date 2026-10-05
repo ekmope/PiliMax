@@ -90,10 +90,7 @@ TextSpan? richNode(
               );
             }
             spanChildren.add(
-              WidgetSpan(
-                rawText: i.origText,
-                child: child,
-              ),
+              WidgetSpan(child: child),
             );
             break;
           // @用户

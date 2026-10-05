@@ -1,17 +1,37 @@
 import 'package:PiliMax/common/skeleton/msg_feed_top.dart';
 import 'package:PiliMax/common/sliver_single_child_delegate.dart';
+import 'package:PiliMax/common/widgets/dialog/dialog.dart';
+import 'package:PiliMax/common/widgets/dialog/export_import.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/scaffold/simple_scaffold.dart';
+import 'package:PiliMax/common/widgets/sliver_wrap.dart';
+import 'package:PiliMax/common/widgets/view_sliver_safe_area.dart';
+import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models/common/enum_with_label.dart';
 import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models_new/blacklist/list.dart';
 import 'package:PiliMax/pages/blacklist/controller.dart';
+import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/utils/date_utils.dart';
-import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/utils.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
+
+enum _BlockType implements EnumWithLabel {
+  local('本地'),
+  online('在线');
+
+  @override
+  final String label;
+
+  const _BlockType(this.label);
+}
 
 class BlackListPage extends StatefulWidget {
   const BlackListPage({super.key});
@@ -20,47 +40,169 @@ class BlackListPage extends StatefulWidget {
   State<BlackListPage> createState() => _BlackListPageState();
 }
 
-class _BlackListPageState extends State<BlackListPage> {
+class _BlackListPageState extends State<BlackListPage>
+    with SingleTickerProviderStateMixin {
   final _blackListController = Get.put(BlackListController());
+  late final TabController _tabController;
+  late EdgeInsets padding;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+      length: _BlockType.values.length,
+      vsync: this,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    padding = MediaQuery.viewPaddingOf(context);
+  }
 
   @override
   void dispose() {
-    if (_blackListController.loadingState.value case Success(:final response)) {
-      final blackMids = response?.map((e) => e.mid!).toSet() ?? {};
-      GlobalData().blackMids = blackMids;
-      Pref.blackMids = blackMids;
-    }
+    _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        title: Obx(
-          () => Text(
-            '黑名单管理${_blackListController.total.value == -1 ? '' : ': ${_blackListController.total.value}'}',
+    return SimpleScaffold(
+      appBar: AppBar(title: const Text('黑名单管理')),
+      body: Column(
+        children: [
+          TabBar(
+            controller: _tabController,
+            tabs: _BlockType.values.map((e) => Tab(text: e.label)).toList(),
+          ),
+          Expanded(
+            child: tabBarView(
+              controller: _tabController,
+              children: [_local, _online],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget get _online => refreshIndicator(
+    onRefresh: _blackListController.onRefresh,
+    child: CustomScrollView(
+      key: const PageStorageKey(_BlockType.online),
+      physics: const AlwaysScrollableScrollPhysics(),
+      controller: _blackListController.scrollController,
+      slivers: [
+        ViewSliverSafeArea(
+          sliver: Obx(
+            () => _buildBody(_blackListController.loadingState.value),
           ),
         ),
+      ],
+    ),
+  );
+
+  Widget get _local => ScaffoldLayout(
+    fab: Padding(
+      padding: EdgeInsets.only(
+        right: kFloatingActionButtonMargin + padding.right,
+        bottom: kFloatingActionButtonMargin + padding.bottom,
       ),
-      body: refreshIndicator(
-        onRefresh: _blackListController.onRefresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          controller: _blackListController.scrollController,
-          slivers: [
-            SliverPadding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
-              ),
-              sliver: Obx(
-                () => _buildBody(_blackListController.loadingState.value),
+      child: Column(
+        spacing: kFloatingActionButtonMargin,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            tooltip: '导入/导出',
+            onPressed: _showImportExportDialog,
+            child: const Icon(Icons.swap_vert, size: 26),
+          ),
+          FloatingActionButton(
+            tooltip: '添加',
+            onPressed: _showAddMidDialog,
+            child: const Icon(Icons.add),
+          ),
+        ],
+      ),
+    ),
+    body: CustomScrollView(
+      key: const PageStorageKey(_BlockType.local),
+      slivers: [
+        ViewSliverSafeArea(
+          bottom: 180,
+          sliver: SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            sliver: SliverFixedWrap(
+              spacing: 8,
+              runSpacing: 8,
+              mainAxisExtent: 30,
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final mid = _blackListController.blackMids.elementAt(index);
+                  return SearchText(
+                    text: mid.toString(),
+                    onTap: (value) => Get.toNamed('/member?mid=$value'),
+                    onLongPress: (_) => showConfirmDialog(
+                      context: context,
+                      title: const Text('确定移除该用户？'),
+                      onConfirm: () {
+                        Pref.removeBlackMid(mid);
+                        setState(() {});
+                      },
+                    ),
+                    height: 1,
+                    fontSize: 14,
+                    padding: const EdgeInsets.fromLTRB(11, 8, 11, 0),
+                  );
+                },
+                childCount: _blackListController.blackMids.length,
               ),
             ),
-          ],
+          ),
         ),
+      ],
+    ),
+  );
+
+  void _showAddMidDialog() {
+    var text = '';
+    showConfirmDialog(
+      context: context,
+      title: const Text('屏蔽用户'),
+      content: TextField(
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        onChanged: (value) => text = value,
+        decoration: const InputDecoration(labelText: 'UID'),
       ),
+      onConfirm: () {
+        final mid = int.tryParse(text);
+        if (mid == null) {
+          SmartDialog.showToast('请输入有效 UID');
+          return;
+        }
+        Pref.setBlackMid(mid);
+        setState(() {});
+      },
+    );
+  }
+
+  void _showImportExportDialog() {
+    showImportExportDialog<List>(
+      context,
+      title: '黑名单',
+      localFileName: () => 'blackMids',
+      onExport: () => Utils.jsonEncoder.convert(
+        _blackListController.blackMids.toList(),
+      ),
+      onImport: (json) {
+        _blackListController.blackMids.addAll(Set<int>.from(json));
+        Pref.blackMids = _blackListController.blackMids;
+        setState(() {});
+      },
     );
   }
 

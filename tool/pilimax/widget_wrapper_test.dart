@@ -6,6 +6,7 @@ import 'package:PiliMax/common/widgets/flutter/text/text.dart' as custom;
 import 'package:PiliMax/common/widgets/flutter/vertical_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' as mui;
 
 void main() {
   testWidgets('extended ListTile gestures respect child gesture ownership', (
@@ -125,78 +126,114 @@ void main() {
     final semantics = tester.ensureSemantics();
     var selectedIndex = 0;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Material(
-          child: StatefulBuilder(
-            builder: (context, setState) => Align(
-              alignment: Alignment.bottomCenter,
-              child: FloatingNavigationBar(
-                key: const ValueKey('floating-navigation'),
-                selectedIndex: selectedIndex,
-                elevation: 7,
-                shadowColor: Colors.red,
-                indicatorShape: const RoundedRectangleBorder(),
-                onDestinationSelected: (index) {
-                  setState(() => selectedIndex = index);
-                },
-                destinations: const [
-                  FloatingNavigationDestination(
-                    icon: Icon(Icons.home_outlined),
-                    selectedIcon: Icon(Icons.home),
-                    label: 'Home',
-                  ),
-                  FloatingNavigationDestination(
-                    icon: Icon(Icons.search_outlined),
-                    selectedIcon: Icon(Icons.search),
-                    label: 'Search',
-                  ),
-                  FloatingNavigationDestination(
-                    icon: Icon(Icons.block_outlined),
-                    label: 'Disabled',
-                    enabled: false,
-                  ),
-                ],
+    try {
+      await tester.pumpWidget(
+        mui.MaterialApp(
+          home: mui.Material(
+            child: StatefulBuilder(
+              builder: (context, setState) => Align(
+                alignment: Alignment.bottomCenter,
+                child: FloatingNavigationBar(
+                  key: const ValueKey('floating-navigation'),
+                  selectedIndex: selectedIndex,
+                  backgroundColor: Colors.yellow,
+                  elevation: 7,
+                  shadowColor: Colors.red,
+                  surfaceTintColor: Colors.green,
+                  indicatorColor: Colors.blue,
+                  indicatorShape: const RoundedRectangleBorder(),
+                  labelBehavior:
+                      mui.NavigationDestinationLabelBehavior.alwaysShow,
+                  labelPadding: const EdgeInsets.only(top: 3),
+                  onDestinationSelected: (index) {
+                    setState(() => selectedIndex = index);
+                  },
+                  destinations: const [
+                    FloatingNavigationDestination(
+                      icon: Icon(Icons.home_outlined),
+                      selectedIcon: Icon(Icons.home),
+                      label: 'Home',
+                    ),
+                    FloatingNavigationDestination(
+                      icon: Icon(Icons.search_outlined),
+                      selectedIcon: Icon(Icons.search),
+                      label: 'Search',
+                    ),
+                    FloatingNavigationDestination(
+                      icon: Icon(Icons.block_outlined),
+                      label: 'Disabled',
+                      enabled: false,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.byType(NavigationBar), findsOneWidget);
-    expect(tester.getSize(find.byType(NavigationBar)).height, 56);
-    final homeSemantics = tester
-        .getSemantics(find.text('Home'))
-        .getSemanticsData();
-    expect(homeSemantics.flagsCollection.isSelected, Tristate.isTrue);
-    expect(homeSemantics.hasAction(SemanticsAction.tap), isTrue);
+      final navigationFinder = find.byType(mui.NavigationBar);
+      expect(navigationFinder, findsOneWidget);
+      expect(tester.getSize(navigationFinder).height, 64);
+      final navigation = tester.widget<mui.NavigationBar>(navigationFinder);
+      expect(navigation.elevation, 7);
+      expect(navigation.backgroundColor, Colors.transparent);
+      expect(navigation.surfaceTintColor, Colors.green);
+      expect(navigation.indicatorColor, Colors.transparent);
+      expect(navigation.indicatorShape, const RoundedRectangleBorder());
+      expect(navigation.labelPadding, const EdgeInsets.only(top: 3));
+      final indicator = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('floatingNavigationIndicator')),
+      );
+      expect(
+        (indicator.decoration as ShapeDecoration).color,
+        Colors.blue,
+      );
+      expect(
+        navigation.labelBehavior,
+        mui.NavigationDestinationLabelBehavior.alwaysShow,
+      );
+      final homeSemantics = tester
+          .getSemantics(find.text('Home'))
+          .getSemanticsData();
+      expect(homeSemantics.flagsCollection.isSelected, Tristate.isTrue);
+      expect(homeSemantics.hasAction(SemanticsAction.tap), isTrue);
 
-    final outerMaterial = tester
-        .widgetList<Material>(
-          find.descendant(
-            of: find.byKey(const ValueKey('floating-navigation')),
-            matching: find.byType(Material),
-          ),
-        )
-        .singleWhere((material) => material.shape is RoundedSuperellipseBorder);
-    expect(outerMaterial.elevation, 7);
-    expect(outerMaterial.shadowColor, Colors.red);
+      final shell = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('glassVisualShell')),
+      );
+      final decoration = shell.decoration as BoxDecoration;
+      expect(decoration.color, Colors.yellow);
+      expect(decoration.borderRadius, isNotNull);
+      expect(decoration.border, isNotNull);
+      expect(decoration.boxShadow!.single.color, Colors.red);
+      final navigationMaterial = tester.widget<mui.Material>(
+        find
+            .descendant(
+              of: navigationFinder,
+              matching: find.byType(mui.Material),
+            )
+            .first,
+      );
+      expect(navigationMaterial.elevation, 7);
+      expect(navigationMaterial.shadowColor, Colors.transparent);
 
-    await tester.tap(find.text('Search'));
-    await tester.pumpAndSettle();
-    expect(selectedIndex, 1);
-    final searchSemantics = tester
-        .getSemantics(find.text('Search'))
-        .getSemanticsData();
-    expect(searchSemantics.flagsCollection.isSelected, Tristate.isTrue);
-    expect(searchSemantics.hasAction(SemanticsAction.tap), isTrue);
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+      expect(selectedIndex, 1);
+      final searchSemantics = tester
+          .getSemantics(find.text('Search'))
+          .getSemanticsData();
+      expect(searchSemantics.flagsCollection.isSelected, Tristate.isTrue);
+      expect(searchSemantics.hasAction(SemanticsAction.tap), isTrue);
 
-    await tester.tap(find.text('Disabled'));
-    await tester.pumpAndSettle();
-    expect(selectedIndex, 1);
-    semantics.dispose();
+      await tester.tap(find.text('Disabled'));
+      await tester.pumpAndSettle();
+      expect(selectedIndex, 1);
+    } finally {
+      semantics.dispose();
+    }
   });
 
   testWidgets('floating navigation fits five destinations on a narrow view', (
@@ -208,7 +245,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      MaterialApp(
+      mui.MaterialApp(
         home: Align(
           alignment: Alignment.bottomCenter,
           child: FloatingNavigationBar(
@@ -227,9 +264,13 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(
-      tester.getSize(find.byType(NavigationBar)).width,
+      tester.getSize(find.byType(mui.NavigationBar)).width,
       lessThanOrEqualTo(320),
     );
+    final bar = tester.getRect(find.byType(mui.NavigationBar));
+    expect(bar.center.dx, 160);
+    expect(bar.left, greaterThanOrEqualTo(0));
+    expect(bar.right, lessThanOrEqualTo(320));
     expect(find.text('E'), findsOneWidget);
   });
 }

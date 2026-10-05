@@ -5,88 +5,118 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
- * PiliMax is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with PiliMax.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 import 'dart:math' as math;
 
+import 'package:PiliMax/common/widgets/slotted_layout_helper.dart';
+import 'package:flutter/rendering.dart' show BoxHitTestResult, TransformLayer;
+import 'package:flutter/widgets.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/rendering.dart'
-    show
-        ContainerRenderObjectMixin,
-        MultiChildLayoutParentData,
-        RenderBoxContainerDefaultsMixin,
-        BoxHitTestResult,
-        TransformLayer;
 
-class PlayerBar extends MultiChildRenderObjectWidget {
+enum PlayerBarType { left, right, title }
+
+class PlayerBar
+    extends SlottedMultiChildRenderObjectWidget<PlayerBarType, RenderBox> {
   const PlayerBar({
     super.key,
-    required super.children,
+    required this.left,
+    required this.right,
+    this.title,
   });
 
+  final Widget left;
+  final Widget right;
+  final Widget? title;
+
   @override
-  RenderObject createRenderObject(BuildContext context) {
-    return RenderBottomBar();
-  }
+  RenderPlayerBar createRenderObject(BuildContext context) => RenderPlayerBar();
+
+  @override
+  Widget? childForSlot(PlayerBarType slot) => switch (slot) {
+    PlayerBarType.left => left,
+    PlayerBarType.right => right,
+    PlayerBarType.title => title,
+  };
+
+  @override
+  Iterable<PlayerBarType> get slots => PlayerBarType.values;
 }
 
-class RenderBottomBar extends RenderBox
+class RenderPlayerBar extends RenderBox
     with
-        ContainerRenderObjectMixin<RenderBox, MultiChildLayoutParentData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, MultiChildLayoutParentData> {
+        SlottedContainerRenderObjectMixin<PlayerBarType, RenderBox>,
+        SlottedLayoutMixin<PlayerBarType> {
+  RenderBox get left => childForSlot(PlayerBarType.left)!;
+  RenderBox get right => childForSlot(PlayerBarType.right)!;
+  RenderBox? get title => childForSlot(PlayerBarType.title);
+
   @override
-  void setupParentData(RenderBox child) {
-    if (child.parentData is! MultiChildLayoutParentData) {
-      child.parentData = MultiChildLayoutParentData();
-    }
-  }
+  Iterable<PlayerBarType> get slots => PlayerBarType.values;
 
   Matrix4? _transform;
 
   @override
   void performLayout() {
     _transform = null;
-
-    final c = constraints.copyWith(maxWidth: .infinity);
-    final RenderBox first = firstChild!..layout(c, parentUsesSize: true);
-    final RenderBox last = lastChild!..layout(c, parentUsesSize: true);
-
-    final firstSize = first.size;
-    final lastSize = last.size;
-
-    final firstParentData = first.parentData as MultiChildLayoutParentData;
-    final lastParentData = last.parentData as MultiChildLayoutParentData;
-
-    final firstWidth = firstSize.width;
-    final lastWidth = lastSize.width;
-    final totalWidth = firstWidth + lastWidth;
     final maxWidth = constraints.maxWidth;
-    final height = math.max(firstSize.height, lastSize.height);
-    size = constraints.constrainDimensions(maxWidth, height);
+    final title = this.title;
+    if (title != null) {
+      final loose = constraints.loosen();
+      final left = this.left..layout(loose, parentUsesSize: true);
+      final right = this.right..layout(loose, parentUsesSize: true);
+      final leftSize = left.size;
+      final rightSize = right.size;
+      title.layout(
+        BoxConstraints(
+          maxWidth: math.max(0, maxWidth - leftSize.width - rightSize.width),
+        ),
+        parentUsesSize: true,
+      );
+      final titleSize = title.size;
+      final height = math.max(
+        math.max(leftSize.height, rightSize.height),
+        titleSize.height,
+      );
+      setOffset(left, Offset(0, (height - leftSize.height) / 2));
+      setOffset(
+        right,
+        Offset(maxWidth - rightSize.width, (height - rightSize.height) / 2),
+      );
+      setOffset(title, Offset(leftSize.width, (height - titleSize.height) / 2));
+      size = constraints.constrainDimensions(maxWidth, height);
+      return;
+    }
 
-    firstParentData.offset = Offset(0.0, (height - firstSize.height) / 2);
+    final loose = constraints.copyWith(maxWidth: double.infinity);
+    final left = this.left..layout(loose, parentUsesSize: true);
+    final right = this.right..layout(loose, parentUsesSize: true);
+    final leftSize = left.size;
+    final rightSize = right.size;
+    final totalWidth = leftSize.width + rightSize.width;
+    final height = math.max(leftSize.height, rightSize.height);
+    size = constraints.constrainDimensions(maxWidth, height);
+    setOffset(left, Offset(0, (height - leftSize.height) / 2));
     if (totalWidth <= maxWidth) {
-      lastParentData.offset = Offset(
-        maxWidth - lastWidth,
-        (height - lastSize.height) / 2,
+      setOffset(
+        right,
+        Offset(maxWidth - rightSize.width, (height - rightSize.height) / 2),
       );
     } else {
       final scale = maxWidth / totalWidth;
       _transform = Matrix4.identity()
-        ..translateByDouble(0.0, height * (1 - scale) / 2, 0.0, 1.0)
-        ..scaleByDouble(scale, scale, scale, 1.0);
-      lastParentData.offset = Offset(
-        (maxWidth - lastWidth * scale) / scale,
-        (height - lastSize.height) / 2,
+        ..translateByDouble(0, height * (1 - scale) / 2, 0, 1)
+        ..scaleByDouble(scale, scale, scale, 1);
+      setOffset(
+        right,
+        Offset(leftSize.width, (height - rightSize.height) / 2),
       );
+    }
+  }
+
+  void defaultPaint(PaintingContext context, Offset offset) {
+    for (final child in children) {
+      context.paintChild(child, getOffset(child) + offset);
     }
   }
 
@@ -111,19 +141,22 @@ class RenderBottomBar extends RenderBox
     return result.addWithPaintTransform(
       transform: _transform,
       position: position,
-      hitTest: (BoxHitTestResult result, Offset position) {
-        return defaultHitTestChildren(result, position: position);
-      },
+      hitTest: (result, position) =>
+          super.hitTestChildren(result, position: position),
     );
   }
 
   @override
   void applyPaintTransform(RenderBox child, Matrix4 transform) {
-    final childParentData = child.parentData! as MultiChildLayoutParentData;
-    final Offset offset = childParentData.offset;
+    final offset = getOffset(child);
     if (_transform != null) {
       transform
-        ..translateByDouble(offset.dx * _transform!.storage[0], offset.dy, 0, 1)
+        ..translateByDouble(
+          offset.dx * _transform!.storage[0],
+          offset.dy,
+          0,
+          1,
+        )
         ..multiply(_transform!);
     } else {
       transform.translateByDouble(offset.dx, offset.dy, 0, 1);

@@ -1,11 +1,30 @@
+import 'dart:convert';
 import 'dart:io';
-
-import 'package:path/path.dart' as p;
 
 /// Audits fork routing: reports forks nobody imports and upstream originals
 /// that are still referenced somewhere (dual-implementation risk).
 ///
-///   dart run tool/pilimax/check_fork_references.dart
+///   dart tool/pilimax/check_fork_references.dart
+String _normalizePosix(String path) {
+  final parts = path.split('/');
+  final normalized = <String>[];
+  for (final part in parts) {
+    if (part.isEmpty || part == '.') {
+      continue;
+    }
+    if (part == '..') {
+      if (normalized.isNotEmpty && normalized.last != '..') {
+        normalized.removeLast();
+      } else {
+        normalized.add(part);
+      }
+      continue;
+    }
+    normalized.add(part);
+  }
+  return normalized.join('/');
+}
+
 Future<void> main() async {
   final mapFile = File('tool/pilimax/fork_map.tsv');
   if (!mapFile.existsSync()) {
@@ -27,6 +46,7 @@ Future<void> main() async {
 
   final forkRefs = <String, int>{for (final target in forks.values) target: 0};
   final originalRefs = <String, int>{for (final path in forks.keys) path: 0};
+  final readErrors = <String>[];
 
   final directive = RegExp(
     r'''^(?:import|export|part(?:\s+of)?)\s+['"]([^'"]+)['"]''',
@@ -41,34 +61,46 @@ Future<void> main() async {
         continue;
       }
       final file = entity.path.replaceAll('\\', '/');
-      final text = entity.readAsStringSync();
-      for (final line in text.split('\n')) {
-        final match = directive.firstMatch(line.trimLeft());
-        if (match == null) {
-          continue;
+      // Stream source files so the CI audit does not retain the entire
+      // repository in memory on small hosted runners.
+      try {
+        await for (final line
+            in entity
+                .openRead()
+                .transform(utf8.decoder)
+                .transform(const LineSplitter())) {
+          final match = directive.firstMatch(line.trimLeft());
+          if (match == null) {
+            continue;
+          }
+          final uri = match.group(1)!;
+          String resolved;
+          if (uri.startsWith('package:PiliMax/')) {
+            resolved = 'lib/${uri.substring('package:PiliMax/'.length)}';
+          } else if (uri.startsWith('package:') || uri.startsWith('dart:')) {
+            continue;
+          } else {
+            final directory = file.substring(0, file.lastIndexOf('/'));
+            resolved = _normalizePosix('$directory/$uri');
+          }
+          if (forkRefs.containsKey(resolved)) {
+            forkRefs[resolved] = forkRefs[resolved]! + 1;
+          }
+          if (originalRefs.containsKey(resolved) && !forks.containsKey(file)) {
+            originalRefs[resolved] = originalRefs[resolved]! + 1;
+          }
         }
-        final uri = match.group(1)!;
-        String resolved;
-        if (uri.startsWith('package:PiliMax/')) {
-          resolved = 'lib/${uri.substring('package:PiliMax/'.length)}';
-        } else if (uri.startsWith('package:') || uri.startsWith('dart:')) {
-          continue;
-        } else {
-          resolved = p.normalize(
-            p.posix.join(p.dirname(file), uri),
-          ).replaceAll('\\', '/');
-        }
-        if (forkRefs.containsKey(resolved)) {
-          forkRefs[resolved] = forkRefs[resolved]! + 1;
-        }
-        if (originalRefs.containsKey(resolved) && !forks.containsKey(file)) {
-          originalRefs[resolved] = originalRefs[resolved]! + 1;
-        }
+      } on Object catch (error) {
+        readErrors.add('${entity.path}: $error');
       }
     }
   }
 
   var issues = 0;
+  for (final error in readErrors) {
+    issues++;
+    stderr.writeln('SOURCE-READ-ERROR $error');
+  }
   for (final entry in forks.entries) {
     final original = entry.key;
     final target = entry.value;

@@ -309,6 +309,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             _quality,
             autoFolderTitle: autoFolderInfo?.title,
             autoFolderSourceKey: autoFolderInfo?.sourceKey,
+            seasonInfo: widget.videoDetail?.seasonInfo(index),
           );
           break;
         case ugc.EpisodeItem episode:
@@ -319,6 +320,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             _quality,
             autoFolderTitle: autoFolderInfo?.title,
             autoFolderSourceKey: autoFolderInfo?.sourceKey,
+            seasonInfo: widget.videoDetail?.seasonInfo(index),
           );
           break;
         case pgc.EpisodeItem episode:

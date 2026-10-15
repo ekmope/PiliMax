@@ -36,6 +36,7 @@ void imageSaveDialog({
   dynamic like,
   dynamic favorite,
   String? ownerName,
+  double aspectRatio = Style.aspectRatio16x9,
 }) {
   final context = Get.context!;
   final imgWidth = MediaQuery.sizeOf(context).shortestSide - 16;
@@ -83,6 +84,7 @@ void imageSaveDialog({
           imgWidth: imgWidth,
           initialMeta: initialMeta,
           routeAnimation: animation,
+          aspectRatio: aspectRatio,
         ),
   );
 }
@@ -107,6 +109,7 @@ class _CoverPreviewDialog extends StatefulWidget {
   final double imgWidth;
   final _PreviewMeta initialMeta;
   final Animation<double> routeAnimation;
+  final double aspectRatio;
 
   @override
   State<_CoverPreviewDialog> createState() => _CoverPreviewDialogState();
@@ -187,7 +190,7 @@ class _CoverPreviewDialogState extends State<_CoverPreviewDialog> {
                       src: widget.cover,
                       quality: 100,
                       width: widget.imgWidth,
-                      height: widget.imgWidth / Style.aspectRatio16x9,
+                      height: widget.imgWidth / widget.aspectRatio,
                       borderRadius: const .vertical(top: Style.imgRadius),
                     ),
                   ),
@@ -297,6 +300,19 @@ class _CoverPreviewDialogState extends State<_CoverPreviewDialog> {
       ),
     );
   }
+
+void showPgcCover({
+  required String? title,
+  required String? cover,
+  dynamic aid,
+  String? bvid,
+}) => imageSaveDialog(
+  title: title,
+  cover: cover,
+  aid: aid,
+  bvid: bvid,
+  aspectRatio: Style.aspectRatio3x4,
+);
 }
 
 class _PreviewMetadataGrid extends StatelessWidget {

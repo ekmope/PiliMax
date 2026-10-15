@@ -29,7 +29,7 @@ class PgcCardVMemberPgc extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void onLongPress() => imageSaveDialog(
+    void onLongPress() => showPgcCover(
       title: item.title,
       cover: item.cover,
     );

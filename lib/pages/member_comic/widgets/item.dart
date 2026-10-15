@@ -18,7 +18,7 @@ class MemberComicItem extends StatelessWidget {
       fontSize: 13,
       color: theme.colorScheme.onSurfaceVariant,
     );
-    void onLongPress() => imageSaveDialog(title: item.title, cover: item.cover);
+    void onLongPress() => showPgcCover(title: item.title, cover: item.cover);
     return Material(
       type: MaterialType.transparency,
       child: InkWell(

@@ -1,13 +1,30 @@
 import 'dart:io' show Directory, File;
 
+import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/pilimax/services/crash/crash_context.dart';
 import 'package:PiliMax/pilimax/services/crash/crash_reporter.dart';
 import 'package:PiliMax/pilimax/utils/app_temporary_files.dart';
 import 'package:PiliMax/pilimax/utils/cache_policy.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
+import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+
+Future<Directory> _cacheDirectoryProvider() async {
+  final temporaryPath = await PathProviderPlatform.instance.getTemporaryPath();
+  if (temporaryPath == null) {
+    throw MissingPlatformDirectoryException(
+      'Unable to get temporary directory',
+    );
+  }
+  if (PlatformUtils.isDesktop) {
+    return Directory(path.join(temporaryPath, Constants.appName));
+  }
+  return Directory(temporaryPath);
+}
 
 abstract final class CacheManager {
   static late final DefaultCacheManager manager;
@@ -16,6 +33,7 @@ abstract final class CacheManager {
 
   static Future<void> ensureInitialized() => DefaultCacheManager.init(
     maxNrOfCacheLength: Pref.maxCacheSize.toInt(),
+    cacheDirectoryProvider: _cacheDirectoryProvider,
   ).then((i) => manager = i);
 
   // 获取缓存目录

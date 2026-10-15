@@ -49,6 +49,9 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
   );
 
   @override
+  bool get isArticle => true;
+
+  @override
   dynamic get arguments => {
     'id': controller.id,
   };

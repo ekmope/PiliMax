@@ -1790,6 +1790,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         ),
       );
 
+      if (Platform.isAndroid) {
+        // Avoid sizing the Android surface using mpv's idle window between media loads.
+        player.setProperty('force-window', 'no');
+      }
+
       player.setMediaHeader(
         userAgent: BrowserUa.pc,
         referer: HttpString.baseUrl,

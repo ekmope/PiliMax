@@ -527,7 +527,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       return videoDetail.ugcSeason != null ||
           ((videoDetail.pages?.length ?? 0) > 1);
     }
-    return videoDetailController.videoType == VideoType.pgc &&
+    return !videoDetailController.isUgc &&
         pgcIntroController.pgcItem.hasEpisodes;
   }
 
@@ -3814,10 +3814,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   }
 
   Widget get seasonPanel {
-    if (videoDetailController.videoType == VideoType.pgc) {
-      return pgcSeasonPanel;
-    }
-    return ugcSeasonPanel;
+    if (videoDetailController.isUgc) return ugcSeasonPanel;
+    return pgcSeasonPanel;
   }
 
   Widget get pgcSeasonPanel {

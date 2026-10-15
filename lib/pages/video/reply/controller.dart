@@ -9,6 +9,7 @@ import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/pages/video/reply/vote/reply_vote_mixin.dart';
 import 'package:PiliMax/utils/id_utils.dart';
+import 'package:fixnum/fixnum.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:get/get.dart';
 
@@ -25,6 +26,13 @@ class VideoReplyController extends ReplyController<MainListReply>
 
   final String heroTag;
   late final videoCtr = Get.find<VideoDetailController>(tag: heroTag);
+
+  @override
+  void onInit() {
+    super.onInit();
+    final rpid = Get.arguments?['rpid'];
+    if (rpid is int) targetRpid = Int64(rpid);
+  }
 
   MentionItem? get mentionItem {
     if (videoCtr.isUgc) {
@@ -54,6 +62,7 @@ class VideoReplyController extends ReplyController<MainListReply>
   Future<LoadingState<MainListReply>> customGetData() => ReplyGrpc.mainList(
     oid: isPugv ? videoCtr.epId! : aid,
     type: videoType.replyType,
+    rpid: targetRpid,
     mode: mode,
     cursorNext: cursorNext,
     offset: paginationReply?.nextOffset,

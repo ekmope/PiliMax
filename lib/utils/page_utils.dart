@@ -147,6 +147,7 @@ abstract final class PageUtils {
     Object? rid,
     bool off = false,
     Object? type,
+    int? rpid,
   }) async {
     assert(id != null || rid != null);
     SmartDialog.showLoading();
@@ -164,6 +165,7 @@ abstract final class PageUtils {
             'id': id!,
             'type': 'opus',
           },
+          arguments: rpid == null ? null : {'rpid': rpid},
           off: off,
         );
       } else {
@@ -171,6 +173,7 @@ abstract final class PageUtils {
           '/dynamicDetail',
           arguments: {
             'item': response,
+            if (rpid != null) 'rpid': rpid,
           },
           off: off,
         );
@@ -685,6 +688,7 @@ abstract final class PageUtils {
     VideoPendingLaunchType? pendingLaunchType,
     bool Function()? canInstallRoute,
     ValueChanged<bool>? onNavigationResult,
+    int? rpid,
   }) {
     final hasValidDimension = _hasValidDimension(dimension);
     final effectivePendingType =
@@ -707,7 +711,6 @@ abstract final class PageUtils {
       cover: cover,
       title: title,
       progress: progress,
-      extraArguments: extraArguments,
       isVertical: hasValidDimension
           ? dimension!.isVertical
           : isVertical ?? false,
@@ -715,6 +718,10 @@ abstract final class PageUtils {
       heroTag: heroTag,
       part: part,
       pendingLaunchType: effectivePendingType,
+      extraArguments: {
+        ...?extraArguments,
+        'rpid': ?rpid,
+      },
     );
     return _openVideoPage(
       arguments,

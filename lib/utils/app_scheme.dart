@@ -267,7 +267,8 @@ abstract final class PiliScheme {
             // bilibili://video/12345678?dm_progress=123000&cid=12345678&dmid=12345678
             // bilibili://video/{aid}/?comment_root_id=***&comment_secondary_id=***
             final queryParameters = uri.queryParameters;
-            if (queryParameters['comment_root_id'] != null) {
+            if (queryParameters['comment_root_id'] != null &&
+                queryParameters['comment_secondary_id'] != null) {
               // to video reply
               String? oid = uriDigitRegExp.firstMatch(path)?.group(1);
               final parsedOid = ExternalUriParser.positiveInt(oid);
@@ -309,6 +310,9 @@ abstract final class PiliScheme {
                   bvid: bvid,
                   cid: parsedCid,
                   progress: _videoProgress(queryParameters),
+                  rpid: ExternalUriParser.positiveInt(
+                    queryParameters['comment_root_id'],
+                  ),
                   off: off,
                 );
               } else {
@@ -317,6 +321,9 @@ abstract final class PiliScheme {
                   bvid,
                   off: off,
                   progress: _videoProgress(queryParameters),
+                  rpid: ExternalUriParser.positiveInt(
+                    queryParameters['comment_root_id'],
+                  ),
                 );
               }
               return true;
@@ -851,7 +858,8 @@ abstract final class PiliScheme {
           final queryParameters = uri.queryParameters;
           final rootIdStr = queryParameters['comment_root_id'];
           final part = queryParameters['p'];
-          if (rootIdStr != null) {
+          if (rootIdStr != null &&
+              queryParameters['comment_secondary_id'] != null) {
             final rootId = ExternalUriParser.positiveInt(rootIdStr);
             if (rootId == null) {
               return false;
@@ -871,6 +879,7 @@ abstract final class PiliScheme {
             off: off,
             progress: _videoProgress(queryParameters),
             part: part,
+            rpid: ExternalUriParser.positiveInt(rootIdStr),
           );
           return true;
         }
@@ -1043,11 +1052,15 @@ abstract final class PiliScheme {
   static bool _onPushDynDetail(Uri uri, bool off) {
     String? id = uriDigitRegExp.firstMatch(uri.path)?.group(1);
     bool isRid = uri.queryParameters['type'] == '2';
+    final rootId = ExternalUriParser.positiveInt(
+      uri.queryParameters['comment_root_id'],
+    );
     if (id != null) {
       PageUtils.pushDynFromId(
         id: isRid ? null : id,
         rid: isRid ? id : null,
         off: off,
+        rpid: rootId,
       );
       return true;
     }
@@ -1077,6 +1090,7 @@ abstract final class PiliScheme {
     bool off = false,
     int? progress, // milliseconds
     String? part,
+    int? rpid,
   }) async {
     try {
       aid ??= IdUtils.bv2av(bvid!);
@@ -1102,6 +1116,7 @@ abstract final class PiliScheme {
           off: off,
           dimension: res!.dimension,
           title: res.title,
+          rpid: rpid,
         );
       }
     } catch (e) {

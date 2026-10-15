@@ -42,6 +42,8 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
       _enableCommAntifraud || _biliSendCommAntifraud;
   dynamic get sourceId;
 
+  Int64? targetRpid;
+
   /// Main comments and nested replies may use different default sorting.
   ReplySortType get defaultSortType => Pref.replySortType;
 

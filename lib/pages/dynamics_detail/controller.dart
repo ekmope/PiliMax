@@ -9,6 +9,7 @@ import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliMax/pages/common/dyn/common_dyn_controller.dart';
 import 'package:PiliMax/utils/id_utils.dart';
+import 'package:fixnum/fixnum.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -31,7 +32,10 @@ class DynamicDetailController extends CommonDynController with ReloadMixin {
   @override
   void onInit() {
     super.onInit();
-    dynItem = Get.arguments['item'];
+    final args = Get.arguments;
+    dynItem = args['item'];
+    final rpid = args['rpid'];
+    if (rpid is int) targetRpid = Int64(rpid);
     _onUpdate = Get.arguments['onUpdate'];
     final commentType = dynItem.basic?.commentType;
     final commentIdStr = dynItem.basic?.commentIdStr;

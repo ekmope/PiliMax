@@ -590,7 +590,7 @@ class VideoDetailController extends GetxController
     tabCtr = TabController(
       length: 2,
       vsync: this,
-      initialIndex: Pref.defaultShowComment ? 1 : 0,
+      initialIndex: Pref.defaultShowComment || args['rpid'] != null ? 1 : 0,
     );
 
     // 进入全屏时切换到全屏默认画质

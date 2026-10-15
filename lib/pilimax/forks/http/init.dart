@@ -457,6 +457,30 @@ class Request {
     }
   }
 
+  Future<Response> request<T>(
+    String url, {
+    Map<String, dynamic>? queryParameters,
+    Object? data,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      return await dio.request<T>(
+        url,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+        cancelToken: cancelToken,
+      );
+    } on DioException catch (e, s) {
+      return _handleDioException(
+        e,
+        s,
+        operation: 'Request.request',
+      );
+    }
+  }
+
   /*
    * 下载文件
    */

@@ -274,6 +274,7 @@ abstract final class PageUtils {
           parameters: {
             'id': item.idStr,
             'type': 'opus',
+            if (viewComment) 'viewComment': '',
           },
         );
       } else {

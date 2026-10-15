@@ -42,6 +42,8 @@ class ArticlePage extends StatefulWidget {
 }
 
 class _ArticlePageState extends CommonDynPageState<ArticlePage> {
+  UniqueKey? _centerKey;
+
   @override
   final ArticleController controller = Get.putOrFind(
     ArticleController.new,
@@ -50,6 +52,14 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
 
   @override
   bool get isArticle => true;
+
+  @override
+  void initState() {
+    if (Get.parameters.containsKey('viewComment')) {
+      _centerKey = UniqueKey();
+    }
+    super.initState();
+  }
 
   @override
   dynamic get arguments => {
@@ -81,6 +91,8 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
         padding: .symmetric(horizontal: padding),
         child: SelectionArea(
           child: CustomScrollView(
+            primary: true,
+            center: _centerKey,
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               _buildContent(
@@ -94,7 +106,10 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                   ),
                 ),
               ),
-              SelectionContainer.disabled(child: buildReplyHeader()),
+              SelectionContainer.disabled(
+                key: _centerKey,
+                child: buildReplyHeader(),
+              ),
               SelectionContainer.disabled(
                 child: Obx(() => replyList(controller.loadingState.value)),
               ),
@@ -105,6 +120,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
     }
 
     padding = padding / 4;
+    _centerKey = null;
     final flex = controller.ratio[0].toInt();
     final flex1 = controller.ratio[1].toInt();
     return Row(
@@ -114,6 +130,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
           flex: flex,
           child: SelectionArea(
             child: CustomScrollView(
+              primary: true,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverPadding(

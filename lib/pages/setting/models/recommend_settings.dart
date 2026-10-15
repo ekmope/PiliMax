@@ -1,21 +1,30 @@
+import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/pilimax/models/common/rcmd_mode.dart';
 import 'package:PiliMax/pages/rcmd/controller.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/utils/global_data.dart';
+import 'package:PiliMax/utils/login_utils.dart';
 import 'package:PiliMax/utils/recommend_filter.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/pilimax/utils/user_whitelist.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 
 List<SettingsModel> get recommendSettings => [
+      NormalModel(
+        title: 'buvid',
+        leading: const Icon(CustomIcons.identifier_circle),
+        getSubtitle: () => LoginUtils.buvid,
+        onTap: _showBuvidDialog,
+      ),
   NormalModel(
     title: '首页推荐模式',
     leading: const Icon(Icons.model_training_outlined),
@@ -216,6 +225,49 @@ List<SettingsModel> get recommendSettings => [
     ),
   ),
 ];
+
+void _showBuvidDialog(BuildContext context, VoidCallback setState) {
+  var buvid = LoginUtils.buvid;
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('buvid'),
+      content: TextFormField(
+        autofocus: true,
+        initialValue: buvid,
+        onChanged: (value) => buvid = value,
+        inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Get.back();
+            final value = LoginUtils.generateBuvid();
+            Pref.buvid = LoginUtils.buvid = value;
+            setState();
+          },
+          child: const Text('随机'),
+        ),
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            Get.back();
+            if (buvid.isEmpty) return;
+            Pref.buvid = LoginUtils.buvid = buvid;
+            setState();
+          },
+          child: const Text('确定'),
+        ),
+      ],
+    ),
+  );
+}
 
 Future<void> _showRcmdModeDialog(
   BuildContext context,

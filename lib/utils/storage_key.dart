@@ -342,7 +342,8 @@ abstract final class SettingBoxKey {
       liveCdnUrl = 'liveCdnUrl',
       saveReply = 'saveReply',
       swapReplyLikeDislike = 'swapReplyLikeDislike',
-      appFont = 'appFont';
+      appFont = 'appFont',
+      buvid = 'buvid';
 }
 
 abstract final class LocalCacheKey {

@@ -1673,13 +1673,21 @@ abstract final class Pref {
       _setting.get(SettingBoxKey.silentDownImg, defaultValue: false);
 
   static String get buvid {
-    String? buvid = _localCache.get(LocalCacheKey.buvid);
-    if (buvid == null) {
-      buvid = LoginUtils.generateBuvid();
-      _localCache.put(LocalCacheKey.buvid, buvid);
+    final configured = _setting.get(SettingBoxKey.buvid) as String?;
+    if (configured?.isNotEmpty == true) return configured!;
+
+    final legacy = _localCache.get(LocalCacheKey.buvid) as String?;
+    if (legacy?.isNotEmpty == true) {
+      _setting.put(SettingBoxKey.buvid, legacy);
+      return legacy!;
     }
-    return buvid;
+
+    final generated = LoginUtils.generateBuvid();
+    _setting.put(SettingBoxKey.buvid, generated);
+    return generated;
   }
+
+  static set buvid(String value) => _setting.put(SettingBoxKey.buvid, value);
 
   static bool get showMemberShop =>
       _setting.get(SettingBoxKey.showMemberShop, defaultValue: false);

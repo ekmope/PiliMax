@@ -57,6 +57,7 @@ import 'package:PiliMax/plugin/pl_player/widgets/mpv_convert_webp.dart';
 import 'package:PiliMax/plugin/pl_player/widgets/play_pause_btn.dart';
 import 'package:PiliMax/utils/android/bindings.g.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
+import 'package:PiliMax/utils/desktop/window_controller.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
@@ -85,7 +86,6 @@ import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
-import 'package:window_manager/window_manager.dart';
 
 part 'widgets.dart';
 
@@ -1266,7 +1266,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       }
     } else if (_gestureType == .right) {
       // 右边区域
-      final double level = maxHeight * 0.5;
+      final double level = maxHeight * 3;
       EasyThrottle.throttle(
         'setVolume',
         const Duration(milliseconds: 20),
@@ -1456,6 +1456,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   void _onPointerPanZoomUpdate(PointerPanZoomUpdateEvent event) {
     if (plPlayerController.controlsLock.value) return;
+    final double level = maxHeight * 3;
     if (_gestureType == null) {
       final pan = event.pan;
       if (pan.distanceSquared < 1) return;
@@ -1479,7 +1480,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         return;
       }
 
-      final double level = maxHeight * 0.5;
       EasyThrottle.throttle(
         'setVolume',
         const Duration(milliseconds: 20),
@@ -1861,8 +1861,10 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                           child: plPlayerController.isDesktopPip
                               ? GestureDetector(
                                   behavior: HitTestBehavior.translucent,
-                                  onPanStart: (_) =>
-                                      windowManager.startDragging(),
+                                  onPanStart: (_) => WindowController
+                                      .instance
+                                      .window
+                                      ?.startDragging(),
                                   child: widget.headerControl,
                                 )
                               : widget.headerControl,

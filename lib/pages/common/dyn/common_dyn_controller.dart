@@ -4,11 +4,32 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliMax/pages/common/reply_controller.dart';
 import 'package:PiliMax/pages/video/reply/vote/reply_vote_mixin.dart';
+import 'package:PiliMax/utils/reply_scheme_helper.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:get/get.dart';
 
+mixin DynReplyLocateMixin on MainReplyLocateMixin {
+  int? targetSecondRpId; // jump
+
+  @override
+  void onAnimRootReply(ReplyInfo rootReply) {
+    if (args[secondRpIdKey] case final int secondRpId) {
+      args.remove(rootRpIdKey);
+      targetRootRpId = rootRpId;
+      targetSecondRpId = secondRpId;
+    } else {
+      super.onAnimRootReply(rootReply);
+    }
+  }
+}
+
 abstract class CommonDynController extends ReplyController<MainListReply>
-    with ReplyVoteMixin {
+    with
+        ReplyVoteMixin,
+        GetSingleTickerProviderStateMixin,
+        ReplyLocateMixin<MainListReply>,
+        MainReplyLocateMixin,
+        DynReplyLocateMixin {
   int get oid;
   int get replyType;
 
@@ -25,7 +46,7 @@ abstract class CommonDynController extends ReplyController<MainListReply>
   Future<LoadingState<MainListReply>> customGetData() => ReplyGrpc.mainList(
     type: replyType,
     oid: oid,
-    rpid: targetRpid,
+    rpid: rootRpId ?? targetRpid,
     mode: mode,
     cursorNext: cursorNext,
     offset: paginationReply?.nextOffset,

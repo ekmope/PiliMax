@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:PiliMax/common/assets.dart';
+import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/dialog/simple_dialog_option.dart';
 import 'package:PiliMax/common/widgets/emote_tooltip.dart';
 import 'package:PiliMax/common/widgets/gesture/tap_gesture_recognizer.dart';
@@ -366,6 +367,35 @@ class OpusContent extends StatelessWidget {
                   }).toList(),
                 ),
               );
+            case 5 when (element.list?.children?.isNotEmpty == true):
+              final children = element.list!.children!;
+              return Text.rich(
+                TextSpan(
+                  children: children.mapIndexed((i, entry) {
+                    return TextSpan(
+                      children: [
+                        const WidgetSpan(
+                          child: Icon(MdiIcons.circleMedium),
+                          alignment: .middle,
+                        ),
+                        ...?entry.children?.expand(
+                          (child) =>
+                              child.text?.nodes?.map(
+                                (item) => _node2Widget(
+                                  item: item,
+                                  opusId: opusId,
+                                  colorScheme: colorScheme,
+                                  surfaceLuminance: getSurfaceLuminance,
+                                ),
+                              ) ??
+                              const <InlineSpan>[],
+                        ),
+                        if (i < children.length - 1) const TextSpan(text: '\n'),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              );
             case 6:
               final type = element.linkCard!.card!.type;
               Widget child;
@@ -625,6 +655,118 @@ class OpusContent extends StatelessWidget {
                       );
                     }).toList(),
                   );
+                case 'LINK_CARD_TYPE_EVA3_VIDEO':
+                  final info = element.linkCard?.card?.eva3Video?.info;
+                  if (info == null) {
+                    throw StateError('missing EVA3 video card');
+                  }
+                  Widget cover = NetworkImgLayer(
+                    width: 104,
+                    height: 65,
+                    src: info.cover,
+                    borderRadius: const .all(.circular(6)),
+                  );
+                  final duration = info.videoTs?.durationText;
+                  if (duration != null && duration.isNotEmpty) {
+                    cover = Stack(
+                      clipBehavior: .none,
+                      children: [
+                        cover,
+                        PBadge(
+                          right: 4,
+                          bottom: 4,
+                          type: .gray,
+                          text: duration,
+                        ),
+                      ],
+                    );
+                  }
+                  child = SizedBox(
+                    height: 65,
+                    child: Row(
+                      spacing: 10,
+                      children: [
+                        cover,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: .start,
+                            mainAxisAlignment: .spaceBetween,
+                            children: [
+                              Text(
+                                info.title ?? '',
+                                maxLines: 2,
+                                overflow: .ellipsis,
+                              ),
+                              if (info.statInfos case final stats?
+                                  when stats.any(
+                                    (e) => e.text?.isNotEmpty == true,
+                                  ))
+                                Text(
+                                  stats
+                                      .map((e) => e.text)
+                                      .whereType<String>()
+                                      .where((e) => e.isNotEmpty)
+                                      .join('    '),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: colorScheme.outline,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                case 'LINK_CARD_TYPE_EVA3_OPUS':
+                  final info = element.linkCard?.card?.eva3Opus?.info;
+                  if (info == null) {
+                    throw StateError('missing EVA3 opus card');
+                  }
+                  final cover = info.pics?.firstOrNull?.src;
+                  final details = [
+                    if (info.badge?.isNotEmpty == true) info.badge!,
+                    if (info.authorName?.isNotEmpty == true)
+                      'UP: ${info.authorName}',
+                    if (info.view?.isNotEmpty == true) info.view!,
+                    if (info.reply?.isNotEmpty == true) info.reply!,
+                  ].join(' ');
+                  child = SizedBox(
+                    height: 65,
+                    child: Row(
+                      spacing: 10,
+                      children: [
+                        if (cover != null && cover.isNotEmpty)
+                          NetworkImgLayer(
+                            width: 104,
+                            height: 65,
+                            src: cover,
+                            borderRadius: const .all(.circular(6)),
+                          ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: .start,
+                            mainAxisAlignment: .spaceBetween,
+                            children: [
+                              Text(
+                                info.title ?? '',
+                                maxLines: 2,
+                                overflow: .ellipsis,
+                              ),
+                              if (details.isNotEmpty)
+                                Text(
+                                  details,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: colorScheme.outline,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 default:
                   throw UnimplementedError(
                     '\nparaType: ${element.paraType},\ncard type: $type',
@@ -685,6 +827,10 @@ class OpusContent extends StatelessWidget {
                               'LINK_CARD_TYPE_LIVE' => card.live!.jumpUrl,
                               'LINK_CARD_TYPE_OPUS' => card.opus!.jumpUrl,
                               'LINK_CARD_TYPE_MUSIC' => card.music!.jumpUrl,
+                              'LINK_CARD_TYPE_EVA3_VIDEO' =>
+                                card.eva3Video!.info!.jumpUrl,
+                              'LINK_CARD_TYPE_EVA3_OPUS' =>
+                                card.eva3Opus!.info!.jumpUrl,
                               _ => null,
                             };
                             if (url != null && url.isNotEmpty) {
@@ -693,10 +839,7 @@ class OpusContent extends StatelessWidget {
                           } catch (_) {}
                         },
                   borderRadius: const .all(.circular(8)),
-                  child: Padding(
-                    padding: const .all(8),
-                    child: child,
-                  ),
+                  child: Padding(padding: const .all(8), child: child),
                 ),
               );
             case 7 when (element.code != null):
@@ -760,19 +903,13 @@ class OpusContent extends StatelessWidget {
 
               return Text(
                 '不支持的类型 (${element.paraType})',
-                style: const TextStyle(
-                  fontWeight: .bold,
-                  color: Colors.red,
-                ),
+                style: const TextStyle(fontWeight: .bold, color: Colors.red),
               );
           }
         } catch (e, s) {
           return Text(
             '错误的类型 $e${kDebugMode ? '\n$s' : ''}',
-            style: const TextStyle(
-              fontWeight: .bold,
-              color: Colors.red,
-            ),
+            style: const TextStyle(fontWeight: .bold, color: Colors.red),
           );
         }
       },
@@ -952,10 +1089,8 @@ Widget opusCollection(ThemeData theme, ModuleCollection item) {
       color: theme.colorScheme.onInverseSurface,
       child: InkWell(
         borderRadius: const BorderRadius.all(Radius.circular(8)),
-        onTap: () => Get.toNamed(
-          '/articleList',
-          parameters: {'id': '${item.id}'},
-        ),
+        onTap: () =>
+            Get.toNamed('/articleList', parameters: {'id': '${item.id}'}),
         child: Padding(
           padding: const EdgeInsets.all(10),
           child: Row(

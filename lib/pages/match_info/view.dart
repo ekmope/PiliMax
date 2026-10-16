@@ -1,24 +1,19 @@
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
-import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models_new/match/match_info/contest.dart';
-import 'package:PiliMax/models_new/match/match_info/team.dart';
 import 'package:PiliMax/pages/common/dyn/common_dyn_page.dart';
 import 'package:PiliMax/pages/common/fab_mixin.dart'
     show NoBottomPaddingFabLocation;
 import 'package:PiliMax/pages/match_info/controller.dart';
+import 'package:PiliMax/pages/match_info/widgets/match_info_item.dart';
 import 'package:PiliMax/pages/video/reply_reply/view.dart';
-import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/widget_ext.dart';
-import 'package:PiliMax/utils/page_utils.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
 class MatchInfoPage extends StatefulWidget {
@@ -68,116 +63,10 @@ class _MatchInfoPageState extends CommonDynPageState<MatchInfoPage> {
   Widget _buildInfo(LoadingState<MatchContest?> infoState) {
     if (infoState case Success(:final response?)) {
       try {
-        Widget teamInfo(MatchTeam team) {
-          return Column(
-            spacing: 5,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              NetworkImgLayer(
-                width: 50,
-                height: 50,
-                src: 'https://i1.hdslb.com${team.logo}',
-                type: ImageType.emote,
-              ),
-              Text(team.title!),
-            ],
-          );
-        }
-
         return SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Column(
-              spacing: 12,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Center(
-                  child: Text(
-                    '${response.season?.title ?? ''}  ${response.gameStage ?? ''}',
-                  ),
-                ),
-                Row(
-                  spacing: 20,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (response.homeId != 0)
-                      Expanded(
-                        child: Align(
-                          alignment: const Alignment(0.8, 1),
-                          child: teamInfo(response.homeTeam!),
-                        ),
-                      ),
-                    Column(
-                      spacing: 10,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (response.homeId != 0)
-                          Text(
-                            response.contestStatus == 1
-                                ? 'VS'
-                                : '${response.homeScore} : ${response.awayScore}',
-                            style: const TextStyle(
-                              fontSize: 25,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.5,
-                            ),
-                          )
-                        else if (response.season?.logo != null)
-                          NetworkImgLayer(
-                            width: 50,
-                            height: 50,
-                            src: 'https://i1.hdslb.com${response.season!.logo}',
-                            type: ImageType.emote,
-                          ),
-                        if (response.contestStatus == 2)
-                          FilledButton.tonal(
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(6),
-                                ),
-                              ),
-                              visualDensity: VisualDensity.compact,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            onPressed: () =>
-                                PageUtils.toLiveRoom(response.liveRoom),
-                            child: const Text('看直播'),
-                          )
-                        else if (response.contestStatus == 3)
-                          Text(
-                            '${DateFormatUtils.dateFormat(response.stime)}${response.contestStatus == 3 ? ' 已结束' : ''}',
-                            style: TextStyle(
-                              color: theme.colorScheme.outline,
-                            ),
-                          )
-                        else if (response.contestStatus == 1)
-                          Text(
-                            DateFormatUtils.format(
-                              response.stime,
-                              format: DateFormat('yy-MM-dd HH:mm'),
-                            ),
-                            style: TextStyle(
-                              color: theme.colorScheme.outline,
-                            ),
-                          ),
-                      ],
-                    ),
-                    if (response.awayId != 0)
-                      Expanded(
-                        child: Align(
-                          alignment: const Alignment(-0.8, -1),
-                          child: teamInfo(response.awayTeam!),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
+            child: MatchInfoItem(contest: response),
           ),
         );
       } catch (_) {

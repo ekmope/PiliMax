@@ -3,7 +3,6 @@ import 'dart:io' show Platform;
 import 'package:PiliMax/common/skeleton/video_reply.dart';
 import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
-import 'package:PiliMax/common/widgets/colored_box_transition.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_header.dart';
@@ -229,14 +228,12 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
     with SingleTickerProviderStateMixin, CommonSlideMixin {
   late VideoReplyReplyController _controller;
   late final _tag = Utils.makeHeroTag('${widget.rpid}${widget.dialog}');
-  Animation<Color?>? _colorAnimation;
 
   late final bool isDialogue = widget.dialog != null;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _colorAnimation = null;
     final controller = PrimaryScrollController.of(context);
     _controller
       ..didChangeDependencies(context)
@@ -443,16 +440,7 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
           }
           final child = _replyItem(context, response[index], index);
           if (jumpIndex == index) {
-            return ColoredBoxTransition(
-              color: _colorAnimation ??= _controller.animController.drive(
-                ColorTween(
-                  begin: colorScheme.onInverseSurface,
-                  end: colorScheme.surface,
-                  // 前0.8s不变, 后0.2s开始动画
-                ).chain(CurveTween(curve: const Interval(0.8, 1.0))),
-              ),
-              child: child,
-            );
+            return _controller.colorAnimWrapper(colorScheme, child);
           }
           return child;
         },

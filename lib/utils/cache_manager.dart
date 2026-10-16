@@ -11,6 +11,8 @@ import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart'
+    show MissingPlatformDirectoryException;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 
 Future<Directory> _cacheDirectoryProvider() async {

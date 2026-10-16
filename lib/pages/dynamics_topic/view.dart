@@ -29,11 +29,10 @@ import 'package:PiliMax/utils/utils.dart';
 import 'package:PiliMax/utils/waterfall.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:waterfall_flow/waterfall_flow.dart'
-    hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
 
 class DynTopicPage extends StatefulWidget {
   const DynTopicPage({super.key});
@@ -215,9 +214,8 @@ class _DynTopicPageState extends State<DynTopicPage>
                 margin: const EdgeInsets.only(left: 45, right: 78),
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => Get.toNamed(
-                    '/member?mid=${response.topicCreator!.uid}',
-                  ),
+                  onTap: () =>
+                      Get.toNamed('/member?mid=${response.topicCreator!.uid}'),
                   child: Row(
                     spacing: 10,
                     mainAxisSize: MainAxisSize.min,
@@ -235,10 +233,7 @@ class _DynTopicPageState extends State<DynTopicPage>
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        ' 发起',
-                        style: TextStyle(color: colorScheme.outline),
-                      ),
+                      Text(' 发起', style: TextStyle(color: colorScheme.outline)),
                     ],
                   ),
                 ),
@@ -260,10 +255,7 @@ class _DynTopicPageState extends State<DynTopicPage>
                 children: [
                   Text(
                     '${NumUtils.numFormat(response.topicItem!.view)}浏览 · ${NumUtils.numFormat(response.topicItem!.discuss)}讨论',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.outline,
-                    ),
+                    style: TextStyle(fontSize: 13, color: colorScheme.outline),
                   ),
                   const Spacer(),
                   OutlinedButton.icon(
@@ -335,9 +327,7 @@ class _DynTopicPageState extends State<DynTopicPage>
               return [
                 PopupMenuItem(
                   onTap: _controller.onFav,
-                  child: Text(
-                    '${_controller.isFav.value ? '取消' : ''}收藏',
-                  ),
+                  child: Text('${_controller.isFav.value ? '取消' : ''}收藏'),
                 ),
                 PopupMenuItem(
                   child: const Text('举报'),
@@ -357,10 +347,7 @@ class _DynTopicPageState extends State<DynTopicPage>
           const SizedBox(width: 4),
         ],
       ),
-      _ => SliverAppBar(
-        pinned: true,
-        title: Text(_controller.topicName),
-      ),
+      _ => SliverAppBar(pinned: true, title: Text(_controller.topicName)),
     };
   }
 
@@ -370,10 +357,11 @@ class _DynTopicPageState extends State<DynTopicPage>
       Success(:final response) =>
         response != null && response.isNotEmpty
             ? GlobalData().dynamicsWaterfallFlow
-                  ? SliverWaterfallFlow(
+                  ? SliverMasonryGrid(
+                      crossAxisSpacing: 4,
                       gridDelegate: dynGridDelegate,
                       delegate: SliverChildBuilderDelegate(
-                        (_, index) => _itemBuilder(response, index),
+                        (context, index) => _itemBuilder(response, index),
                         childCount: response.length,
                       ),
                     )

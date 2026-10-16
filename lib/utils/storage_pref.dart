@@ -13,6 +13,7 @@ import 'package:PiliMax/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliMax/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliMax/models/common/follow_order_type.dart';
 import 'package:PiliMax/models/common/member/tab_type.dart';
+import 'package:PiliMax/models/common/mine_tab_type.dart';
 import 'package:PiliMax/models/common/msg/msg_unread_type.dart';
 import 'package:PiliMax/models/common/nav_bar_config.dart';
 import 'package:PiliMax/pilimax/models/common/rcmd_mode.dart';
@@ -1940,4 +1941,17 @@ abstract final class Pref {
 
   static bool get enableEmoteTooltip =>
       _setting.get(SettingBoxKey.enableEmoteTooltip, defaultValue: false);
+
+  static Set<MineTabType> get mineTabs {
+    final raw = _setting.get(SettingBoxKey.mineTabs);
+    if (raw is! List) return MineTabType.kDefault;
+    final values = <MineTabType>[];
+    for (final index in raw.whereType<int>()) {
+      if (index >= 0 && index < MineTabType.values.length) {
+        final tab = MineTabType.values[index];
+        if (!values.contains(tab)) values.add(tab);
+      }
+    }
+    return values.isEmpty ? MineTabType.kDefault : values.toSet();
+  }
 }

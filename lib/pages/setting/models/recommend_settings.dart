@@ -19,12 +19,12 @@ import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
 
 List<SettingsModel> get recommendSettings => [
-      NormalModel(
-        title: 'buvid',
-        leading: const Icon(CustomIcons.identifier_circle),
-        getSubtitle: () => LoginUtils.buvid,
-        onTap: _showBuvidDialog,
-      ),
+  NormalModel(
+    title: 'buvid',
+    leading: const Icon(CustomIcons.identifier_circle),
+    getSubtitle: () => LoginUtils.buvid,
+    onTap: _showBuvidDialog,
+  ),
   NormalModel(
     title: '首页推荐模式',
     leading: const Icon(Icons.model_training_outlined),

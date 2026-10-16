@@ -2,6 +2,7 @@ import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/models_new/fav/fav_folder/list.dart';
 import 'package:PiliMax/utils/bili_utils.dart';
+import 'package:PiliMax/utils/utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
@@ -10,27 +11,24 @@ class FavFolderItem extends StatelessWidget {
     super.key,
     required this.item,
     required this.onPop,
-    required this.heroTag,
   });
 
   final FavFolderInfo item;
   final VoidCallback onPop;
-  final String heroTag;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final heroTag = Utils.makeHeroTag(item.id);
     return GestureDetector(
-      onTap: () {
-        Get.toNamed(
-          '/favDetail',
-          arguments: item,
-          parameters: {
-            'mediaId': item.id.toString(),
-            'heroTag': heroTag,
-          },
-        )?.whenComplete(onPop);
-      },
+      onTap: () => Get.toNamed(
+        '/favDetail',
+        arguments: item,
+        parameters: {
+          'mediaId': item.id.toString(),
+          'heroTag': heroTag,
+        },
+      )?.whenComplete(onPop),
       behavior: HitTestBehavior.opaque,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,8 +61,9 @@ class FavFolderItem extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             ' ${item.title}',
-            overflow: TextOverflow.fade,
             maxLines: 1,
+            overflow: .ellipsis,
+            style: const TextStyle(height: 1.42, letterSpacing: 0.3),
           ),
           Text(
             ' 共${item.mediaCount}条视频 · ${BiliUtils.isPublicFavText(item.attr)}',

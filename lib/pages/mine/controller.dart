@@ -3,13 +3,16 @@ import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/user.dart';
 import 'package:PiliMax/models/common/account_type.dart';
+import 'package:PiliMax/models/common/mine_tab_type.dart';
 import 'package:PiliMax/models/common/theme/theme_type.dart';
 import 'package:PiliMax/models/user/info.dart';
 import 'package:PiliMax/models/user/stat.dart';
 import 'package:PiliMax/models_new/fav/fav_folder/data.dart';
 import 'package:PiliMax/models_new/history/list.dart';
 import 'package:PiliMax/models_new/later/list.dart';
+import 'package:PiliMax/models_new/sub/sub/list.dart';
 import 'package:PiliMax/pages/common/common_data_controller.dart';
+import 'package:PiliMax/pilimax/models/common/mine_card_type.dart';
 import 'package:PiliMax/services/account_service.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
@@ -36,6 +39,11 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
   final Rx<LoadingState<List<LaterItemModel>?>> toViewLoadingState =
       LoadingState<List<LaterItemModel>?>.loading().obs;
 
+  final Rx<LoadingState<List<SubItemModel>?>> subLoadingState =
+      LoadingState<List<SubItemModel>?>.loading().obs;
+
+  late final Set<MineTabType> mineTabs = _loadMineTabs();
+
   // 用户信息 头像、昵称、lv
   final Rx<UserInfoData> userInfo = UserInfoData().obs;
   // 用户状态 动态、关注、粉丝
@@ -48,6 +56,28 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
 
   static RxBool anonymity =
       (Accounts.account.isNotEmpty && !Accounts.heartbeat.isLogin).obs;
+
+  Set<MineTabType> _loadMineTabs() {
+    if (GStorage.setting.get(SettingBoxKey.mineTabs) is List) {
+      return Pref.mineTabs;
+    }
+
+    final legacy = GStorage.setting.get(SettingBoxKey.mineCardSort);
+    if (legacy is List) {
+      final tabs = <MineTabType>[];
+      for (final index in legacy.whereType<int>()) {
+        if (index < 0 || index >= MineCardType.values.length) continue;
+        final tab = switch (MineCardType.values[index]) {
+          .history => MineTabType.history,
+          .fav => MineTabType.favorite,
+          .toView => MineTabType.later,
+        };
+        if (!tabs.contains(tab)) tabs.add(tab);
+      }
+      if (tabs.isNotEmpty) return tabs.toSet();
+    }
+    return MineTabType.kDefault;
+  }
 
   late final list = <({IconData icon, String title, VoidCallback onTap})>[
     (
@@ -90,10 +120,11 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
     UserInfoData? userInfoCache = Pref.userInfoCache;
     if (userInfoCache != null) {
       userInfo.value = userInfoCache;
-      queryData();
+      if (mineTabs.contains(MineTabType.favorite)) queryData();
       queryUserInfo();
-      queryHistory();
-      queryToView();
+      if (mineTabs.contains(MineTabType.history)) queryHistory();
+      if (mineTabs.contains(MineTabType.later)) queryToView();
+      if (mineTabs.contains(MineTabType.sub)) querySub();
     }
   }
 
@@ -112,10 +143,22 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       account: Accounts.history,
     );
     if (res case Success(:final response)) {
-      historyLoadingState.value =
-          Success(response.list?.take(20).toList());
+      historyLoadingState.value = Success(response.list?.take(20).toList());
     } else if (res case Error(:final errMsg, :final code)) {
       historyLoadingState.value = Error(errMsg, code: code);
+    }
+  }
+
+  Future<void> querySub() async {
+    final res = await UserHttp.userSubFolder(
+      pn: 1,
+      ps: 20,
+      mid: Accounts.main.mid,
+    );
+    if (res case Success(:final response)) {
+      subLoadingState.value = Success(response.list?.take(20).toList());
+    } else if (res case Error(:final errMsg, :final code)) {
+      subLoadingState.value = Error(errMsg, code: code);
     }
   }
 
@@ -171,11 +214,7 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
 
   @override
   Future<LoadingState<FavFolderData>> customGetData() {
-    return FavHttp.userfavFolder(
-      pn: 1,
-      ps: 20,
-      mid: Accounts.main.mid,
-    );
+    return FavHttp.userfavFolder(pn: 1, ps: 20, mid: Accounts.main.mid);
   }
 
   static void onChangeAnonymity() {
@@ -322,8 +361,9 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       return Future.syncValue(null);
     }
     queryUserInfo();
-    queryHistory();
-    queryToView();
+    if (mineTabs.contains(MineTabType.history)) queryHistory();
+    if (mineTabs.contains(MineTabType.later)) queryToView();
+    if (mineTabs.contains(MineTabType.sub)) querySub();
     return super.onRefresh().whenComplete(() {
       if (isManual) {
         scrollController.jumpToTop();
@@ -341,6 +381,7 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       loadingState.value = LoadingState.loading();
       historyLoadingState.value = LoadingState.loading();
       toViewLoadingState.value = LoadingState.loading();
+      subLoadingState.value = LoadingState.loading();
     }
   }
 }

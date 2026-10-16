@@ -14,7 +14,8 @@ import 'dart:io';
 /// Override the compared ref with `PILIMAX_UPSTREAM=some/ref`.
 Future<void> main(List<String> args) async {
   final warnOnly = args.contains('--warn-only');
-  final upstreamRef = Platform.environment['PILIMAX_UPSTREAM'] ?? 'upstream/main';
+  final upstreamRef =
+      Platform.environment['PILIMAX_UPSTREAM'] ?? 'upstream/main';
   final mapFile = File('tool/pilimax/fork_map.tsv');
   if (!mapFile.existsSync()) {
     stderr.writeln('fork map not found: ${mapFile.path}');

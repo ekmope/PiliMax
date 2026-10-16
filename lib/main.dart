@@ -31,7 +31,7 @@ import 'package:PiliMax/pilimax/utils/android/android_mmkv_box.dart';
 import 'package:PiliMax/pilimax/utils/android/android_mmkv_recovery.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
-import 'package:PiliMax/utils/calc_window_position.dart';
+import 'package:PiliMax/utils/desktop/calc_window_position.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/extension/core_palettes_ext.dart';
@@ -65,7 +65,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness_platform_interface/screen_brightness_platform_interface.dart';
-import 'package:window_manager/window_manager.dart' hide calcWindowPosition;
+import 'package:window_manager/window_manager.dart';
 
 WebViewEnvironment? webViewEnvironment;
 
@@ -296,26 +296,6 @@ Future<void> _main() async {
     } else {
       ScreenBrightnessPlatform.instance.setAutoReset(false);
     }
-  } else if (PlatformUtils.isDesktop) {
-    await windowManager.ensureInitialized();
-
-    final windowOptions = WindowOptions(
-      minimumSize: const Size(400, 720),
-      skipTaskbar: false,
-      titleBarStyle: Pref.showWindowTitleBar
-          ? TitleBarStyle.normal
-          : TitleBarStyle.hidden,
-      title: Constants.appName,
-    );
-    windowManager.waitUntilReadyToShow(windowOptions, () async {
-      final windowSize = Pref.windowSize;
-      await windowManager.setBounds(
-        await calcWindowPosition(windowSize) & windowSize,
-      );
-      if (Pref.isWindowMaximized) await windowManager.maximize();
-      await windowManager.show();
-      await windowManager.focus();
-    });
   }
 
   if (Pref.dynamicColor) {
@@ -356,10 +336,33 @@ Future<void> _main() async {
   } else {
     runApp(MyApp(startupCrashReport: startupCrashReport));
   }
+
+  if (PlatformUtils.isDesktop) {
+    final window = WindowManager.instance.getCurrent();
+    if (window != null) {
+      window
+        ..titleBarStyle = Pref.showWindowTitleBar ? .normal : .hidden
+        ..isWindowControlButtonsVisible = true
+        ..bounds = calcWindowBounds()
+        ..minimumSize = DeviceUtils.desktopMinSize
+        ..isVisibleInTaskbar = true
+        ..title = Constants.appName;
+      if (Pref.isWindowMaximized) window.maximize();
+      void show([_]) => window
+        ..focus()
+        ..show();
+      switch (WidgetsBinding.instance.schedulerPhase) {
+        case .idle || .postFrameCallbacks:
+          WidgetsBinding.instance.scheduleFrameCallback(show);
+        case .transientCallbacks || .midFrameMicrotasks || .persistentCallbacks:
+          WidgetsBinding.instance.addPostFrameCallback(show);
+      }
+    }
+  }
 }
 
 KeyEventResult _onKeyEvent(KeyEvent event) {
-  if (event.logicalKey == .escape && event is KeyDownEvent) {
+  if (event is KeyDownEvent && event.logicalKey == .escape) {
     _onBack();
     return .handled;
   }

@@ -1,8 +1,6 @@
 import 'dart:async' show Completer, unawaited;
 import 'dart:io';
 
-import 'package:PiliMax/common/assets.dart';
-import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
 import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
@@ -12,20 +10,19 @@ import 'package:PiliMax/common/widgets/route_aware_mixin.dart';
 import 'package:PiliMax/models/common/nav_bar_config.dart';
 import 'package:PiliMax/pages/home/view.dart';
 import 'package:PiliMax/pages/main/controller.dart';
-import 'package:PiliMax/plugin/pl_player/controller.dart';
-import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/pilimax/services/route_restore_service.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/pilimax/utils/clipboard_video_link_handler.dart';
 import 'package:PiliMax/utils/device_utils.dart';
+import 'package:PiliMax/utils/desktop/window_controller.dart';
+import 'package:PiliMax/utils/desktop/tray_controller.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/mobile_observer.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
-import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/physics.dart';
@@ -37,15 +34,9 @@ import 'package:flutter/services.dart'
         LogicalKeyboardKey,
         SystemUiOverlayStyle;
 import 'package:get/get.dart';
-import 'package:tray_manager/tray_manager.dart';
-import 'package:window_manager/window_manager.dart';
+import 'package:nativeapi/nativeapi.dart' as nativeapi;
 
-enum _MainBackAction {
-  dynamicsRoot,
-  homeRecommended,
-  firstNavigation,
-  exit,
-}
+enum _MainBackAction { dynamicsRoot, homeRecommended, firstNavigation, exit }
 
 class MainApp extends StatefulWidget {
   const MainApp({super.key});
@@ -55,15 +46,9 @@ class MainApp extends StatefulWidget {
 }
 
 class _MainAppState extends PopScopeState<MainApp>
-    with
-        RouteAware,
-        RouteAwareMixin,
-        WidgetsBindingObserver,
-        WindowListener,
-        TrayListener {
+    with RouteAware, RouteAwareMixin, WidgetsBindingObserver {
   final _mainController = Get.put(MainController());
   final _navigationKey = GlobalKey();
-  late final _setting = GStorage.setting;
   late final List<Worker> _backPopWorkers;
   late EdgeInsets _padding;
   late ThemeData theme;
@@ -246,12 +231,9 @@ class _MainAppState extends PopScopeState<MainApp>
       _scheduleClipboardVideoLinkInitialization();
     }
     if (PlatformUtils.isDesktop) {
-      windowManager
-        ..addListener(this)
-        ..setPreventClose(true);
+      WindowController.instance.init();
       if (_mainController.showTrayIcon) {
-        trayManager.addListener(this);
-        _handleTray();
+        TrayController.instance.init();
       }
     } else {
       // FlutterSmartDialog throws
@@ -270,7 +252,9 @@ class _MainAppState extends PopScopeState<MainApp>
     if (PlatformUtils.isDesktop) {
       if (_brightness != brightness) {
         _brightness = brightness;
-        windowManager.setBrightness(brightness);
+        nativeapi.Application.instance.setBrightness(
+          brightness == .dark ? .dark : .light,
+        );
       }
     }
     if (!_mainController.useSideBar) {
@@ -323,8 +307,8 @@ class _MainAppState extends PopScopeState<MainApp>
       HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
     }
     if (PlatformUtils.isDesktop) {
-      trayManager.removeListener(this);
-      windowManager.removeListener(this);
+      WindowController.instance.dispose();
+      TrayController.instance.dispose();
     }
     removeObserverMobile(this);
     ClipboardVideoLinkHandler.dispose();
@@ -341,153 +325,6 @@ class _MainAppState extends PopScopeState<MainApp>
         event.logicalKey == LogicalKeyboardKey.keyR &&
         HardwareKeyboard.instance.isMetaPressed &&
         _mainController.refreshRecommendations();
-  }
-
-  @override
-  void onWindowMaximize() {
-    _setting.put(SettingBoxKey.isWindowMaximized, true);
-  }
-
-  @override
-  void onWindowUnmaximize() {
-    _setting.put(SettingBoxKey.isWindowMaximized, false);
-  }
-
-  @override
-  Future<void> onWindowMoved() async {
-    if (PlPlayerController.instance?.updatePipBounds() ?? false) {
-      return;
-    }
-    final Offset offset = await windowManager.getPosition();
-    _setting.put(SettingBoxKey.windowPosition, [offset.dx, offset.dy]);
-  }
-
-  @override
-  Future<void> onWindowResized() async {
-    if (PlPlayerController.instance?.updatePipBounds() ?? false) {
-      return;
-    }
-    final Rect bounds = await windowManager.getBounds();
-    _setting.putAll({
-      SettingBoxKey.windowSize: [bounds.width, bounds.height],
-      SettingBoxKey.windowPosition: [bounds.left, bounds.top],
-    });
-  }
-
-  @override
-  void onWindowClose() {
-    if (_mainController.showTrayIcon && _mainController.minimizeOnExit) {
-      unawaited(_hide());
-      _onHideWindow();
-    } else {
-      _onClose();
-    }
-  }
-
-  Future<void> _onClose() async {
-    await GStorage.compact();
-    await GStorage.close();
-    await trayManager.destroy();
-    DeviceUtils.exitApp();
-  }
-
-  @override
-  void onWindowMinimize() {
-    _onHideWindow();
-  }
-
-  @override
-  void onWindowRestore() {
-    _onShowWindow();
-  }
-
-  void _onHideWindow() {
-    if (_mainController.pauseOnMinimize) {
-      if (PlPlayerController.instance case final player?) {
-        if (_mainController.isPlaying = player.playerStatus.isPlaying) {
-          player.pause();
-        }
-      } else {
-        _mainController.isPlaying = false;
-      }
-    }
-  }
-
-  void _onShowWindow() {
-    if (_mainController.pauseOnMinimize && _mainController.isPlaying) {
-      PlPlayerController.instance?.play();
-    }
-  }
-
-  double? _opacity;
-
-  Future<void>? _setOpacity(double opacity) {
-    if (Platform.isWindows && _opacity != opacity) {
-      _opacity = opacity;
-      return windowManager.setOpacity(opacity);
-    }
-    return null;
-  }
-
-  @override
-  Future<void>? onWindowFocus() => _setOpacity(1.0);
-
-  /// Hide the Windows window without leaving a stale opaque surface behind.
-  Future<void> _hide() async {
-    await _setOpacity(0.0);
-    await windowManager.hide();
-  }
-
-  Future<void> _show() async {
-    await _setOpacity(1.0);
-    await windowManager.show();
-  }
-
-  @override
-  Future<void> onTrayIconMouseDown() async {
-    if (await windowManager.isVisible()) {
-      _onHideWindow();
-      await _hide();
-    } else {
-      _onShowWindow();
-      await _show();
-    }
-  }
-
-  @override
-  Future<void> onTrayIconRightMouseDown() async {
-    // ignore: deprecated_member_use
-    trayManager.popUpContextMenu(bringAppToFront: true);
-  }
-
-  @override
-  void onTrayMenuItemClick(MenuItem menuItem) {
-    switch (menuItem.key) {
-      case 'show':
-        unawaited(_show());
-      case 'exit':
-        _onClose();
-    }
-  }
-
-  Future<void> _handleTray() async {
-    if (Platform.isWindows) {
-      await trayManager.setIcon(Assets.logoIco);
-    } else {
-      await trayManager.setIcon(Assets.logoLarge);
-    }
-    if (!Platform.isLinux) {
-      await trayManager.setToolTip(Constants.appName);
-    }
-
-    Menu trayMenu = Menu(
-      items: [
-        MenuItem(key: 'show', label: '显示窗口'),
-        MenuItem.separator(),
-        MenuItem(key: 'exit', label: '退出 ${Constants.appName}'),
-      ],
-    );
-    await trayManager.setContextMenu(trayMenu);
   }
 
   @pragma('vm:prefer-inline')
@@ -863,9 +700,7 @@ class _MainAppState extends PopScopeState<MainApp>
         gradient: LinearGradient(
           colors: [
             colorScheme.primary.withValues(alpha: isDark ? .30 : .36),
-            colorScheme.primaryContainer.withValues(
-              alpha: isDark ? .40 : .36,
-            ),
+            colorScheme.primaryContainer.withValues(alpha: isDark ? .40 : .36),
             colorScheme.surface.withValues(alpha: .60),
           ],
           begin: Alignment.topLeft,

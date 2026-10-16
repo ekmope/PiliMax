@@ -10,10 +10,9 @@ import 'package:PiliMax/pages/member_opus/controller.dart';
 import 'package:PiliMax/pages/member_opus/widgets/space_opus_item.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/waterfall.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
-import 'package:waterfall_flow/waterfall_flow.dart'
-    hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
 
 class MemberOpus extends StatefulWidget {
   const MemberOpus({
@@ -43,10 +42,7 @@ class _MemberOpusState extends State<MemberOpus>
   void initState() {
     super.initState();
     _controller = Get.put(
-      MemberOpusController(
-        mid: widget.mid,
-        heroTag: widget.heroTag,
-      ),
+      MemberOpusController(mid: widget.mid, heroTag: widget.heroTag),
       tag: widget.heroTag,
     );
   }
@@ -85,9 +81,7 @@ class _MemberOpusState extends State<MemberOpus>
             child: SlideTransition(
               position: fabAnimation,
               child: Padding(
-                padding: .only(
-                  bottom: bottom + kFloatingActionButtonMargin,
-                ),
+                padding: .only(bottom: bottom + kFloatingActionButtonMargin),
                 child: FloatingActionButton.extended(
                   onPressed: () => showDialog(
                     context: context,
@@ -120,12 +114,10 @@ class _MemberOpusState extends State<MemberOpus>
                     ),
                   ),
                   icon: const Icon(size: 20, Icons.sort),
-                  label: Obx(
-                    () {
-                      final type = _controller.type.value;
-                      return Text(type.text ?? type.tabName!);
-                    },
-                  ),
+                  label: Obx(() {
+                    final type = _controller.type.value;
+                    return Text(type.text ?? type.tabName!);
+                  }),
                 ),
               ),
             ),
@@ -134,15 +126,15 @@ class _MemberOpusState extends State<MemberOpus>
     );
   }
 
-  late final gridDelegate = SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
+  late final gridDelegate = SliverSimpleGridDelegateWithMaxCrossAxisExtent_(
     maxCrossAxisExtent: Grid.smallCardWidth,
-    mainAxisSpacing: Style.safeSpace,
-    crossAxisSpacing: Style.safeSpace,
   );
 
   Widget _buildBody(LoadingState<List<SpaceOpusItemModel>?> loadingState) {
     return switch (loadingState) {
-      Loading() => SliverWaterfallFlow(
+      Loading() => SliverMasonryGrid(
+        mainAxisSpacing: Style.safeSpace,
+        crossAxisSpacing: Style.safeSpace,
         gridDelegate: gridDelegate,
         delegate: const SliverSingleChildDelegate(
           count: 10,
@@ -151,10 +143,12 @@ class _MemberOpusState extends State<MemberOpus>
       ),
       Success(:final response) =>
         response != null && response.isNotEmpty
-            ? SliverWaterfallFlow(
+            ? SliverMasonryGrid(
+                mainAxisSpacing: Style.safeSpace,
+                crossAxisSpacing: Style.safeSpace,
                 gridDelegate: gridDelegate,
                 delegate: SliverChildBuilderDelegate(
-                  (_, index) {
+                  (context, index) {
                     if (index == response.length - 1) {
                       _controller.onLoadMore();
                     }

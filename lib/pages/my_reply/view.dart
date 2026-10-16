@@ -13,10 +13,10 @@ import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:PiliMax/utils/waterfall.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
-import 'package:waterfall_flow/waterfall_flow.dart';
 
 class MyReply extends StatefulWidget {
   const MyReply({super.key});
@@ -79,7 +79,8 @@ class _MyReplyState extends State<MyReply> with DynMixin {
         slivers: [
           _replies.isNotEmpty
               ? ViewSliverSafeArea(
-                  sliver: SliverWaterfallFlow(
+                  sliver: SliverMasonryGrid(
+                    crossAxisSpacing: 4,
                     gridDelegate: dynGridDelegate,
                     delegate: SliverChildBuilderDelegate(
                       childCount: _replies.length,
@@ -103,17 +104,11 @@ class _MyReplyState extends State<MyReply> with DynMixin {
   void _replyReply(ReplyInfo replyInfo, int? rpid) {
     switch (replyInfo.type.toInt()) {
       case 1:
-        PiliScheme.videoPush(
-          replyInfo.oid.toInt(),
-          null,
-        );
+        PiliScheme.videoPush(replyInfo.oid.toInt(), null);
       case 12:
         PageUtils.toDupNamed(
           '/articlePage',
-          parameters: {
-            'id': replyInfo.oid.toString(),
-            'type': 'read',
-          },
+          parameters: {'id': replyInfo.oid.toString(), 'type': 'read'},
         );
       case _:
         PageUtils.pushDynFromId(

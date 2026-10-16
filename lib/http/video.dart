@@ -311,8 +311,7 @@ abstract final class VideoHttp {
         params = await WbiSign.makSign({
           'x-bili-locale-json':
               '{"c_locale":{"language":"zh-Hans"},"always_translate":false}',
-          'x-bili-device-req-json':
-              '{"platform":"web","device":"pc","spmid":"666.25","mobi_app":"web_cn"}',
+          'x-bili-device-req-json': '{"platform":"web","device":"pc","spmid":"666.25","mobi_app":"web_cn"}',
           if (Accounts.video.isLogin) 'csrf': Accounts.video.csrf,
         });
         data = {
@@ -331,6 +330,7 @@ abstract final class VideoHttp {
             'app_id': 100,
           },
         };
+    }
 
     try {
       final res = await Request().request(
@@ -350,7 +350,7 @@ abstract final class VideoHttp {
             final result = res.data['data'];
             final videoInfo = result is Map ? result['video_info'] : null;
             if (videoInfo is Map) {
-              data = PlayUrlModel.fromJson(videoInfo);
+              data = PlayUrlModel.fromJson(videoInfo.cast<String, dynamic>());
               final progress = result['watch_progress'];
               if (progress is Map) {
                 data.lastPlayTime =
@@ -429,8 +429,15 @@ abstract final class VideoHttp {
     );
     if (res.data['code'] == 0) {
       final items = (res.data['data'] as List?)
-          ?.whereNotBlocked((e) => e['owner']?['mid'])
-          .map((i) => HotVideoItemModel.fromJson(i));
+          ?.whereType<Map>()
+          .where((item) {
+            final owner = item['owner'];
+            final mid = owner is Map ? safeToInt(owner['mid']) : null;
+            return !RecommendFilter.filterUser(mid);
+          })
+          .map(
+            (item) => HotVideoItemModel.fromJson(item.cast<String, dynamic>()),
+          );
       final list = RecommendFilter.applyFilterToRelatedVideos
           ? items?.where((i) => !RecommendFilter.filterAll(i)).toList()
           : items?.toList();

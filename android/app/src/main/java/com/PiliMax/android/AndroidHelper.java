@@ -27,9 +27,8 @@ import android.provider.Settings;
 import android.util.Rational;
 import android.view.WindowManager;
 
-import androidx.annotation.DrawableRes;
-import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
+import androidx.annotation.Keep;
 import androidx.annotation.RequiresApi;
 
 import com.github.dart_lang.jni_flutter.JniFlutterPlugin;
@@ -39,7 +38,8 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Map;
 
-@Keep
+import static com.PiliMax.android.MediaHelper.getRemoteAction;
+
 public final class AndroidHelper {
     public static final boolean isFoldable;
 
@@ -243,24 +243,11 @@ public final class AndroidHelper {
         builder.setActions(actionList);
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.O)
-    private static RemoteAction getRemoteAction(Context context, @DrawableRes int resId, String title, int action) {
-        return new RemoteAction(
-                Icon.createWithResource(context, resId),
-                title,
-                title,
-                MediaHelper.buildMediaButtonPendingIntent(context, action)
-        );
-    }
-
     public static void disableAutoEnterPip(long engineId) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Activity activity = JniFlutterPlugin.getActivity(engineId);
             if (activity != null) {
-                activity.setPictureInPictureParams(new PictureInPictureParams.Builder()
-                        .setAutoEnterEnabled(false)
-                        .build()
-                );
+                activity.setPictureInPictureParams(new PictureInPictureParams.Builder().setAutoEnterEnabled(false).build());
             }
         }
     }
@@ -304,11 +291,10 @@ public final class AndroidHelper {
         }
     }
 
-    @SuppressLint("BlockedPrivateApi")
     public static String[] fontFamilies() {
         Map<String, Typeface> systemFontMap = null;
         try {
-            Method method = Typeface.class.getDeclaredMethod("getSystemFontMap");
+            @SuppressLint("BlockedPrivateApi") Method method = Typeface.class.getDeclaredMethod("getSystemFontMap");
             method.setAccessible(true);
             systemFontMap = (Map<String, Typeface>) method.invoke(null);
         } catch (Exception ignored) {
@@ -319,7 +305,7 @@ public final class AndroidHelper {
             } catch (Exception ignored0) {
             }
         }
-        if (null != systemFontMap) {
+        if (null != systemFontMap && !systemFontMap.isEmpty()) {
             return systemFontMap.keySet().toArray(new String[0]);
         }
         return null;

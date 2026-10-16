@@ -39,6 +39,7 @@ import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/desktop/window_controller.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -59,11 +60,7 @@ List<SettingsModel> get extraSettings => [
       title: '退出时最小化',
       leading: const Icon(Icons.exit_to_app),
       setKey: SettingBoxKey.minimizeOnExit,
-      onChanged: (value) {
-        try {
-          Get.find<MainController>().minimizeOnExit = value;
-        } catch (_) {}
-      },
+      onChanged: (value) => WindowController.instance.minimizeOnExit = value,
     ),
     NormalModel(
       title: '缓存路径',

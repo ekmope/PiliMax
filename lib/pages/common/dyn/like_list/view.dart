@@ -52,6 +52,7 @@ class DynLikePage extends StatelessWidget {
     }
 
     final child = CustomScrollView(
+      primary: true,
       key: const PageStorageKey(DynType.like),
       physics: isPortrait
           ? platformAlwaysClampingPhysics

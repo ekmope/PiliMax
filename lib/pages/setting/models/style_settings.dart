@@ -14,7 +14,7 @@ import 'package:PiliMax/pilimax/models/common/danmaku/danmaku_font_sync_mode.dar
 import 'package:PiliMax/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliMax/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliMax/models/common/home_tab_type.dart';
-import 'package:PiliMax/pilimax/models/common/mine_card_type.dart';
+import 'package:PiliMax/models/common/mine_tab_type.dart';
 import 'package:PiliMax/models/common/msg/msg_unread_type.dart';
 import 'package:PiliMax/models/common/nav_bar_config.dart';
 import 'package:PiliMax/models/common/theme/theme_color_type.dart';
@@ -25,6 +25,7 @@ import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/pages/setting/slide_color_picker.dart';
 import 'package:PiliMax/pages/setting/widgets/dual_slider_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/multi_select_dialog.dart';
+import 'package:PiliMax/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
@@ -436,17 +437,11 @@ List<SettingsModel> get styleSettings => [
     leading: const Icon(Icons.toc_outlined),
   ),
   NormalModel(
-    onTap: (context, setState) => Get.toNamed(
-      '/barSetting',
-      arguments: {
-        'key': SettingBoxKey.mineCardSort,
-        'defaultBars': MineCardType.values,
-        'title': '我的页卡片',
-      },
-    ),
-    title: '我的页卡片编辑',
-    subtitle: '选择并排列「我的」页面显示的卡片板块',
-    leading: const Icon(Icons.person_outline),
+    title: '我的页板块',
+    leading: const Icon(Icons.dashboard_customize_outlined),
+    getSubtitle: () =>
+        '当前：${Pref.mineTabs.map((item) => item.label).join('、')}',
+    onTap: _showMineTabsDialog,
   ),
   SwitchModel(
     title: '返回时直接退出',
@@ -463,6 +458,28 @@ List<SettingsModel> get styleSettings => [
       leading: const Icon(Icons.autofps_select_outlined),
     ),
 ];
+
+Future<void> _showMineTabsDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final result = await showDialog<List<MineTabType>>(
+    context: context,
+    builder: (context) => OrderedMultiSelectDialog<MineTabType>(
+      title: const Text('我的页板块'),
+      initValues: Pref.mineTabs,
+      values: {for (final item in MineTabType.values) item: item.label},
+    ),
+  );
+  if (result == null) return;
+
+  await GStorage.setting.put(
+    SettingBoxKey.mineTabs,
+    result.map((item) => item.index).toList(),
+  );
+  setState();
+  SmartDialog.showToast('重启后生效');
+}
 
 void _showQualityDialog({
   required BuildContext context,
@@ -1123,10 +1140,7 @@ Future<void> _showFloatingNavigationLiftDialog(
   final normalized = result.isFinite
       ? result.clamp(0.0, kMaxFloatingNavBottomLift).toDouble()
       : 0.0;
-  await GStorage.setting.put(
-    SettingBoxKey.floatingNavBottomLift,
-    normalized,
-  );
+  await GStorage.setting.put(SettingBoxKey.floatingNavBottomLift, normalized);
   try {
     Get.find<MainController>().floatingNavBottomLift.value = normalized;
   } catch (_) {
@@ -1222,4 +1236,32 @@ NormalModel _useSSDModel() {
       ),
     ),
   );
+}
+
+Widget _themeTrailing(ThemeData theme) {
+  if (Pref.dynamicColor) {
+    return Icon(Icons.color_lens_rounded, color: theme.colorScheme.primary);
+  }
+  final customColor = Pref.customColor;
+  final color =
+      colorThemeTypes.elementAtOrNull(customColor)?.color ?? Color(customColor);
+  return SizedBox.square(
+    dimension: 20,
+    child: ColorPalette(
+      colorScheme: color.asColorSchemeSeed(
+        Pref.schemeVariant,
+        theme.brightness,
+      ),
+      selected: false,
+      showBgColor: false,
+    ),
+  );
+}
+
+void _onHorizontalScreenChanged(bool value) {
+  if (value) {
+    fullMode();
+  } else {
+    portraitUpMode();
+  }
 }

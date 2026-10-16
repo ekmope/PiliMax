@@ -79,8 +79,9 @@ class LocalIntroController extends CommonIntroController {
       DownloadPlaylistScope.all => collectionService.resolveAllEntries(
         downloadService.downloadList,
       ),
-      null => List<BiliDownloadEntryInfo>.from(downloadService.downloadList)
-        ..sort((a, b) => b.timeUpdateStamp.compareTo(a.timeUpdateStamp)),
+      null => List<BiliDownloadEntryInfo>.from(
+        downloadService.downloadList,
+      )..sort((a, b) => b.timeUpdateStamp.compareTo(a.timeUpdateStamp)),
     };
     for (final entry in list) {
       aidSet.add(entry.pageId);

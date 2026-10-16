@@ -31,19 +31,13 @@ import 'package:PiliMax/pages/dynamics_repost/view.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/num_utils.dart';
-import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/request_utils.dart';
+import 'package:PiliMax/utils/reply_scheme_helper.dart';
 import 'package:PiliMax/utils/share_utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
-
-const Set<TargetPlatform> _kDesktopPlatforms = <TargetPlatform>{
-  TargetPlatform.macOS,
-  TargetPlatform.windows,
-  TargetPlatform.linux,
-};
 
 class DynamicDetailPage extends StatefulWidget {
   const DynamicDetailPage({super.key});
@@ -52,8 +46,8 @@ class DynamicDetailPage extends StatefulWidget {
   State<DynamicDetailPage> createState() => _DynamicDetailPageState();
 }
 
-class _DynamicDetailPageState
-    extends CommonDynPageMultiState<DynamicDetailPage> {
+class _DynamicDetailPageState extends CommonDynPageMultiState<DynamicDetailPage>
+    with DynReplyLocateStateMixin {
   @override
   late final DynamicDetailController controller;
   late final DynRepostController _repostController;
@@ -77,10 +71,10 @@ class _DynamicDetailPageState
   @override
   void initState() {
     super.initState();
-    final args = Get.arguments;
+    final Map args = Get.arguments;
     final item = args['item'] as DynamicItemModel;
     final id = item.idStr.toString();
-    if (args['viewComment'] ?? false) {
+    if (args['viewComment'] == true || args.containsKey(rootRpIdKey)) {
       WidgetsBinding.instance.addPostFrameCallback(_jumpToComment);
     }
     controller = Get.putOrFind(DynamicDetailController.new, tag: id);
@@ -357,6 +351,7 @@ class _DynamicDetailPageState
 
   Widget _buildTabBody([bool isPortrait = true]) {
     final reply = CustomScrollView(
+      primary: true,
       key: const PageStorageKey(DynType.reply),
       physics: ReloadScrollPhysics(controller: controller),
       slivers: [
@@ -450,6 +445,7 @@ class _DynamicDetailPageState
         Expanded(
           flex: flex,
           child: CustomScrollView(
+            primary: true,
             slivers: [
               SliverPadding(
                 padding: .only(
@@ -479,13 +475,6 @@ class _DynamicDetailPageState
         ),
       ],
     );
-    if (PlatformUtils.isDesktop) {
-      return PrimaryScrollController(
-        controller: PrimaryScrollController.of(context),
-        automaticallyInheritForPlatforms: _kDesktopPlatforms,
-        child: child,
-      );
-    }
     return child;
   }
 

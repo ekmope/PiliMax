@@ -10,17 +10,13 @@ import 'package:PiliMax/pages/dynamics_tab/controller.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/waterfall.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
-import 'package:waterfall_flow/waterfall_flow.dart'
-    hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
 
 class DynamicsTabPage extends StatefulWidget {
-  const DynamicsTabPage({
-    super.key,
-    this.dynamicsType,
-    this.upItem,
-  }) : assert(dynamicsType != null || upItem != null);
+  const DynamicsTabPage({super.key, this.dynamicsType, this.upItem})
+    : assert(dynamicsType != null || upItem != null);
 
   final DynamicsTabType? dynamicsType;
   final UpItem? upItem;
@@ -83,10 +79,11 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
       Success(:final response) =>
         response != null && response.isNotEmpty
             ? GlobalData().dynamicsWaterfallFlow
-                  ? SliverWaterfallFlow(
+                  ? SliverMasonryGrid(
+                      crossAxisSpacing: 4,
                       gridDelegate: dynGridDelegate,
                       delegate: SliverChildBuilderDelegate(
-                        (_, index) => _itemBuilder(response, index),
+                        (context, index) => _itemBuilder(response, index),
                         childCount: response.length,
                       ),
                     )
@@ -109,9 +106,7 @@ class _DynamicsTabPageState extends State<DynamicsTabPage>
     }
     final item = list[index];
     return DynamicPanel(
-      key: ValueKey(
-        'dynamic-tab-$tag-${item.idStr ?? index}-$index',
-      ),
+      key: ValueKey('dynamic-tab-$tag-${item.idStr ?? index}-$index'),
       item: item,
       index: index,
       heroScope: 'dynamic-tab-$tag',

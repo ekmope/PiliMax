@@ -16,6 +16,7 @@ import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/url_utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:fixnum/fixnum.dart';
 import 'package:get/get.dart';
 
 class ArticleController extends CommonDynController {
@@ -67,6 +68,8 @@ class ArticleController extends CommonDynController {
     final params = Get.parameters;
     id = params['id']!;
     type = params['type']!;
+    final rpid = Get.arguments?['rpid'];
+    if (rpid is int) targetRpid = Int64(rpid);
 
     // to opus
     if (type == 'read') {

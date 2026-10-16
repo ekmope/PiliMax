@@ -1,4 +1,6 @@
 import 'package:PiliMax/common/style.dart' as common_style;
+import 'package:PiliMax/models/dynamics/eva3_opus.dart';
+import 'package:PiliMax/models/dynamics/eva3_video.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/models/dynamics/vote_model.dart';
 import 'package:PiliMax/utils/color_utils.dart';
@@ -57,9 +59,7 @@ class Pic {
 }
 
 class Line {
-  Line({
-    this.pic,
-  });
+  Line({this.pic});
   Pic? pic;
 
   Line.fromJson(Map<String, dynamic> json) {
@@ -68,9 +68,7 @@ class Line {
 }
 
 class Format {
-  Format({
-    this.align,
-  });
+  Format({this.align});
   int? align;
 
   Format.fromJson(Map<String, dynamic> json) {
@@ -79,9 +77,7 @@ class Format {
 }
 
 class Text {
-  Text({
-    this.nodes,
-  });
+  Text({this.nodes});
   List<Node>? nodes;
 
   Text.fromJson(Map<String, dynamic> json) {
@@ -146,11 +142,7 @@ class Word {
 }
 
 class Style {
-  Style({
-    this.bold,
-    this.italic,
-    this.strikethrough,
-  });
+  Style({this.bold, this.italic, this.strikethrough});
   bool? bold;
   bool? italic;
   bool? strikethrough;
@@ -215,6 +207,8 @@ class Card {
   SimpleVoteInfo? vote;
   Music? music;
   Goods? goods;
+  Eva3Video? eva3Video;
+  Eva3Opus? eva3Opus;
 
   Card.fromJson(Map<String, dynamic> json) {
     oid = json['oid'];
@@ -229,6 +223,12 @@ class Card {
     vote = json['vote'] == null ? null : SimpleVoteInfo.fromJson(json['vote']);
     music = json['music'] == null ? null : Music.fromJson(json['music']);
     goods = json['goods'] == null ? null : Goods.fromJson(json['goods']);
+    eva3Video = json['eva3_video'] == null
+        ? null
+        : Eva3Video.fromJson(json['eva3_video']);
+    eva3Opus = json['eva3_opus'] == null
+        ? null
+        : Eva3Opus.fromJson(json['eva3_opus']);
   }
 }
 
@@ -367,10 +367,7 @@ class Common {
 }
 
 class ItemNull {
-  ItemNull({
-    this.icon,
-    this.text,
-  });
+  ItemNull({this.icon, this.text});
   String? icon;
   String? text;
 
@@ -381,9 +378,7 @@ class ItemNull {
 }
 
 class LinkCard {
-  LinkCard({
-    this.card,
-  });
+  LinkCard({this.card});
   Card? card;
 
   LinkCard.fromJson(Map<String, dynamic> json) {
@@ -393,11 +388,25 @@ class LinkCard {
 
 class L1st {
   List<Item>? items;
+  List<Child>? children;
   int? style;
 
   L1st.fromJson(Map<String, dynamic> json) {
     items = (json['items'] as List?)?.map((e) => Item.fromJson(e)).toList();
+    children = (json['children'] as List?)
+        ?.map((e) => Child.fromJson(e))
+        .toList();
     style = json['style'];
+  }
+}
+
+class Child {
+  List<ArticleContentModel>? children;
+
+  Child.fromJson(Map<String, dynamic> json) {
+    children = (json['children'] as List?)
+        ?.map((e) => ArticleContentModel.fromJson(e))
+        .toList();
   }
 }
 

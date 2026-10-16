@@ -10,8 +10,12 @@ import 'package:jni/jni.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 abstract final class PiliAndroidHelper {
-  @pragma('vm:prefer-inline')
+  static final isPipAvailable = AndroidHelper.isPipAvailable;
+
   static void back() => AndroidHelper.back();
+
+  static void openLinkVerifySettings() =>
+      AndroidHelper.openLinkVerifySettings();
 
   static bool biliSendCommAntifraud(
     int action,
@@ -61,10 +65,6 @@ abstract final class PiliAndroidHelper {
       jPictures?.release();
     }
   }
-
-  @pragma('vm:prefer-inline')
-  static void openLinkVerifySettings() =>
-      AndroidHelper.openLinkVerifySettings();
 
   static bool openMusic(String title, String? artist, String? album) {
     final jTitle = title.toJString();

@@ -21,6 +21,7 @@ enum VideoType {
   final String api;
   final String method;
   final int replyType;
+
   const VideoType({
     required this.api,
     required this.type,

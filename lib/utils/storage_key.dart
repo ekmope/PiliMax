@@ -211,7 +211,9 @@ abstract final class SettingBoxKey {
       angleDegrees = 'angleDegrees',
       liveStream = 'liveStream',
       enableDocProvider = 'enableDocProvider',
-      enableEmoteTooltip = 'enableEmoteTooltip';
+      enableEmoteTooltip = 'enableEmoteTooltip',
+      mineTabs = 'mineTabs',
+      buvid = 'buvid';
 
   static const String enableAiChat = 'enableAiChat',
       aiApiUrl = 'aiApiUrl',
@@ -342,8 +344,7 @@ abstract final class SettingBoxKey {
       liveCdnUrl = 'liveCdnUrl',
       saveReply = 'saveReply',
       swapReplyLikeDislike = 'swapReplyLikeDislike',
-      appFont = 'appFont',
-      buvid = 'buvid';
+      appFont = 'appFont';
 }
 
 abstract final class LocalCacheKey {

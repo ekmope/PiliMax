@@ -70,9 +70,6 @@ class MainController extends GetxController
 
   late final RxBool directExitOnBack = Pref.directExitOnBack.obs;
   late bool showTrayIcon = Pref.showTrayIcon;
-  late bool minimizeOnExit = Pref.minimizeOnExit;
-  late bool pauseOnMinimize = Pref.pauseOnMinimize;
-  late bool isPlaying = false;
 
   static const _period = 5 * 60 * 1000;
   late int _lastSelectTime = 0;

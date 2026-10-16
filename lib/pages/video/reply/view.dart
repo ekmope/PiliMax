@@ -65,6 +65,7 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _videoReplyController.didChangeDependencies(context);
     colorScheme = ColorScheme.of(context);
     bottom = MediaQuery.viewPaddingOf(context).bottom;
   }
@@ -212,10 +213,11 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                   ),
                 );
               } else {
-                return ReplyItemGrpc(
-                  replyItem: response[index],
+                final item = response[index];
+                final child = ReplyItemGrpc(
+                  replyItem: item,
                   replyLevel: widget.replyLevel,
-                  replyReply: replyReply,
+                  replyReply: _videoReplyController.replyReply,
                   onReply: _videoReplyController.onReply,
                   onDelete: (item, subIndex) =>
                       _videoReplyController.onRemove(index, item, subIndex),
@@ -230,6 +232,13 @@ class _VideoReplyPanelState extends State<VideoReplyPanel>
                     _videoReplyController.videoType.replyType,
                   ),
                 );
+                if (item.id == _videoReplyController.targetRootRpId) {
+                  return _videoReplyController.colorAnimWrapper(
+                    colorScheme,
+                    child,
+                  );
+                }
+                return child;
               }
             },
             itemCount: count,

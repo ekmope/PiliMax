@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
+import 'package:PiliMax/common/widgets/colored_box_transition.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show MainListReply, ReplyInfo, SubjectControl, Mode;
 import 'package:PiliMax/grpc/bilibili/pagination.pb.dart';
@@ -11,12 +12,91 @@ import 'package:PiliMax/pages/common/publish/publish_route.dart';
 import 'package:PiliMax/pages/video/reply_new/view.dart';
 import 'package:PiliMax/pilimax/utils/reply_emote_resolver.dart';
 import 'package:PiliMax/utils/feed_back.dart';
+import 'package:PiliMax/utils/reply_scheme_helper.dart';
 import 'package:PiliMax/utils/reply_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:fixnum/fixnum.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
+
+mixin MainReplyLocateMixin on ReplyLocateMixin<MainListReply> {
+  final Map args = Get.arguments ?? const {};
+
+  Int64? targetRootRpId; // highlight
+  void clearTargetRootRpId() {
+    args.remove(rootRpIdKey);
+    targetRootRpId = null;
+  }
+
+  @override
+  void onInit() {
+    if (args[rootRpIdKey] case final int rpid) {
+      rootRpId = Int64(rpid);
+    }
+    super.onInit();
+  }
+
+  @override
+  bool customHandleResponse(bool isRefresh, Success<MainListReply> response) {
+    final flag = super.customHandleResponse(isRefresh, response);
+    if (isRefresh && rootRpId != null && args.containsKey(rootRpIdKey)) {
+      final replies = response.response.replies;
+      final rootReply = replies.firstWhereOrNull((e) => e.id == rootRpId);
+      if (rootReply != null) {
+        onAnimRootReply(rootReply);
+      }
+    }
+    return flag;
+  }
+
+  void onAnimRootReply(ReplyInfo rootReply) {
+    targetRootRpId = rootRpId;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => colorAnimController
+          .forward(from: 0)
+          .whenComplete(clearTargetRootRpId),
+    );
+  }
+}
+
+mixin ReplyLocateMixin<T>
+    on ReplyController<T>, GetSingleTickerProviderStateMixin {
+  AnimationController? _animController;
+  bool get hasAnimController => _animController != null;
+  AnimationController get colorAnimController =>
+      _animController ??= AnimationController(
+        duration: const Duration(milliseconds: 1000),
+        vsync: this,
+      );
+
+  Animation<Color?>? _colorAnim;
+  Animation<Color?> colorAnim(ColorScheme colorScheme) =>
+      _colorAnim ??= colorAnimController.drive(
+        ColorTween(
+          begin: colorScheme.onInverseSurface,
+          end: colorScheme.surface,
+        ).chain(CurveTween(curve: const Interval(0.8, 1.0))),
+      );
+
+  Widget colorAnimWrapper(ColorScheme colorScheme, Widget child) =>
+      ColoredBoxTransition(color: colorAnim(colorScheme), child: child);
+
+  @override
+  void didChangeDependencies(BuildContext context) {
+    super.didChangeDependencies(context);
+    _colorAnim = null;
+  }
+
+  @override
+  void onClose() {
+    _colorAnim = null;
+    _animController?.dispose();
+    _animController = null;
+    super.onClose();
+  }
+}
 
 abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   final RxInt count = (-1).obs;
@@ -42,6 +122,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
       _enableCommAntifraud || _biliSendCommAntifraud;
   dynamic get sourceId;
 
+  Int64? rootRpId;
   Int64? targetRpid;
 
   /// Main comments and nested replies may use different default sorting.

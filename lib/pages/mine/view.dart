@@ -2,33 +2,36 @@ import 'dart:async';
 
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/player_bar.dart';
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/pilimax/models/common/mine_card_type.dart';
+import 'package:PiliMax/models/common/mine_tab_type.dart';
 import 'package:PiliMax/models/common/nav_bar_config.dart';
 import 'package:PiliMax/models_new/fav/fav_folder/list.dart';
 import 'package:PiliMax/models_new/later/list.dart';
+import 'package:PiliMax/models_new/sub/sub/list.dart';
 import 'package:PiliMax/pages/common/common_page.dart';
 import 'package:PiliMax/pages/home/view.dart';
 import 'package:PiliMax/pages/login/controller.dart';
 import 'package:PiliMax/pages/main/controller.dart';
 import 'package:PiliMax/pages/mine/controller.dart';
 import 'package:PiliMax/pilimax/pages/mine/widgets/history_card_item.dart';
-import 'package:PiliMax/pages/mine/widgets/item.dart';
+import 'package:PiliMax/pages/mine/widgets/fav_item.dart';
 import 'package:PiliMax/pilimax/pages/mine/widgets/to_view_card_item.dart';
+import 'package:PiliMax/pages/subscription_detail/view.dart';
 import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
-import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 import 'package:flutter_svg/svg.dart';
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -45,24 +48,6 @@ class _MediaPageState extends CommonPageState<MinePage>
     with AutomaticKeepAliveClientMixin {
   final MineController controller = Get.putOrFind(MineController.new);
   late final MainController _mainController = Get.find<MainController>();
-  late final List<MineCardType> _mineCards = _loadMineCards();
-
-  static List<MineCardType> _loadMineCards() {
-    final List? cache = GStorage.setting.get(SettingBoxKey.mineCardSort);
-    if (cache == null || cache.isEmpty) {
-      const defaults = [MineCardType.history, MineCardType.fav];
-      GStorage.setting.put(
-        SettingBoxKey.mineCardSort,
-        defaults.map((e) => e.index).toList(),
-      );
-      return defaults;
-    }
-    return cache
-        .whereType<int>()
-        .where((i) => i < MineCardType.values.length)
-        .map((i) => MineCardType.values[i])
-        .toList();
-  }
 
   @override
   bool get wantKeepAlive => true;
@@ -111,22 +96,19 @@ class _MediaPageState extends CommonPageState<MinePage>
                   children: [
                     _buildUserInfo(theme, secondary),
                     _buildActions(secondary),
-                    for (final card in _mineCards)
-                      switch (card) {
-                        MineCardType.history => Obx(
-                          () => controller.historyLoadingState.value is Loading
-                              ? const SizedBox.shrink()
-                              : _buildHistory(theme, secondary),
+                    for (final tab in controller.mineTabs)
+                      switch (tab) {
+                        MineTabType.history => Obx(
+                          () => _buildHistory(theme, secondary),
                         ),
-                        MineCardType.fav => Obx(
-                          () => controller.loadingState.value is Loading
-                              ? const SizedBox.shrink()
-                              : _buildFav(theme, secondary),
+                        MineTabType.favorite => Obx(
+                          () => _buildFav(theme, secondary),
                         ),
-                        MineCardType.toView => Obx(
-                          () => controller.toViewLoadingState.value is Loading
-                              ? const SizedBox.shrink()
-                              : _buildToView(theme, secondary),
+                        MineTabType.later => Obx(
+                          () => _buildToView(theme, secondary),
+                        ),
+                        MineTabType.sub => Obx(
+                          () => _buildSub(theme, secondary),
                         ),
                       },
                   ],
@@ -158,10 +140,7 @@ class _MediaPageState extends CommonPageState<MinePage>
                       mainAxisAlignment: .center,
                       children: [
                         Icon(e.icon, color: primary),
-                        Text(
-                          e.title,
-                          style: const TextStyle(fontSize: 13),
-                        ),
+                        Text(e.title, style: const TextStyle(fontSize: 13)),
                       ],
                     ),
                   ),
@@ -208,21 +187,19 @@ class _MediaPageState extends CommonPageState<MinePage>
               onPressed: () => Get.toNamed('/myReply'),
               icon: const Icon(Icons.message_outlined),
             ),
-          Obx(
-            () {
-              final anonymity = MineController.anonymity.value;
-              return IconButton(
-                iconSize: iconSize,
-                padding: padding,
-                style: style,
-                tooltip: "${anonymity ? '退出' : '进入'}无痕模式",
-                onPressed: MineController.onChangeAnonymity,
-                icon: anonymity
-                    ? const Icon(MdiIcons.incognito)
-                    : const Icon(MdiIcons.incognitoOff),
-              );
-            },
-          ),
+          Obx(() {
+            final anonymity = MineController.anonymity.value;
+            return IconButton(
+              iconSize: iconSize,
+              padding: padding,
+              style: style,
+              tooltip: "${anonymity ? '退出' : '进入'}无痕模式",
+              onPressed: MineController.onChangeAnonymity,
+              icon: anonymity
+                  ? const Icon(MdiIcons.incognito)
+                  : const Icon(MdiIcons.incognitoOff),
+            );
+          }),
           IconButton(
             iconSize: iconSize,
             padding: padding,
@@ -360,18 +337,12 @@ class _MediaPageState extends CommonPageState<MinePage>
                       Text.rich(
                         TextSpan(
                           children: [
-                            TextSpan(
-                              text: '硬币 ',
-                              style: coinLabelStyle,
-                            ),
+                            TextSpan(text: '硬币 ', style: coinLabelStyle),
                             TextSpan(
                               text: userInfo.money?.toString() ?? '-',
                               style: coinValStyle,
                             ),
-                            TextSpan(
-                              text: "      经验 ",
-                              style: coinLabelStyle,
-                            ),
+                            TextSpan(text: "      经验 ", style: coinLabelStyle),
                             TextSpan(
                               text: levelInfo?.currentExp?.toString() ?? '-',
                               style: coinValStyle,
@@ -457,14 +428,8 @@ class _MediaPageState extends CommonPageState<MinePage>
               mainAxisSize: .min,
               mainAxisAlignment: .center,
               children: [
-                Text(
-                  count?.toString() ?? '-',
-                  style: countStyle,
-                ),
-                Text(
-                  name,
-                  style: labelStyle,
-                ),
+                Text(count?.toString() ?? '-', style: countStyle),
+                Text(name, style: labelStyle),
               ],
             ),
           ),
@@ -481,10 +446,7 @@ class _MediaPageState extends CommonPageState<MinePage>
   Widget _buildToView(ThemeData theme, Color secondary) {
     return Column(
       children: [
-        Divider(
-          height: 20,
-          color: theme.dividerColor.withValues(alpha: 0.1),
-        ),
+        Divider(height: 20, color: theme.dividerColor.withValues(alpha: 0.1)),
         ListTile(
           onTap: () => Get.toNamed('/later'),
           dense: true,
@@ -577,12 +539,7 @@ class _MediaPageState extends CommonPageState<MinePage>
       ),
       Error(:final errMsg) => SizedBox(
         height: 80,
-        child: Center(
-          child: Text(
-            errMsg ?? '',
-            textAlign: TextAlign.center,
-          ),
-        ),
+        child: Center(child: Text(errMsg ?? '', textAlign: TextAlign.center)),
       ),
     };
   }
@@ -590,10 +547,7 @@ class _MediaPageState extends CommonPageState<MinePage>
   Widget _buildHistory(ThemeData theme, Color secondary) {
     return Column(
       children: [
-        Divider(
-          height: 20,
-          color: theme.dividerColor.withValues(alpha: 0.1),
-        ),
+        Divider(height: 20, color: theme.dividerColor.withValues(alpha: 0.1)),
         ListTile(
           onTap: () => Get.toNamed('/history'),
           dense: true,
@@ -690,12 +644,7 @@ class _MediaPageState extends CommonPageState<MinePage>
       ),
       Error(:final errMsg) => SizedBox(
         height: 80,
-        child: Center(
-          child: Text(
-            errMsg ?? '',
-            textAlign: TextAlign.center,
-          ),
-        ),
+        child: Center(child: Text(errMsg ?? '', textAlign: TextAlign.center)),
       ),
     };
   }
@@ -703,10 +652,7 @@ class _MediaPageState extends CommonPageState<MinePage>
   Widget _buildFav(ThemeData theme, Color secondary) {
     return Column(
       children: [
-        Divider(
-          height: 20,
-          color: theme.dividerColor.withValues(alpha: 0.1),
-        ),
+        Divider(height: 20, color: theme.dividerColor.withValues(alpha: 0.1)),
         ListTile(
           onTap: () => Get.toNamed('/fav')?.whenComplete(_autoRefresh),
           dense: true,
@@ -799,7 +745,6 @@ class _MediaPageState extends CommonPageState<MinePage>
                   );
                 } else {
                   return FavFolderItem(
-                    heroTag: Utils.generateRandomString(8),
                     item: response.list[index],
                     onPop: _autoRefresh,
                   );
@@ -813,13 +758,139 @@ class _MediaPageState extends CommonPageState<MinePage>
       ),
       Error(:final errMsg) => SizedBox(
         height: 160,
-        child: Center(
-          child: Text(
-            errMsg ?? '',
-            textAlign: .center,
-          ),
-        ),
+        child: Center(child: Text(errMsg ?? '', textAlign: .center)),
       ),
     };
+  }
+
+  Widget _buildSub(ThemeData theme, Color secondary) {
+    final state = controller.subLoadingState.value;
+    return switch (state) {
+      Loading() => const SizedBox.shrink(),
+      Error(:final errMsg) =>
+        errMsg == null
+            ? const SizedBox.shrink()
+            : SizedBox(
+                height: 80,
+                child: Center(child: Text(errMsg, textAlign: .center)),
+              ),
+      Success(:final response) when response?.isNotEmpty == true => Column(
+        children: [
+          Divider(height: 20, color: theme.dividerColor.withValues(alpha: 0.1)),
+          ListTile(
+            onTap: () => Get.toNamed('/subscription'),
+            dense: true,
+            title: Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    const TextSpan(
+                      text: '我的订阅  ',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '${response!.length}  ',
+                      style: TextStyle(color: secondary),
+                    ),
+                    WidgetSpan(
+                      child: Icon(
+                        Icons.arrow_forward_ios,
+                        size: 18,
+                        color: secondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            trailing: IconButton(
+              tooltip: '刷新',
+              onPressed: controller.querySub,
+              icon: const Icon(Icons.refresh, size: 20),
+            ),
+          ),
+          SizedBox(
+            height: 173,
+            child: ListView.separated(
+              padding: const EdgeInsets.only(left: 20, top: 10, right: 20),
+              itemCount: response.length,
+              scrollDirection: Axis.horizontal,
+              itemBuilder: (context, index) =>
+                  _buildSubItem(context, response[index]),
+              separatorBuilder: (_, _) => const SizedBox(width: 14),
+            ),
+          ),
+        ],
+      ),
+      Success() => const SizedBox.shrink(),
+    };
+  }
+
+  Widget _buildSubItem(BuildContext context, SubItemModel item) {
+    final theme = Theme.of(context);
+    final heroTag = Utils.makeHeroTag(item.id);
+    return SizedBox(
+      width: 180,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (item.state == 1) {
+            SmartDialog.showToast('该订阅已失效');
+            return;
+          }
+          if (item.id == null) return;
+          if (item.type == 11) {
+            Get.toNamed(
+              '/favDetail',
+              parameters: {'mediaId': item.id.toString(), 'heroTag': heroTag},
+            );
+          } else {
+            SubDetailPage.toSubDetailPage(
+              item.id!,
+              heroTag: heroTag,
+              subInfo: item,
+            );
+          }
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Hero(
+                  tag: heroTag,
+                  child: NetworkImgLayer(
+                    src: item.cover,
+                    width: 180,
+                    height: 110,
+                  ),
+                ),
+                PBadge(right: 6, top: 6, text: item.type2Label),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              ' ${item.title ?? ''}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(height: 1.42, letterSpacing: 0.3),
+            ),
+            Text(
+              ' UP主: ${item.upper?.name ?? '-'}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall!.copyWith(
+                color: theme.colorScheme.outline,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

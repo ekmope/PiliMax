@@ -7,8 +7,10 @@ import 'package:PiliMax/common/widgets/select_mask.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_detail_hero.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/http/user.dart';
+import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models_new/history/list.dart';
+import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
@@ -50,10 +52,10 @@ class HistoryItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasDuration = item.duration != null && item.duration != 0;
-    int aid = item.history.oid!;
-    String bvid = item.history.bvid ?? IdUtils.av2bv(aid);
+    final hasDuration = item.hasDuration;
     final business = item.history.business;
+    final aid = item.history.oid;
+    final bvid = item.history.bvid ?? (aid == null ? null : IdUtils.av2bv(aid));
     final cover = item.cover?.isNotEmpty == true
         ? item.cover
         : item.covers?.firstOrNull ?? '';
@@ -435,5 +437,68 @@ class HistoryItem extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+Future<void> onPushHistory(HistoryItemModel item) async {
+  final business = item.history.business;
+  if (business?.contains('article') == true) {
+    PageUtils.toDupNamed(
+      '/articlePage',
+      parameters: {
+        'id': business == 'article-list'
+            ? '${item.history.cid}'
+            : '${item.history.oid}',
+        'type': 'read',
+      },
+    );
+  } else if (business == 'live') {
+    if (item.liveStatus == 1) {
+      PageUtils.toLiveRoom(item.history.oid);
+    } else {
+      SmartDialog.showToast('直播未开播');
+    }
+  } else if (business == 'pgc') {
+    PageUtils.viewPgc(
+      epId: item.history.epid,
+      progress: item.playbackProgress,
+    );
+  } else if (business == 'cheese') {
+    if (item.uri?.isNotEmpty == true) {
+      PageUtils.viewPgcFromUri(
+        item.uri!,
+        isPgc: false,
+        aid: item.history.oid,
+        progress: item.playbackProgress,
+      );
+    }
+  } else {
+    final aid = item.history.oid!;
+    final bvid = item.history.bvid ?? IdUtils.av2bv(aid);
+    int? cid = item.history.cid;
+    Dimension? dimension;
+    if (cid == null) {
+      if (await SearchHttp.ab2cWithDimension(
+            aid: aid,
+            bvid: bvid,
+            part: item.history.page,
+          )
+          case final res?) {
+        cid = res.cid;
+        dimension = res.dimension;
+      }
+    }
+    if (cid != null) {
+      // TODO: dimension
+      PageUtils.toVideoPage(
+        aid: aid,
+        bvid: bvid,
+        cid: cid,
+        cover: item.cover,
+        title: item.title,
+        dimension: dimension,
+        progress: item.playbackProgress,
+      );
+    }
   }
 }

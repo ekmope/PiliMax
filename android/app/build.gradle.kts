@@ -91,10 +91,10 @@ android {
                 signingConfig = config
                     ?: throw GradleException("Missing release signing config. Create android/key.properties or configure GitHub Actions signing secrets.")
             }
-//            proguardFiles(
-//                getDefaultProguardFile("proguard-android-optimize.txt"),
-//                "proguard-rules.pro"
-//            )
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
         debug {
             signingConfig = signingConfigs["debug"]

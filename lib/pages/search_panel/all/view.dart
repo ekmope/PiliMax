@@ -10,11 +10,10 @@ import 'package:PiliMax/pilimax/forks/pages/search_panel/pgc/widgets/item.dart';
 import 'package:PiliMax/pilimax/forks/pages/search_panel/view.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/waterfall.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:material_ui/material_ui.dart'
     hide SliverGridDelegateWithMaxCrossAxisExtent;
 import 'package:get/get.dart';
-import 'package:waterfall_flow/waterfall_flow.dart'
-    hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
 import 'package:PiliMax/pages/search_panel/all/widgets/activity.dart';
 import 'package:PiliMax/pages/search_panel/all/widgets/user.dart';
 import 'package:PiliMax/pages/search_panel/all/widgets/esports.dart';
@@ -69,14 +68,10 @@ class _SearchAllPanelState
           ),
         ],
         ...?controller.searchActivity?.map((e) {
-          return SliverToBoxAdapter(
-            child: SearchActivityItem(item: e),
-          );
+          return SliverToBoxAdapter(child: SearchActivityItem(item: e));
         }),
         ...?controller.searchUser?.map((e) {
-          return SliverToBoxAdapter(
-            child: SearchAllUserItem(item: e),
-          );
+          return SliverToBoxAdapter(child: SearchAllUserItem(item: e));
         }),
         if (controller.searchMedia != null) ...[
           _buildPgc(controller.searchMedia!),
@@ -96,31 +91,28 @@ class _SearchAllPanelState
       SliverToBoxAdapter(child: SearchEsportsItem(item: item));
 
   Widget _buildVideoResults(List<SearchVideoItemModel> list) {
-    return SliverWaterfallFlow(
-      gridDelegate: SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
+    return SliverMasonryGrid(
+      crossAxisSpacing: Style.safeSpace,
+      gridDelegate: SliverSimpleGridDelegateWithMaxCrossAxisExtent_(
         maxCrossAxisExtent: Grid.smallCardWidth * 2,
-        crossAxisSpacing: Style.safeSpace,
       ),
-      delegate: SliverChildBuilderDelegate(
-        (_, index) {
-          if (index == list.length - 1) controller.onLoadMore();
-          final item = list[index];
-          final heroTag = VideoHeroTag.forItem(
-            scope: 'search-all-video-${widget.tag}',
-            item: item,
-            contentId: item.bvid ?? item.aid ?? item.cid ?? 'unknown',
-          );
-          return SizedBox(
-            height: VideoCardHLayoutMetrics.itemHeight,
-            child: VideoCardH(
-              key: ValueKey(heroTag),
-              videoItem: item,
-              heroTag: heroTag,
-            ),
-          );
-        },
-        childCount: list.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        if (index == list.length - 1) controller.onLoadMore();
+        final item = list[index];
+        final heroTag = VideoHeroTag.forItem(
+          scope: 'search-all-video-${widget.tag}',
+          item: item,
+          contentId: item.bvid ?? item.aid ?? item.cid ?? 'unknown',
+        );
+        return SizedBox(
+          height: VideoCardHLayoutMetrics.itemHeight,
+          child: VideoCardH(
+            key: ValueKey(heroTag),
+            videoItem: item,
+            heroTag: heroTag,
+          ),
+        );
+      }, childCount: list.length),
     );
   }
 

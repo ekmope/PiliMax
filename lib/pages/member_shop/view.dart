@@ -9,17 +9,12 @@ import 'package:PiliMax/pages/member_shop/controller.dart';
 import 'package:PiliMax/pages/member_shop/widgets/item.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/waterfall.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
-import 'package:waterfall_flow/waterfall_flow.dart'
-    hide SliverWaterfallFlowDelegateWithMaxCrossAxisExtent;
 
 class MemberShop extends StatefulWidget {
-  const MemberShop({
-    super.key,
-    required this.heroTag,
-    required this.mid,
-  });
+  const MemberShop({super.key, required this.heroTag, required this.mid});
 
   final String? heroTag;
   final int mid;
@@ -67,16 +62,16 @@ class _MemberShopState extends State<MemberShop>
   @override
   bool get wantKeepAlive => true;
 
-  late final gridDelegate = SliverWaterfallFlowDelegateWithMaxCrossAxisExtent(
+  late final gridDelegate = SliverSimpleGridDelegateWithMaxCrossAxisExtent_(
     maxCrossAxisExtent: Grid.smallCardWidth,
-    mainAxisSpacing: Style.safeSpace,
-    crossAxisSpacing: Style.safeSpace,
   );
 
   Widget _buildBody(LoadingState<List<SpaceShopItem>?> loadingState) {
     switch (loadingState) {
       case Loading():
-        return SliverWaterfallFlow(
+        return SliverMasonryGrid(
+          mainAxisSpacing: Style.safeSpace,
+          crossAxisSpacing: Style.safeSpace,
           gridDelegate: gridDelegate,
           delegate: const SliverSingleChildDelegate(
             count: 10,
@@ -87,12 +82,12 @@ class _MemberShopState extends State<MemberShop>
         if (response == null || response.isEmpty) {
           return HttpError(onReload: _controller.onReload);
         }
-        Widget sliver = SliverWaterfallFlow(
+        Widget sliver = SliverMasonryGrid(
+          mainAxisSpacing: Style.safeSpace,
+          crossAxisSpacing: Style.safeSpace,
           gridDelegate: gridDelegate,
           delegate: SliverChildBuilderDelegate(
-            (_, index) {
-              return MemberShopItem(item: response[index]);
-            },
+            (context, index) => MemberShopItem(item: response[index]),
             childCount: response.length,
           ),
         );
@@ -107,14 +102,10 @@ class _MemberShopState extends State<MemberShop>
                     child: FilledButton.tonal(
                       onPressed: () {
                         if (_controller.clickUrl case final clickUrl?) {
-                          final url = Uri.parse(
-                            clickUrl,
-                          ).queryParameters['url'];
+                          final url = Uri.parse(clickUrl)
+                              .queryParameters['url'];
                           if (url case final url?) {
-                            Get.toNamed(
-                              '/webview',
-                              parameters: {'url': url},
-                            );
+                            Get.toNamed('/webview', parameters: {'url': url});
                           }
                         }
                       },
@@ -131,10 +122,7 @@ class _MemberShopState extends State<MemberShop>
         }
         return sliver;
       case Error(:final errMsg):
-        return HttpError(
-          errMsg: errMsg,
-          onReload: _controller.onReload,
-        );
+        return HttpError(errMsg: errMsg, onReload: _controller.onReload);
     }
   }
 }

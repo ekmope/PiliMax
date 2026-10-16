@@ -37,6 +37,7 @@ import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/reply_scheme_helper.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/url_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
@@ -148,6 +149,8 @@ abstract final class PageUtils {
     bool off = false,
     Object? type,
     int? rpid,
+    int? rootRpId,
+    int? secondRpId,
   }) async {
     assert(id != null || rid != null);
     SmartDialog.showLoading();
@@ -158,6 +161,11 @@ abstract final class PageUtils {
     );
     SmartDialog.dismiss();
     if (res case Success(:final response)) {
+      final replyArgs = replyRouteArguments(
+        rpid: rpid,
+        rootRpId: rootRpId,
+        secondRpId: secondRpId,
+      );
       if (response.basic?.commentType == 12) {
         toDupNamed(
           '/articlePage',
@@ -165,7 +173,7 @@ abstract final class PageUtils {
             'id': id!,
             'type': 'opus',
           },
-          arguments: rpid == null ? null : {'rpid': rpid},
+          arguments: replyArgs.isEmpty ? null : replyArgs,
           off: off,
         );
       } else {
@@ -174,6 +182,8 @@ abstract final class PageUtils {
           arguments: {
             'item': response,
             if (rpid != null) 'rpid': rpid,
+            if (rootRpId != null) rootRpIdKey: rootRpId,
+            if (secondRpId != null) secondRpIdKey: secondRpId,
           },
           off: off,
         );
@@ -389,6 +399,7 @@ abstract final class PageUtils {
           parameters: {
             'id': item.idStr,
             'type': 'opus',
+            if (viewComment) 'viewComment': '',
           },
         );
         break;
@@ -690,6 +701,8 @@ abstract final class PageUtils {
     bool Function()? canInstallRoute,
     ValueChanged<bool>? onNavigationResult,
     int? rpid,
+    int? rootRpId,
+    int? secondRpId,
   }) {
     final hasValidDimension = _hasValidDimension(dimension);
     final effectivePendingType =
@@ -722,6 +735,8 @@ abstract final class PageUtils {
       extraArguments: {
         ...?extraArguments,
         'rpid': ?rpid,
+        if (rootRpId != null) rootRpIdKey: rootRpId,
+        if (secondRpId != null) secondRpIdKey: secondRpId,
       },
     );
     return _openVideoPage(

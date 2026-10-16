@@ -76,6 +76,7 @@ class _MainReplyPageState extends State<MainReplyPage>
   late final MainReplyController _controller;
 
   late EdgeInsets padding;
+  late ColorScheme colorScheme;
 
   @override
   void initState() {
@@ -94,11 +95,11 @@ class _MainReplyPageState extends State<MainReplyPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
     padding = MediaQuery.viewPaddingOf(context);
+    colorScheme = ColorScheme.of(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = ColorScheme.of(context);
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(title: const Text('查看评论')),
@@ -113,10 +114,8 @@ class _MainReplyPageState extends State<MainReplyPage>
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                buildReplyHeader(colorScheme),
-                Obx(
-                  () => _buildBody(colorScheme, _controller.loadingState.value),
-                ),
+                buildReplyHeader(),
+                Obx(() => _buildBody(_controller.loadingState.value)),
               ],
             ),
           ),
@@ -147,10 +146,7 @@ class _MainReplyPageState extends State<MainReplyPage>
     );
   }
 
-  Widget _buildBody(
-    ColorScheme colorScheme,
-    LoadingState<List<ReplyInfo>?> loadingState,
-  ) {
+  Widget _buildBody(LoadingState<List<ReplyInfo>?> loadingState) {
     return switch (loadingState) {
       Loading() => const SliverPrototypeExtentList(
         prototypeItem: VideoReplySkeleton(),
@@ -182,8 +178,8 @@ class _MainReplyPageState extends State<MainReplyPage>
                     return ReplyItemGrpc(
                       replyItem: response[index],
                       replyLevel: 1,
-                      replyReply: (replyItem, id) =>
-                          replyReply(context, replyItem, id, colorScheme),
+                      replyReply: (item, id) =>
+                          replyReply(context, item, id, colorScheme),
                       onReply: _controller.onReply,
                       onDelete: (item, subIndex) =>
                           _controller.onRemove(index, item, subIndex),
@@ -211,7 +207,7 @@ class _MainReplyPageState extends State<MainReplyPage>
     };
   }
 
-  Widget buildReplyHeader(ColorScheme colorScheme) {
+  Widget buildReplyHeader() {
     final secondary = colorScheme.secondary;
     return SliverFloatingHeaderWidget(
       backgroundColor: colorScheme.surface,

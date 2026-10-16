@@ -27,6 +27,8 @@ class PgcCardVMemberPgc extends StatelessWidget {
     contentId: item.param ?? item.cover ?? 'unknown',
   );
 
+  void onLongPress() => showPgcCover(title: item.title, cover: item.cover);
+
   @override
   Widget build(BuildContext context) {
     void onLongPress() => showPgcCover(
@@ -54,7 +56,7 @@ class PgcCardVMemberPgc extends StatelessWidget {
               VideoDetailHero.source(
                 clipStaticChild: true,
                 flightChild: AspectRatio(
-                  aspectRatio: 0.75,
+                  aspectRatio: Style.aspectRatio3x4,
                   child: LayoutBuilder(
                     builder: (context, boxConstraints) {
                       return NetworkImgLayer(
@@ -69,7 +71,7 @@ class PgcCardVMemberPgc extends StatelessWidget {
                   ),
                 ),
                 child: AspectRatio(
-                  aspectRatio: 0.75,
+                  aspectRatio: Style.aspectRatio3x4,
                   child: LayoutBuilder(
                     builder: (context, boxConstraints) {
                       return NetworkImgLayer(

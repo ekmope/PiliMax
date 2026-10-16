@@ -24,6 +24,19 @@ const _previewMetaCacheLimit = 64;
 final Map<String, _PreviewMetaCacheEntry> _previewMetaCache = {};
 final Map<String, Future<_PreviewMeta?>> _previewMetaInFlight = {};
 
+void showPgcCover({
+  required String? title,
+  required String? cover,
+  dynamic aid,
+  String? bvid,
+}) => imageSaveDialog(
+  title: title,
+  cover: cover,
+  aid: aid,
+  bvid: bvid,
+  aspectRatio: Style.aspectRatio3x4,
+);
+
 void imageSaveDialog({
   required String? title,
   required String? cover,
@@ -99,6 +112,7 @@ class _CoverPreviewDialog extends StatefulWidget {
     required this.imgWidth,
     required this.initialMeta,
     required this.routeAnimation,
+    required this.aspectRatio,
   });
 
   final String? title;
@@ -300,19 +314,6 @@ class _CoverPreviewDialogState extends State<_CoverPreviewDialog> {
       ),
     );
   }
-
-void showPgcCover({
-  required String? title,
-  required String? cover,
-  dynamic aid,
-  String? bvid,
-}) => imageSaveDialog(
-  title: title,
-  cover: cover,
-  aid: aid,
-  bvid: bvid,
-  aspectRatio: Style.aspectRatio3x4,
-);
 }
 
 class _PreviewMetadataGrid extends StatelessWidget {

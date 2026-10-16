@@ -67,7 +67,13 @@ class _DownloadDetailPageState extends State<DownloadDetailPage>
 
   void _loadList() {
     final list = _controller.resolveFolderEntries(widget.pageId)
-      ..sort((a, b) => a.sortKey.compareTo(b.sortKey));
+      ..sort((a, b) {
+        final sort = a.sortKey.compareTo(b.sortKey);
+        if (sort != 0) {
+          return sort;
+        }
+        return b.avid.compareTo(a.avid);
+      });
     _downloadItems.value = list;
   }
 

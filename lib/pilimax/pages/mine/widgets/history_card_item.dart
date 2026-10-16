@@ -9,7 +9,6 @@ import 'package:PiliMax/utils/extension/dimension_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 /// 观看记录快捷卡片（我的页面横向列表）
 class HistoryCardItem extends StatelessWidget {
@@ -60,11 +59,7 @@ class HistoryCardItem extends StatelessWidget {
         },
       );
     } else if (_isLive) {
-      if (item.liveStatus == 1) {
-        PageUtils.toLiveRoom(item.history.oid);
-      } else {
-        SmartDialog.showToast('直播未开播');
-      }
+      PageUtils.toLiveRoom(item.history.oid);
     } else if (_isPgc) {
       PageUtils.viewPgc(
         epId: item.history.epid,

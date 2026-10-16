@@ -9,16 +9,10 @@ on:
         default: ""
         type: string
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "tag"
-        required: false
-        default: ""
-        type: string
 
 jobs:
   build-windows-app:
-    name: Release Windows x64 With NewLibmpv
+    name: Release Windows x64
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -50,7 +44,8 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch.ps1 windows
 
-      - name: Revert specified commit and update dependencies
+      # 提交 Patch 修改，避免 git revert 冲突中止，然后 revert 指定 commit 并重新获取依赖
+      - name: Revert specified commit & update dependencies
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -63,6 +58,7 @@ jobs:
         run: |
           fastforge package --platform windows --targets exe --flutter-build-args="dart-define-from-file=pili_release.json" --skip-clean
 
+      # 产物重命名为含有 NewLibmpv 后缀
       - name: Prepare Upload
         run: |
           mkdir -p Release/PiliMax-Win-NewLibmpv

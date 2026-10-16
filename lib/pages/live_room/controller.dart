@@ -143,10 +143,11 @@ class LiveRoomController extends GetxController {
   late final RxInt pageIndex = 0.obs;
   PageController? pageController;
 
-  int? currentQn = PlatformUtils.isMobile ? null : Pref.liveQuality;
-  final currentQnDesc = ''.obs;
   final RxBool isPortrait = false.obs;
-  late List<({int code, String desc})> acceptQnList = [];
+  late List<LiveQuality> acceptQnList = [];
+  final Rxn<LiveQuality> currentQn = Rxn<LiveQuality>(
+    PlatformUtils.isMobile ? null : LiveQuality.fromCode(Pref.liveQuality),
+  );
 
   late final bool isLogin;
   late final int mid;
@@ -431,12 +432,14 @@ class LiveRoomController extends GetxController {
     if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
       return false;
     }
-    currentQn ??= await ConnectivityUtils.isWiFi
-        ? Pref.liveQuality
-        : Pref.liveQualityCellular;
+    currentQn.value ??= LiveQuality.fromCode(
+      await ConnectivityUtils.isWiFi
+          ? Pref.liveQuality
+          : Pref.liveQualityCellular,
+    );
     final res = await LiveHttp.liveRoomInfo(
       roomId: roomId,
-      qn: currentQn,
+      qn: currentQn.value!.code,
       onlyAudio: requestedOnlyAudio,
     );
     if (res case Success(:final response)) {
@@ -624,15 +627,8 @@ class LiveRoomController extends GetxController {
         .codec
         .getOrFirst(codecIndex);
     // 浠ユ湇鍔＄杩斿洖鐨勭爜鐜囦负鍑?
-    currentQn = item.currentQn;
-    acceptQnList = item.acceptQn.map((e) {
-      return (
-        code: e,
-        desc: LiveQuality.fromCode(e)?.desc ?? e.toString(),
-      );
-    }).toList();
-    currentQnDesc.value =
-        LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
+    currentQn.value = item.currentQn;
+    acceptQnList = item.acceptQn;
     videoUrl = VideoUtils.getLiveCdnUrl(item, index: liveUrlIndex);
     final canReusePipPlayer =
         isReturningFromPip && plPlayerController.videoPlayerController != null;
@@ -690,7 +686,7 @@ class LiveRoomController extends GetxController {
             if (codecName.contains('av1')) {
               score -= 30;
             }
-            if (codecItem.currentQn == currentQn) {
+            if (codecItem.currentQn == currentQn.value) {
               score += 10;
             }
             if (urlInfo.$1 == liveUrlIndex) {
@@ -1025,13 +1021,11 @@ class LiveRoomController extends GetxController {
   }
 
   // 淇敼鐢昏川
-  Future<bool>? changeQn(int qn) {
-    if (currentQn == qn) {
+  Future<bool>? changeQn(LiveQuality qn) {
+    if (currentQn.value == qn) {
       return null;
     }
-    currentQn = qn;
-    currentQnDesc.value =
-        LiveQuality.fromCode(currentQn)?.desc ?? currentQn.toString();
+    currentQn.value = qn;
     return queryLiveUrl();
   }
 

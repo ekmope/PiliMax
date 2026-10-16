@@ -16,6 +16,7 @@ import 'package:PiliMax/pages/article/controller.dart';
 import 'package:PiliMax/pages/article/widgets/article_ops.dart';
 import 'package:PiliMax/pages/article/widgets/html_render.dart';
 import 'package:PiliMax/pages/article/widgets/opus_content.dart';
+import 'package:PiliMax/pages/article/widgets/sliver_list_ext.dart';
 import 'package:PiliMax/pages/article/widgets/sliver_to_box_adapter.dart';
 import 'package:PiliMax/pages/common/dyn/common_dyn_page.dart';
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
@@ -47,6 +48,8 @@ class ArticlePage extends StatefulWidget {
 class _ArticlePageState extends CommonDynPageState<ArticlePage>
     with DynReplyLocateStateMixin {
   UniqueKey? _centerKey;
+
+  bool get reverse => _centerKey != null;
 
   @override
   late final ArticleController controller = Get.putOrFind(
@@ -193,6 +196,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage>
             images: controller.images,
             maxWidth: maxWidth,
             opusId: controller.id,
+            reverse: reverse,
           );
         } else if (controller.opusData?.modules.moduleBlocked
             case final moduleBlocked?) {
@@ -204,6 +208,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage>
           if (controller.articleData?.type == 3) {
             // json
             return ArticleOpus(
+              reverse: reverse,
               ops: controller.articleData?.ops,
               maxWidth: maxWidth,
             );
@@ -219,7 +224,8 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage>
               ),
             );
           } else {
-            content = SliverList.separated(
+            content = SliverListExt.separated(
+              reverse: reverse,
               itemCount: res.body!.children.length,
               itemBuilder: (context, index) {
                 return htmlRender(

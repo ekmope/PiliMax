@@ -975,7 +975,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       children: [
                         Flexible(
                           child: Text(
-                            item.newDesc ?? '',
+                            item.newDesc ?? item.quality.toString(),
                             style: enabled
                                 ? const TextStyle(
                                     color: Colors.white,

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/models_new/article/article_view/ops.dart';
+import 'package:PiliMax/pages/article/widgets/sliver_list_ext.dart';
 import 'package:PiliMax/pages/dynamics/widgets/vote.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -13,12 +14,14 @@ import 'package:get/get.dart';
 class ArticleOpus extends StatelessWidget {
   const ArticleOpus({
     super.key,
+    required this.reverse,
     required this._ops,
     required this.maxWidth,
   });
 
   final List<ArticleOps>? _ops;
   final double maxWidth;
+  final bool reverse;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +29,8 @@ class ArticleOpus extends StatelessWidget {
       return const SliverToBoxAdapter();
     }
 
-    return SliverList.separated(
+    return SliverListExt.separated(
+      reverse: reverse,
       itemCount: _ops.length,
       itemBuilder: (context, index) {
         try {

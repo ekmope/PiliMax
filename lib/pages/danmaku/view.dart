@@ -130,6 +130,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
     if (currentDanmakuList.isNotEmpty) {
       final blockColorful = DanmakuOptions.blockColorful;
       for (DanmakuElem e in currentDanmakuList) {
+        if (e.weight < DanmakuOptions.danmakuWeight) continue;
         if (e.mode == 7) {
           if (kDebugMode &&
               !_loggedEarlySpecialDanmaku &&

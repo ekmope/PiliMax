@@ -106,20 +106,22 @@ class PlayUrlModel {
   }
 
   static String _capabilityQualityLabel(VideoQuality quality) =>
-      switch (quality) {
-        VideoQuality.hdrVivid => 'HDR Vivid',
-        VideoQuality.super8k => '8K',
-        VideoQuality.dolbyVision => '杜比视界',
-        VideoQuality.hdr => 'HDR',
-        VideoQuality.super4K => '4K',
-        VideoQuality.high108060 => '1080P',
-        VideoQuality.high1080plus => '1080P+',
-        VideoQuality.high1080 => '1080P',
-        VideoQuality.high72060 => '720P',
-        VideoQuality.high720 => '720P',
-        VideoQuality.clear480 => '480P',
-        VideoQuality.fluent360 => '360P',
-        VideoQuality.speed240 => '240P',
+      switch (quality.code) {
+        129 => 'HDR Vivid',
+        127 => '8K',
+        126 => '杜比视界',
+        125 => 'HDR',
+        120 => '4K',
+        116 => '1080P',
+        112 => '1080P+',
+        100 => '智能修复',
+        80 => '1080P',
+        74 => '720P',
+        64 => '720P',
+        32 => '480P',
+        16 => '360P',
+        6 => '240P',
+        _ => quality.shortDesc,
       };
 
   bool isPreviewQuality(int? quality) =>
@@ -162,11 +164,13 @@ class PlayUrlModel {
     videoCodecid = json['video_codecid'];
     seekParam = json['seek_param'];
     seekType = json['seek_type'];
-    dash = json['dash'] != null ? Dash.fromJson(json['dash']) : null;
-    durl = (json['durl'] as List?)?.map<Durl>((e) => Durl.fromJson(e)).toList();
     supportFormats = (json['support_formats'] as List?)
         ?.map<FormatItem>((e) => FormatItem.fromJson(e))
         .toList();
+    dash = json['dash'] != null
+        ? Dash.fromJson(json['dash'], supportFormats)
+        : null;
+    durl = (json['durl'] as List?)?.map<Durl>((e) => Durl.fromJson(e)).toList();
     volume = json['volume'] == null ? null : Volume.fromJson(json['volume']);
     lastPlayTime = json['last_play_time'];
     lastPlayCid = json['last_play_cid'];
@@ -256,11 +260,11 @@ class Dash {
   List<VideoItem>? video;
   List<AudioItem>? audio;
 
-  Dash.fromJson(Map<String, dynamic> json) {
+  Dash.fromJson(Map<String, dynamic> json, List<FormatItem>? supportFormats) {
     duration = json['duration'];
     minBufferTime = json['minBufferTime'];
     video = (json['video'] as List?)
-        ?.map<VideoItem>((e) => VideoItem.fromJson(e))
+        ?.map<VideoItem>((e) => VideoItem.fromJson(e, supportFormats))
         .toList();
     final audio = [
       if (json['flac']?['audio'] case Map<String, dynamic> flac)
@@ -387,10 +391,10 @@ class VideoItem extends BaseItem {
     this.isPreview = false,
   });
 
-  VideoItem.fromJson(Map<String, dynamic> json)
+  VideoItem.fromJson(Map<String, dynamic> json, List<FormatItem>? formats)
     : isPreview = false,
       super.fromJson(json) {
-    quality = VideoQuality.fromCode(json['id']);
+    quality = VideoQuality.fromFormat(json['id'], formats);
   }
 }
 

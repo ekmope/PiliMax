@@ -13,7 +13,6 @@ import 'package:PiliMax/pilimax/common/widgets/video_card/video_hero_tag.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
 import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/pilimax/models_new/download/download_collection.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
@@ -210,13 +209,13 @@ class DetailItem extends StatelessWidget {
                     ),
                   ),
                   flightOverlays: <VideoDetailHeroFlightOverlay>[
-                    if (entry.videoQuality case final videoQuality?)
+                    if (entry.videoQuality != null)
                       VideoDetailHeroFlightOverlay(
                         right: 6.0,
                         top: 6.0,
                         child: PBadge(
                           isStack: false,
-                          text: VideoQuality.fromCode(videoQuality).shortDesc,
+                          text: entry.qualityPithyDescription,
                           type: PBadgeType.gray,
                         ),
                       ),
@@ -292,9 +291,9 @@ class DetailItem extends StatelessWidget {
                           },
                         ),
                       ),
-                      if (entry.videoQuality case final videoQuality?)
+                      if (entry.videoQuality != null)
                         PBadge(
-                          text: VideoQuality.fromCode(videoQuality).shortDesc,
+                          text: entry.qualityPithyDescription,
                           right: 6.0,
                           top: 6.0,
                           type: PBadgeType.gray,

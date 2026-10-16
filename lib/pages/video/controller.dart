@@ -1852,7 +1852,10 @@ class VideoDetailController extends GetxController
           _setCurrentAudio(null);
 
           // 实际为FLV/MP4格式，但已被淘汰，这里仅做兜底处理
-          final videoQuality = VideoQuality.fromCode(data.quality!);
+          final videoQuality = VideoQuality.fromFormat(
+            data.quality!,
+            data.supportFormats,
+          );
           firstVideo = VideoItem(
             id: data.quality!,
             baseUrl: videoUrl,

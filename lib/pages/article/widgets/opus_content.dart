@@ -15,6 +15,7 @@ import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/models/dynamics/article_content_model.dart'
     show ArticleContentModel, Rich, Style, Word, Node;
 import 'package:PiliMax/models/dynamics/result.dart';
+import 'package:PiliMax/pages/article/widgets/sliver_list_ext.dart';
 import 'package:PiliMax/pages/dynamics/widgets/vote.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -38,6 +39,7 @@ class OpusContent extends StatelessWidget {
   final ValueGetter<List<SourceModel>> images;
   final double maxWidth;
   final String opusId;
+  final bool reverse;
 
   const OpusContent({
     super.key,
@@ -45,6 +47,7 @@ class OpusContent extends StatelessWidget {
     required this.images,
     required this.maxWidth,
     required this.opusId,
+    required this.reverse,
   });
 
   static InlineSpan _node2Widget({
@@ -208,7 +211,8 @@ class OpusContent extends StatelessWidget {
 
     late final highlight = Highlight()..registerLanguages(builtinAllLanguages);
 
-    return SliverList.separated(
+    return SliverListExt.separated(
+      reverse: reverse,
       itemCount: opus.length,
       itemBuilder: (context, index) {
         final element = opus[index];

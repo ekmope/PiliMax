@@ -1,4 +1,5 @@
 import 'package:PiliMax/common/widgets/custom_icon.dart';
+import 'package:PiliMax/models/common/video/live_quality.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/pages/live_room/controller.dart';
 import 'package:PiliMax/pages/video/widgets/header_mixin.dart';
@@ -162,38 +163,42 @@ class _BottomControlState extends State<BottomControl> with HeaderMixin {
             ),
           ),
           Obx(
-            () => StaticPopupMenuButton<int>(
-              tooltip: '画质',
-              padding: EdgeInsets.zero,
-              initialValue: liveRoomCtr.currentQn,
-              color: Colors.black.withValues(alpha: 0.8),
-              itemBuilder: (context) {
-                return liveRoomCtr.acceptQnList
-                    .map(
-                      (e) => PopupMenuItem<int>(
-                        height: 35,
-                        padding: const EdgeInsets.only(left: 30),
-                        value: e.code,
-                        onTap: () => liveRoomCtr.changeQn(e.code),
-                        child: Text(
-                          e.desc,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
+            () {
+              final quality = liveRoomCtr.currentQn.value;
+              if (quality == null) return const SizedBox.shrink();
+              return StaticPopupMenuButton<LiveQuality>(
+                tooltip: '画质',
+                padding: EdgeInsets.zero,
+                initialValue: quality,
+                onSelected: liveRoomCtr.changeQn,
+                color: Colors.black.withValues(alpha: 0.8),
+                itemBuilder: (context) {
+                  return liveRoomCtr.acceptQnList
+                      .map(
+                        (e) => PopupMenuItem<LiveQuality>(
+                          height: 35,
+                          padding: const EdgeInsets.only(left: 30),
+                          value: e,
+                          child: Text(
+                            e.desc,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                    .toList();
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text(
-                  liveRoomCtr.currentQnDesc.value,
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                      )
+                      .toList();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    quality.desc,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
           if (!plPlayerController.isDesktopPip)
             ComBtn(

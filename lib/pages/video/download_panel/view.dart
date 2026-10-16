@@ -82,6 +82,13 @@ class _DownloadPanelState extends State<DownloadPanel> {
     );
   }
 
+  int? _seasonIndex(ugc.BaseEpisodeItem episode, ugc.EpisodeItem? parent) {
+    final item = parent ?? episode;
+    if (item is! ugc.EpisodeItem) return null;
+    final index = widget.episodes.indexOf(item);
+    return index < 0 ? null : index;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -300,6 +307,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
 
     try {
       final autoFolderInfo = _autoFolderInfo;
+      final autoFolderIndex = _seasonIndex(episode, parent);
       switch (episode) {
         case Part part:
           _downloadService.downloadVideo(
@@ -309,6 +317,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             _quality,
             autoFolderTitle: autoFolderInfo?.title,
             autoFolderSourceKey: autoFolderInfo?.sourceKey,
+            autoFolderIndex: autoFolderIndex,
             seasonInfo: widget.videoDetail?.seasonInfo(index),
           );
           break;
@@ -320,6 +329,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
             _quality,
             autoFolderTitle: autoFolderInfo?.title,
             autoFolderSourceKey: autoFolderInfo?.sourceKey,
+            autoFolderIndex: autoFolderIndex,
             seasonInfo: widget.videoDetail?.seasonInfo(index),
           );
           break;

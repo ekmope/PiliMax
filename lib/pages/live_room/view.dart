@@ -285,6 +285,14 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     plPlayerController.danmakuController =
         _liveRoomController.danmakuController;
     PlPlayerController.setPlayCallBack(plPlayerController.play);
+    if (_liveRoomController.isUnstartedRoom.value) {
+      _liveRoomController
+        ..cancelLiveTimer()
+        ..startLiveMsg();
+      plPlayerController.addStatusLister(playerListener);
+      super.didPopNext();
+      return;
+    }
     _liveRoomController.startLiveTimer();
 
     // 如果是从小窗返回，直接恢复状态，不重新初始化
@@ -341,6 +349,10 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   void didPushNext() {
     removeObserverMobile(this);
     plPlayerController.removeStatusLister(playerListener);
+    if (_liveRoomController.isUnstartedRoom.value) {
+      super.didPushNext();
+      return;
+    }
     // 如果正在播放且不是全屏状态，启动小窗
     if (plPlayerController.playerStatus.isPlaying &&
         (!isFullScreen || _manualPipRequested)) {
@@ -359,6 +371,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   }
 
   void playerListener(PlayerStatus status) {
+    if (_liveRoomController.isUnstartedRoom.value) return;
     if (status.isPlaying) {
       _liveRoomController
         ..danmakuController?.resume()
@@ -480,6 +493,9 @@ class _LiveRoomPageState extends State<LiveRoomPage>
     Widget player = Obx(
       key: playerKey,
       () {
+        if (_liveRoomController.isUnstartedRoom.value) {
+          return _unstartedPanel(width, height);
+        }
         if (_liveRoomController.isLoaded.value && plPlayerController.isLive) {
           final roomInfoH5 = _liveRoomController.roomInfoH5.value;
           return PLVideoPlayer(
@@ -638,6 +654,53 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         : result;
   }
 
+  Widget _unstartedPanel(double width, double height) {
+    final roomInfo = _liveRoomController.roomInfoH5.value;
+    final cover = roomInfo?.roomInfo?.cover;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        NetworkImgLayer(
+          src: cover,
+          width: width,
+          height: height,
+          fit: BoxFit.cover,
+          clip: false,
+          getPlaceHolder: () => Image.asset(
+            Assets.livingBackground,
+            fit: BoxFit.cover,
+            width: width,
+            height: height,
+          ),
+        ),
+        const ColoredBox(color: Color(0x66000000)),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_liveRoomController.title.value.isNotEmpty)
+                  Text(
+                    _liveRoomController.title.value,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 15, color: Colors.white),
+                  ),
+                const SizedBox(height: 6),
+                Text(
+                  _liveRoomController.isRoundRoom ? '直播未开始 轮播中' : '直播未开始',
+                  style: const TextStyle(fontSize: 13, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   void _onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
       final manual = _manualPipRequested;
@@ -682,6 +745,9 @@ class _LiveRoomPageState extends State<LiveRoomPage>
   }
 
   bool _shouldStartLivePip({bool manual = false}) {
+    if (_liveRoomController.isUnstartedRoom.value) {
+      return false;
+    }
     if (!manual && !Pref.enableInAppPip) {
       return false;
     }
@@ -692,6 +758,9 @@ class _LiveRoomPageState extends State<LiveRoomPage>
       return false;
     }
     if (!plPlayerController.isLive) {
+      return false;
+    }
+    if (plPlayerController.videoPlayerController == null) {
       return false;
     }
     // 如果即将进入听视频界面，不开启小窗(没啥用，直播间没有相关入口，但还是留着吧？)

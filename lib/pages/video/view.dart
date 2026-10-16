@@ -19,7 +19,6 @@ import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/video_header.dart';
 import 'package:PiliMax/common/widgets/svg/play_icon.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
-import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/pilimax/models/common/list_order.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart' as ugc;
@@ -276,6 +275,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   bool get _canPopPage =>
       videoDetailController.canPopPage(isPortrait: isPortrait);
+
+  bool get _isPageOwner => identical(videoDetailController.pageOwner, this);
+
+  GlobalKey<T>? _ownedKey<T extends State<StatefulWidget>>(GlobalKey<T> key) =>
+      _isPageOwner ? key : null;
 
   bool get _canPopVideoRouteWithoutFullScreenSettle {
     if (!_layoutReadyForRoutePop) {
@@ -824,6 +828,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
 
     videoDetailController.onRequestInAppPip = _enterInAppPipManually;
+    videoDetailController.pageOwner = this;
 
     _pipExitIntentProvider = _canUseInAppPipExit;
     _videoArgs[videoDetailPipExitIntentKey] = _pipExitIntentProvider;
@@ -1999,6 +2004,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       super.dispose();
       return;
     }
+    if (identical(videoDetailController.pageOwner, this)) {
+      videoDetailController.pageOwner = null;
+    }
     if (videoDetailController.onRequestInAppPip == _enterInAppPipManually) {
       videoDetailController.onRequestInAppPip = null;
     }
@@ -2141,6 +2149,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   // 返回当前页面时
   void didPopNext() {
     super.didPopNext();
+
+    if (_hasVideoDetailController) {
+      videoDetailController.pageOwner = this;
+    }
 
     final resumeGeneration = ++_didPopNextGeneration;
     if (!_hasVideoDetailController) {
@@ -2446,8 +2458,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                 }),
               ),
         body: ExtendedNestedScrollView(
-          key: videoDetailController.scrollKey,
-          controller: videoDetailController.scrollCtr,
+          key: _ownedKey(videoDetailController.scrollKey),
+          controller: _isPageOwner ? videoDetailController.scrollCtr : null,
           onlyOneScrollInBody: true,
           physics: platformClampingPhysics,
           scrollBehavior: const NoOverscrollIndicator(),
@@ -2519,7 +2531,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           },
           body: _routeFadeTransition(
             child: Scaffold(
-              key: videoDetailController.childKey,
+              key: _ownedKey(videoDetailController.childKey),
               resizeToAvoidBottomInset: false,
               backgroundColor: Colors.transparent,
               body: Column(
@@ -2732,7 +2744,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
               width: introWidth,
               height: maxHeight - padding.top,
               child: Scaffold(
-                key: videoDetailController.childKey,
+                key: _ownedKey(videoDetailController.childKey),
                 resizeToAvoidBottomInset: false,
                 backgroundColor: Colors.transparent,
                 body: Column(
@@ -2794,7 +2806,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                     width: introWidth,
                     height: introHeight,
                     child: Scaffold(
-                      key: videoDetailController.childKey,
+                      key: _ownedKey(videoDetailController.childKey),
                       resizeToAvoidBottomInset: false,
                       backgroundColor: Colors.transparent,
                       body: Column(
@@ -2879,7 +2891,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
               width: maxWidth - width - padding.horizontal,
               height: maxHeight - padding.top,
               child: Scaffold(
-                key: videoDetailController.childKey,
+                key: _ownedKey(videoDetailController.childKey),
                 resizeToAvoidBottomInset: false,
                 backgroundColor: Colors.transparent,
                 body: Column(
@@ -2982,7 +2994,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
               width: maxWidth - padding.horizontal,
               height: bottomHeight,
               child: Scaffold(
-                key: videoDetailController.childKey,
+                key: _ownedKey(videoDetailController.childKey),
                 resizeToAvoidBottomInset: false,
                 backgroundColor: Colors.transparent,
                 body: Column(
@@ -3183,6 +3195,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     bool isPipMode = false,
     bool isInAppPip = false,
   }) {
+    if (!_isPageOwner) return const SizedBox.shrink();
     return Obx(() {
       final child =
           (!isPipMode && !_allowPlayerMount) ||
@@ -3199,7 +3212,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
               videoDetailController: videoDetailController,
               introController: introController,
               headerControl: HeaderControl(
-                key: videoDetailController.headerCtrKey,
+                key: _ownedKey(videoDetailController.headerCtrKey),
                 isPortrait: isPortrait,
                 controller: videoDetailController.plPlayerController,
                 videoDetailCtr: videoDetailController,
@@ -3225,7 +3238,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             );
 
       final player = StatefulBuilder(
-        key: videoDetailController.videoPlayerKey,
+        key: _ownedKey(videoDetailController.videoPlayerKey),
         builder: (_, _) => child,
       );
       return _pipRestoreInFlight
@@ -3527,7 +3540,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                         child: ExcludeSemantics(
                           child: AnimatedList(
                             padding: EdgeInsets.zero,
-                            key: videoDetailController.listKey,
+                            key: _ownedKey(videoDetailController.listKey),
                             reverse: true,
                             shrinkWrap: true,
                             initialItemCount:

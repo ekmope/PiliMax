@@ -361,6 +361,7 @@ class DownloadService extends GetxService {
     VideoQuality videoQuality, {
     String? autoFolderTitle,
     String? autoFolderSourceKey,
+    int? autoFolderIndex,
     SeasonInfo? seasonInfo,
   }) {
     final cid = page.cid!;
@@ -415,6 +416,7 @@ class DownloadService extends GetxService {
       pageData: pageData,
       autoFolderTitle: autoFolderTitle,
       autoFolderSourceKey: autoFolderSourceKey,
+      autoFolderIndex: autoFolderIndex,
       seasonInfo: seasonInfo,
     );
     _createDownload(entry);

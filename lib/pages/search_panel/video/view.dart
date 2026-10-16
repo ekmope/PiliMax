@@ -34,9 +34,6 @@ class _SearchVideoPanelState
   late final SearchVideoController controller;
 
   @override
-  String? getTitle(SearchVideoItemModel item) => item.title;
-
-  @override
   void initState() {
     super.initState();
     controller = Get.put(
@@ -56,6 +53,9 @@ mixin SearchVideoPanelMixin<S extends SearchVideoPanel>
         GridMixin {
   @override
   SearchVideoController get controller;
+
+  @override
+  String? getTitle(SearchVideoItemModel item) => item.title;
 
   @override
   Widget buildHeader(ThemeData theme) {
@@ -137,7 +137,7 @@ mixin SearchVideoPanelMixin<S extends SearchVideoPanel>
           videoItem: item,
           heroTag: heroTag,
           onRemove: () => controller.loadingState
-            ..value.data!.removeAt(index)
+            ..value.dataOrNull?.remove(item)
             ..refresh(),
         );
       },

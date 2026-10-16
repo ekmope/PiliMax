@@ -70,6 +70,12 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.showFsLockBtnRight,
   ),
   const SwitchModel(
+    title: '锁定后禁止重力感应旋转',
+    subtitle: '全屏锁定后不再随设备方向翻转（仅横屏视频生效）',
+    leading: Icon(Icons.screen_lock_rotation),
+    setKey: SettingBoxKey.lockFsRotation,
+  ),
+  const SwitchModel(
     title: '全屏显示截图按钮',
     leading: Icon(Icons.photo_camera_outlined),
     setKey: SettingBoxKey.showFsScreenshotBtn,

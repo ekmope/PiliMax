@@ -21,7 +21,6 @@ import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -90,11 +89,7 @@ class HistoryItem extends StatelessWidget {
                     },
                   );
                 } else if (business == 'live') {
-                  if (item.liveStatus == 1) {
-                    PageUtils.toLiveRoom(item.history.oid);
-                  } else {
-                    SmartDialog.showToast('直播未开播');
-                  }
+                  PageUtils.toLiveRoom(item.history.oid);
                 } else if (business == 'pgc') {
                   PageUtils.viewPgc(
                     epId: item.history.epid,
@@ -453,11 +448,7 @@ Future<void> onPushHistory(HistoryItemModel item) async {
       },
     );
   } else if (business == 'live') {
-    if (item.liveStatus == 1) {
-      PageUtils.toLiveRoom(item.history.oid);
-    } else {
-      SmartDialog.showToast('直播未开播');
-    }
+    PageUtils.toLiveRoom(item.history.oid);
   } else if (business == 'pgc') {
     PageUtils.viewPgc(
       epId: item.history.epid,

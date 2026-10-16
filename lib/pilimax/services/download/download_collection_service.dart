@@ -64,7 +64,22 @@ class DownloadCollectionService extends GetxService {
       title: title,
       sourceKey: sourceKey,
     );
-    await addVideosToFolders([entry.cid], [folder.id]);
+    final cids = folder.videoCids;
+    if (cids.contains(entry.cid)) return;
+    final autoFolderIndex = entry.autoFolderIndex;
+    final position = autoFolderIndex == null
+        ? -1
+        : cids.indexWhere((cid) {
+            final other = _autoFolderIndexOf(cid);
+            return other != null && other > autoFolderIndex;
+          });
+    if (position < 0) {
+      cids.add(entry.cid);
+    } else {
+      cids.insert(position, entry.cid);
+    }
+    await _save();
+    flagNotifier.refresh();
   }
 
   Future<void> syncWithDownloads({bool notify = true}) =>
@@ -109,10 +124,9 @@ class DownloadCollectionService extends GetxService {
 
   List<DownloadFolder> _orderedFolders() {
     final order = _folderOrder.toList();
-    final remaining = _folders
-        .where((folder) => !order.contains(folder.id))
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final remaining =
+        _folders.where((folder) => !order.contains(folder.id)).toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final result = <DownloadFolder>[];
     for (final id in order) {
       final folder = _folders.firstWhereOrNull((item) => item.id == id);
@@ -271,6 +285,34 @@ class DownloadCollectionService extends GetxService {
     flagNotifier.refresh();
   }
 
+  Future<void> applyAutoFolderOrder(String folderId) async {
+    final folder = getFolder(folderId);
+    if (folder == null || folder.sourceKey == null) return;
+
+    final ordered = <int>[];
+    final unindexed = <int>[];
+    for (final cid in folder.videoCids) {
+      if (_autoFolderIndexOf(cid) == null) {
+        unindexed.add(cid);
+      } else {
+        ordered.add(cid);
+      }
+    }
+    ordered.sort(
+      (a, b) => _autoFolderIndexOf(a)!.compareTo(_autoFolderIndexOf(b)!),
+    );
+    folder.videoCids
+      ..clear()
+      ..addAll(ordered)
+      ..addAll(unindexed);
+    await _save();
+    flagNotifier.refresh();
+  }
+
+  int? _autoFolderIndexOf(int cid) => _downloadService.downloadList
+      .firstWhereOrNull((item) => item.cid == cid)
+      ?.autoFolderIndex;
+
   Future<void> addVideosToFolders(
     Iterable<int> cids,
     Iterable<String> folderIds,
@@ -299,7 +341,10 @@ class DownloadCollectionService extends GetxService {
     flagNotifier.refresh();
   }
 
-  Future<void> removeVideosFromFolder(String folderId, Iterable<int> cids) async {
+  Future<void> removeVideosFromFolder(
+    String folderId,
+    Iterable<int> cids,
+  ) async {
     final folder = getFolder(folderId);
     if (folder == null) {
       return;

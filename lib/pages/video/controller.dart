@@ -199,6 +199,9 @@ class VideoDetailController extends GetxController
   /// Bound by the page so the more menu can use the page's pop lifecycle.
   Future<void> Function()? onRequestInAppPip;
 
+  // Only the visible route may mount this controller's shared widget keys.
+  Object? pageOwner;
+
   /// Matches the page PopScope gate used by the manual PiP entry.
   bool canPopPage({required bool isPortrait}) =>
       !plPlayerController.isFullScreen.value &&
@@ -2637,20 +2640,30 @@ class VideoDetailController extends GetxController
   Future<List<DanmakuElem>?>? _dmElemsFuture;
 
   Future<List<DanmakuElem>?> _fetchAllDanmaku() {
+    final currentCid = cid.value;
     final cached = _dmElemsFuture;
-    if (_dmElemsCid == cid.value && cached != null) {
+    if (_dmElemsCid == currentCid && cached != null) {
       return cached;
     }
     final taskId = ++_dmFetchTaskId;
     bool shouldCancel() => taskId != _dmFetchTaskId || isClosed;
     final durationMs =
         data.timeLength ?? plPlayerController.durationInMilliseconds;
-    _dmElemsCid = cid.value;
-    return _dmElemsFuture = DanmakuDensityTrend.fetchAll(
-      cid: cid.value,
-      durationMs: durationMs,
-      shouldCancel: shouldCancel,
-    );
+    final future =
+        DanmakuDensityTrend.fetchAll(
+          cid: currentCid,
+          durationMs: durationMs,
+          shouldCancel: shouldCancel,
+        ).then((elems) {
+          if (elems == null && taskId == _dmFetchTaskId) {
+            _dmElemsCid = null;
+            _dmElemsFuture = null;
+          }
+          return elems;
+        });
+    _dmElemsCid = currentCid;
+    _dmElemsFuture = future;
+    return future;
   }
 
   Future<void> _getDmCount() async {

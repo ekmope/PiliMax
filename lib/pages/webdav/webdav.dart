@@ -76,6 +76,10 @@ class WebDav {
     return 'pilimax_settings_${DeviceUtils.platformName}.json';
   }
 
+  String _getLegacyFileName() {
+    return 'piliplus_settings_${DeviceUtils.platformName}.json';
+  }
+
   Future<void> backup() async {
     // Keep the payload bound to the same settings snapshot as the connection.
     final config = _getConfig();
@@ -109,8 +113,13 @@ class WebDav {
       return;
     }
     try {
-      final path = '${config.directory}/${_getFileName()}';
-      final data = await client.read(path);
+      final base = '${config.directory}/';
+      List<int> data;
+      try {
+        data = await client.read('$base${_getFileName()}');
+      } catch (_) {
+        data = await client.read('$base${_getLegacyFileName()}');
+      }
       await GStorage.importAllSettings(utf8.decode(data));
       SmartDialog.showToast('恢复成功');
     } catch (e) {

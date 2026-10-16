@@ -18,6 +18,7 @@ import 'package:PiliMax/models_new/live/live_fans_medal/data.dart';
 import 'package:PiliMax/models_new/live/live_fans_medal/item.dart';
 import 'package:PiliMax/models_new/live/live_medal_wall/uinfo_medal.dart';
 import 'package:PiliMax/models_new/live/live_room_info_h5/data.dart';
+import 'package:PiliMax/models_new/live/live_room_play_info/data.dart';
 import 'package:PiliMax/models_new/live/live_room_play_info/codec.dart';
 import 'package:PiliMax/models_new/live/live_room_play_info/stream.dart';
 import 'package:PiliMax/models_new/live/live_superchat/item.dart';
@@ -67,6 +68,8 @@ class LiveRoomController extends GetxController {
   );
 
   final isLoaded = false.obs;
+  final isUnstartedRoom = false.obs;
+  int? liveStatus;
   final roomInfoH5 = Rxn<RoomInfoH5Data>();
 
   final liveTime = Rxn<int>();
@@ -179,6 +182,9 @@ class LiveRoomController extends GetxController {
 
   final RxnString watchedShow = RxnString();
   Widget get watchedWidget => Obx(() {
+    if (isUnstartedRoom.value) {
+      return const SizedBox.shrink();
+    }
     if (watchedShow.value case final watchedShow?) {
       return Text(
         watchedShow,
@@ -438,10 +444,16 @@ class LiveRoomController extends GetxController {
         return false;
       }
       if (response.liveStatus != 1) {
+        if (response.liveStatus == 0 || response.liveStatus == 2) {
+          _initUnstartedRoom(response);
+          return false;
+        }
         if (silent) return false;
         _showDialog('当前直播间未开播');
         return false;
       }
+      liveStatus = response.liveStatus;
+      isUnstartedRoom.value = false;
       final playurl = response.playurlInfo?.playurl;
       if (playurl == null) {
         if (silent) return false;
@@ -493,6 +505,25 @@ class LiveRoomController extends GetxController {
       _showDialog(res.toString());
       return false;
     }
+  }
+
+  bool get isRoundRoom => liveStatus == 2;
+
+  void _initUnstartedRoom(RoomPlayInfoData response) {
+    if (isUnstartedRoom.value) return;
+    liveStatus = response.liveStatus;
+    isUnstartedRoom.value = true;
+    ruid = response.uid;
+    if (response.roomId case final roomId?) {
+      this.roomId = roomId;
+    }
+    final upId = ruid;
+    if (Accounts.heartbeat.isLogin && upId != null) {
+      LiveHttp.startLiveHeartbeat(roomId, upId);
+    }
+    cancelLiveTimer();
+    startLiveMsg();
+    isLoaded.value = true;
   }
 
   List<Stream>? stream;

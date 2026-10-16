@@ -23,6 +23,7 @@ import 'package:get/get.dart';
 enum _FolderSortAction {
   manual,
   reset,
+  autoFolderOrder,
 }
 
 class DownloadFolderPage extends StatefulWidget {
@@ -49,7 +50,9 @@ class _DownloadFolderPageState extends State<DownloadFolderPage> {
   @override
   void dispose() {
     _progress.dispose();
-    if (Get.isRegistered<DownloadFolderDetailController>(tag: widget.folderId)) {
+    if (Get.isRegistered<DownloadFolderDetailController>(
+      tag: widget.folderId,
+    )) {
       Get.delete<DownloadFolderDetailController>(tag: widget.folderId);
     }
     super.dispose();
@@ -102,6 +105,11 @@ class _DownloadFolderPageState extends State<DownloadFolderPage> {
     SmartDialog.showToast('已按缓存时间重置');
   }
 
+  Future<void> _applyAutoFolderOrder() async {
+    await _collectionService.applyAutoFolderOrder(widget.folderId);
+    SmartDialog.showToast('已按合集顺序排列');
+  }
+
   void _onSortSelected(_FolderSortAction action) {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) {
@@ -109,6 +117,8 @@ class _DownloadFolderPageState extends State<DownloadFolderPage> {
       }
       if (action == _FolderSortAction.manual) {
         await _openSortPage();
+      } else if (action == _FolderSortAction.autoFolderOrder) {
+        await _applyAutoFolderOrder();
       } else {
         await _resetOrder();
       }
@@ -179,15 +189,18 @@ class _DownloadFolderPageState extends State<DownloadFolderPage> {
                 },
                 child: Text(
                   '更新',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
               ),
               TextButton(
                 style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                 ),
-                onPressed:
-                    _controller.checkedCount == 0 ? null : _addSelectedToFolder,
+                onPressed: _controller.checkedCount == 0
+                    ? null
+                    : _addSelectedToFolder,
                 child: const Text('添加到'),
               ),
               if (Platform.isAndroid)
@@ -195,8 +208,9 @@ class _DownloadFolderPageState extends State<DownloadFolderPage> {
                   style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                   ),
-                  onPressed:
-                      _controller.checkedCount == 0 ? null : _exportSelected,
+                  onPressed: _controller.checkedCount == 0
+                      ? null
+                      : _exportSelected,
                   child: const Text('导出'),
                 ),
             ],
@@ -219,14 +233,22 @@ class _DownloadFolderPageState extends State<DownloadFolderPage> {
                     tooltip: '排序',
                     icon: const Icon(Icons.sort),
                     onPressed: () {
+                      final folder = _collectionService.getFolder(
+                        widget.folderId,
+                      );
                       showStaticPositionMenu<_FolderSortAction>(
                         context: context,
-                        items: const [
-                          PopupMenuItem(
+                        items: [
+                          const PopupMenuItem(
                             value: _FolderSortAction.manual,
                             child: Text('手动排序'),
                           ),
-                          PopupMenuItem(
+                          if (folder?.sourceKey != null)
+                            const PopupMenuItem(
+                              value: _FolderSortAction.autoFolderOrder,
+                              child: Text('按合集顺序'),
+                            ),
+                          const PopupMenuItem(
                             value: _FolderSortAction.reset,
                             child: Text('按缓存时间'),
                           ),
@@ -299,12 +321,12 @@ class _DownloadFolderPageState extends State<DownloadFolderPage> {
                         showTitle: true,
                         onDeleteRequested: (menuContext) =>
                             confirmRemoveEntriesFromFolder(
-                          context: menuContext,
-                          collectionService: _collectionService,
-                          downloadService: _downloadService,
-                          folderId: widget.folderId,
-                          entries: [entry],
-                        ),
+                              context: menuContext,
+                              collectionService: _collectionService,
+                              downloadService: _downloadService,
+                              folderId: widget.folderId,
+                              entries: [entry],
+                            ),
                         deleteLabel: '移出文件夹',
                         deleteConfirmText: '确定从当前文件夹移除？',
                         controller: _controller,

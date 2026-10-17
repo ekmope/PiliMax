@@ -13,6 +13,12 @@ const videoDetailPrepareForExitKey = '_videoDetailPrepareForExit';
 const videoDetailCancelPreparedExitKey = '_videoDetailCancelPreparedExit';
 const videoDetailPipExitIntentKey = '_videoDetailPipExitIntent';
 
+/// Marks a normal video launch that must visually take over an active PiP.
+///
+/// This is intentionally separate from `fromPip`: the latter is reserved for
+/// restoring the same video and must keep the coordinator's restore handshake.
+const videoDetailPipReplacementKey = '_videoDetailPipReplacement';
+
 enum VideoDetailExitMode {
   /// The entry overlay and Hero still own the visible presentation, so the
   /// route animation itself must reverse without another page transform.

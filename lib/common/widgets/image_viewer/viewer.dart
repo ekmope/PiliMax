@@ -481,11 +481,11 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       onPointerDown: _onPointerDown,
       onPointerPanZoomStart: _onPointerPanZoomStart,
       onPointerSignal: _onPointerSignal,
-      child: AnimatedBuilder(
-        animation: _matrixNotifier,
-        child: widget.child,
-        builder: (context, child) => ClipRect(
-          child: Transform(
+      child: ClipRect(
+        child: AnimatedBuilder(
+          animation: _matrixNotifier,
+          child: widget.child,
+          builder: (context, child) => Transform(
             // _matrix is mutated in place. Pass a snapshot so RenderTransform
             // can detect each value change during its widget update.
             transform: _matrix.clone(),

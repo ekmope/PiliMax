@@ -858,7 +858,25 @@ abstract final class PageUtils {
       _videoRouteLaunchPending = true;
     }
     try {
-      if (!off && arguments[videoTransitionTokenKey] == null) {
+      final hasActivePipForLaunch =
+          !off &&
+          arguments['fromPip'] != true &&
+          (PipOverlayService.isInPipMode || LivePipOverlayService.isInPipMode);
+      if (hasActivePipForLaunch) {
+        // A PiP overlay can contain a different video's player, so it is not a
+        // valid shared-media source for this route. Use a short route fade;
+        // `fromPip` remains reserved for restoring the same page.
+        arguments[videoDetailPipReplacementKey] = true;
+        final staleToken = arguments.remove(videoTransitionTokenKey);
+        if (staleToken is VideoTransitionToken) {
+          staleToken.dispose();
+        }
+      } else {
+        arguments.remove(videoDetailPipReplacementKey);
+      }
+      if (!off &&
+          !hasActivePipForLaunch &&
+          arguments[videoTransitionTokenKey] == null) {
         final heroTag = arguments['heroTag'];
         if (heroTag is String && heroTag.isNotEmpty) {
           final token = VideoTransitionRegistry.claim(
@@ -869,6 +887,9 @@ abstract final class PageUtils {
             arguments[videoTransitionTokenKey] = token;
           }
         }
+      }
+      if (!hasActivePipForLaunch) {
+        arguments.remove(videoDetailPipReplacementKey);
       }
       if (!off && arguments[videoTransitionTokenKey] is VideoTransitionToken) {
         // Preserve the card's release/ripple frame before covering the source.

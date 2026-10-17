@@ -768,9 +768,31 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
     final routeDrivenTokenlessExit =
         widget.token == null &&
         (!_routeCompleted || _exitMode == VideoDetailExitMode.routeComposite);
-    final page = routeDrivenTokenlessExit
-        ? FadeTransition(opacity: widget.animation, child: widget.child)
-        : widget.child;
+    final Widget page;
+    final isPipReplacementEntry =
+        !_routeCompleted &&
+        widget.token == null &&
+        _arguments?[videoDetailPipReplacementKey] == true;
+    if (isPipReplacementEntry) {
+      final fade = CurveTween(
+        curve: Curves.easeOutCubic,
+      ).animate(widget.animation);
+      final disableMovement =
+          MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+      page = FadeTransition(
+        opacity: fade,
+        child: disableMovement
+            ? widget.child
+            : ScaleTransition(
+                scale: Tween<double>(begin: .985, end: 1).animate(fade),
+                child: widget.child,
+              ),
+      );
+    } else if (routeDrivenTokenlessExit) {
+      page = FadeTransition(opacity: widget.animation, child: widget.child);
+    } else {
+      page = widget.child;
+    }
     return ValueListenableBuilder<double>(
       valueListenable: _progress,
       child: RepaintBoundary(

@@ -65,7 +65,7 @@ class _SkeletonState extends State<Skeleton>
 
     return AnimatedBuilder(
       animation: _controller,
-      child: widget.child,
+      child: RepaintBoundary(child: widget.child),
       builder: (context, child) => ShaderMask(
         blendMode: BlendMode.srcATop,
         shaderCallback: (Rect bounds) {

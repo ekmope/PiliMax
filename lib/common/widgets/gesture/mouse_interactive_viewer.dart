@@ -847,50 +847,28 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
       onPointerPanZoomStart: _scaleGestureRecognizer.addPointerPanZoom,
       onPointerPanZoomUpdate: widget.onPointerPanZoomUpdate,
       onPointerPanZoomEnd: widget.onPointerPanZoomEnd,
-      child: AnimatedBuilder(
-        animation: _transformer,
-        child: widget.child,
-        builder: (context, child) => _InteractiveViewerBuilt(
-          childKey: widget.childKey,
-          clipBehavior: widget.clipBehavior,
-          constrained: widget.constrained,
-          // TransformationController values are mutable. Give Transform a
-          // fresh matrix so RenderTransform observes in-place value changes.
-          matrix: _transformer.value.clone(),
-          alignment: widget.alignment,
-          child: child!,
-        ),
-      ),
+      child: _buildInteractiveViewerChild(),
     );
   }
-}
 
-class _InteractiveViewerBuilt extends StatelessWidget {
-  const _InteractiveViewerBuilt({
-    required this.child,
-    required this.childKey,
-    required this.clipBehavior,
-    required this.constrained,
-    required this.matrix,
-    required this.alignment,
-  });
-
-  final Widget child;
-  final GlobalKey childKey;
-  final Clip clipBehavior;
-  final bool constrained;
-  final Matrix4 matrix;
-  final Alignment? alignment;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget child = Transform(
-      transform: matrix,
-      alignment: alignment,
-      child: this.child,
+  Widget _buildInteractiveViewerChild() {
+    // Keep the clipping and overflow layout widgets outside the animation
+    // builder. Matrix updates then only replace RenderTransform's matrix;
+    // they do not rebuild the surrounding layout subtree for every pointer
+    // event or inertia tick.
+    Widget child = AnimatedBuilder(
+      animation: _transformer,
+      child: widget.child,
+      builder: (context, child) => Transform(
+        // TransformationController values are mutable. Give Transform a
+        // fresh matrix so RenderTransform observes in-place value changes.
+        transform: _transformer.value.clone(),
+        alignment: widget.alignment,
+        child: child,
+      ),
     );
 
-    if (!constrained) {
+    if (!widget.constrained) {
       child = OverflowBox(
         alignment: Alignment.topLeft,
         minWidth: 0.0,
@@ -901,8 +879,8 @@ class _InteractiveViewerBuilt extends StatelessWidget {
       );
     }
 
-    if (clipBehavior != Clip.none) {
-      child = ClipRect(clipBehavior: clipBehavior, child: child);
+    if (widget.clipBehavior != Clip.none) {
+      child = ClipRect(clipBehavior: widget.clipBehavior, child: child);
     }
 
     return child;

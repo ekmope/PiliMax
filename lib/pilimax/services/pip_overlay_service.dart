@@ -471,6 +471,10 @@ class _PipWidgetState extends State<PipWidget>
     duration: PipTransitionCoordinator.closeFadeDuration,
   );
 
+  final ValueNotifier<int> _geometryRevision = ValueNotifier(0);
+
+  bool _disableAnimations = false;
+
   Size get _unscaledWindowSize => PipOverlayService.isVertical
       ? const Size(PipOverlayService.pipHeight, PipOverlayService.pipWidth)
       : const Size(PipOverlayService.pipWidth, PipOverlayService.pipHeight);
@@ -490,8 +494,8 @@ class _PipWidgetState extends State<PipWidget>
     WidgetsBinding.instance.addObserver(this);
     _transition.addListener(_onPhaseChanged);
     _lastPhase = _transition.phase;
-    if (_lastPhase == PipPhase.entering) {
-      _phaseController.forward(from: 0);
+    if (_lastPhase == PipPhase.entering || _lastPhase == PipPhase.restoring) {
+      _startPhaseAnimation();
     } else {
       _phaseController.value = 1;
     }
@@ -501,6 +505,49 @@ class _PipWidgetState extends State<PipWidget>
     } else {
       _startHideTimer();
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (_disableAnimations == disableAnimations) return;
+
+    _disableAnimations = disableAnimations;
+    _closeController.duration = disableAnimations
+        ? const Duration(milliseconds: 100)
+        : PipTransitionCoordinator.closeFadeDuration;
+
+    if (disableAnimations &&
+        (_transition.phase == PipPhase.entering ||
+            _transition.phase == PipPhase.restoring)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            _disableAnimations &&
+            (_transition.phase == PipPhase.entering ||
+                _transition.phase == PipPhase.restoring)) {
+          _completePhaseAnimationImmediately();
+        }
+      });
+    }
+  }
+
+  void _startPhaseAnimation() {
+    if (_disableAnimations) {
+      _completePhaseAnimationImmediately();
+    } else {
+      _phaseController.forward(from: 0);
+    }
+  }
+
+  void _completePhaseAnimationImmediately() {
+    _phaseController
+      ..stop()
+      ..value = 1;
+    // Setting the value can already dispatch the completed status. Calling
+    // this explicitly is safe because the coordinator ignores stale phases.
+    _onPhaseAnimationStatus(AnimationStatus.completed);
   }
 
   void _onPhaseChanged() {
@@ -514,7 +561,7 @@ class _PipWidgetState extends State<PipWidget>
       switch (phase) {
         case PipPhase.entering:
         case PipPhase.restoring:
-          _phaseController.forward(from: 0);
+          _startPhaseAnimation();
         case PipPhase.active:
           _phaseController
             ..stop()
@@ -522,9 +569,6 @@ class _PipWidgetState extends State<PipWidget>
         case PipPhase.hidden:
           _phaseController.stop();
       }
-    }
-    if (mounted) {
-      setState(() {});
     }
   }
 
@@ -566,6 +610,7 @@ class _PipWidgetState extends State<PipWidget>
       ..removeStatusListener(_onPhaseAnimationStatus)
       ..dispose();
     _closeController.dispose();
+    _geometryRevision.dispose();
     _hideTimer?.cancel();
     _cancelWheelResize();
     if (PipOverlayService._overlayEntry != null) {
@@ -660,6 +705,10 @@ class _PipWidgetState extends State<PipWidget>
   void _rememberWindow() {
     PipWindowMemory.scale = _scale;
     PipWindowMemory.position = Offset(_left ?? 0, _top ?? 0);
+  }
+
+  void _notifyGeometryChanged() {
+    _geometryRevision.value++;
   }
 
   void _cancelWheelResize() {
@@ -776,10 +825,11 @@ class _PipWidgetState extends State<PipWidget>
       return AnimatedBuilder(
         animation: Listenable.merge([
           _phaseController,
-          _closeController,
           _transition,
+          _geometryRevision,
         ]),
-        builder: (context, _) {
+        child: widget.videoPlayerBuilder(false, _width, _height),
+        builder: (context, stableVideoContent) {
           final phase = _transition.phase;
           final displayLeft = _left!
               .clamp(0.0, max(0.0, screenSize.width - _width))
@@ -804,14 +854,16 @@ class _PipWidgetState extends State<PipWidget>
           final inTransition =
               phase == PipPhase.entering || phase == PipPhase.restoring;
           final interactive = phase == PipPhase.active && !_isClosing;
+          final videoContent = inTransition
+              ? widget.videoPlayerBuilder(false, rect.width, rect.height)
+              : stableVideoContent!;
 
-          return AnimatedPositioned(
+          return TweenAnimationBuilder<Offset>(
+            tween: Tween<Offset>(end: rect.topLeft),
             duration: inTransition || _instantResize
                 ? Duration.zero
                 : const Duration(milliseconds: 250),
             curve: Curves.easeOutCubic,
-            left: rect.left,
-            top: rect.top,
             child: IgnorePointer(
               ignoring: !interactive,
               child: Listener(
@@ -840,18 +892,21 @@ class _PipWidgetState extends State<PipWidget>
                     setState(() => _scaleGestureActive = true);
                   },
                   onScaleUpdate: (details) {
-                    setState(() {
-                      _left = _left! + details.focalPointDelta.dx;
-                      _top = _top! + details.focalPointDelta.dy;
-                      if (details.pointerCount > 1) {
+                    if (details.pointerCount > 1) {
+                      setState(() {
+                        _left = _left! + details.focalPointDelta.dx;
+                        _top = _top! + details.focalPointDelta.dy;
                         _applyScaleAroundCenter(
                           _scaleStart * details.scale,
                           screenSize,
                         );
-                      } else {
-                        _clampPositionInScreen(screenSize);
-                      }
-                    });
+                      });
+                    } else {
+                      _left = _left! + details.focalPointDelta.dx;
+                      _top = _top! + details.focalPointDelta.dy;
+                      _clampPositionInScreen(screenSize);
+                      _notifyGeometryChanged();
+                    }
                     _rememberWindow();
                   },
                   onScaleEnd: (_) {
@@ -897,11 +952,7 @@ class _PipWidgetState extends State<PipWidget>
                               children: [
                                 Positioned.fill(
                                   child: AbsorbPointer(
-                                    child: widget.videoPlayerBuilder(
-                                      false,
-                                      rect.width,
-                                      rect.height,
-                                    ),
+                                    child: videoContent,
                                   ),
                                 ),
                                 if (interactive && _showControls) ...[
@@ -1054,6 +1105,11 @@ class _PipWidgetState extends State<PipWidget>
                   ),
                 ),
               ),
+            ),
+            builder: (context, position, child) => Positioned(
+              left: 0,
+              top: 0,
+              child: Transform.translate(offset: position, child: child),
             ),
           );
         },

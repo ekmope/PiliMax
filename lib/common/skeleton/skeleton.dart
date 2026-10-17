@@ -14,15 +14,15 @@ class Skeleton extends StatefulWidget {
 class _SkeletonState extends State<Skeleton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late Color color;
-  final matrix = Matrix4.identity();
+  Color? _color;
+  late List<Color> _colors;
+  final _matrix = Matrix4.identity();
+  bool _animationEnabled = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController.unbounded(vsync: this)
-      ..repeat(min: -0.5, max: 1.5, period: const Duration(milliseconds: 1000))
-      ..addListener(_setState);
+    _controller = AnimationController.unbounded(vsync: this);
   }
 
   @override
@@ -31,35 +31,58 @@ class _SkeletonState extends State<Skeleton>
     super.dispose();
   }
 
-  void _setState() {
-    setState(() {});
-  }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    color = ColorScheme.of(context).surface.withAlpha(10);
+    final color = ColorScheme.of(context).surface.withAlpha(10);
+    if (_color != color) {
+      _color = color;
+      _colors = [Colors.transparent, color, color, Colors.transparent];
+    }
+
+    final shouldAnimate =
+        TickerMode.valuesOf(context).enabled &&
+        !(MediaQuery.maybeOf(context)?.disableAnimations ?? false);
+    if (shouldAnimate == _animationEnabled) return;
+
+    _animationEnabled = shouldAnimate;
+    if (shouldAnimate) {
+      _controller.repeat(
+        min: -0.5,
+        max: 1.5,
+        period: const Duration(milliseconds: 1000),
+      );
+    } else {
+      _controller
+        ..stop()
+        ..value = 0;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = [Colors.transparent, color, color, Colors.transparent];
-    return ShaderMask(
-      blendMode: BlendMode.srcATop,
-      shaderCallback: (Rect bounds) {
-        final width = bounds.width;
-        final height = bounds.height;
-        matrix[12] = width * _controller.value;
-        return ui.Gradient.linear(
-          Offset(0, 0.35 * height),
-          Offset(width, 0.95 * height),
-          colors,
-          const [0.1, 0.3, 0.5, 0.7],
-          TileMode.clamp,
-          matrix.storage,
-        );
-      },
+    if (!_animationEnabled) return widget.child;
+
+    return AnimatedBuilder(
+      animation: _controller,
       child: widget.child,
+      builder: (context, child) => ShaderMask(
+        blendMode: BlendMode.srcATop,
+        shaderCallback: (Rect bounds) {
+          final width = bounds.width;
+          final height = bounds.height;
+          _matrix[12] = width * _controller.value;
+          return ui.Gradient.linear(
+            Offset(0, 0.35 * height),
+            Offset(width, 0.95 * height),
+            _colors,
+            const [0.1, 0.3, 0.5, 0.7],
+            TileMode.clamp,
+            _matrix.storage,
+          );
+        },
+        child: child,
+      ),
     );
   }
 }

@@ -899,22 +899,27 @@ class VideoPageExitTransition extends StatelessWidget {
   }
 
   Widget _combinedPageLayer(_VideoExitGeometry geometry) {
+    Widget content = Transform(
+      alignment: Alignment.topLeft,
+      transform: geometry.contentTransform,
+      transformHitTests: false,
+      child: child,
+    );
+    if (geometry.bodyOpacity < 0.999) {
+      content = Opacity(opacity: geometry.bodyOpacity, child: content);
+    }
+    if (geometry.borderRadius > 0.01) {
+      content = ClipRRect(
+        clipper: _VideoExitClipper(geometry.clipRRect),
+        clipBehavior: progress <= 0 ? Clip.none : Clip.antiAlias,
+        child: content,
+      );
+    }
+
     return ClipRect(
       clipper: _VideoExitRectClipper(geometry.visibleClipRect),
       clipBehavior: progress <= 0 ? Clip.none : Clip.hardEdge,
-      child: ClipRRect(
-        clipper: _VideoExitClipper(geometry.clipRRect),
-        clipBehavior: progress <= 0 ? Clip.none : Clip.antiAlias,
-        child: Opacity(
-          opacity: geometry.bodyOpacity,
-          child: Transform(
-            alignment: Alignment.topLeft,
-            transform: geometry.contentTransform,
-            transformHitTests: false,
-            child: child,
-          ),
-        ),
-      ),
+      child: content,
     );
   }
 

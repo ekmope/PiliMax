@@ -42,7 +42,7 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
     if (enableSlide) {
       _animController = AnimationController(
         vsync: this,
-        reverseDuration: const Duration(milliseconds: 500),
+        reverseDuration: const Duration(milliseconds: 300),
       );
       _slideDragGestureRecognizer =
           SlideDragGestureRecognizer(
@@ -89,7 +89,11 @@ mixin CommonSlideMixin<T extends CommonSlidePage> on State<T>, TickerProvider {
                 child: child,
               );
             },
-            child: buildPage(theme),
+            // Keep the page's raster content stable while the dismiss
+            // controller changes the outer geometry. This does not remove the
+            // required height layout, but avoids repainting a complex panel
+            // for every drag/reverse tick.
+            child: RepaintBoundary(child: buildPage(theme)),
           );
         },
       );

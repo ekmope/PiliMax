@@ -279,6 +279,8 @@ class _LivePipWidgetState extends State<LivePipWidget>
     duration: PipTransitionCoordinator.closeFadeDuration,
   );
 
+  bool _disableAnimations = false;
+
   Size get _unscaledWindowSize => LivePipOverlayService.isVertical
       ? const Size(112, 200)
       : const Size(200, 112);
@@ -299,8 +301,8 @@ class _LivePipWidgetState extends State<LivePipWidget>
     WidgetsBinding.instance.addObserver(this);
     _transition.addListener(_onPhaseChanged);
     _lastPhase = _transition.phase;
-    if (_lastPhase == PipPhase.entering) {
-      _phaseController.forward(from: 0);
+    if (_lastPhase == PipPhase.entering || _lastPhase == PipPhase.restoring) {
+      _startPhaseAnimation();
     } else {
       _phaseController.value = 1;
     }
@@ -310,6 +312,49 @@ class _LivePipWidgetState extends State<LivePipWidget>
     } else {
       _startHideTimer();
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (_disableAnimations == disableAnimations) return;
+
+    _disableAnimations = disableAnimations;
+    _closeController.duration = disableAnimations
+        ? const Duration(milliseconds: 100)
+        : PipTransitionCoordinator.closeFadeDuration;
+
+    if (disableAnimations &&
+        (_transition.phase == PipPhase.entering ||
+            _transition.phase == PipPhase.restoring)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            _disableAnimations &&
+            (_transition.phase == PipPhase.entering ||
+                _transition.phase == PipPhase.restoring)) {
+          _completePhaseAnimationImmediately();
+        }
+      });
+    }
+  }
+
+  void _startPhaseAnimation() {
+    if (_disableAnimations) {
+      _completePhaseAnimationImmediately();
+    } else {
+      _phaseController.forward(from: 0);
+    }
+  }
+
+  void _completePhaseAnimationImmediately() {
+    _phaseController
+      ..stop()
+      ..value = 1;
+    // The status listener completes the coordinator handshake; this is also
+    // safe when value=1 already dispatched the completion synchronously.
+    _onPhaseAnimationStatus(AnimationStatus.completed);
   }
 
   void _onPhaseChanged() {
@@ -323,7 +368,7 @@ class _LivePipWidgetState extends State<LivePipWidget>
       switch (phase) {
         case PipPhase.entering:
         case PipPhase.restoring:
-          _phaseController.forward(from: 0);
+          _startPhaseAnimation();
         case PipPhase.active:
           _phaseController
             ..stop()
@@ -331,9 +376,6 @@ class _LivePipWidgetState extends State<LivePipWidget>
         case PipPhase.hidden:
           _phaseController.stop();
       }
-    }
-    if (mounted) {
-      setState(() {});
     }
   }
 
@@ -602,7 +644,6 @@ class _LivePipWidgetState extends State<LivePipWidget>
       return AnimatedBuilder(
         animation: Listenable.merge([
           _phaseController,
-          _closeController,
           _transition,
         ]),
         builder: (context, _) {

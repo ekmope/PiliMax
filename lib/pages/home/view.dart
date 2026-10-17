@@ -127,20 +127,15 @@ class _HomePageState extends CommonPageState<HomePage>
         );
       }
       if (_homeController.showTopBar case final showTopBar?) {
-        return Obx(() {
-          final showSearchBar = showTopBar.value;
-          return AnimatedOpacity(
-            opacity: showSearchBar ? 1 : 0,
-            duration: const Duration(milliseconds: 300),
-            child: AnimatedContainer(
-              curve: Curves.easeInOutCubicEmphasized,
-              duration: const Duration(milliseconds: 500),
-              height: showSearchBar ? Style.topBarHeight : 0,
-              padding: padding,
-              child: child,
+        return Obx(
+          () => _HomeTopBarTransition(
+            visible: showTopBar.value,
+            child: SizedBox(
+              height: Style.topBarHeight,
+              child: Padding(padding: padding, child: child),
             ),
-          );
-        });
+          ),
+        );
       }
     }
     return Container(
@@ -192,6 +187,85 @@ class _HomePageState extends CommonPageState<HomePage>
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeTopBarTransition extends StatefulWidget {
+  const _HomeTopBarTransition({required this.visible, required this.child});
+
+  final bool visible;
+  final Widget child;
+
+  @override
+  State<_HomeTopBarTransition> createState() => _HomeTopBarTransitionState();
+}
+
+class _HomeTopBarTransitionState extends State<_HomeTopBarTransition>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+  );
+  late final CurvedAnimation _transition = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeInOutCubicEmphasized,
+  );
+  bool _animationsEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.value = widget.visible ? 1 : 0;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animationsEnabled =
+        TickerMode.valuesOf(context).enabled &&
+        !(MediaQuery.maybeOf(context)?.disableAnimations ?? false);
+    if (animationsEnabled == _animationsEnabled) return;
+
+    _animationsEnabled = animationsEnabled;
+    if (!animationsEnabled) {
+      _controller.value = widget.visible ? 1 : 0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(_HomeTopBarTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.visible == widget.visible) return;
+
+    if (!_animationsEnabled) {
+      _controller.value = widget.visible ? 1 : 0;
+    } else if (widget.visible) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _transition.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizeTransition(
+      alignment: Alignment.topCenter,
+      sizeFactor: _transition,
+      child: IgnorePointer(
+        ignoring: !widget.visible,
+        child: ExcludeSemantics(
+          excluding: !widget.visible,
+          child: FadeTransition(opacity: _transition, child: widget.child),
         ),
       ),
     );

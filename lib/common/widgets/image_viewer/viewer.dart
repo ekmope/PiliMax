@@ -32,6 +32,10 @@ import 'package:flutter/services.dart' show HardwareKeyboard;
 /// created by dom on 2026/02/14
 ///
 
+class _MatrixChangeNotifier extends ChangeNotifier {
+  void notifyMatrixChanged() => notifyListeners();
+}
+
 class Viewer extends StatefulWidget {
   const Viewer({
     super.key,
@@ -74,6 +78,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
   _GestureType? _gestureType;
 
   final Matrix4 _matrix = Matrix4.identity();
+  final _MatrixChangeNotifier _matrixNotifier = _MatrixChangeNotifier();
 
   late double __scale;
   double get _scale => __scale;
@@ -111,7 +116,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     final t = Curves.easeOut.transform(_animationController.value);
     _scale = t.lerp(_scaleFrom, _scaleTo);
     _position = Offset.lerp(_positionFrom, _positionTo, t)!;
-    setState(() {});
+    _matrixNotifier.notifyMatrixChanged();
   }
 
   void _reset() {
@@ -186,6 +191,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
     _animationController
       ..removeListener(_listener)
       ..dispose();
+    _matrixNotifier.dispose();
     _scaleGestureRecognizer.dispose();
     super.dispose();
   }
@@ -324,14 +330,14 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       _position = _matrixTranslate(
         focalPointSceneScaled - _referenceFocalPoint!,
       );
-      setState(() {});
+      _matrixNotifier.notifyMatrixChanged();
     } else {
       _gestureType = .pan;
       final Offset focalPointScene = _toScene(details.localFocalPoint);
       final Offset translationChange = focalPointScene - _referenceFocalPoint!;
       _position = _matrixTranslate(translationChange);
       _referenceFocalPoint = _toScene(details.localFocalPoint);
-      setState(() {});
+      _matrixNotifier.notifyMatrixChanged();
     }
   }
 
@@ -404,7 +410,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
 
     final Offset movement = _flingDirection * delta;
     _position = _clampPosition(_position + movement, _scale);
-    setState(() {});
+    _matrixNotifier.notifyMatrixChanged();
 
     if (_flingSimulation!.isDone(elapsedSeconds)) {
       _stopFling();
@@ -475,10 +481,16 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       onPointerDown: _onPointerDown,
       onPointerPanZoomStart: _onPointerPanZoomStart,
       onPointerSignal: _onPointerSignal,
-      child: ClipRect(
-        child: Transform(
-          transform: _matrix,
-          child: widget.child,
+      child: AnimatedBuilder(
+        animation: _matrixNotifier,
+        child: widget.child,
+        builder: (context, child) => ClipRect(
+          child: Transform(
+            // _matrix is mutated in place. Pass a snapshot so RenderTransform
+            // can detect each value change during its widget update.
+            transform: _matrix.clone(),
+            child: child,
+          ),
         ),
       ),
     );
@@ -546,7 +558,7 @@ class _ViewerState extends State<Viewer> with SingleTickerProviderStateMixin {
       );
       final Offset focalPointSceneScaled = _toScene(local);
       _position = _matrixTranslate(focalPointSceneScaled - focalPointScene);
-      setState(() {});
+      _matrixNotifier.notifyMatrixChanged();
     }
   }
 }

@@ -799,10 +799,6 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     );
   }
 
-  void _handleTransformation() {
-    setState(() {});
-  }
-
   @override
   void initState() {
     super.initState();
@@ -816,7 +812,6 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     _snapController = AnimationController(vsync: this);
 
     _transformer = widget.transformationController;
-    _transformer.addListener(_handleTransformation);
   }
 
   @override
@@ -827,9 +822,7 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     if (newController == oldWidget.transformationController) {
       return;
     }
-    _transformer.removeListener(_handleTransformation);
     _transformer = newController;
-    _transformer.addListener(_handleTransformation);
   }
 
   @override
@@ -837,7 +830,6 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
     _controller.dispose();
     _scaleController.dispose();
     _snapController.dispose();
-    _transformer.removeListener(_handleTransformation);
     super.dispose();
   }
 
@@ -855,13 +847,19 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
       onPointerPanZoomStart: _scaleGestureRecognizer.addPointerPanZoom,
       onPointerPanZoomUpdate: widget.onPointerPanZoomUpdate,
       onPointerPanZoomEnd: widget.onPointerPanZoomEnd,
-      child: _InteractiveViewerBuilt(
-        childKey: widget.childKey,
-        clipBehavior: widget.clipBehavior,
-        constrained: widget.constrained,
-        matrix: _transformer.value,
-        alignment: widget.alignment,
+      child: AnimatedBuilder(
+        animation: _transformer,
         child: widget.child,
+        builder: (context, child) => _InteractiveViewerBuilt(
+          childKey: widget.childKey,
+          clipBehavior: widget.clipBehavior,
+          constrained: widget.constrained,
+          // TransformationController values are mutable. Give Transform a
+          // fresh matrix so RenderTransform observes in-place value changes.
+          matrix: _transformer.value.clone(),
+          alignment: widget.alignment,
+          child: child!,
+        ),
       ),
     );
   }

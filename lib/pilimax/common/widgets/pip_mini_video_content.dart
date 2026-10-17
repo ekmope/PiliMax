@@ -1,4 +1,5 @@
 import 'package:PiliMax/plugin/pl_player/controller.dart';
+import 'package:PiliMax/pilimax/common/widgets/pip_video_source_transition.dart';
 import 'package:PiliMax/pilimax/services/pip_transition_coordinator.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
@@ -47,16 +48,20 @@ class PipMiniVideoContent extends StatelessWidget {
                     child: Transform.flip(
                       flipX: plPlayerController.flipX.value,
                       flipY: plPlayerController.flipY.value,
-                      child: FittedBox(
+                      child: PipVideoSourceTransition(
+                        controller: plPlayerController,
                         fit: videoFit.boxFit,
-                        clipBehavior: Clip.hardEdge,
-                        child: SimpleVideo(
-                          key: ValueKey(
-                            ('pip-mini-video', videoController.hashCode),
+                        child: FittedBox(
+                          fit: videoFit.boxFit,
+                          clipBehavior: Clip.hardEdge,
+                          child: SimpleVideo(
+                            key: ValueKey(
+                              ('pip-mini-video', videoController.hashCode),
+                            ),
+                            controller: videoController,
+                            fill: Colors.black,
+                            aspectRatio: videoFit.aspectRatio,
                           ),
-                          controller: videoController,
-                          fill: Colors.black,
-                          aspectRatio: videoFit.aspectRatio,
                         ),
                       ),
                     ),

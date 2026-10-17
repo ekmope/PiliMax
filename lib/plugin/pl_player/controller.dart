@@ -1,4 +1,5 @@
-import 'dart:async' show StreamSubscription, Timer, unawaited;
+import 'dart:async'
+    show Completer, StreamSubscription, TimeoutException, Timer, unawaited;
 import 'dart:convert' show ascii, utf8;
 import 'dart:io' show Platform;
 import 'dart:math' show max, min;
@@ -95,6 +96,35 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   /// committed.  Views use this observable to discard source-scoped native
   /// texture state even when the same Player/VideoController is reused.
   final RxInt sourceRevision = 0.obs;
+
+  /// Monotonically identifies a PiP media handoff. The frame is captured
+  /// before the source coordinator invalidates the old source, so the PiP
+  /// surface can cover the native texture while the replacement starts.
+  final RxInt pipTransitionToken = 0.obs;
+
+  /// The source token whose replacement has reported enough playback state
+  /// to begin fading the retained frame. This is intentionally separate from
+  /// [sourceRevision]: a source handoff invalidates and commits the same
+  /// native controller at two different points.
+  final RxInt pipTransitionReadyToken = 0.obs;
+
+  ui.Image? _pipTransitionFrame;
+  final Map<int, ui.Image> _pipTransitionFrames = {};
+  final Map<int, int> _pipTransitionFrameReferences = {};
+  int _pipTransitionFrameToken = 0;
+  int _pipCaptureRequest = 0;
+  int _pipReadyRequest = 0;
+  int? _pipReadyCheckToken;
+  int? _pendingPipTransitionToken;
+  int? _pipTransitionTargetGeneration;
+  Duration _pipTransitionExpectedPosition = Duration.zero;
+  Future<void> _pipSourceRequestQueue = Future<void>.value();
+
+  ui.Image? get pipTransitionFrame =>
+      _pipTransitionFrames[_pipTransitionFrameToken];
+  int get pipTransitionFrameToken => _pipTransitionFrameToken;
+  ui.Image? pipTransitionFrameForToken(int token) =>
+      _pipTransitionFrames[token];
 
   Duration? seekToPos;
   bool hasToasted = false;
@@ -251,7 +281,14 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   /// after the same media is reopened, so a fresh native instance is required.
   Future<void> recreateLivePlayer() async {
     if (!isLive || _sourceCoordinator.isDisposed) return;
+    await _capturePipTransitionFrame(force: true);
+    if (_pendingPipTransitionToken != null) {
+      _pipTransitionTargetGeneration = _sourceCoordinator.currentGeneration;
+    }
+    await _recreateLivePlayerNow();
+  }
 
+  Future<void> _recreateLivePlayerNow() async {
     final player = _videoPlayerController;
     _livePlaybackRequested = false;
     _livePausedForInterruption = false;
@@ -278,6 +315,25 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     playerStatus.value = PlayerStatus.paused;
     isBuffering.value = true;
     unawaited(WakelockPlus.disable());
+  }
+
+  String? _buildSourceContextKey({
+    required bool isLive,
+    Object? videoType,
+    Object? bvid,
+    Object? cid,
+    Object? epId,
+    Object? seasonId,
+    Object? roomId,
+  }) {
+    if (isLive) return 'live|${roomId ?? ''}';
+    return PipOverlayService.buildVideoContextKey(
+      videoType: videoType ?? VideoType.ugc,
+      bvid: bvid,
+      cid: cid,
+      epId: epId,
+      seasonId: seasonId,
+    );
   }
 
   bool isCurrentVideoSource({
@@ -1116,6 +1172,358 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   int? get activeSourceGeneration => _activeSourceGeneration;
 
+  bool get _pipTransitionActive =>
+      _isInInAppPip ||
+      (Platform.isAndroid && isPipMode) ||
+      (PlatformUtils.isDesktop && isDesktopPip);
+
+  /// Captures one old native frame before a source handoff. media-kit exposes
+  /// the frame through the native player, which is more reliable for an
+  /// external Texture than asking Flutter to rasterize that Texture again.
+  /// The short timeout keeps a slow screenshot from delaying playback.
+  Future<bool> _capturePipTransitionFrame({
+    String? nextContextKey,
+    Duration expectedPosition = Duration.zero,
+    bool force = false,
+  }) async {
+    final request = ++_pipCaptureRequest;
+    if (!_pipTransitionActive) {
+      _clearPipTransitionFrame();
+      return true;
+    }
+    final pendingToken = _pendingPipTransitionToken;
+    if (pendingToken != null &&
+        pipTransitionFrameForToken(pendingToken) != null) {
+      return true;
+    }
+    if (!force &&
+        nextContextKey != null &&
+        nextContextKey == _activeVideoContextKey) {
+      _clearPipTransitionFrame();
+      return true;
+    }
+    final player = _videoPlayerController;
+    final generation = _activeSourceGeneration;
+    if (player == null || generation == null) {
+      if (_pendingPipTransitionToken == null) {
+        _clearPipTransitionFrame();
+      }
+      return true;
+    }
+
+    ui.Image? image;
+    try {
+      final raw = await _screenshotWithTimeout(player);
+      if (raw != null) {
+        image = await _downsamplePipTransitionFrame(raw);
+      }
+    } catch (_) {
+      image?.dispose();
+      image = null;
+    }
+    if (request != _pipCaptureRequest) {
+      image?.dispose();
+      return false;
+    }
+    if (image == null ||
+        !identical(player, _videoPlayerController) ||
+        !_sourceCoordinator.isActive(generation) ||
+        !_pipTransitionActive) {
+      image?.dispose();
+      _clearPipTransitionFrame();
+      return true;
+    }
+
+    _publishPipTransitionFrame(image, expectedPosition);
+    return true;
+  }
+
+  Future<T> _runAfterPipSourceCapture<T>(
+    Future<T> Function() operation, {
+    String? nextContextKey,
+    Duration expectedPosition = Duration.zero,
+    bool forceCapture = false,
+  }) {
+    final started = Completer<Future<T>>();
+    final queued = _pipSourceRequestQueue
+        .catchError((Object _, StackTrace _) {})
+        .then<void>((_) async {
+          try {
+            await _capturePipTransitionFrame(
+              nextContextKey: nextContextKey,
+              expectedPosition: expectedPosition,
+              force: forceCapture,
+            );
+          } catch (_) {
+            // A failed snapshot must never prevent source playback.
+            _clearPipTransitionFrame();
+          }
+          try {
+            final resultFuture = operation();
+            if (_pendingPipTransitionToken != null) {
+              _pipTransitionTargetGeneration =
+                  _sourceCoordinator.currentGeneration;
+            }
+            started.complete(resultFuture);
+          } catch (error, stackTrace) {
+            started.completeError(error, stackTrace);
+          }
+        });
+    _pipSourceRequestQueue = queued.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return started.future.then<T>((result) => result);
+  }
+
+  Future<ui.Image?> _screenshotWithTimeout(Player player) async {
+    final screenshot = player.screenshot();
+    var timedOut = false;
+    unawaited(
+      screenshot.then<void>(
+        (image) {
+          if (timedOut) {
+            image?.dispose();
+          }
+        },
+        onError: (Object _, StackTrace _) {},
+      ),
+    );
+    try {
+      return await screenshot.timeout(const Duration(milliseconds: 120));
+    } on TimeoutException {
+      timedOut = true;
+      return null;
+    }
+  }
+
+  Future<ui.Image?> _downsamplePipTransitionFrame(ui.Image raw) async {
+    const maximumEdge = 640;
+    if (raw.width <= 0 || raw.height <= 0) {
+      raw.dispose();
+      return null;
+    }
+    if (raw.width <= maximumEdge && raw.height <= maximumEdge) {
+      return raw;
+    }
+    try {
+      final scale = maximumEdge / max(raw.width, raw.height);
+      final width = max(1, (raw.width * scale).round());
+      final height = max(1, (raw.height * scale).round());
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+      final paint = ui.Paint()..filterQuality = ui.FilterQuality.low;
+      canvas.drawImageRect(
+        raw,
+        ui.Rect.fromLTWH(0, 0, raw.width.toDouble(), raw.height.toDouble()),
+        ui.Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+        paint,
+      );
+      final picture = recorder.endRecording();
+      return await _renderPipTransitionFrame(picture, raw, width, height);
+    } catch (_) {
+      raw.dispose();
+      return null;
+    }
+  }
+
+  Future<ui.Image?> _renderPipTransitionFrame(
+    ui.Picture picture,
+    ui.Image raw,
+    int width,
+    int height,
+  ) {
+    final result = Completer<ui.Image?>();
+    var settled = false;
+    final timer = Timer(const Duration(milliseconds: 80), () {
+      if (settled) return;
+      settled = true;
+      result.complete(null);
+    });
+    late final Future<ui.Image> imageFuture;
+    try {
+      imageFuture = picture.toImage(width, height);
+    } catch (_) {
+      picture.dispose();
+      raw.dispose();
+      if (!settled) {
+        settled = true;
+        timer.cancel();
+        result.complete(null);
+      }
+      return result.future;
+    }
+    imageFuture.then<void>(
+      (image) {
+        picture.dispose();
+        raw.dispose();
+        if (settled) {
+          image.dispose();
+          return;
+        }
+        settled = true;
+        timer.cancel();
+        result.complete(image);
+      },
+      onError: (Object _, StackTrace _) {
+        picture.dispose();
+        raw.dispose();
+        if (settled) return;
+        settled = true;
+        timer.cancel();
+        result.complete(null);
+      },
+    );
+    return result.future;
+  }
+
+  void _disposePipTransitionImage(ui.Image? image) {
+    if (image == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => image.dispose());
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  void _publishPipTransitionFrame(
+    ui.Image? image,
+    Duration expectedPosition,
+  ) {
+    final token = pipTransitionToken.value + 1;
+    _pipTransitionFrame = image;
+    if (image != null) _pipTransitionFrames[token] = image;
+    _pipTransitionFrameToken = token;
+    _pendingPipTransitionToken = token;
+    _pipTransitionTargetGeneration = null;
+    _pipTransitionExpectedPosition = expectedPosition;
+    _pipReadyCheckToken = null;
+    _pipReadyRequest++;
+    pipTransitionReadyToken.value = 0;
+    pipTransitionToken.value = token;
+    final staleTokens = _pipTransitionFrames.keys
+        .where(
+          (value) =>
+              value != token &&
+              (_pipTransitionFrameReferences[value] ?? 0) == 0,
+        )
+        .toList(growable: false);
+    for (final staleToken in staleTokens) {
+      _disposePipTransitionImage(_pipTransitionFrames.remove(staleToken));
+    }
+  }
+
+  void _clearPipTransitionFrame() {
+    if (_pipTransitionFrame == null &&
+        _pendingPipTransitionToken == null &&
+        _pipTransitionFrames.isEmpty) {
+      return;
+    }
+    for (final image in _pipTransitionFrames.values) {
+      _disposePipTransitionImage(image);
+    }
+    _pipTransitionFrames.clear();
+    _pipTransitionFrameReferences.clear();
+    _pipTransitionFrame = null;
+    _pendingPipTransitionToken = null;
+    _pipTransitionTargetGeneration = null;
+    _pipReadyCheckToken = null;
+    _pipReadyRequest++;
+    final token = pipTransitionToken.value + 1;
+    _pipTransitionFrameToken = token;
+    pipTransitionReadyToken.value = token;
+    pipTransitionToken.value = token;
+  }
+
+  bool hasPipTransitionFrame(int token) => _pipTransitionFrames[token] != null;
+
+  void retainPipTransitionFrame(int token) {
+    if (!_pipTransitionFrames.containsKey(token)) return;
+    _pipTransitionFrameReferences.update(
+      token,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+  }
+
+  void releasePipTransitionFrame(int token) {
+    final references = _pipTransitionFrameReferences[token] ?? 0;
+    if (references > 1) {
+      _pipTransitionFrameReferences[token] = references - 1;
+      return;
+    }
+    _pipTransitionFrameReferences.remove(token);
+    final frame = _pipTransitionFrames.remove(token);
+    if (frame == null) return;
+    _disposePipTransitionImage(frame);
+    if (_pipTransitionFrameToken != token) return;
+    _pipTransitionFrame = null;
+    _pendingPipTransitionToken = null;
+    _pipTransitionTargetGeneration = null;
+    _pipReadyCheckToken = null;
+    _pipReadyRequest++;
+    pipTransitionReadyToken.value = token;
+  }
+
+  void _maybeMarkPipTransitionReady(
+    PlPlayerSourceLease<Player> lease,
+  ) {
+    final token = _pendingPipTransitionToken;
+    if (token == null || pipTransitionReadyToken.value == token) return;
+    if (!_pipTransitionActive ||
+        _pipTransitionTargetGeneration != lease.generation ||
+        !lease.isCurrent(_videoPlayerController, requireActive: true)) {
+      return;
+    }
+    final state = lease.player.state;
+    if (state.width <= 0 ||
+        state.height <= 0 ||
+        state.buffering ||
+        !state.playing ||
+        state.position <= _pipTransitionExpectedPosition ||
+        _pipReadyCheckToken == token) {
+      return;
+    }
+    final request = ++_pipReadyRequest;
+    _pipReadyCheckToken = token;
+    unawaited(
+      _confirmPipTransitionReady(lease, token, request),
+    );
+  }
+
+  Future<void> _confirmPipTransitionReady(
+    PlPlayerSourceLease<Player> lease,
+    int token,
+    int request,
+  ) async {
+    ui.Image? frame;
+    try {
+      frame = await _screenshotWithTimeout(lease.player);
+    } catch (_) {
+      // A source-scoped timeout below releases the retained image if capture
+      // cannot confirm that a decoded frame is available.
+    }
+    try {
+      if (frame == null) return;
+      if (request != _pipReadyRequest ||
+          _pendingPipTransitionToken != token ||
+          _pipTransitionTargetGeneration != lease.generation ||
+          !_pipTransitionActive ||
+          !lease.isCurrent(_videoPlayerController, requireActive: true)) {
+        return;
+      }
+      final state = lease.player.state;
+      if (state.width <= 0 ||
+          state.height <= 0 ||
+          state.buffering ||
+          !state.playing) {
+        return;
+      }
+      pipTransitionReadyToken.value = token;
+      _pendingPipTransitionToken = null;
+    } finally {
+      frame?.dispose();
+      if (_pipReadyCheckToken == token) _pipReadyCheckToken = null;
+    }
+  }
+
   /// Drop the texture geometry published by the previous source before a
   /// replacement is opened. Keep the native texture id: Android reuses the
   /// same controller across source changes and does not republish the id when
@@ -1170,43 +1578,56 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     Volume? volume,
     bool autoFullScreenFlag = false,
   }) {
-    return _sourceCoordinator.openSource(
-      owner: sourceOwner,
-      prepare: (attempt) => _prepareSource(
-        attempt: attempt,
-        dataSource: dataSource,
-        isLive: isLive,
-        autoplay: autoplay,
-        seekTo: seekTo,
-        speed: speed,
-        width: width,
-        height: height,
-        duration: duration,
-        isVertical: isVertical,
-        aid: aid,
-        bvid: bvid,
-        cid: cid,
-        roomId: roomId,
-        epid: epid,
-        seasonId: seasonId,
-        pgcType: pgcType,
-        videoType: videoType,
-        onInit: onInit,
-        volume: volume,
-        autoFullScreenFlag: autoFullScreenFlag,
-        sourceOwner: sourceOwner,
+    final nextContextKey = _buildSourceContextKey(
+      isLive: isLive,
+      videoType: videoType,
+      bvid: bvid,
+      cid: cid,
+      epId: epid,
+      seasonId: seasonId,
+      roomId: roomId,
+    );
+    return _runAfterPipSourceCapture(
+      () => _sourceCoordinator.openSource(
+        owner: sourceOwner,
+        prepare: (attempt) => _prepareSource(
+          attempt: attempt,
+          dataSource: dataSource,
+          isLive: isLive,
+          autoplay: autoplay,
+          seekTo: seekTo,
+          speed: speed,
+          width: width,
+          height: height,
+          duration: duration,
+          isVertical: isVertical,
+          aid: aid,
+          bvid: bvid,
+          cid: cid,
+          roomId: roomId,
+          epid: epid,
+          seasonId: seasonId,
+          pgcType: pgcType,
+          videoType: videoType,
+          onInit: onInit,
+          volume: volume,
+          autoFullScreenFlag: autoFullScreenFlag,
+          sourceOwner: sourceOwner,
+        ),
+        onError: (err, stackTrace, attempt) {
+          if (attempt.isCurrent) {
+            dataStatus.value = DataStatus.error;
+          }
+          if (kDebugMode) {
+            debugPrint(stackTrace.toString());
+            debugPrint(
+              'PlPlayer source setup failed (${err.runtimeType})',
+            );
+          }
+        },
       ),
-      onError: (err, stackTrace, attempt) {
-        if (attempt.isCurrent) {
-          dataStatus.value = DataStatus.error;
-        }
-        if (kDebugMode) {
-          debugPrint(stackTrace.toString());
-          debugPrint(
-            'PlPlayer source setup failed (${err.runtimeType})',
-          );
-        }
-      },
+      nextContextKey: nextContextKey,
+      expectedPosition: seekTo ?? Duration.zero,
     );
   }
 
@@ -1237,12 +1658,14 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     bool isCurrent() => attempt.isCurrent;
     attempt.registerAbort(_abortUncommittedSourcePlayer);
     if (!isCurrent()) return null;
-    final nextVideoContextKey = PipOverlayService.buildVideoContextKey(
-      videoType: videoType ?? VideoType.ugc,
+    final nextVideoContextKey = _buildSourceContextKey(
+      isLive: isLive,
+      videoType: videoType,
       bvid: bvid,
       cid: cid,
       epId: epid,
       seasonId: seasonId,
+      roomId: roomId,
     );
     final shouldResetTempSettings =
         tempPlayerConf &&
@@ -1395,6 +1818,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         )) {
           return;
         }
+        _maybeMarkPipTransitionReady(lease);
         dataStatus.value = .loaded;
         if (autoFullScreenFlag && autoEnterFullScreen) {
           triggerFullScreen(status: true);
@@ -1424,6 +1848,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   void _handleSourceInvalidated() {
+    _pipTransitionTargetGeneration = null;
+    _pipReadyCheckToken = null;
+    _pipReadyRequest++;
     _clearVideoSurfaceBinding();
     sourceRevision.value++;
     _livePlaybackRequested = false;
@@ -1923,6 +2350,29 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (dataSource is FileSource) {
       return Future<bool>.value(false);
     }
+    if (isLive && _liveSourceRefreshCallback != null) {
+      return _refreshLiveSourceWithPipCapture();
+    }
+    final expectedPosition = isLive
+        ? Duration.zero
+        : _videoPlayerController?.state.position ?? Duration.zero;
+    return _runAfterPipSourceCapture(
+      () => _refreshPlayerNow(generation: generation),
+      expectedPosition: expectedPosition,
+      forceCapture: true,
+    );
+  }
+
+  Future<bool> _refreshLiveSourceWithPipCapture() async {
+    await _capturePipTransitionFrame(force: true);
+    if (_pendingPipTransitionToken != null) {
+      _pipTransitionTargetGeneration = _sourceCoordinator.currentGeneration;
+    }
+    final refresh = _liveSourceRefreshCallback;
+    return refresh?.call() ?? false;
+  }
+
+  Future<bool> _refreshPlayerNow({int? generation}) {
     if (isLive) {
       final refresh = _liveSourceRefreshCallback;
       if (refresh != null) {
@@ -1969,6 +2419,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         if (!lease.isCurrent(_videoPlayerController, requireActive: true)) {
           return;
         }
+        _maybeMarkPipTransitionReady(lease);
         isBuffering.value = false;
         if (isLive && lease.player.state.playing) {
           _livePlaybackRequested = true;
@@ -2069,6 +2520,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       /// playing
       stream.playing.listen((bool playing) {
         if (!isCurrent()) return;
+        if (playing) {
+          _maybeMarkPipTransitionReady(sourceLease);
+        }
         WakelockPlus.toggle(enable: playing);
         if (playing) {
           if (isLive) {
@@ -2152,6 +2606,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       /// position
       stream.position.listen((Duration position) {
         if (!isCurrent()) return;
+        _maybeMarkPipTransitionReady(sourceLease);
         _markLiveActivity(player, position);
         final posInSeconds = position.inSeconds;
 
@@ -2183,6 +2638,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       }),
       stream.buffering.listen((bool buffering) {
         if (!isCurrent()) return;
+        if (!buffering) {
+          _maybeMarkPipTransitionReady(sourceLease);
+        }
         isBuffering.value = buffering;
         videoPlayerServiceHandler?.onStatusChange(
           playerStatus.value,
@@ -2322,12 +2780,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }) async {
     var refreshed = false;
     try {
-      final refresh = isLive && !fromOpening
-          ? _liveSourceRefreshCallback
-          : null;
-      refreshed = refresh != null
-          ? await refresh.call()
-          : await refreshPlayer(generation: lease.generation);
+      refreshed = await refreshPlayer(generation: lease.generation);
     } finally {
       if (fromOpening && !refreshed) {
         await _failOpeningRetry(lease);
@@ -3194,6 +3647,19 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
 
     _playerCount = 0;
+    _pipCaptureRequest++;
+    _pipReadyRequest++;
+    _disposePipTransitionImage(_pipTransitionFrame);
+    for (final image in _pipTransitionFrames.values) {
+      if (!identical(image, _pipTransitionFrame)) {
+        _disposePipTransitionImage(image);
+      }
+    }
+    _pipTransitionFrames.clear();
+    _pipTransitionFrameReferences.clear();
+    _pipTransitionFrame = null;
+    _pendingPipTransitionToken = null;
+    _pipTransitionTargetGeneration = null;
     _livePlaybackRequested = false;
     _livePausedForInterruption = false;
     _livePausedForLifecycle = false;

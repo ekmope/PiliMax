@@ -18,6 +18,7 @@ import 'package:PiliMax/common/widgets/loading_widget.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/common/widgets/player_bar.dart';
 import 'package:PiliMax/pilimax/common/widgets/plus_one_icon.dart';
+import 'package:PiliMax/pilimax/common/widgets/pip_video_source_transition.dart';
 import 'package:PiliMax/common/widgets/progress_bar/audio_video_progress_bar.dart';
 import 'package:PiliMax/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
@@ -2363,6 +2364,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               // replacement. Keeping it as state preserves the native child.
               final sourceRevision = plPlayerController.sourceRevision.value;
               final videoFit = plPlayerController.videoFit.value;
+              final simpleVideo = SimpleVideo(
+                key: ValueKey(currentVideoController.hashCode),
+                controller: currentVideoController,
+                fill: widget.fill,
+                aspectRatio: videoFit.aspectRatio,
+              );
               final videoChild = MouseInteractiveViewer(
                 scaleEnabled: !plPlayerController.controlsLock.value,
                 rotateEnabled: plPlayerController.enablePinchRotate,
@@ -2391,16 +2398,22 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   child: Transform.flip(
                     flipX: plPlayerController.flipX.value,
                     flipY: plPlayerController.flipY.value,
-                    child: FittedBox(
-                      fit: videoFit.boxFit,
-                      alignment: widget.alignment,
-                      child: SimpleVideo(
-                        key: ValueKey(currentVideoController.hashCode),
-                        controller: currentVideoController,
-                        fill: widget.fill,
-                        aspectRatio: videoFit.aspectRatio,
-                      ),
-                    ),
+                    child: widget.isPipMode || widget.isInAppPip
+                        ? PipVideoSourceTransition(
+                            controller: plPlayerController,
+                            fit: videoFit.boxFit,
+                            alignment: widget.alignment,
+                            child: FittedBox(
+                              fit: videoFit.boxFit,
+                              alignment: widget.alignment,
+                              child: simpleVideo,
+                            ),
+                          )
+                        : FittedBox(
+                            fit: videoFit.boxFit,
+                            alignment: widget.alignment,
+                            child: simpleVideo,
+                          ),
                   ),
                 ),
               );

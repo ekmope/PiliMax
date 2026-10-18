@@ -968,6 +968,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
               .queryVideoUrl(
                 autoFullScreenFlag: false,
                 reinitializePlayer: false,
+                isInitialPageLoad: true,
               )
               .whenComplete(() {
                 if (!mounted) return;
@@ -983,7 +984,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     _allowPlayerMount = true;
     _initialHeroTransitionCompleted = true;
     _initialVideoSourceReady = true;
-    videoDetailController.queryVideoUrl(autoFullScreenFlag: true);
+    videoDetailController.queryVideoUrl(
+      autoFullScreenFlag: true,
+      isInitialPageLoad: true,
+    );
     if (videoDetailController.autoPlay) {
       plPlayerController = videoDetailController.plPlayerController;
       _bindPlayerListeners();
@@ -1955,6 +1959,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     if (!_allowPlayerMount) {
       return null;
     }
+    // A user's play action takes precedence over the asynchronous first-load
+    // Wi-Fi check, including while the initial source request is still active.
+    videoDetailController.autoPlay = true;
     if (!videoDetailController.isFileSource) {
       if (videoDetailController.isQuerying) {
         if (kDebugMode) debugPrint('handlePlay: querying');
@@ -1971,7 +1978,6 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
     final plPlayerController = this.plPlayerController =
         videoDetailController.plPlayerController;
-    videoDetailController.autoPlay = true;
     _bindPlayerListeners();
     if (plPlayerController.preInitPlayer) {
       if (plPlayerController.autoEnterFullScreen) {
@@ -2675,6 +2681,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             onTap: () {
               if (!videoDetailController.isFileSource) {
                 if (videoDetailController.isQuerying) {
+                  // Preserve a user's play intent while the initial source
+                  // query is pending.
+                  videoDetailController.autoPlay = true;
                   if (kDebugMode) {
                     debugPrint('handlePlay: querying');
                   }
@@ -2682,6 +2691,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                 }
                 if (videoDetailController.videoUrl == null ||
                     videoDetailController.audioUrl == null) {
+                  videoDetailController.autoPlay = true;
                   if (kDebugMode) {
                     debugPrint(
                       'handlePlay: videoUrl/audioUrl not initialized',

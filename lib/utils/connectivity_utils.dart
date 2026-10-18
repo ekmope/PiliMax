@@ -12,4 +12,22 @@ abstract final class ConnectivityUtils {
       return true;
     }
   }
+
+  /// Returns false when the platform cannot determine the active network.
+  ///
+  /// The regular [isWiFi] getter intentionally fails open for existing
+  /// quality-selection behavior. A user-enabled Wi-Fi-only autoplay rule must
+  /// fail closed instead, leaving playback available through the manual action.
+  static Future<bool> get isWiFiStrict async {
+    if (!PlatformUtils.isMobile) return false;
+    try {
+      return (await Connectivity().checkConnectivity().timeout(
+        const Duration(seconds: 3),
+      )).contains(
+        ConnectivityResult.wifi,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
 }

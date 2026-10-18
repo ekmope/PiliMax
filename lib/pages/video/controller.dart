@@ -224,6 +224,10 @@ class VideoDetailController extends GetxController
 
   // 是否开始自动播放 存在多p的情况下，第二p需要为true
   final RxBool _autoPlay = Pref.autoPlayEnable.obs;
+  Future<bool>? _initialAutoPlayWifiCheck;
+  bool _initialAutoPlayWifiDecisionMade = false;
+  bool _initialAutoPlayWifiGateCancelled = false;
+  int _autoPlayIntentGeneration = 0;
 
   final videoPlayerKey = GlobalKey();
   final childKey = GlobalKey<ScaffoldState>();
@@ -877,7 +881,12 @@ class VideoDetailController extends GetxController
   bool get isFullScreen => plPlayerController.isFullScreen.value;
   @override
   bool get autoPlay => _autoPlay.value;
-  set autoPlay(bool value) => _autoPlay.value = value;
+  set autoPlay(bool value) {
+    _autoPlayIntentGeneration++;
+    if (value) _initialAutoPlayWifiGateCancelled = true;
+    _autoPlay.value = value;
+  }
+
   @override
   bool get preInitPlayer => plPlayerController.preInitPlayer;
   @override
@@ -1275,7 +1284,7 @@ class VideoDetailController extends GetxController
     final currentVideoQa = this.currentVideoQa.value;
     if (currentVideoQa == null) return;
     _resetCodecOpenFailures();
-    _autoPlay.value = true;
+    autoPlay = true;
     playedTime = plPlayerController.videoPlayerController?.state.position;
     plPlayerController
       ..isBuffering.value = false
@@ -1628,6 +1637,7 @@ class VideoDetailController extends GetxController
     bool reinitializePlayer = true,
     bool autoFullScreenFlag = false,
     bool fromSwitch = false,
+    bool isInitialPageLoad = false,
     bool Function()? isCurrentSwitch,
   }) {
     if (isFileSource) {
@@ -1666,6 +1676,7 @@ class VideoDetailController extends GetxController
       reinitializePlayer: reinitializePlayer,
       autoFullScreenFlag: autoFullScreenFlag,
       fromSwitch: fromSwitch,
+      isInitialPageLoad: isInitialPageLoad,
       isCurrentSwitch: isCurrentSwitch,
     );
     _activeVideoUrlQuery = query;
@@ -1685,6 +1696,7 @@ class VideoDetailController extends GetxController
     required bool reinitializePlayer,
     required bool autoFullScreenFlag,
     required bool fromSwitch,
+    required bool isInitialPageLoad,
     required bool Function()? isCurrentSwitch,
   }) async {
     final queryGeneration = ++_videoUrlQueryGeneration;
@@ -1708,6 +1720,20 @@ class VideoDetailController extends GetxController
     );
     bool isCurrentQuery() =>
         isCurrentVideoUrlQuery() && (isCurrentSwitch?.call() ?? true);
+
+    final isInitialPageLoadQuery =
+        isInitialPageLoad && !fromReset && !fromSwitch;
+    if (!isInitialPageLoadQuery &&
+        _initialAutoPlayWifiCheck != null &&
+        !_initialAutoPlayWifiDecisionMade) {
+      // A source replacement supersedes the initial request. Do not let its
+      // pending network result gate a switch, reload, or retry query.
+      _initialAutoPlayWifiGateCancelled = true;
+    }
+    final initialAutoPlayWifiCheck = _initialAutoPlayWifiCheckForQuery(
+      allowStart: isInitialPageLoadQuery,
+    );
+    final autoPlayIntentGeneration = _autoPlayIntentGeneration;
     isQuerying = true;
     try {
       if (_lastQueryBvid != requestBvid || _lastQueryCid != requestCid) {
@@ -1765,6 +1791,18 @@ class VideoDetailController extends GetxController
       if (!isCurrentQuery()) return;
 
       if (result case Success(:final response)) {
+        if (initialAutoPlayWifiCheck != null) {
+          final isWifi = await initialAutoPlayWifiCheck;
+          if (!isCurrentQuery()) return;
+          _initialAutoPlayWifiDecisionMade = true;
+          if (!isWifi &&
+              Pref.autoPlayWifiOnly &&
+              _autoPlay.value &&
+              autoPlayIntentGeneration == _autoPlayIntentGeneration &&
+              !isClosed) {
+            _autoPlay.value = false;
+          }
+        }
         data = response;
 
         Future<void>? trialMerge;
@@ -2009,6 +2047,20 @@ class VideoDetailController extends GetxController
         isQuerying = false;
       }
     }
+  }
+
+  Future<bool>? _initialAutoPlayWifiCheckForQuery({required bool allowStart}) {
+    if (_initialAutoPlayWifiDecisionMade ||
+        _initialAutoPlayWifiGateCancelled ||
+        !allowStart ||
+        !Pref.autoPlayWifiOnly ||
+        !PlatformUtils.isMobile ||
+        !_autoPlay.value ||
+        isFileSource ||
+        args['fromPip'] == true) {
+      return null;
+    }
+    return _initialAutoPlayWifiCheck ??= ConnectivityUtils.isWiFiStrict;
   }
 
   late final List<PostSegmentModel> postList = <PostSegmentModel>[];

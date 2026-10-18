@@ -112,8 +112,49 @@ function Apply-DependencyPatch {
         return $true
     }
 
+    if ($Description -eq "$MediaKitSecondarySubtitlePatch to media-kit packages" -and
+        (Test-MediaKitSecondarySubtitlePatchApplied -RepositoryRoot $MediaKitRepoRoot)) {
+        Write-Host "$Description already applied (compatible cached implementation)"
+        return $true
+    }
+
     Write-Error "failed to apply ${Description}: patch matches neither the original nor the already-applied state"
     return $false
+}
+
+function Test-MediaKitSecondarySubtitlePatchApplied {
+    param([Parameter(Mandatory = $true)][string]$RepositoryRoot)
+
+    $requiredMarkers = @(
+        @{
+            Path = "media_kit/lib/src/models/track.dart"
+            Text = "final SubtitleTrack secondarySubtitle;"
+        },
+        @{
+            Path = "media_kit/lib/src/player/native/player/real.dart"
+            Text = "Future<void> setSecondarySubtitleTrack("
+        },
+        @{
+            Path = "media_kit/lib/src/player/platform_player.dart"
+            Text = "[PlatformPlayer.setSecondarySubtitleTrack] is not implemented"
+        },
+        @{
+            Path = "media_kit_video/lib/src/subtitle/subtitle_view.dart"
+            Text = "configuration.secondaryStyle"
+        }
+    )
+
+    foreach ($marker in $requiredMarkers) {
+        $path = Join-Path $RepositoryRoot $marker.Path
+        if (-not (Test-Path $path)) {
+            return $false
+        }
+        if (-not (Get-Content $path -Raw).Contains($marker.Text)) {
+            return $false
+        }
+    }
+
+    return $true
 }
 
 if ($platform.ToLower() -eq "ios") {

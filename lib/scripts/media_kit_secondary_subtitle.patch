@@ -207,19 +207,15 @@ diff --git a/media_kit/lib/src/player/platform_player.dart b/media_kit/lib/src/p
 index 4404be6f..97a3bfec 100644
 --- a/media_kit/lib/src/player/platform_player.dart
 +++ b/media_kit/lib/src/player/platform_player.dart
-@@ -178,6 +178,12 @@ abstract class PlatformPlayer {
-     );
-   }
- 
+@@ -185,2 +185,8 @@ abstract class PlatformPlayer {
 +  Future<void> setSecondarySubtitleTrack(SubtitleTrack track) {
 +    throw UnimplementedError(
 +      '[PlatformPlayer.setSecondarySubtitleTrack] is not implemented',
 +    );
 +  }
 +
-   Future<ui.Image?> screenshot() async {
-     throw UnimplementedError('[PlatformPlayer.screenshot] is not implemented');
-   }
+   @protected
+   final StreamController<Playlist> playlistController =
 diff --git a/media_kit_video/lib/src/subtitle/subtitle_view.dart b/media_kit_video/lib/src/subtitle/subtitle_view.dart
 index 1c3c67b4..58597a55 100644
 --- a/media_kit_video/lib/src/subtitle/subtitle_view.dart

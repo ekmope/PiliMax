@@ -58,6 +58,14 @@ List<SettingsModel> get playSettings => [
     leading: Icon(Icons.motion_photos_auto_outlined),
     setKey: SettingBoxKey.autoPlayEnable,
   ),
+  if (PlatformUtils.isMobile)
+    const SwitchModel(
+      title: '仅 Wi-Fi 下自动播放',
+      subtitle: '仅限制进入视频详情页时的首次自动播放，手动播放不受影响',
+      leading: Icon(Icons.wifi_outlined),
+      setKey: SettingBoxKey.autoPlayWifiOnly,
+      enabledByKey: SettingBoxKey.autoPlayEnable,
+    ),
   const SwitchModel(
     title: '全屏显示锁定按钮',
     leading: Icon(Icons.lock_outline),

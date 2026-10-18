@@ -81,6 +81,7 @@ abstract final class Pref {
             autoOpenClipboardVideoLink,
         SettingBoxKey.autoPiP: () => autoPiP,
         SettingBoxKey.autoPlayEnable: () => autoPlayEnable,
+        SettingBoxKey.autoPlayWifiOnly: () => autoPlayWifiOnly,
         SettingBoxKey.autoSideBar: () => autoSideBar,
         SettingBoxKey.autoUpdate: () => autoUpdate,
         SettingBoxKey.badCertificateCallback: () => badCertificateCallback,
@@ -1369,6 +1370,9 @@ abstract final class Pref {
 
   static bool get autoPlayEnable =>
       _setting.get(SettingBoxKey.autoPlayEnable, defaultValue: false);
+
+  static bool get autoPlayWifiOnly =>
+      _setting.get(SettingBoxKey.autoPlayWifiOnly, defaultValue: false);
 
   static bool get pipNoDanmaku =>
       _setting.get(SettingBoxKey.pipNoDanmaku, defaultValue: false);

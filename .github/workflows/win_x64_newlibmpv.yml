@@ -44,15 +44,10 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch.ps1 windows
 
-      # 提交 Patch 修改，避免 git revert 冲突中止，然后 revert 指定 commit 并重新获取依赖
-      - name: Revert specified commit & update dependencies
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "chore: temporary commit patches before revert" --allow-empty
-          git revert --no-edit ee148aa640e2da807c3048fde40eff9094ff897a
-          flutter pub get
+      # 仅在此 CI 工作树切换到 NewLibmpv 依赖并适配播放器 API。
+      - name: Apply NewLibmpv patch & verify dependency checkout
+        shell: pwsh
+        run: lib/scripts/newlibmpv.ps1
 
       - name: Build Windows
         run: |

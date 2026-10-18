@@ -7,6 +7,7 @@ import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
 import 'package:PiliMax/services/logger.dart';
 import 'package:PiliMax/pilimax/services/pip_transition_coordinator.dart';
+import 'package:PiliMax/pilimax/services/pip_replacement_handoff.dart';
 import 'package:PiliMax/pilimax/services/pip_route_stack_observer.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -59,10 +60,31 @@ class PipOverlayService {
   static bool isVertical = false;
 
   static OverlayEntry? _overlayEntry;
+  static Rect? _lastWindowRect;
   static bool isInPipMode = false;
   static final RxBool _isNativePip = false.obs;
   static bool get isNativePip => _isNativePip.value;
   static set isNativePip(bool value) => _isNativePip.value = value;
+
+  /// Captures the current PiP frame before the overlay/player is torn down.
+  /// The image is consumed by the next replacement detail route.
+  static Future<bool> prepareReplacementHandoff() async {
+    final sourceRect = _lastWindowRect;
+    final controller = _savedPlayerController ?? PlPlayerController.instance;
+    if (!isInPipMode ||
+        isNativePip ||
+        controller == null ||
+        sourceRect == null) {
+      return false;
+    }
+    final frame = await controller.capturePipFrameForHandoff();
+    if (frame == null || !isInPipMode || isNativePip) {
+      frame?.dispose();
+      return false;
+    }
+    PipReplacementHandoff.publish(frame, sourceRect);
+    return true;
+  }
 
   static final PipTransitionCoordinator transition = PipTransitionCoordinator()
     ..onRestoreFinished = _finalizeRestore;
@@ -252,6 +274,7 @@ class PipOverlayService {
     }
 
     isInPipMode = true;
+    _lastWindowRect = null;
     transition.beginEnter(sourceRect: sourceRect);
     isVertical = false;
     if (controller is VideoDetailController) {
@@ -338,6 +361,7 @@ class PipOverlayService {
     }
 
     isInPipMode = false;
+    _lastWindowRect = null;
     transition.reset();
     // isNativePip 是 Rx 变量，不能在 build 阶段（如 initState）同步修改，
     // 否则会触发 Obx rebuild 导致 "setState during build" 错误。
@@ -859,6 +883,7 @@ class _PipWidgetState extends State<PipWidget>
             child: stableVideoContent,
             builder: (context, animatedRect, videoChild) {
               final currentRect = animatedRect ?? rect;
+              PipOverlayService._lastWindowRect = currentRect;
               final scaleX = max(currentRect.width / baseSize.width, 0.0001);
               final scaleY = max(currentRect.height / baseSize.height, 0.0001);
               final radius = _transition.resolveRadius(

@@ -18,6 +18,7 @@ const videoDetailPipExitIntentKey = '_videoDetailPipExitIntent';
 /// This is intentionally separate from `fromPip`: the latter is reserved for
 /// restoring the same video and must keep the coordinator's restore handshake.
 const videoDetailPipReplacementKey = '_videoDetailPipReplacement';
+const videoDetailPipReplacementHandoffKey = '_videoDetailPipReplacementHandoff';
 
 enum VideoDetailExitMode {
   /// The entry overlay and Hero still own the visible presentation, so the

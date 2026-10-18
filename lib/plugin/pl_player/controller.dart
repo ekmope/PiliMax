@@ -1297,6 +1297,31 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
   }
 
+  /// Captures a bounded-size frame before an active PiP window is replaced by
+  /// another detail route. A failed or slow capture is intentionally treated
+  /// as optional; route navigation must keep its normal fallback transition.
+  Future<ui.Image?> capturePipFrameForHandoff() async {
+    final player = _videoPlayerController;
+    final generation = _activeSourceGeneration;
+    if (player == null || generation == null) return null;
+    ui.Image? frame;
+    try {
+      final raw = await _screenshotWithTimeout(player);
+      if (raw == null) return null;
+      frame = await _downsamplePipTransitionFrame(raw);
+    } catch (_) {
+      frame?.dispose();
+      return null;
+    }
+    if (frame == null) return null;
+    if (!identical(player, _videoPlayerController) ||
+        !_sourceCoordinator.isActive(generation)) {
+      frame.dispose();
+      return null;
+    }
+    return frame;
+  }
+
   Future<ui.Image?> _downsamplePipTransitionFrame(ui.Image raw) async {
     const maximumEdge = 640;
     if (raw.width <= 0 || raw.height <= 0) {

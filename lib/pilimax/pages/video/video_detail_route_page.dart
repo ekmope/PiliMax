@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_detail_hero.dart';
@@ -14,6 +15,7 @@ import 'package:PiliMax/pilimax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/pages/video/view.dart';
 import 'package:PiliMax/pilimax/services/live_pip_overlay_service.dart';
 import 'package:PiliMax/pilimax/services/pip_overlay_service.dart';
+import 'package:PiliMax/pilimax/services/pip_replacement_handoff.dart';
 import 'package:PiliMax/pilimax/services/route_restore_service.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -21,7 +23,13 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
-enum _VideoEntryMediaSurface { hero, staticCover, playerHandoff, none }
+enum _VideoEntryMediaSurface {
+  hero,
+  staticCover,
+  playerHandoff,
+  pipReplacement,
+  none,
+}
 
 /// Resolves and preloads video data while the source card expands.
 class VideoDetailRoutePage extends StatefulWidget {
@@ -39,6 +47,8 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   static const _orientationTransitionDuration =
       videoDetailProfileTransitionDuration;
   static const _playerHandoffFadeDuration = Duration(milliseconds: 100);
+  static const _pipReplacementFadeDuration = Duration(milliseconds: 180);
+  static const _pipReplacementTimeout = Duration(milliseconds: 2200);
   // The detail page reveals independently. This timeout only prevents a
   // missing platform frame signal from leaving the media cover permanently.
   static const _playerHandoffForceReleaseTimeout = Duration(seconds: 6);
@@ -75,6 +85,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   bool _initialDetailLayoutReady = false;
   bool _initialPlayerVisualReady = false;
   bool _playerHandoffForceRelease = false;
+  ui.Image? _pipReplacementFrame;
+  ui.Rect? _pipReplacementSourceRect;
+  bool _pipReplacementVisible = false;
+  bool _pipReplacementAnimating = false;
+  Timer? _pipReplacementTimeoutTimer;
   bool _preparedExitUsesPlayerHandoff = false;
   bool _pendingPresentationReady = false;
   bool _isResolving = false;
@@ -91,6 +106,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   bool get _showPlayerHandoffCover =>
       _entryMediaSurface == _VideoEntryMediaSurface.playerHandoff;
+
+  bool get _showPipReplacementHandoff =>
+      _entryMediaSurface == _VideoEntryMediaSurface.pipReplacement;
 
   bool get _hasPendingLaunch =>
       _arguments[PageUtils.videoPendingLaunchKey] is VideoPendingLaunchType;
@@ -111,6 +129,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   bool get _needsImmediatePipTakeover =>
       _fromPip ||
+      _arguments[videoDetailPipReplacementKey] == true ||
       PipOverlayService.isInPipMode ||
       LivePipOverlayService.isInPipMode;
 
@@ -249,7 +268,36 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       return;
     }
     _initialPlayerVisualReady = true;
+    _beginPipReplacementFade();
     _scheduleDetailReveal();
+  }
+
+  void _beginPipReplacementFade() {
+    if (!mounted || !_pipReplacementVisible || _pipReplacementAnimating) return;
+    _pipReplacementTimeoutTimer?.cancel();
+    _pipReplacementTimeoutTimer = null;
+    setState(() => _pipReplacementAnimating = true);
+  }
+
+  void _finishPipReplacementFade() {
+    if (!mounted || !_pipReplacementAnimating) return;
+    if (_entryMediaSurface == _VideoEntryMediaSurface.pipReplacement) {
+      setState(() {
+        _entryMediaSurface = _VideoEntryMediaSurface.none;
+      });
+    }
+    _pipReplacementVisible = false;
+    _pipReplacementAnimating = false;
+    _disposePipReplacementFrame();
+  }
+
+  void _disposePipReplacementFrame() {
+    _pipReplacementTimeoutTimer?.cancel();
+    _pipReplacementTimeoutTimer = null;
+    final frame = _pipReplacementFrame;
+    _pipReplacementFrame = null;
+    _pipReplacementSourceRect = null;
+    frame?.dispose();
   }
 
   void _handleInitialDetailLayoutReady(VideoDetailSession session) {
@@ -480,6 +528,20 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   @override
   void initState() {
     super.initState();
+    if (_arguments[videoDetailPipReplacementHandoffKey] == true) {
+      final handoff = PipReplacementHandoff.take();
+      if (handoff != null) {
+        _pipReplacementFrame = handoff.image;
+        _pipReplacementSourceRect = handoff.sourceRect;
+        _pipReplacementVisible = true;
+        _pipReplacementAnimating = false;
+        _entryMediaSurface = _VideoEntryMediaSurface.pipReplacement;
+        _pipReplacementTimeoutTimer = Timer(
+          _pipReplacementTimeout,
+          _beginPipReplacementFade,
+        );
+      }
+    }
     _detailRevealController = AnimationController(
       vsync: this,
       duration: _detailRevealDuration,
@@ -498,7 +560,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _startSession();
       if (_needsImmediatePipTakeover) {
         _showDetail = true;
-        _entryMediaSurface = _VideoEntryMediaSurface.none;
+        if (!_showPipReplacementHandoff) {
+          _entryMediaSurface = _VideoEntryMediaSurface.none;
+        }
         if (_fromPip) {
           _showEntryLayer = false;
         }
@@ -602,7 +666,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       if (_needsImmediatePipTakeover) {
         setState(() {
           _showDetail = true;
-          _entryMediaSurface = _VideoEntryMediaSurface.none;
+          if (!_showPipReplacementHandoff) {
+            _entryMediaSurface = _VideoEntryMediaSurface.none;
+          }
           if (_fromPip) {
             _showEntryLayer = false;
           }
@@ -1010,6 +1076,86 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   Widget _entryMediaHandoffLayer(
     BuildContext context,
   ) {
+    if (_showPipReplacementHandoff) {
+      final frame = _pipReplacementFrame;
+      if (frame == null) return const SizedBox.shrink();
+      final disableAnimations =
+          MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+      final duration = disableAnimations
+          ? const Duration(milliseconds: 100)
+          : _pipReplacementFadeDuration;
+      final targetRect = _entryLayout(context).playerRect;
+      final routeRenderObject = context.findRenderObject();
+      final routeOrigin =
+          routeRenderObject is RenderBox && routeRenderObject.attached
+          ? routeRenderObject.localToGlobal(Offset.zero)
+          : Offset.zero;
+      final rawSourceRect = _pipReplacementSourceRect ?? targetRect;
+      final sourceRect = disableAnimations
+          ? targetRect
+          : rawSourceRect.shift(-routeOrigin);
+      final flightTargetRect = targetRect;
+      final targetWidth = targetRect.width <= 0 ? 1.0 : targetRect.width;
+      final targetHeight = targetRect.height <= 0 ? 1.0 : targetRect.height;
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            left: targetRect.left,
+            top: targetRect.top,
+            width: targetWidth,
+            height: targetHeight,
+            child: TweenAnimationBuilder<double>(
+              key: _entryMediaLayerKey,
+              tween: Tween<double>(
+                begin: 0,
+                end: _pipReplacementAnimating ? 1 : 0,
+              ),
+              duration: _pipReplacementAnimating
+                  ? duration
+                  : Duration.zero,
+              curve: Curves.easeOutCubic,
+              onEnd: _pipReplacementAnimating
+                  ? _finishPipReplacementFade
+                  : null,
+              builder: (context, progress, child) {
+                final rect =
+                    ui.Rect.lerp(sourceRect, flightTargetRect, progress)!;
+                final scaleX = rect.width / targetWidth;
+                final scaleY = rect.height / targetHeight;
+                final offset = rect.center - targetRect.center;
+                return Transform.translate(
+                  offset: offset,
+                  child: Transform.scale(
+                    scaleX: scaleX,
+                    scaleY: scaleY,
+                    alignment: Alignment.center,
+                    child: Opacity(
+                      opacity: (1 - progress).clamp(0.0, 1.0),
+                      child: child,
+                    ),
+                  ),
+                );
+              },
+              child: RepaintBoundary(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: ColoredBox(
+                    color: Colors.black,
+                    child: RawImage(
+                      image: frame,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.low,
+                      isAntiAlias: false,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     // Every opening/exit media phase uses this one keyed layer. The phase only
     // changes Hero participation and opacity; it never replaces the cover
     // subtree while the player is taking ownership.
@@ -1045,6 +1191,8 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         return _hasVideoTransition && _showEntryLayer;
       case _VideoEntryMediaSurface.playerHandoff:
         return true;
+      case _VideoEntryMediaSurface.pipReplacement:
+        return _pipReplacementFrame != null;
       case _VideoEntryMediaSurface.none:
         return false;
     }
@@ -1152,6 +1300,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _arguments.remove(videoDetailCancelPreparedExitKey);
     }
     _session?.dispose();
+    _disposePipReplacementFrame();
     _entryOverlay?.dispose();
     (_arguments[videoTransitionTokenKey] as VideoTransitionToken?)?.dispose();
     super.dispose();

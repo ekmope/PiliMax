@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:math';
 
 import 'package:PiliMax/common/widgets/fractionally_sized_box.dart';
@@ -27,7 +28,9 @@ import 'package:PiliMax/pilimax/pages/video/video_detail_entry_overlay.dart';
 import 'package:PiliMax/pilimax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/pilimax/services/live_pip_overlay_service.dart';
 import 'package:PiliMax/pilimax/services/pip_overlay_service.dart';
+import 'package:PiliMax/pilimax/services/pip_replacement_handoff.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
+import 'package:PiliMax/utils/android/bindings.g.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
@@ -861,18 +864,42 @@ abstract final class PageUtils {
       final hasActivePipForLaunch =
           !off &&
           arguments['fromPip'] != true &&
-          (PipOverlayService.isInPipMode || LivePipOverlayService.isInPipMode);
+          (PipOverlayService.isInPipMode ||
+              LivePipOverlayService.isInPipMode ||
+              PipOverlayService.isNativePip ||
+              (Platform.isAndroid && AndroidHelper.isPipMode));
       if (hasActivePipForLaunch) {
         // A PiP overlay can contain a different video's player, so it is not a
         // valid shared-media source for this route. Use a short route fade;
         // `fromPip` remains reserved for restoring the same page.
         arguments[videoDetailPipReplacementKey] = true;
+        arguments.remove(videoDetailPipReplacementHandoffKey);
+        PipReplacementHandoff.clear();
+        // Only the video PiP owner can provide a compatible frame. Live PiP
+        // still uses the route fade fallback rather than handing a live frame
+        // to a different video detail page.
+        final targetContextKey = PipOverlayService.contextKeyFromArgs(
+          arguments,
+        );
+        final isDifferentVideoFromPip =
+            targetContextKey != null &&
+            targetContextKey != PipOverlayService.savedVideoContextKey;
+        if (isDifferentVideoFromPip &&
+            (PipOverlayService.isInPipMode ||
+                PipOverlayService.isNativePip ||
+                (Platform.isAndroid && AndroidHelper.isPipMode))) {
+          if (await PipOverlayService.prepareReplacementHandoff()) {
+            arguments[videoDetailPipReplacementHandoffKey] = true;
+          }
+        }
         final staleToken = arguments.remove(videoTransitionTokenKey);
         if (staleToken is VideoTransitionToken) {
           staleToken.dispose();
         }
       } else {
         arguments.remove(videoDetailPipReplacementKey);
+        arguments.remove(videoDetailPipReplacementHandoffKey);
+        PipReplacementHandoff.clear();
       }
       if (!off &&
           !hasActivePipForLaunch &&
@@ -986,6 +1013,7 @@ abstract final class PageUtils {
         arguments.remove(videoDetailEntryOverlayKey);
         (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
             ?.dispose();
+        PipReplacementHandoff.clear();
         reportNavigationResult(false);
         return;
       }
@@ -998,6 +1026,7 @@ abstract final class PageUtils {
       arguments.remove(videoDetailEntryOverlayKey);
       (arguments.remove(videoTransitionTokenKey) as VideoTransitionToken?)
           ?.dispose();
+      PipReplacementHandoff.clear();
       reportNavigationResult(false);
       rethrow;
     } finally {
@@ -1011,6 +1040,7 @@ abstract final class PageUtils {
     } catch (_) {
       entryOverlay?.abort();
       (arguments[videoTransitionTokenKey] as VideoTransitionToken?)?.dispose();
+      PipReplacementHandoff.clear();
       rethrow;
     }
   }

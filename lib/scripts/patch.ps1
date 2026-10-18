@@ -115,6 +115,7 @@ function Apply-DependencyPatch {
     if ($Description -eq "$MediaKitSecondarySubtitlePatch to media-kit packages" -and
         (Test-MediaKitSecondarySubtitlePatchApplied -RepositoryRoot $MediaKitRepoRoot)) {
         Write-Host "$Description already applied (compatible cached implementation)"
+        $global:LASTEXITCODE = 0
         return $true
     }
 

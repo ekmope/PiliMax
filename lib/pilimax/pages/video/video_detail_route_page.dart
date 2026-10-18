@@ -291,13 +291,19 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     _disposePipReplacementFrame();
   }
 
-  void _disposePipReplacementFrame() {
+  void _disposePipReplacementFrame({bool deferUntilFrame = true}) {
     _pipReplacementTimeoutTimer?.cancel();
     _pipReplacementTimeoutTimer = null;
     final frame = _pipReplacementFrame;
     _pipReplacementFrame = null;
     _pipReplacementSourceRect = null;
-    frame?.dispose();
+    if (frame != null) {
+      if (deferUntilFrame) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => frame.dispose());
+      } else {
+        frame.dispose();
+      }
+    }
   }
 
   void _handleInitialDetailLayoutReady(VideoDetailSession session) {
@@ -948,9 +954,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     final holdCoverForPlayer = _shouldHoldCoverForPlayer;
     setState(() {
       _showDetail = true;
-      _entryMediaSurface = holdCoverForPlayer
-          ? _VideoEntryMediaSurface.playerHandoff
-          : _VideoEntryMediaSurface.none;
+      if (holdCoverForPlayer) {
+        _entryMediaSurface = _VideoEntryMediaSurface.playerHandoff;
+      } else if (!_showPipReplacementHandoff) {
+        _entryMediaSurface = _VideoEntryMediaSurface.none;
+      }
       _playerHandoffCoverOpaque = true;
       _playerHandoffForceRelease = false;
     });
@@ -974,7 +982,8 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     }
     setState(() {
       // Keep this defensive assignment for sessions mounted before reveal.
-      if (_entryMediaSurface != _VideoEntryMediaSurface.playerHandoff) {
+      if (_entryMediaSurface != _VideoEntryMediaSurface.playerHandoff &&
+          _entryMediaSurface != _VideoEntryMediaSurface.pipReplacement) {
         _entryMediaSurface = _VideoEntryMediaSurface.none;
       }
       _revealingDetail = true;
@@ -1007,10 +1016,13 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   void _showResolutionError(Object error) {
     _abortEntryOverlay();
     _cancelPlayerHandoffTimeout();
+    _disposePipReplacementFrame();
     setState(() {
       _error = error;
       _showEntryLayer = false;
       _entryMediaSurface = _VideoEntryMediaSurface.none;
+      _pipReplacementVisible = false;
+      _pipReplacementAnimating = false;
     });
   }
 
@@ -1091,44 +1103,59 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
           ? routeRenderObject.localToGlobal(Offset.zero)
           : Offset.zero;
       final rawSourceRect = _pipReplacementSourceRect ?? targetRect;
-      final sourceRect = disableAnimations
+      final imageSize = ui.Size(
+        frame.width.toDouble(),
+        frame.height.toDouble(),
+      );
+      final flightTargetRect = _fitPipFrameRect(
+        targetRect,
+        imageSize,
+        fallback: targetRect,
+      );
+      final sourceBounds = disableAnimations
           ? targetRect
           : rawSourceRect.shift(-routeOrigin);
-      final flightTargetRect = targetRect;
-      final targetWidth = targetRect.width <= 0 ? 1.0 : targetRect.width;
-      final targetHeight = targetRect.height <= 0 ? 1.0 : targetRect.height;
+      final flightSourceRect = _fitPipFrameRect(
+        sourceBounds,
+        imageSize,
+        fallback: flightTargetRect,
+      );
+      final targetWidth = flightTargetRect.width <= 0
+          ? 1.0
+          : flightTargetRect.width;
       return Stack(
         fit: StackFit.expand,
         children: [
           Positioned(
-            left: targetRect.left,
-            top: targetRect.top,
+            left: flightTargetRect.left,
+            top: flightTargetRect.top,
             width: targetWidth,
-            height: targetHeight,
+            height: flightTargetRect.height <= 0
+                ? 1.0
+                : flightTargetRect.height,
             child: TweenAnimationBuilder<double>(
               key: _entryMediaLayerKey,
               tween: Tween<double>(
                 begin: 0,
                 end: _pipReplacementAnimating ? 1 : 0,
               ),
-              duration: _pipReplacementAnimating
-                  ? duration
-                  : Duration.zero,
+              duration: _pipReplacementAnimating ? duration : Duration.zero,
               curve: Curves.easeOutCubic,
               onEnd: _pipReplacementAnimating
                   ? _finishPipReplacementFade
                   : null,
               builder: (context, progress, child) {
-                final rect =
-                    ui.Rect.lerp(sourceRect, flightTargetRect, progress)!;
-                final scaleX = rect.width / targetWidth;
-                final scaleY = rect.height / targetHeight;
-                final offset = rect.center - targetRect.center;
+                final rect = ui.Rect.lerp(
+                  flightSourceRect,
+                  flightTargetRect,
+                  progress,
+                )!;
+                final scale = rect.width / targetWidth;
+                final offset = rect.center - flightTargetRect.center;
                 return Transform.translate(
                   offset: offset,
                   child: Transform.scale(
-                    scaleX: scaleX,
-                    scaleY: scaleY,
+                    scale: scale,
                     alignment: Alignment.center,
                     child: Opacity(
                       opacity: (1 - progress).clamp(0.0, 1.0),
@@ -1180,6 +1207,36 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         // change cannot expose an intermediate black texture.
         animateGeometry: !showPlayerHandoffCover,
       ),
+    );
+  }
+
+  ui.Rect _fitPipFrameRect(
+    ui.Rect bounds,
+    ui.Size imageSize, {
+    required ui.Rect fallback,
+  }) {
+    if (!bounds.left.isFinite ||
+        !bounds.top.isFinite ||
+        !bounds.right.isFinite ||
+        !bounds.bottom.isFinite ||
+        !bounds.width.isFinite ||
+        !bounds.height.isFinite ||
+        bounds.width <= 0 ||
+        bounds.height <= 0 ||
+        imageSize.width <= 0 ||
+        imageSize.height <= 0) {
+      return fallback;
+    }
+    final widthScale = bounds.width / imageSize.width;
+    final heightScale = bounds.height / imageSize.height;
+    final scale = widthScale < heightScale ? widthScale : heightScale;
+    final width = imageSize.width * scale;
+    final height = imageSize.height * scale;
+    return ui.Rect.fromLTWH(
+      bounds.center.dx - width / 2,
+      bounds.center.dy - height / 2,
+      width,
+      height,
     );
   }
 
@@ -1300,7 +1357,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _arguments.remove(videoDetailCancelPreparedExitKey);
     }
     _session?.dispose();
-    _disposePipReplacementFrame();
+    _disposePipReplacementFrame(deferUntilFrame: false);
     _entryOverlay?.dispose();
     (_arguments[videoTransitionTokenKey] as VideoTransitionToken?)?.dispose();
     super.dispose();

@@ -135,7 +135,7 @@ final List<SettingSection> settingSections = List.unmodifiable([
   ),
   const SettingSection(
     type: SettingType.replySetting,
-    subtitle: '关键词、用户屏蔽、等级过滤、屏蔽带货评论',
+    subtitle: '关键词、用户屏蔽、等级过滤、@评论过滤、屏蔽带货评论',
     icon: Icons.comment_outlined,
     routeName: '/replySetting',
     settingsFactory: _replySettings,

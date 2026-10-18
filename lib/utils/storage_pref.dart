@@ -71,6 +71,7 @@ abstract final class Pref {
         SettingBoxKey.alwaysExpandIntroPanel: () => alwaysExpandIntroPanel,
         SettingBoxKey.antiGoodsDyn: () => antiGoodsDyn,
         SettingBoxKey.antiGoodsReply: () => antiGoodsReply,
+        SettingBoxKey.blockAtOnlyReply: () => blockAtOnlyReply,
         SettingBoxKey.applyFilterToHotVideos: () => applyFilterToHotVideos,
         SettingBoxKey.applyFilterToRankVideos: () => applyFilterToRankVideos,
         SettingBoxKey.applyFilterToRelatedVideos: () =>
@@ -1064,6 +1065,19 @@ abstract final class Pref {
 
   static bool get antiGoodsReply =>
       _setting.get(SettingBoxKey.antiGoodsReply, defaultValue: false);
+
+  static bool get blockAtOnlyReply {
+    final value = _setting.get(
+      SettingBoxKey.blockAtOnlyReply,
+      defaultValue: false,
+    );
+    return value is bool && value;
+  }
+
+  static int? get blockReplyAtCount {
+    final value = _setting.get(SettingBoxKey.blockReplyAtCount);
+    return value is int && value > 0 ? value : null;
+  }
 
   static int get replyMinLevel {
     final value = _setting.get(SettingBoxKey.replyMinLevel);

@@ -29,6 +29,8 @@ abstract final class ReplyGrpc {
   static bool keepUpTopReply = Pref.keepUpTopReply;
   static bool keepUpLikeReply = Pref.keepUpLikeReply;
   static bool keepUpReplyReply = Pref.keepUpReplyReply;
+  static bool blockAtOnlyReply = Pref.blockAtOnlyReply;
+  static int? blockReplyAtCount = Pref.blockReplyAtCount;
 
   // static Future replyInfo({required int rpid}) {
   //   return _request(
@@ -51,6 +53,77 @@ abstract final class ReplyGrpc {
         reply.content.message.contains(Constants.goodsUrlPrefix);
   }
 
+  static bool _isReplyWhitespace(int codeUnit) => switch (codeUnit) {
+    0x09 || 0x0A || 0x0B || 0x0C || 0x0D || 0x20 || 0xA0 || 0x1680 => true,
+    >= 0x2000 && <= 0x200A ||
+    0x2028 ||
+    0x2029 ||
+    0x202F ||
+    0x205F ||
+    0x3000 => true,
+    _ => false,
+  };
+
+  static bool _isAtOnlyReply(ReplyInfo reply) {
+    final content = reply.content;
+    if (content.atNameToMid.isEmpty ||
+        content.emotes.isNotEmpty ||
+        content.pictures.isNotEmpty ||
+        content.topics.isNotEmpty ||
+        content.urls.isNotEmpty ||
+        content.hasVote()) {
+      return false;
+    }
+
+    var message = content.message;
+    if (reply.root != reply.parent) {
+      final colon = message.indexOf(':');
+      if (colon <= 1) return false;
+      message = message.substring(colon + 1);
+    }
+
+    message = message.trim();
+    if (message.isEmpty) return false;
+
+    final names = content.atNameToMid.keys.toList()
+      ..sort((a, b) => b.length.compareTo(a.length));
+    var offset = 0;
+    var hasAt = false;
+    while (offset < message.length) {
+      while (offset < message.length &&
+          _isReplyWhitespace(message.codeUnitAt(offset))) {
+        offset++;
+      }
+      if (offset == message.length) break;
+      if (message.codeUnitAt(offset) != 0x40) return false;
+
+      offset++;
+      String? matchedName;
+      for (final name in names) {
+        if (name.isEmpty || !message.startsWith(name, offset)) continue;
+        final end = offset + name.length;
+        if (end == message.length ||
+            _isReplyWhitespace(message.codeUnitAt(end)) ||
+            message.codeUnitAt(end) == 0x40) {
+          matchedName = name;
+          break;
+        }
+      }
+      if (matchedName == null) return false;
+      offset += matchedName.length;
+      hasAt = true;
+    }
+    return hasAt;
+  }
+
+  static bool _shouldBlockByAtCount(ReplyInfo reply) {
+    final count = blockReplyAtCount;
+    return count != null && reply.content.atNameToMid.length >= count;
+  }
+
+  static bool _shouldBlockAtOnly(ReplyInfo reply) =>
+      blockAtOnlyReply && _isAtOnlyReply(reply);
+
   static bool needRemoveGrpc(
     ReplyInfo reply, {
     Int64? upMid,
@@ -67,7 +140,9 @@ abstract final class ReplyGrpc {
     if (keepUpTopReply && replyControl.isUpTop) return false;
     if (keepUpLikeReply && replyControl.upLike) return false;
     if (keepUpReplyReply && replyControl.upReply) return false;
-    return (replyMinLevel > 0 && reply.member.level.toInt() < replyMinLevel) ||
+    return _shouldBlockByAtCount(reply) ||
+        _shouldBlockAtOnly(reply) ||
+        (replyMinLevel > 0 && reply.member.level.toInt() < replyMinLevel) ||
         (enableFilter && replyRegExp.hasMatch(reply.content.message));
   }
 

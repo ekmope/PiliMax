@@ -1,10 +1,13 @@
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/grpc/reply.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/pilimax/utils/user_whitelist.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 List<SettingsModel> get replySettings => [
   getListBanWordModel(
@@ -39,6 +42,19 @@ List<SettingsModel> get replySettings => [
     leading: const Icon(CustomIcons.shopping_bag_not_interested),
     setKey: SettingBoxKey.antiGoodsReply,
     onChanged: (value) => ReplyGrpc.antiGoodsReply = value,
+  ),
+  const NormalModel(
+    title: '屏蔽评论@数量',
+    getSubtitle: _replyAtCountSubtitle,
+    leading: Icon(Icons.alternate_email),
+    onTap: _showReplyAtCountDialog,
+  ),
+  SwitchModel(
+    title: '屏蔽只包含@的评论',
+    subtitle: '只过滤正文由@用户组成的评论，不影响包含文字、表情或图片的评论',
+    leading: const Icon(Icons.alternate_email),
+    setKey: SettingBoxKey.blockAtOnlyReply,
+    onChanged: (value) => ReplyGrpc.blockAtOnlyReply = value,
   ),
   SwitchModel(
     title: '保留 UP 主自己的评论',
@@ -75,7 +91,7 @@ List<SettingsModel> get replySettings => [
   ),
   WidgetModel(
     searchTitle: '评论区过滤说明',
-    searchSubtitle: '屏蔽优先级、白名单、关键词和等级规则说明',
+    searchSubtitle: '屏蔽优先级、白名单、关键词、等级与@规则说明',
     child: Builder(
       builder: (context) {
         final theme = Theme.of(context);
@@ -84,9 +100,10 @@ List<SettingsModel> get replySettings => [
           subtitle: Text(
             '* 屏蔽用户后，该用户发布的评论将不会显示。\n'
             '* 评论区屏蔽用户优先于白名单生效。\n'
-            '* 白名单用户与动态流/推荐流共享，白名单优先于带货屏蔽和常规过滤。\n'
+            '* 白名单用户与动态流/推荐流共享，白名单优先于带货屏蔽、@过滤和其它常规过滤。\n'
             '* 关键词过滤支持正则表达式，多个关键词使用|分隔。\n'
             '* 等级过滤：屏蔽低于所设等级的用户发布的评论，0 为关闭。\n'
+            '* @数量过滤按评论中被@用户数触发；只含@过滤只匹配正文内容均为@用户的评论。\n'
             '* 设置立即生效，刷新评论区即可看到过滤结果。',
             style: theme.textTheme.labelSmall!.copyWith(
               color: theme.colorScheme.outline.withValues(alpha: 0.7),
@@ -97,6 +114,68 @@ List<SettingsModel> get replySettings => [
     ),
   ),
 ];
+
+String _replyAtCountSubtitle() {
+  final count = Pref.blockReplyAtCount;
+  return count == null ? '已关闭' : '屏蔽包含 $count 个及以上 @用户 的评论';
+}
+
+Future<void> _showReplyAtCountDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final controller = TextEditingController(
+    text: Pref.blockReplyAtCount?.toString() ?? '',
+  );
+  final result = await showDialog<int>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('屏蔽@的数量'),
+      content: TextField(
+        autofocus: true,
+        controller: controller,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: const InputDecoration(suffixText: '个及以上'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(0),
+          child: const Text('禁用'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(dialogContext).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            final count = int.tryParse(controller.text);
+            if (count == null || count < 1) {
+              SmartDialog.showToast('请输入大于0的@数量');
+              return;
+            }
+            Navigator.of(dialogContext).pop(count);
+          },
+          child: const Text('确认'),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+  if (result == null) return;
+
+  final count = result > 0 ? result : null;
+  ReplyGrpc.blockReplyAtCount = count;
+  if (count == null) {
+    await GStorage.setting.delete(SettingBoxKey.blockReplyAtCount);
+  } else {
+    await GStorage.setting.put(SettingBoxKey.blockReplyAtCount, count);
+  }
+  if (context.mounted) setState();
+}
 
 class _ReplyLevelSetting extends StatefulWidget {
   const _ReplyLevelSetting();

@@ -8,6 +8,7 @@ import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
+import 'package:collection/collection.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart'
     show KeyDownEvent, KeyUpEvent, LogicalKeyboardKey, HardwareKeyboard;
@@ -72,6 +73,18 @@ class PlayerFocus extends StatelessWidget {
           )
         : math.max(0.0, plPlayerController.volume.value - 0.1);
     plPlayerController.setVolume(volume);
+  }
+
+  void _stepPlaybackSpeed({required bool isIncrease}) {
+    final speed = plPlayerController.playbackSpeed;
+    final speedList = plPlayerController.speedList;
+    final newSpeed = isIncrease
+        ? speedList.where((value) => value > speed).minOrNull
+        : speedList.where((value) => value < speed).maxOrNull;
+    if (newSpeed != null) {
+      plPlayerController.setPlaybackSpeed(newSpeed);
+    }
+    SmartDialog.showToast('${newSpeed ?? speed}x播放');
   }
 
   void _updateVolume(KeyEvent event, {required bool isIncrease}) {
@@ -218,6 +231,14 @@ class PlayerFocus extends StatelessWidget {
           if (isFullScreen || plPlayerController.isDesktopPip) {
             plPlayerController.onLockControl(
               !plPlayerController.controlsLock.value,
+            );
+          }
+          return true;
+
+        case LogicalKeyboardKey.comma || LogicalKeyboardKey.period:
+          if (hasPlayer && !plPlayerController.longPressStatus.value) {
+            _stepPlaybackSpeed(
+              isIncrease: key == LogicalKeyboardKey.period,
             );
           }
           return true;

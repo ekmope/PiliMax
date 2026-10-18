@@ -215,7 +215,7 @@ class DetailItem extends StatelessWidget {
                         top: 6.0,
                         child: PBadge(
                           isStack: false,
-                          text: entry.qualityPithyDescription,
+                          text: entry.qaBadgeText,
                           type: PBadgeType.gray,
                         ),
                       ),
@@ -293,7 +293,7 @@ class DetailItem extends StatelessWidget {
                       ),
                       if (entry.videoQuality != null)
                         PBadge(
-                          text: entry.qualityPithyDescription,
+                          text: entry.qaBadgeText,
                           right: 6.0,
                           top: 6.0,
                           type: PBadgeType.gray,

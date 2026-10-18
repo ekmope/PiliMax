@@ -16,6 +16,7 @@ import 'package:PiliMax/pages/follow_type/followed/view.dart';
 import 'package:PiliMax/pages/live/view.dart';
 import 'package:PiliMax/pages/rank/view.dart';
 import 'package:PiliMax/pages/subscription_detail/view.dart';
+import 'package:PiliMax/pages/video/reply_reply/view.dart';
 import 'package:PiliMax/pilimax/utils/external_uri_parser.dart';
 import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:PiliMax/utils/id_utils.dart';
@@ -76,6 +77,29 @@ abstract final class PiliScheme {
       return ExternalUriParser.nonNegativeInt(p);
     } else if (queryParameters['t'] case final t0?) {
       return ExternalUriParser.nonNegativeSecondsToMilliseconds(t0);
+    }
+    return null;
+  }
+
+  static Uri? _parseReplyEnterUri(String? value) {
+    if (value == null || value.isEmpty) return null;
+    final uri = Uri.tryParse(value);
+    if (uri == null || uri.userInfo.isNotEmpty) return null;
+
+    final scheme = uri.scheme.toLowerCase();
+    if (scheme == 'bilibili') {
+      return uri.host.isEmpty ? null : uri;
+    }
+    if ((scheme != 'http' && scheme != 'https') || uri.host.isEmpty) {
+      return null;
+    }
+
+    final host = uri.host.toLowerCase();
+    if (host == bilibili ||
+        host.endsWith('.$bilibili') ||
+        host == b23_tv ||
+        host.endsWith('.$b23_tv')) {
+      return uri;
     }
     return null;
   }
@@ -387,7 +411,7 @@ abstract final class PiliScheme {
               // int subType = int.parse(queryParameters['subType'] ?? '0');
               // int extraIntentId =
               // int.parse(queryParameters['extraIntentId'] ?? '0');
-              if (parsedType == 11 || parsedType == 17) {
+              if (BiliUtils.isDynOrArticle(parsedType)) {
                 PageUtils.pushDynFromId(
                   id: oid,
                   rpid: rootId,
@@ -395,7 +419,7 @@ abstract final class PiliScheme {
                   secondRpId: secondRpId,
                   off: off,
                 );
-              } else {
+              } else if (parsedType == 1) {
                 videoPush(
                   parsedOid,
                   null,
@@ -403,6 +427,25 @@ abstract final class PiliScheme {
                   rootRpId: rootId,
                   secondRpId: secondRpId,
                   off: off,
+                );
+              } else {
+                final enterUri = _parseReplyEnterUri(
+                  uri.queryParameters['enterUri'],
+                );
+                VideoReplyReplyPanel.toReply(
+                  oid: parsedOid,
+                  rootId: rootId,
+                  rpIdStr: secondRpId?.toString(),
+                  type: parsedType,
+                  uri:
+                      enterUri ??
+                      (const [11, 16, 17].contains(parsedType)
+                          ? Uri(
+                              scheme: 'bilibili',
+                              host: 'following',
+                              path: 'detail/$oid',
+                            )
+                          : null),
                 );
               }
               return true;
@@ -918,7 +961,8 @@ abstract final class PiliScheme {
               (pageType != null && parsedPageType == null)) {
             return false;
           }
-          if (parsedPageType == 11 || parsedPageType == 17) {
+          if (parsedPageType != null &&
+              BiliUtils.isDynOrArticle(parsedPageType)) {
             PageUtils.pushDynFromId(
               id: oid,
               rpid: parsedRoot,
@@ -926,7 +970,7 @@ abstract final class PiliScheme {
               secondRpId: secondRpId,
               off: off,
             );
-          } else {
+          } else if (parsedPageType == null || parsedPageType == 1) {
             videoPush(
               parsedOid,
               null,
@@ -934,6 +978,14 @@ abstract final class PiliScheme {
               rootRpId: parsedRoot,
               secondRpId: secondRpId,
               off: off,
+            );
+          } else {
+            VideoReplyReplyPanel.toReply(
+              oid: parsedOid,
+              rootId: parsedRoot,
+              rpIdStr: secondRpId?.toString(),
+              type: parsedPageType,
+              uri: _parseReplyEnterUri(queryParameters['enterUri']),
             );
           }
           return true;

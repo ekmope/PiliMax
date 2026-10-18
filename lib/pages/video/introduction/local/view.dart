@@ -4,7 +4,6 @@ import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
 import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/pages/video/introduction/local/controller.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
@@ -115,9 +114,9 @@ class _LocalIntroPanelState extends State<LocalIntroPanel>
                         bottom: 6.0,
                         type: PBadgeType.gray,
                       ),
-                      if (entry.videoQuality case final videoQuality?)
+                      if (entry.videoQuality != null)
                         PBadge(
-                          text: VideoQuality.fromCode(videoQuality).shortDesc,
+                          text: entry.qaBadgeText,
                           right: 6.0,
                           top: 6.0,
                           type: PBadgeType.gray,

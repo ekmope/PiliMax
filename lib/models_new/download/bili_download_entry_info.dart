@@ -1,6 +1,7 @@
 import 'dart:io' show Platform, Process;
 
 import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
+import 'package:PiliMax/models/common/video/video_quality.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart'
     show MultiSelectData;
@@ -97,6 +98,16 @@ class BiliDownloadEntryInfo with MultiSelectData {
   int get sortKey => ep?.sortIndex ?? pageData!.page;
 
   String get heroTag => 'download-entry-$bvid-$cid';
+
+  String get qaBadgeText {
+    if (videoQuality case final videoQuality?) {
+      final knownQuality = VideoQuality.safeFromCode(videoQuality);
+      if (knownQuality != null) return knownQuality.shortDesc;
+    }
+    final storedDescription = qualityPithyDescription.trim();
+    if (storedDescription.isNotEmpty) return storedDescription;
+    return videoQuality?.toString() ?? '';
+  }
 
   String get showTitle {
     if (pageData case PageInfo(:final part)) {

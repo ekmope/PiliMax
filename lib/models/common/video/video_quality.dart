@@ -57,6 +57,8 @@ final class VideoQuality {
   factory VideoQuality.fromCode(int code) =>
       _codeMap[code] ?? VideoQuality.fromId(code, code.toString());
 
+  static VideoQuality? safeFromCode(int code) => _codeMap[code];
+
   factory VideoQuality.fromFormat(int code, List<FormatItem>? formats) {
     if (formats != null) {
       for (final format in formats) {

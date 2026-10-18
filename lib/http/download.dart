@@ -17,6 +17,17 @@ abstract final class DownloadHttp {
   static const String referer = "https://www.bilibili.com/";
   static const String userAgent = "Bilibili Freedoooooom/MarkII";
 
+  static String _qualityDisplayDescription(
+    FormatItem? format,
+    VideoQuality fallback,
+  ) {
+    final displayDesc = format?.displayDesc?.trim();
+    if (displayDesc != null && displayDesc.isNotEmpty) return displayDesc;
+    final newDesc = format?.newDesc?.trim();
+    if (newDesc != null && newDesc.isNotEmpty) return newDesc;
+    return fallback.shortDesc;
+  }
+
   static Future<DownloadVideoUrlResult> getVideoUrl({
     required BiliDownloadEntryInfo entry,
     SourceInfo? source,
@@ -58,9 +69,10 @@ abstract final class DownloadHttp {
           ..typeTag = targetVideoQa.toString()
           ..videoQuality = targetVideoQa
           ..preferedVideoQuality = targetVideoQa
-          ..qualityPithyDescription =
-              targetSupportFormat.newDesc ??
-              VideoQuality.fromCode(targetVideoQa).desc;
+          ..qualityPithyDescription = _qualityDisplayDescription(
+            targetSupportFormat,
+            VideoQuality.fromCode(targetVideoQa),
+          );
 
         final videoUrl = VideoUtils.getCdnUrl(
           DownloadSourceSelector.playableUrls(videoDash.playUrls),
@@ -133,8 +145,10 @@ abstract final class DownloadHttp {
         ];
         final FormatItem? formatItem = response.supportFormats
             ?.firstWhereOrNull((e) => e.quality == response.quality);
-        final String description =
-            formatItem?.newDesc ?? VideoQuality.clear480.desc;
+        final String description = _qualityDisplayDescription(
+          formatItem,
+          VideoQuality.clear480,
+        );
         final int targetVideoQa =
             formatItem?.quality ?? VideoQuality.clear480.code;
 

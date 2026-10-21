@@ -62,6 +62,7 @@ class MainController extends GetxController
   final enableMYBar = Pref.enableMYBar;
   final floatingNavBar = Pref.floatingNavBar;
   late final Rx<GlassStyle> glassStyle = Pref.glassStyle.obs;
+  late final RxInt liquidGlassStrength = Pref.liquidGlassStrength.obs;
   late final RxDouble floatingNavBottomLift = Pref.floatingNavBottomLift.obs;
   final useSideBar = Pref.useSideBar;
   final mainTabBarView = Pref.mainTabBarView;

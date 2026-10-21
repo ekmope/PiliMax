@@ -2,6 +2,10 @@
 
 const double kMaxFloatingNavBottomLift = 50.0;
 
+/// Default optical strength of the liquid-glass navigation bar, in percent.
+const int kLiquidGlassStrengthDefault = 70;
+const int kMaxLiquidGlassStrength = 100;
+
 abstract final class SettingBoxKey {
   static const String btmProgressBehavior = 'btmProgressBehavior',
       defaultVideoQa = 'defaultVideoQa',
@@ -207,6 +211,7 @@ abstract final class SettingBoxKey {
       touchSlopH = 'touchSlopH',
       floatingNavBar = 'floatingNavBar',
       glassStyle = 'glassStyle',
+      liquidGlassStrength = 'liquidGlassStrength',
       floatingNavBottomLift = 'floatingNavBottomLift',
       mixWithOthers = 'mixWithOthers',
       removeSafeArea = 'removeSafeArea',

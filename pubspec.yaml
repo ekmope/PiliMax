@@ -288,6 +288,9 @@ flutter:
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
 
+  shaders:
+    - shaders/liquid_glass.frag
+
   fonts:
     - family: digital_id_num
       fonts:

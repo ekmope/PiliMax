@@ -222,6 +222,18 @@ abstract final class SettingsTransferService {
           ? lift.clamp(0.0, kMaxFloatingNavBottomLift).toDouble()
           : 0.0;
     }
+
+    if (values.containsKey(SettingBoxKey.liquidGlassStrength)) {
+      final value = values[SettingBoxKey.liquidGlassStrength];
+      if (value is num && value.isFinite) {
+        values[SettingBoxKey.liquidGlassStrength] = value.round().clamp(
+          0,
+          kMaxLiquidGlassStrength,
+        );
+      } else {
+        values.remove(SettingBoxKey.liquidGlassStrength);
+      }
+    }
   }
 
   static Map<dynamic, dynamic> _normalizeMap(

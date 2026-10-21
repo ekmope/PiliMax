@@ -1841,6 +1841,17 @@ abstract final class Pref {
     return GlassStyle.fromIndex(_setting.get(SettingBoxKey.glassStyle));
   }
 
+  static int get liquidGlassStrength {
+    final value = _setting.get(
+      SettingBoxKey.liquidGlassStrength,
+      defaultValue: kLiquidGlassStrengthDefault,
+    );
+    final strength = value is num && value.isFinite
+        ? value.round()
+        : kLiquidGlassStrengthDefault;
+    return strength.clamp(0, kMaxLiquidGlassStrength);
+  }
+
   static double get floatingNavBottomLift {
     final value = _setting.get(
       SettingBoxKey.floatingNavBottomLift,

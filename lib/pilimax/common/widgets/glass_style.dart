@@ -3,7 +3,8 @@ import 'package:PiliMax/models/common/enum_with_label.dart';
 /// User-facing visual styles for the floating navigation bar.
 enum GlassStyle implements EnumWithLabel {
   none('普通悬浮底栏'),
-  soft('柔光玻璃');
+  soft('柔光玻璃'),
+  liquid('液态玻璃');
 
   const GlassStyle(this.label);
 

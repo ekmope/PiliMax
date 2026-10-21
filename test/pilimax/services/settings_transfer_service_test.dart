@@ -111,4 +111,29 @@ void main() {
     expect(payload.setting.containsKey(SettingBoxKey.glassStyle), isFalse);
     expect(payload.setting[SettingBoxKey.floatingNavBottomLift], 50.0);
   });
+
+  test('keeps liquid glass style and clamps its strength', () {
+    final payload = SettingsTransferService.normalize({
+      'setting': {
+        SettingBoxKey.glassStyle: 2,
+        SettingBoxKey.liquidGlassStrength: 140,
+      },
+    });
+
+    expect(payload.setting[SettingBoxKey.glassStyle], 2);
+    expect(payload.setting[SettingBoxKey.liquidGlassStrength], 100);
+
+    final negative = SettingsTransferService.normalize({
+      'setting': {SettingBoxKey.liquidGlassStrength: -8},
+    });
+    expect(negative.setting[SettingBoxKey.liquidGlassStrength], 0);
+
+    final invalid = SettingsTransferService.normalize({
+      'setting': {SettingBoxKey.liquidGlassStrength: 'high'},
+    });
+    expect(
+      invalid.setting.containsKey(SettingBoxKey.liquidGlassStrength),
+      isFalse,
+    );
+  });
 }

@@ -2,6 +2,8 @@ import 'dart:async' show Completer, unawaited;
 import 'dart:io';
 
 import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass.dart';
+import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
 import 'package:PiliMax/common/widgets/flutter/pop_scope.dart';
 import 'package:PiliMax/pilimax/common/widgets/flutter/tabs.dart';
@@ -377,6 +379,8 @@ class _MainAppState extends PopScopeState<MainApp>
         bottomNav = Obx(
           () => FloatingNavigationBar(
             glassStyle: _mainController.glassStyle.value,
+            liquidGlassStrength:
+                _mainController.liquidGlassStrength.value / 100,
             bottomPadding: 8.0,
             bottomLift: _mainController.floatingNavBottomLift.value,
             labelBehavior: _mainController.showNavBarLabel.value
@@ -670,6 +674,25 @@ class _MainAppState extends PopScopeState<MainApp>
         ),
       );
     }
+
+    // The glass pane needs a capture host above both the page body and the
+    // bottom navigation bar. Keep the host mounted and toggle `enabled` so
+    // switching styles never rebuilds or re-parents the page. Capture the page
+    // before wrapping it: a closure that read `child` here would see the Obx
+    // (and later the AnnotatedRegion) instead of the page.
+    final glassPage = child;
+    child = Obx(() {
+      final liquid =
+          _mainController.glassStyle.value == GlassStyle.liquid &&
+          _mainController.floatingNavBar &&
+          _mainController.useBottomNav &&
+          _mainController.navigationBars.length > 1;
+      return LiquidGlassScope(
+        enabled: liquid,
+        quality: LiquidGlassQuality.ultra,
+        child: LiquidGlassHost(enabled: liquid, child: glassPage),
+      );
+    });
 
     if (PlatformUtils.isMobile) {
       child = AnnotatedRegion<SystemUiOverlayStyle>(

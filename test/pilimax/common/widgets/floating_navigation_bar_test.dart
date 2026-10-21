@@ -1,5 +1,6 @@
 import 'dart:ui' show Tristate;
 
+import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
 import 'package:flutter/semantics.dart';
@@ -531,6 +532,91 @@ void main() {
       }
     },
   );
+
+  testWidgets(
+    'liquid style renders a glass shell and lens without the soft blur',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: Scaffold(
+            body: const SizedBox.expand(),
+            bottomNavigationBar: FloatingNavigationBar(
+              glassStyle: GlassStyle.liquid,
+              liquidGlassStrength: 0.7,
+              destinations: destinations,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('glassVisualShell')), findsOneWidget);
+      expect(find.byType(LiquidGlass), findsAtLeastNWidgets(2));
+      expect(
+        find.byKey(const ValueKey('softGlassBackdropFilter')),
+        findsNothing,
+      );
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'liquid lens paints a magnified content copy while pressed',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: Scaffold(
+            body: const SizedBox.expand(),
+            bottomNavigationBar: FloatingNavigationBar(
+              glassStyle: GlassStyle.liquid,
+              liquidGlassStrength: 0.7,
+              destinations: destinations,
+            ),
+          ),
+        ),
+      );
+      final shell = tester.getRect(
+        find.byKey(const ValueKey('glassVisualShell')),
+      );
+      final gesture = await tester.startGesture(shell.center);
+      await tester.pump(const Duration(milliseconds: 80));
+
+      expect(
+        find.byKey(const ValueKey('liquidGlassLensContent')),
+        findsOneWidget,
+      );
+      expect(find.byType(NavigationBar), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('liquidGlassLensContent')),
+        findsNothing,
+      );
+      expect(find.byType(NavigationBar), findsOneWidget);
+    },
+  );
+
+  testWidgets('liquid glass keeps the bottom-lift transform', (tester) async {
+    await tester.pumpWidget(host(style: GlassStyle.liquid));
+    final resting = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
+    );
+
+    await tester.pumpWidget(
+      host(style: GlassStyle.liquid, bottomLift: 24),
+    );
+    final lifted = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
+    );
+
+    expect(lifted.size, resting.size);
+    expect(lifted.top, moreOrLessEquals(resting.top - 24));
+  });
 
   testWidgets('bottom lift moves the bar without resizing the page body', (
     tester,

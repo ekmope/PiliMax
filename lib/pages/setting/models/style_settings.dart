@@ -24,6 +24,7 @@ import 'package:PiliMax/pages/mine/controller.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/pages/setting/slide_color_picker.dart';
 import 'package:PiliMax/pages/setting/widgets/dual_slider_dialog.dart';
+import 'package:PiliMax/pages/setting/widgets/liquid_glass_strength_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
@@ -207,6 +208,14 @@ List<SettingsModel> get styleSettings => [
         },
       );
     },
+  ),
+  NormalModel(
+    title: '液态玻璃强度',
+    leading: const Icon(Icons.blur_on_outlined),
+    getSubtitle: () => '${Pref.liquidGlassStrength}% · 仅液态玻璃样式生效',
+    enabled: () => Pref.glassStyle == GlassStyle.liquid,
+    enabledByKey: SettingBoxKey.floatingNavBar,
+    onTap: _showLiquidGlassStrengthDialog,
   ),
   NormalModel(
     title: '悬浮底栏底部高度',
@@ -1117,6 +1126,42 @@ Future<void> _showToastDialog(
     SmartDialog.showToast('设置成功');
     setState();
   }
+}
+
+Future<void> _showLiquidGlassStrengthDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final initial = Pref.liquidGlassStrength;
+  MainController? controller;
+  try {
+    controller = Get.find<MainController>();
+  } catch (_) {
+    // The settings page can be opened before the main controller.
+  }
+
+  final result = await showDialog<int>(
+    context: context,
+    builder: (context) => LiquidGlassStrengthDialog(
+      initialValue: initial,
+      onChanged: (value) {
+        controller?.liquidGlassStrength.value = value;
+      },
+    ),
+  );
+
+  if (result == null) {
+    controller?.liquidGlassStrength.value = initial;
+    return;
+  }
+
+  final normalized = result.clamp(0, kMaxLiquidGlassStrength);
+  await GStorage.setting.put(
+    SettingBoxKey.liquidGlassStrength,
+    normalized,
+  );
+  controller?.liquidGlassStrength.value = normalized;
+  setState();
 }
 
 Future<void> _showFloatingNavigationLiftDialog(

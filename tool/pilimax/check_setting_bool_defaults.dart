@@ -45,7 +45,14 @@ void main() {
     _fail('settings UI contains a separate defaultVal');
   }
 
-  final uiKeys = _settingKeyNames(settingSource);
+  final modelUiKeys = _settingKeyNames(settingSource);
+  // Dedicated settings pages may render a real Switch directly instead of
+  // going through SwitchModel(setKey: ...). Keep those keys explicit so this
+  // check still catches stale generic readers without rejecting valid pages.
+  const specializedUiKeys = <String>{
+    'enableFullScreenSC',
+  };
+  final uiKeys = {...modelUiKeys, ...specializedUiKeys};
   final prefSource = File('lib/utils/storage_pref.dart').readAsStringSync();
   final registryStart = prefSource.indexOf('_boolSettingReaders');
   final registryEnd = prefSource.indexOf(

@@ -727,9 +727,9 @@ class _InteractiveFloatingNavigationBarState
         2 * _kIndicatorPadding +
         4 * progress +
         (widget.liquid ? 8 * progress : 0);
-    final top = widget.liquid
-        ? _kIndicatorPadding - 2 * progress
-        : (_kNavigationHeight - height) / 2;
+    // Keep the pressed lens centered on the dock so growth stays symmetric
+    // instead of shifting the overflow toward one edge.
+    final top = (_kNavigationHeight - height) / 2;
     return Rect.fromLTWH(center - width / 2, top, width, height);
   }
 

@@ -314,7 +314,9 @@ void main() {
     expect(tester.getSize(indicator).width, moreOrLessEquals(idleWidth));
   });
 
-  testWidgets('liquid press overflows below the dock shell', (tester) async {
+  testWidgets('liquid press overflows symmetrically around the dock shell', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(useMaterial3: true),
@@ -331,16 +333,28 @@ void main() {
     final shell = tester.getRect(
       find.byKey(const ValueKey('glassVisualShell')),
     );
+    final indicatorFinder = find.byKey(
+      const ValueKey('floatingNavigationIndicator'),
+    );
+    final idleIndicator = tester.getRect(indicatorFinder);
+    expect(idleIndicator.top, greaterThanOrEqualTo(shell.top));
+    expect(idleIndicator.bottom, lessThanOrEqualTo(shell.bottom));
+
     final gesture = await tester.startGesture(shell.center);
     await tester.pump(const Duration(milliseconds: 130));
 
-    final indicator = tester.getRect(
-      find.byKey(const ValueKey('floatingNavigationIndicator')),
-    );
+    final indicator = tester.getRect(indicatorFinder);
+    final topOverflow = shell.top - indicator.top;
+    final bottomOverflow = indicator.bottom - shell.bottom;
+    expect(topOverflow, greaterThan(0));
     expect(indicator.bottom, greaterThan(shell.bottom));
+    expect(topOverflow, closeTo(bottomOverflow, 0.01));
 
     await gesture.up();
     await tester.pumpAndSettle();
+    final releasedIndicator = tester.getRect(indicatorFinder);
+    expect(releasedIndicator.top, greaterThanOrEqualTo(shell.top));
+    expect(releasedIndicator.bottom, lessThanOrEqualTo(shell.bottom));
   });
 
   testWidgets('keeps idle edge gaps and expands to the rim while pressed', (

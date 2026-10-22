@@ -315,8 +315,12 @@ class LiveRoomController extends GetxController {
     }
 
     // 濡傛灉鎾斁鍣ㄥ凡琚交搴曢攢姣侊紙渚嬪鍦ㄥ叾浠栭〉闈㈠叧闂簡灏忕獥锛夛紝閲嶆柊鑾峰彇鍗曚緥瀹炰緥
-    if (plPlayerController.videoPlayerController == null) {
-      plPlayerController = PlPlayerController.ensureInstance(isLive: true);
+    if (!identical(plPlayerController, PlPlayerController.instance)) {
+      plPlayerController = PlPlayerController.getInstance(isLive: true)
+        ..bindLiveSourceRefresh(
+          this,
+          () => queryLiveUrl(silent: true),
+        );
     }
 
     // 纭繚鎾斁鍣ㄥ浜庣洿鎾ā寮?

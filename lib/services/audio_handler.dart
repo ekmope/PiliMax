@@ -97,6 +97,8 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> skipToNext() async {
+    final playOwner = PlPlayerController.playOwner;
+    if (playOwner != null && playOwner.type == null) return;
     if (onSkipToNext != null) {
       await onSkipToNext?.call();
       return;
@@ -124,6 +126,8 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> skipToPrevious() async {
+    final playOwner = PlPlayerController.playOwner;
+    if (playOwner != null && playOwner.type == null) return;
     if (onSkipToPrevious != null) {
       await onSkipToPrevious?.call();
       return;

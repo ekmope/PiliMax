@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass.dart';
@@ -7,7 +6,6 @@ import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:material_ui/material_ui.dart';
 
 const double _kNavigationHeight = 64.0;
@@ -249,7 +247,7 @@ class _GlassPressGlowPainter extends CustomPainter {
     if (amount <= 0 || strength <= 0) {
       return;
     }
-    final reach = 28.0 * (1 + 3 * (1 - amount));
+    final reach = 28.0 * (1 + 2 * (1 - amount));
     final alpha = (0.10 * strength * amount).clamp(0.0, 0.10);
     final paint = Paint()
       ..blendMode = BlendMode.plus
@@ -315,6 +313,7 @@ class _InteractiveFloatingNavigationBarState
   late final AnimationController _selectionController;
   late final AnimationController _pressController;
   late final AnimationController _glowController;
+  late final AnimationController _contentHandoffController;
   late final Listenable _interactionListenable;
   Offset? _glowAt;
   late double _fromIndex;
@@ -332,6 +331,9 @@ class _InteractiveFloatingNavigationBarState
   bool _isVerticalGesture = false;
   double _dragVelocity = 0;
   TextDirection _textDirection = TextDirection.ltr;
+  int _contentFromIndex = 0;
+  int _contentToIndex = 0;
+  static const _contentHandoffDuration = Duration(milliseconds: 120);
 
   double get _animatedIndex =>
       _fromIndex + (_targetIndex - _fromIndex) * _selectionController.value;
@@ -345,7 +347,8 @@ class _InteractiveFloatingNavigationBarState
     super.initState();
     _fromIndex = widget.selectedIndex.toDouble();
     _targetIndex = _fromIndex;
-    _selectionController = AnimationController(vsync: this, value: 1);
+    _selectionController = AnimationController(vsync: this, value: 1)
+      ..addListener(_maybeStartContentHandoff);
     _pressController = AnimationController(
       vsync: this,
       duration: _kPressDuration,
@@ -354,12 +357,19 @@ class _InteractiveFloatingNavigationBarState
     _glowController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 100),
-      reverseDuration: const Duration(milliseconds: 500),
+      reverseDuration: const Duration(milliseconds: 300),
     );
+    _contentHandoffController = AnimationController(
+      vsync: this,
+      duration: _contentHandoffDuration,
+    );
+    _contentFromIndex = widget.selectedIndex;
+    _contentToIndex = widget.selectedIndex;
     _interactionListenable = Listenable.merge([
       _selectionController,
       _pressController,
       _glowController,
+      _contentHandoffController,
     ]);
   }
 
@@ -371,6 +381,8 @@ class _InteractiveFloatingNavigationBarState
       _fromIndex = _fromIndex.clamp(0, maxIndex).toDouble();
       _targetIndex = _targetIndex.clamp(0, maxIndex).toDouble();
       _dragIndex = _dragIndex?.clamp(0, maxIndex).toDouble();
+      _contentFromIndex = _contentFromIndex.clamp(0, maxIndex).toInt();
+      _contentToIndex = _contentToIndex.clamp(0, maxIndex).toInt();
     }
     if (_targetIndex != widget.selectedIndex.toDouble()) {
       _animateTo(widget.selectedIndex.toDouble());
@@ -382,15 +394,28 @@ class _InteractiveFloatingNavigationBarState
     _selectionController.dispose();
     _pressController.dispose();
     _glowController.dispose();
+    _contentHandoffController.dispose();
     super.dispose();
   }
 
   void _animateTo(double index, {double velocity = 0}) {
+    final targetIndex = index
+        .round()
+        .clamp(0, widget.destinations.length - 1)
+        .toInt();
+    final currentContentIndex = _contentHandoffController.value >= 0.5
+        ? _contentToIndex
+        : _contentFromIndex;
     final currentIndex = _dragIndex ?? _animatedIndex;
     _selectionController.stop();
+    _contentHandoffController
+      ..stop()
+      ..value = 0;
     _fromIndex = currentIndex;
-    _targetIndex = index;
+    _targetIndex = targetIndex.toDouble();
     _dragIndex = null;
+    _contentFromIndex = currentContentIndex;
+    _contentToIndex = targetIndex;
     _gestureDirectionLocked = false;
     _isVerticalGesture = false;
     _dragVelocity = 0;
@@ -400,6 +425,8 @@ class _InteractiveFloatingNavigationBarState
     if (disableAnimations) {
       _pressController.value = 0;
       _selectionController.value = 1;
+      _contentFromIndex = targetIndex;
+      _contentToIndex = targetIndex;
       return;
     }
     _pressController.reverse();
@@ -407,7 +434,7 @@ class _InteractiveFloatingNavigationBarState
     _selectionController.animateWith(
       SpringSimulation(
         SpringDescription.withDampingRatio(
-          ratio: 0.82,
+          ratio: 0.88,
           stiffness: 420,
           mass: 1,
         ),
@@ -420,12 +447,82 @@ class _InteractiveFloatingNavigationBarState
     if (mounted) setState(() {});
   }
 
+  void _maybeStartContentHandoff() {
+    if (widget.liquid &&
+        !(MediaQuery.maybeOf(context)?.disableAnimations ?? false) &&
+        _contentFromIndex != _contentToIndex &&
+        !_contentHandoffController.isAnimating &&
+        _contentHandoffController.value == 0 &&
+        _selectionController.value >= 0.62) {
+      _contentHandoffController.forward();
+    }
+  }
+
+  Widget _buildContentNavigationBar(int index, Key key) {
+    return KeyedSubtree(
+      key: key,
+      child: MediaQuery.removePadding(
+        context: context,
+        removeLeft: true,
+        removeTop: true,
+        removeRight: true,
+        removeBottom: true,
+        child: _buildNavigationBar(duplicate: true, selectedIndex: index),
+      ),
+    );
+  }
+
+  Widget _buildLensContent() {
+    if (_dragIndex case final dragIndex?) {
+      final index =
+          _nearestEnabledIndex(dragIndex.round()) ?? widget.selectedIndex;
+      final reduceMotion =
+          MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+      return AnimatedSwitcher(
+        duration: reduceMotion ? Duration.zero : _contentHandoffDuration,
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeOut,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: child,
+        ),
+        child: _buildContentNavigationBar(
+          index,
+          ValueKey('liquid-drag-destination-$index'),
+        ),
+      );
+    }
+    if (_contentFromIndex == _contentToIndex) {
+      return _buildContentNavigationBar(
+        _contentToIndex,
+        ValueKey('liquid-destination-$_contentToIndex'),
+      );
+    }
+    final opacity = _contentFade;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Opacity(
+          opacity: 1 - opacity,
+          child: _buildContentNavigationBar(
+            _contentFromIndex,
+            ValueKey('liquid-source-$_contentFromIndex'),
+          ),
+        ),
+        Opacity(
+          opacity: opacity,
+          child: _buildContentNavigationBar(
+            _contentToIndex,
+            ValueKey('liquid-target-$_contentToIndex'),
+          ),
+        ),
+      ],
+    );
+  }
+
   void _handleDestinationSelected(int index) {
     if (_interactionCommitted) return;
     _interactionCommitted = true;
-    if (widget.liquid && index != widget.selectedIndex) {
-      HapticFeedback.selectionClick();
-    }
     _animateTo(index.toDouble());
     widget.onDestinationSelected?.call(index);
     if (_activePointer == null && _pendingPointerUp == null) {
@@ -459,6 +556,7 @@ class _InteractiveFloatingNavigationBarState
   void _handlePointerDown(PointerDownEvent event) {
     if (_activePointer != null) return;
     _selectionController.stop();
+    _contentHandoffController.stop();
     _activePointer = event.pointer;
     _pendingPointerUp = null;
     _pointerDownPosition = event.localPosition;
@@ -518,14 +616,15 @@ class _InteractiveFloatingNavigationBarState
     _lastPointerPosition = event.localPosition;
     _lastPointerTime = event.timeStamp;
     final nextIndex = _indexForX(event.localPosition.dx);
-    final previousIndex = _dragIndex;
-    if (previousIndex != null &&
-        widget.liquid &&
-        nextIndex.round() != previousIndex.round()) {
-      HapticFeedback.selectionClick();
-    }
+    final dragTarget = _nearestEnabledIndex(nextIndex.round());
     if (_dragIndex == null || (nextIndex - _dragIndex!).abs() > 0.001) {
-      setState(() => _dragIndex = nextIndex);
+      setState(() {
+        _dragIndex = nextIndex;
+        if (dragTarget != null && dragTarget != _contentToIndex) {
+          _contentFromIndex = dragTarget;
+          _contentToIndex = dragTarget;
+        }
+      });
     }
   }
 
@@ -611,26 +710,26 @@ class _InteractiveFloatingNavigationBarState
   }
 
   Rect _lensRect() {
-    final progress = math.max(
-      _pressController.value,
-      _isPressed ? 0.2 : 0.0,
-    );
+    final progress = _pressController.value.clamp(0.0, 1.0).toDouble();
     final visualIndex = _dragIndex ?? _animatedIndex;
     final logicalCenter = (visualIndex + 0.5) * _itemExtent;
     final center = _isRtl
         ? _itemExtent * widget.destinations.length - logicalCenter
         : logicalCenter;
     final jelly = widget.liquid
-        ? 0.06 * (_dragVelocity.abs() / 3).clamp(0.0, 1.0)
+        ? 0.03 * (_dragVelocity.abs() / 3).clamp(0.0, 1.0)
         : 0.0;
-    final width = _kIndicatorWidth * (1 + 0.08 * progress + jelly);
-    final lift = widget.liquid ? 2.0 * progress : 0.0;
+    final width =
+        _kIndicatorWidth *
+        (1 + (widget.liquid ? 0.065 : 0.08) * progress + jelly);
     final height =
         _kNavigationHeight -
         2 * _kIndicatorPadding +
         4 * progress +
-        (widget.liquid ? 4 * progress : 0);
-    final top = (_kNavigationHeight - height) / 2 - lift;
+        (widget.liquid ? 8 * progress : 0);
+    final top = widget.liquid
+        ? _kIndicatorPadding - 2 * progress
+        : (_kNavigationHeight - height) / 2;
     return Rect.fromLTWH(center - width / 2, top, width, height);
   }
 
@@ -685,11 +784,13 @@ class _InteractiveFloatingNavigationBarState
     );
   }
 
-  Widget _buildNavigationBar({required bool duplicate}) {
+  Widget _buildNavigationBar({
+    required bool duplicate,
+    int? selectedIndex,
+  }) {
     return NavigationBar(
       key: duplicate ? null : const ValueKey('floatingNavigationSemanticsBar'),
-      animationDuration: Duration.zero,
-      selectedIndex: widget.selectedIndex,
+      selectedIndex: selectedIndex ?? widget.selectedIndex,
       destinations: widget.destinations,
       onDestinationSelected: duplicate
           ? _ignoreDestination
@@ -708,17 +809,17 @@ class _InteractiveFloatingNavigationBarState
       overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       labelTextStyle: widget.labelTextStyle,
       labelPadding: widget.labelPadding,
+      animationDuration: widget.liquid
+          ? Duration.zero
+          : widget.animationDuration,
     );
   }
 
   void _ignoreDestination(int index) {}
 
   Matrix4 _lensContentTransform(Rect rect) {
-    final progress = math.max(
-      _pressController.value,
-      _isPressed ? 0.2 : 0.0,
-    );
-    final scale = 1 + 0.16 * progress;
+    final progress = _pressController.value.clamp(0.0, 1.0).toDouble();
+    final scale = 1 + 0.10 * progress;
     final center = rect.center;
     return Matrix4.identity()
       ..translateByDouble(center.dx, center.dy, 0, 1)
@@ -731,7 +832,13 @@ class _InteractiveFloatingNavigationBarState
         (_isPressed ||
             _pressController.value > 0.001 ||
             _dragIndex != null ||
-            _selectionController.isAnimating);
+            _selectionController.isAnimating ||
+            _contentHandoffController.isAnimating);
+  }
+
+  double get _contentFade {
+    if (_contentFromIndex == _contentToIndex) return 1;
+    return Curves.easeOut.transform(_contentHandoffController.value);
   }
 
   @override
@@ -745,16 +852,6 @@ class _InteractiveFloatingNavigationBarState
       removeBottom: true,
       child: _buildNavigationBar(duplicate: false),
     );
-    final duplicateBar = widget.liquid
-        ? MediaQuery.removePadding(
-            context: context,
-            removeLeft: true,
-            removeTop: true,
-            removeRight: true,
-            removeBottom: true,
-            child: _buildNavigationBar(duplicate: true),
-          )
-        : null;
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.hasBoundedWidth
@@ -811,7 +908,7 @@ class _InteractiveFloatingNavigationBarState
                   // Inside the lens, draw a second, magnified and tinted copy.
                   // It is inert and excluded from semantics/focus; the real bar
                   // still owns the interaction.
-                  if (showLensContent && duplicateBar != null)
+                  if (showLensContent && widget.liquid)
                     Positioned.fill(
                       key: const ValueKey('liquidGlassLensContent'),
                       child: IgnorePointer(
@@ -828,10 +925,10 @@ class _InteractiveFloatingNavigationBarState
                                 filterQuality: FilterQuality.high,
                                 child: ColorFiltered(
                                   colorFilter: ui.ColorFilter.mode(
-                                    colorScheme.primary,
+                                    colorScheme.primary.withValues(alpha: 0.20),
                                     ui.BlendMode.srcATop,
                                   ),
-                                  child: duplicateBar,
+                                  child: _buildLensContent(),
                                 ),
                               ),
                             ),

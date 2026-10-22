@@ -314,6 +314,35 @@ void main() {
     expect(tester.getSize(indicator).width, moreOrLessEquals(idleWidth));
   });
 
+  testWidgets('liquid press overflows below the dock shell', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(useMaterial3: true),
+        home: Scaffold(
+          body: const SizedBox.expand(),
+          bottomNavigationBar: FloatingNavigationBar(
+            glassStyle: GlassStyle.liquid,
+            liquidGlassStrength: 0.7,
+            destinations: destinations,
+          ),
+        ),
+      ),
+    );
+    final shell = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
+    );
+    final gesture = await tester.startGesture(shell.center);
+    await tester.pump(const Duration(milliseconds: 130));
+
+    final indicator = tester.getRect(
+      find.byKey(const ValueKey('floatingNavigationIndicator')),
+    );
+    expect(indicator.bottom, greaterThan(shell.bottom));
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('keeps idle edge gaps and expands to the rim while pressed', (
     tester,
   ) async {

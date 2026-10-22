@@ -27,7 +27,6 @@ import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart'
     show
         HardwareKeyboard,
@@ -453,6 +452,7 @@ class _MainAppState extends PopScopeState<MainApp>
             () => Stack(
               fit: StackFit.passthrough,
               alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
                 Transform.translate(
                   offset: Offset(
@@ -493,6 +493,7 @@ class _MainAppState extends PopScopeState<MainApp>
             () => Stack(
               fit: StackFit.passthrough,
               alignment: Alignment.center,
+              clipBehavior: Clip.none,
               children: [
                 _SpringVisibilitySlide(
                   visible: showBottomBar.value,
@@ -848,7 +849,9 @@ class _SpringVisibilitySlide extends StatefulWidget {
 
 class _SpringVisibilitySlideState extends State<_SpringVisibilitySlide>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController.unbounded(
+  static const _fullTravelDuration = Duration(milliseconds: 280);
+
+  late final AnimationController _controller = AnimationController(
     vsync: this,
     value: widget.visible ? 0.0 : 1.0,
   );
@@ -862,18 +865,18 @@ class _SpringVisibilitySlideState extends State<_SpringVisibilitySlide>
       _controller.value = target;
       return;
     }
-    _controller.animateWith(
-      SpringSimulation(
-        SpringDescription.withDampingRatio(
-          ratio: 0.86,
-          stiffness: 280,
-          mass: 1,
-        ),
-        _controller.value,
-        target,
-        _controller.velocity,
-        snapToEnd: true,
-      ),
+    final duration = Duration(
+      milliseconds:
+          (_fullTravelDuration.inMilliseconds *
+                  (target - _controller.value).abs())
+              .round()
+              .clamp(1, _fullTravelDuration.inMilliseconds)
+              .toInt(),
+    );
+    _controller.animateTo(
+      target,
+      duration: duration,
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -888,9 +891,8 @@ class _SpringVisibilitySlideState extends State<_SpringVisibilitySlide>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        final progress = _controller.value.clamp(-0.2, 1.2).toDouble();
         return FractionalTranslation(
-          translation: Offset(0, progress),
+          translation: Offset(0, _controller.value),
           child: child,
         );
       },

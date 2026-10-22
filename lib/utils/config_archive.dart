@@ -8,7 +8,7 @@ import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliMax/pages/search/controller.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/parse_int.dart';

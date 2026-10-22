@@ -131,6 +131,18 @@ abstract final class Accounts {
     await activateAccountModes();
   }
 
+  static Future<void> importJsonAccount(Map<String, dynamic> json) async {
+    final accounts = json.map(
+      (key, value) => MapEntry(key, LoginAccount.fromJson(value)),
+    );
+    await account.putAll(accounts);
+    await refresh();
+    MineController.anonymity.value = !heartbeat.isLogin;
+    if (main.isLogin) {
+      await LoginUtils.onLoginMain();
+    }
+  }
+
   static Future<void> _quarantineInvalidAccounts() =>
       _quarantineInvalidAccountsIn(account, accountQuarantine);
 

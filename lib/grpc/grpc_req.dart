@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:PiliMax/grpc/bilibili/rpc.pb.dart';
-import 'package:PiliMax/http/init.dart' as http_init show Request;
 import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -40,9 +39,9 @@ abstract final class GrpcReq {
     final length = ByteData.sublistView(data, 1, 5).getInt32(0, Endian.big);
 
     if (data[0] == 1) {
-      return http_init.Request.gzip.convert(
+      return const GZipDecoder().decodeBytes(
         Uint8List.sublistView(data, 5, length + 5),
-      ) as Uint8List;
+      );
     } else {
       return Uint8List.sublistView(data, 5, length + 5);
     }

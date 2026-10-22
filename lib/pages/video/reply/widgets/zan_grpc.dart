@@ -1,7 +1,7 @@
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliMax/http/reply.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:fixnum/fixnum.dart' as $fixnum;

@@ -113,11 +113,11 @@ class _SavePanelState extends State<SavePanel> {
             pubdate = episode.pubTime;
             uname = pgcItem.upInfo?.uname;
 
-            final oid = reply.oid;
-            final type = reply.type.toInt();
-            final anchor = hasRoot ? 'anchor=${reply.id}&' : '';
-            uri =
-                'bilibili://comment/detail/$type/$oid/$rootId/?${anchor}enterUri=bilibili://pgc/season/ep/${ctr.epId}';
+            uri = _reply2Uri(
+              reply,
+              hasRoot,
+              'bilibili://pgc/season/ep/${ctr.epId}',
+            );
           } else {
             final ctr = Get.find<UgcIntroController>(tag: heroTag);
             final videoDetail = ctr.videoDetail.value;
@@ -140,18 +140,16 @@ class _SavePanelState extends State<SavePanel> {
           uname = dynItem.modules.moduleAuthor?.name;
         } catch (_) {}
         final type = reply.type.toInt();
-        final oid = reply.oid;
-        final rootId = hasRoot ? reply.root : reply.id;
 
         if (type == 1) {
           uri =
-              'https://www.bilibili.com/video/av$oid?comment_on=1&comment_root_id=$rootId${hasRoot ? '&comment_secondary_id=${reply.id}' : ''}';
+              'https://www.bilibili.com/video/av${reply.oid}?comment_on=1&comment_root_id=${hasRoot ? reply.root : reply.id}${hasRoot ? '&comment_secondary_id=${reply.id}' : ''}';
         } else {
-          final enterUri = dynItem == null
-              ? ''
-              : 'enterUri=${parseDyn(dynItem)}';
-          uri =
-              'bilibili://comment/detail/$type/$oid/$rootId/?${hasRoot ? 'anchor=${reply.id}&' : ''}$enterUri';
+          uri = _reply2Uri(
+            reply,
+            hasRoot,
+            dynItem == null ? null : parseDyn(dynItem),
+          );
         }
       } else if (currentRoute.startsWith('/Scaffold')) {
         try {
@@ -174,26 +172,18 @@ class _SavePanelState extends State<SavePanel> {
         } catch (_) {}
       } else if (currentRoute.startsWith('/articlePage')) {
         try {
-          final type = reply.type.toInt();
-          final oid = reply.oid;
-          final rootId = hasRoot ? reply.root : reply.id;
-          final anchor = hasRoot ? 'anchor=${reply.id}&' : '';
           final enterUri =
               'bilibili://following/detail/${Get.parameters['id'] ?? Get.arguments?['id']}';
-          uri =
-              'bilibili://comment/detail/$type/$oid/$rootId/?${anchor}enterUri=$enterUri';
+          uri = _reply2Uri(reply, hasRoot, enterUri);
         } catch (_) {}
       } else if (currentRoute.startsWith('/musicDetail')) {
-        final type = reply.type.toInt();
-        final oid = reply.oid;
-        final rootId = hasRoot ? reply.root : reply.id;
-        final anchor = hasRoot ? 'anchor=${reply.id}&' : '';
         String enterUri = '';
         try {
           final ctr = Get.find<MusicDetailController>(
             tag: Get.parameters['musicId'],
           );
-          enterUri = 'enterUri=${Uri.encodeComponent(ctr.shareUrl)}'; // official client cannot parse it
+          // Keep the value raw; _reply2Uri adds the query key exactly once.
+          enterUri = Uri.encodeComponent(ctr.shareUrl);
           final data = ctr.infoState.value.dataOrNull;
           if (data != null) {
             coverType = _CoverType.square;
@@ -210,7 +200,9 @@ class _SavePanelState extends State<SavePanel> {
             }
           }
         } catch (_) {}
-        uri = 'bilibili://comment/detail/$type/$oid/$rootId/?$anchor$enterUri';
+        uri = _reply2Uri(reply, hasRoot, enterUri);
+      } else {
+        uri = _reply2Uri(reply, hasRoot);
       }
 
       if (kDebugMode) debugPrint(uri);
@@ -219,6 +211,21 @@ class _SavePanelState extends State<SavePanel> {
 
       if (kDebugMode) debugPrint(uri);
     }
+  }
+
+  static String _reply2Uri(
+    ReplyInfo reply,
+    bool hasRoot, [
+    String? enterUri,
+  ]) {
+    var uri =
+        'bilibili://comment/detail/${reply.type}/${reply.oid}/${hasRoot ? reply.root : reply.id}/';
+    final parameters = [
+      if (hasRoot) 'anchor=${reply.id}',
+      if (enterUri != null) 'enterUri=$enterUri',
+    ];
+    if (parameters.isNotEmpty) uri += '?${parameters.join('&')}';
+    return uri;
   }
 
   String parseDyn(DynamicItemModel item) {

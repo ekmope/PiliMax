@@ -1,5 +1,5 @@
 import 'package:PiliMax/grpc/bilibili/app/playurl/v1.pb.dart' as app;
-import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models/video/play/url.dart';
 import 'package:PiliMax/pilimax/services/playback/trial_play_view_merger.dart';
 import 'package:fixnum/fixnum.dart';

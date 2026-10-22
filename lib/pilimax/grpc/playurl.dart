@@ -46,7 +46,11 @@ abstract final class PlayUrlGrpc {
       ),
       PlayViewReply.fromBuffer,
       account: account,
-      grpcHeaders: GrpcHeaders.newAppHeaders(account.accessKey, account.mid),
+      grpcHeaders: GrpcHeaders.newAppHeaders(
+        account.accessKey,
+        account.mid,
+        account.buvid,
+      ),
       transportPolicy: GrpcTransportPolicy.primaryThenHttp11,
     );
   }

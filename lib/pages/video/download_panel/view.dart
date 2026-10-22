@@ -7,7 +7,7 @@ import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/stat_type.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart' as pgc;
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliMax/models_new/video/video_detail/data.dart';
@@ -28,10 +28,10 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 class DownloadPanel extends StatefulWidget {
@@ -68,6 +68,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
 
   late final cidSet = widget.cidSet;
   VideoQuality _quality = VideoQuality.fromCode(Pref.defaultVideoQa);
+  AudioQuality _audioQuality = AudioQuality.fromCode(Pref.defaultAudioQa);
 
   ({String title, String sourceKey})? get _autoFolderInfo {
     final ugcSeason = widget.videoDetail?.ugcSeason;
@@ -76,10 +77,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
     if (title == null || title.isEmpty || seasonId == null) {
       return null;
     }
-    return (
-      title: title,
-      sourceKey: 'ugc-season:$seasonId',
-    );
+    return (title: title, sourceKey: 'ugc-season:$seasonId');
   }
 
   int? _seasonIndex(ugc.BaseEpisodeItem episode, ugc.EpisodeItem? parent) {
@@ -87,6 +85,14 @@ class _DownloadPanelState extends State<DownloadPanel> {
     if (item is! ugc.EpisodeItem) return null;
     final index = widget.episodes.indexOf(item);
     return index < 0 ? null : index;
+  }
+
+  late ColorScheme colorScheme;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    colorScheme = .of(context);
   }
 
   @override
@@ -111,63 +117,67 @@ class _DownloadPanelState extends State<DownloadPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final dividerColor = theme.colorScheme.outline.withValues(alpha: 0.2);
+    final dividerColor = colorScheme.outline.withValues(alpha: 0.2);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        _buildHeader(theme),
-        _buildBody(theme),
+        _buildHeader(),
+        _buildBody(),
         Divider(height: 1, color: dividerColor),
-        _buildFooter(theme, dividerColor),
+        _buildFooter(dividerColor),
       ],
     );
   }
 
-  Widget _buildHeader(ThemeData theme) {
-    final textStyle = TextStyle(color: theme.colorScheme.onSurfaceVariant);
+  Widget _buildHeader() {
+    final textStyle = TextStyle(color: colorScheme.onSurfaceVariant);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 0, 12),
       child: Row(
-        spacing: 16,
         children: [
-          Text(
-            '目标画质',
-            style: textStyle,
-          ),
-          Builder(
-            builder: (context) => StaticPopupMenuButton<VideoQuality>(
-              initialValue: _quality,
-              onSelected: (value) {
-                _quality = value;
-                (context as Element).markNeedsBuild();
-              },
-              itemBuilder: (context) => VideoQuality.values
-                  .map(
-                    (e) => PopupMenuItem(
-                      value: e,
-                      child: Text(e.desc),
-                    ),
-                  )
-                  .toList(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _quality.desc,
-                      style: const TextStyle(height: 1),
-                      strutStyle: const StrutStyle(height: 1, leading: 0),
-                    ),
-                    Icon(
-                      size: 18,
-                      Icons.keyboard_arrow_down,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ],
+          Expanded(
+            child: Row(
+              spacing: 12,
+              children: [
+                Text('目标画质', style: textStyle),
+                Builder(
+                  builder: (context) => StaticPopupMenuButton<VideoQuality>(
+                    initialValue: _quality,
+                    onSelected: (value) {
+                      _quality = value;
+                      (context as Element).markNeedsBuild();
+                    },
+                    itemBuilder: (context) => VideoQuality.values
+                        .map(
+                          (e) => PopupMenuItem(
+                            value: e,
+                            child: Text(e.desc),
+                          ),
+                        )
+                        .toList(),
+                    child: _buildPopupMenuChild(_quality.desc),
+                  ),
                 ),
-              ),
+                Text('音质', style: textStyle),
+                Builder(
+                  builder: (context) => PopupMenuButton<AudioQuality>(
+                    initialValue: _audioQuality,
+                    onSelected: (value) {
+                      _audioQuality = value;
+                      (context as Element).markNeedsBuild();
+                    },
+                    itemBuilder: (context) => AudioQuality.values
+                        .map(
+                          (e) => PopupMenuItem(
+                            value: e,
+                            child: Text(e.desc),
+                          ),
+                        )
+                        .toList(),
+                    child: _buildPopupMenuChild(_audioQuality.desc),
+                  ),
+                ),
+              ],
             ),
           ),
           if (kDebugMode || PlatformUtils.isMobile) ...[
@@ -191,7 +201,28 @@ class _DownloadPanelState extends State<DownloadPanel> {
     );
   }
 
-  Widget _buildBody(ThemeData theme) {
+  Widget _buildPopupMenuChild(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            style: const TextStyle(height: 1),
+            strutStyle: const StrutStyle(height: 1, leading: 0),
+          ),
+          Icon(
+            size: 18,
+            Icons.keyboard_arrow_down,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
     final episodes = widget.episodes;
     return Expanded(
       child: Material(
@@ -209,7 +240,6 @@ class _DownloadPanelState extends State<DownloadPanel> {
                   final hasParts =
                       episode is ugc.EpisodeItem && episode.pages!.length > 1;
                   Widget child = _buildItem(
-                    theme: theme,
                     index: index,
                     hasParts: hasParts,
                     episode: episode,
@@ -311,10 +341,12 @@ class _DownloadPanelState extends State<DownloadPanel> {
       switch (episode) {
         case Part part:
           _downloadService.downloadVideo(
-            part,
-            parent == null ? widget.videoDetail : null,
-            parent,
-            _quality,
+            index: index,
+            page: part,
+            videoDetail: parent == null ? widget.videoDetail : null,
+            videoArc: parent,
+            videoQuality: _quality,
+            audioQuality: _audioQuality,
             autoFolderTitle: autoFolderInfo?.title,
             autoFolderSourceKey: autoFolderInfo?.sourceKey,
             autoFolderIndex: autoFolderIndex,
@@ -323,10 +355,12 @@ class _DownloadPanelState extends State<DownloadPanel> {
           break;
         case ugc.EpisodeItem episode:
           _downloadService.downloadVideo(
-            episode.pages!.first,
-            null,
-            episode,
-            _quality,
+            index: index,
+            page: episode.pages!.first,
+            videoDetail: null,
+            videoArc: episode,
+            videoQuality: _quality,
+            audioQuality: _audioQuality,
             autoFolderTitle: autoFolderInfo?.title,
             autoFolderSourceKey: autoFolderInfo?.sourceKey,
             autoFolderIndex: autoFolderIndex,
@@ -335,10 +369,11 @@ class _DownloadPanelState extends State<DownloadPanel> {
           break;
         case pgc.EpisodeItem episode:
           _downloadService.downloadBangumi(
-            index,
-            widget.pgcItem!,
-            episode,
-            _quality,
+            index: index,
+            pgcItem: widget.pgcItem!,
+            episode: episode,
+            quality: _quality,
+            audioQuality: _audioQuality,
           );
           break;
       }
@@ -352,7 +387,6 @@ class _DownloadPanelState extends State<DownloadPanel> {
   }
 
   Widget _buildItem({
-    required ThemeData theme,
     required int index,
     required bool hasParts,
     required bool isCurrentIndex,
@@ -409,7 +443,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
         cacheWidth = item.dimension?.cacheWidth;
         break;
     }
-    late final primary = theme.colorScheme.primary;
+    late final primary = colorScheme.primary;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
@@ -495,8 +529,6 @@ class _DownloadPanelState extends State<DownloadPanel> {
                                     title,
                                     textAlign: TextAlign.start,
                                     style: TextStyle(
-                                      fontSize:
-                                          theme.textTheme.bodyMedium!.fontSize,
                                       height: 1.42,
                                       letterSpacing: 0.3,
                                       fontWeight: isCurrentIndex
@@ -515,7 +547,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       height: 1,
-                                      color: theme.colorScheme.outline,
+                                      color: colorScheme.outline,
                                       overflow: TextOverflow.clip,
                                     ),
                                   ),
@@ -543,7 +575,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
                                 right: 0,
                                 child: Icon(
                                   size: 13,
-                                  color: theme.colorScheme.secondary.withValues(
+                                  color: colorScheme.secondary.withValues(
                                     alpha: 0.8,
                                   ),
                                   FontAwesomeIcons.circleDown,
@@ -563,9 +595,9 @@ class _DownloadPanelState extends State<DownloadPanel> {
     );
   }
 
-  Widget _buildFooter(ThemeData theme, Color dividerColor) {
-    return Container(
-      color: theme.hoverColor,
+  Widget _buildFooter(Color dividerColor) {
+    return Ink(
+      color: colorScheme.surfaceContainer,
       padding: EdgeInsets.only(
         bottom: MediaQuery.viewPaddingOf(context).bottom,
       ),

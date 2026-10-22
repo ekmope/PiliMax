@@ -9,7 +9,7 @@ import 'package:PiliMax/http/live.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/super_chat_type.dart';
-import 'package:PiliMax/models/common/video/live_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models/model_owner.dart';
 import 'package:PiliMax/models_new/live/live_danmaku/danmaku_msg.dart';
 import 'package:PiliMax/models_new/live/live_danmaku/live_emote.dart';
@@ -128,7 +128,6 @@ class LiveRoomController extends GetxController {
   int builtLength = 0;
   final messages = <dynamic>[].obs;
   bool get shouldRefresh => builtLength != messages.length;
-  late final fsSC = Rxn<SuperChatItem>();
   late final RxList<SuperChatItem> superChatMsg = <SuperChatItem>[].obs;
   final disableAutoScroll = false.obs;
   bool autoScroll = true;
@@ -139,6 +138,11 @@ class LiveRoomController extends GetxController {
   Future<bool>? _blockRulesFuture;
   List<String> keywordList = const [];
   Set<String> shieldUids = const {};
+
+  late final fsSC = Rxn<SuperChatItem>();
+  late final enableFSSC = Pref.enableFullScreenSC;
+  late final fsSCScale = Pref.fullScreenSCScale;
+  late final fsSCOpacity = Pref.fullScreenSCOpacity;
   late final ScrollController scrollController;
   late final RxInt pageIndex = 0.obs;
   PageController? pageController;
@@ -1009,7 +1013,9 @@ class LiveRoomController extends GetxController {
       messages.clear();
       if (showSuperChat) {
         superChatMsg.clear();
-        fsSC.value = null;
+        if (enableFSSC) {
+          fsSC.value = null;
+        }
       }
       scrollController
         ..removeListener(listener)
@@ -1143,6 +1149,7 @@ class LiveRoomController extends GetxController {
           final item = SuperChatItem.fromJson(obj['data']);
           superChatMsg.insert(0, item);
           addDm(item);
+          if (!enableFSSC) return;
           if (Platform.isAndroid && AndroidHelper.isPipMode) return;
           if (plPlayerController.showDanmaku &&
               (isFullScreen || plPlayerController.isDesktopPip)) {

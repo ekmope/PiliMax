@@ -2,7 +2,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pilimax/http/download_source.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/account_type.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models/video/play/url.dart';
 import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
@@ -94,7 +94,7 @@ abstract final class DownloadHttp {
         List<Type2File>? audioFileList;
         final audioDash = DownloadSourceSelector.selectDashAudio(
           audios: dash.audio,
-          preferredQuality: Pref.defaultAudioQa,
+          preferredQuality: entry.preferedAudioQuality ?? Pref.defaultAudioQa,
         );
         if (audioDash != null) {
           final audioUrl = VideoUtils.getCdnUrl(

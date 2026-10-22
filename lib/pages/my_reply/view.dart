@@ -5,9 +5,12 @@ import 'package:PiliMax/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
+import 'package:PiliMax/pages/video/reply_reply/view.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
+import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/reply_scheme_helper.dart';
 import 'package:PiliMax/utils/reply_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -102,19 +105,51 @@ class _MyReplyState extends State<MyReply> with DynMixin {
   }
 
   void _replyReply(ReplyInfo replyInfo, int? rpid) {
-    switch (replyInfo.type.toInt()) {
+    int? rootRpId, secondRpId;
+    final replyId = replyInfo.id.toInt();
+    if (replyInfo.hasRoot()) {
+      rootRpId = replyInfo.root.toInt();
+      secondRpId = rpid ?? replyId;
+    } else if (rpid != null) {
+      rootRpId = replyId;
+      secondRpId = rpid;
+    } else {
+      rootRpId = replyId;
+    }
+    final type = replyInfo.type.toInt();
+    switch (type) {
       case 1:
-        PiliScheme.videoPush(replyInfo.oid.toInt(), null);
+        PiliScheme.videoPush(
+          replyInfo.oid.toInt(),
+          null,
+          rootRpId: rootRpId,
+          secondRpId: secondRpId,
+        );
       case 12:
         PageUtils.toDupNamed(
           '/articlePage',
           parameters: {'id': replyInfo.oid.toString(), 'type': 'read'},
+          arguments: {
+            rootRpIdKey: rootRpId,
+            secondRpIdKey: ?secondRpId,
+          },
         );
       case _:
-        PageUtils.pushDynFromId(
-          rid: replyInfo.oid.toString(),
-          type: replyInfo.type,
-        );
+        if (BiliUtils.isDynOrArticle(type)) {
+          PageUtils.pushDynFromId(
+            rid: replyInfo.oid.toString(),
+            type: type,
+            rootRpId: rootRpId,
+            secondRpId: secondRpId,
+          );
+        } else {
+          VideoReplyReplyPanel.toReply(
+            oid: replyInfo.oid.toInt(),
+            rootId: rootRpId,
+            rpIdStr: secondRpId?.toString(),
+            type: type,
+          );
+        }
     }
   }
 

@@ -65,6 +65,7 @@ class MainController extends GetxController
   late final RxInt liquidGlassStrength = Pref.liquidGlassStrength.obs;
   late final RxDouble floatingNavBottomLift = Pref.floatingNavBottomLift.obs;
   final useSideBar = Pref.useSideBar;
+  final hideSideBarLabel = Pref.hideSideBarLabel;
   final mainTabBarView = Pref.mainTabBarView;
   late final optTabletNav = Pref.optTabletNav;
   late final showNavBarLabel = Pref.showNavBarLabel.obs;

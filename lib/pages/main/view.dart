@@ -528,7 +528,9 @@ class _MainAppState extends PopScopeState<MainApp>
     return _mainController.navigationBars.length > 1
         ? context.isTablet && _mainController.optTabletNav
               ? Obx(() {
-                  final showLabel = _mainController.showNavBarLabel.value;
+                  final showLabel =
+                      _mainController.showNavBarLabel.value &&
+                      !Pref.hideSideBarLabel;
                   return Column(
                     children: [
                       const SizedBox(height: 25),
@@ -544,8 +546,10 @@ class _MainAppState extends PopScopeState<MainApp>
                               vertical: 5,
                               horizontal: 12,
                             ),
-                            indicatorShape: const RoundedRectangleBorder(
-                              borderRadius: .all(.circular(16)),
+                            indicatorShape: RoundedRectangleBorder(
+                              borderRadius: .all(
+                                .circular(showLabel ? 16 : 12),
+                              ),
                             ),
                             onDestinationSelected:
                                 _mainController.selectNavigation,
@@ -555,7 +559,10 @@ class _MainAppState extends PopScopeState<MainApp>
                                   (e) => NavigationDrawerDestination(
                                     label: showLabel
                                         ? Text(e.label)
-                                        : const SizedBox.shrink(),
+                                        : Semantics(
+                                            label: e.label,
+                                            child: const SizedBox.shrink(),
+                                          ),
                                     icon: _buildIcon(type: e),
                                     selectedIcon: _buildIcon(
                                       type: e,
@@ -575,7 +582,9 @@ class _MainAppState extends PopScopeState<MainApp>
                     groupAlignment: 0.5,
                     selectedIndex: _mainController.selectedIndex.value,
                     onDestinationSelected: _mainController.selectNavigation,
-                    labelType: _mainController.showNavBarLabel.value
+                    labelType:
+                        _mainController.showNavBarLabel.value &&
+                            !Pref.hideSideBarLabel
                         ? NavigationRailLabelType.selected
                         : NavigationRailLabelType.none,
                     leading: userAndSearchVertical(theme),

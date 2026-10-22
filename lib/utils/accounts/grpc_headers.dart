@@ -7,7 +7,7 @@ import 'package:PiliMax/grpc/bilibili/metadata/fawkes.pb.dart';
 import 'package:PiliMax/grpc/bilibili/metadata/locale.pb.dart';
 import 'package:PiliMax/grpc/bilibili/metadata/network.pb.dart' as network;
 import 'package:PiliMax/utils/id_utils.dart';
-import 'package:PiliMax/utils/login_utils.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 
 abstract final class GrpcHeaders {
@@ -21,7 +21,7 @@ abstract final class GrpcHeaders {
   static const _appVersionName = '8.43.0';
   static const _appMobiApp = 'android';
 
-  static String get _buvid => LoginUtils.buvid;
+  static String get _buvid => Pref.buvid;
   static String get _sessionId => Utils.generateSecureRandomString(8);
 
   static Map<String, String> _baseHeaders({
@@ -87,11 +87,39 @@ abstract final class GrpcHeaders {
 
   static String get fawkes => _fawkes(_mobiApp);
 
-  static Map<String, String> newHeaders([String? accessKey]) {
+  static Map<String, String> newHeaders([Object? accountOrAccessKey]) {
+    final String? accessKey;
+    final String buvid;
+    if (accountOrAccessKey is String) {
+      accessKey = accountOrAccessKey;
+      buvid = _buvid;
+    } else if (accountOrAccessKey == null) {
+      accessKey = null;
+      buvid = _buvid;
+    } else {
+      final dynamic account = accountOrAccessKey;
+      accessKey = account.accessKey as String?;
+      buvid = account.buvid as String;
+    }
     return {
       ..._base,
       if (accessKey != null) 'authorization': 'identify_v1 $accessKey',
+      'buvid': buvid,
       'x-bili-fawkes-req-bin': fawkes,
+      'x-bili-device-bin': base64Encode(
+        Device(
+          appId: 5,
+          build: _build,
+          buvid: buvid,
+          mobiApp: _mobiApp,
+          platform: _device,
+          channel: _biliChannel,
+          brand: _device,
+          model: _device,
+          osver: '15',
+          versionName: _versionName,
+        ).writeToBuffer(),
+      ),
       'x-bili-metadata-bin': base64Encode(
         Metadata(
           accessKey: accessKey,
@@ -99,15 +127,19 @@ abstract final class GrpcHeaders {
           device: _device,
           build: _build,
           channel: _biliChannel,
-          buvid: _buvid,
+          buvid: buvid,
           platform: _device,
         ).writeToBuffer(),
       ),
     };
   }
 
-  static Map<String, String> newAppHeaders(String? accessKey, int mid) {
-    final buvid = _buvid;
+  static Map<String, String> newAppHeaders(
+    String? accessKey,
+    int mid, [
+    String? accountBuvid,
+  ]) {
+    final buvid = accountBuvid ?? _buvid;
     return {
       ..._baseHeaders(
         appId: 1,

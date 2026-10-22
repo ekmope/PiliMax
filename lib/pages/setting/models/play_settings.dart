@@ -5,7 +5,7 @@ import 'package:PiliMax/pilimax/models/common/super_chat_time_type.dart';
 import 'package:PiliMax/models/common/super_chat_type.dart';
 import 'package:PiliMax/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
-import 'package:PiliMax/pages/setting/pages/fullscreen_sc_size.dart';
+import 'package:PiliMax/pages/setting/pages/fullscreen_sc.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
@@ -103,6 +103,11 @@ List<SettingsModel> get playSettings => [
     title: '左右侧滑动调节亮度/音量',
     leading: Icon(MdiIcons.tuneVerticalVariant),
     setKey: SettingBoxKey.enableSlideVolumeBrightness,
+  ),
+  const SwitchModel(
+    title: '滚轮调节音量',
+    leading: Icon(Icons.mouse_outlined),
+    setKey: SettingBoxKey.enableScrollVolume,
   ),
   if (Platform.isAndroid)
     const SwitchModel(
@@ -204,10 +209,10 @@ List<SettingsModel> get playSettings => [
     onTap: _showSuperChatTimeDialog,
   ),
   NormalModel(
-    title: '全屏 SC 大小',
-    subtitle: 'SuperChat (醒目留言) 大小设置',
+    title: '全屏 SuperChat 设置',
+    subtitle: '全屏 SuperChat (醒目留言) 大小、不透明度、缩放设置',
     leading: const Icon(Icons.open_in_full),
-    onTap: (_, _) => Get.to(const FullScreenScSize()),
+    onTap: (_, _) => Get.to(const FullScreenSc()),
   ),
   const SwitchModel(
     title: '竖屏扩大展示',

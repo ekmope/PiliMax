@@ -98,6 +98,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage>
         child: SelectionArea(
           child: CustomScrollView(
             primary: true,
+            key: _centerKey,
             center: _centerKey,
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [

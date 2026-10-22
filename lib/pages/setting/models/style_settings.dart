@@ -95,6 +95,13 @@ List<SettingsModel> get styleSettings => [
     setKey: SettingBoxKey.autoSideBar,
     onTap: _showSideBarThresholdDialog,
   ),
+  const SwitchModel(
+    title: '隐藏侧边栏文字',
+    subtitle: '仅显示图标，减少侧边栏占用宽度',
+    leading: Icon(Icons.label_off_outlined),
+    setKey: SettingBoxKey.hideSideBarLabel,
+    needReboot: true,
+  ),
   NormalModel(
     title: 'App字体设置',
     leading: const Icon(Icons.font_download_outlined),
@@ -1281,32 +1288,4 @@ NormalModel _useSSDModel() {
       ),
     ),
   );
-}
-
-Widget _themeTrailing(ThemeData theme) {
-  if (Pref.dynamicColor) {
-    return Icon(Icons.color_lens_rounded, color: theme.colorScheme.primary);
-  }
-  final customColor = Pref.customColor;
-  final color =
-      colorThemeTypes.elementAtOrNull(customColor)?.color ?? Color(customColor);
-  return SizedBox.square(
-    dimension: 20,
-    child: ColorPalette(
-      colorScheme: color.asColorSchemeSeed(
-        Pref.schemeVariant,
-        theme.brightness,
-      ),
-      selected: false,
-      showBgColor: false,
-    ),
-  );
-}
-
-void _onHorizontalScreenChanged(bool value) {
-  if (value) {
-    fullMode();
-  } else {
-    portraitUpMode();
-  }
 }

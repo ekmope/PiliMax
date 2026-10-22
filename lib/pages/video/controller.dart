@@ -31,11 +31,10 @@ import 'package:PiliMax/models/common/sponsor_block/action_type.dart';
 import 'package:PiliMax/models/common/sponsor_block/post_segment_model.dart';
 import 'package:PiliMax/models/common/sponsor_block/segment_model.dart';
 import 'package:PiliMax/models/common/sponsor_block/segment_type.dart';
-import 'package:PiliMax/models/common/video/audio_quality.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliMax/models/common/video/video_decode_type.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models/video/play/url.dart';
 import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
@@ -2001,9 +2000,9 @@ class VideoDetailController extends GetxController
         final audioList = _playableAudioItems(data);
         if (audioList.isNotEmpty) {
           final audioIds = audioList.map((item) => item.id!).toList();
-          int closestNumber = audioIds.findClosestTarget(
-            (e) => e <= plPlayerController.cacheAudioQa,
-            (a, b) => a > b ? a : b,
+          int closestNumber = audioIds.findTargetMedia(
+            (id) => id,
+            plPlayerController.cacheAudioQa,
           );
           if (!audioIds.contains(plPlayerController.cacheAudioQa) &&
               audioIds.any((e) => e > plPlayerController.cacheAudioQa)) {

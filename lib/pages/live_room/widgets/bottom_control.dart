@@ -1,5 +1,5 @@
 import 'package:PiliMax/common/widgets/custom_icon.dart';
-import 'package:PiliMax/models/common/video/live_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/pages/live_room/controller.dart';
 import 'package:PiliMax/pages/video/widgets/header_mixin.dart';

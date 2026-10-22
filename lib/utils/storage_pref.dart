@@ -24,15 +24,13 @@ import 'package:PiliMax/pilimax/models/common/super_chat_time_type.dart';
 import 'package:PiliMax/models/common/super_chat_type.dart';
 import 'package:PiliMax/models/common/super_resolution_type.dart';
 import 'package:PiliMax/models/common/theme/theme_type.dart';
-import 'package:PiliMax/models/common/video/audio_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models/common/video/cdn_type.dart';
-import 'package:PiliMax/models/common/video/live_quality.dart';
 import 'package:PiliMax/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliMax/models/common/video/video_decode_type.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
 import 'package:PiliMax/models/user/danmaku_rule.dart';
 import 'package:PiliMax/models/user/info.dart';
-import 'package:PiliMax/pages/setting/pages/fullscreen_sc_size.dart'
+import 'package:PiliMax/pages/setting/pages/fullscreen_sc.dart'
     show kFullScreenSCWidth;
 import 'package:PiliMax/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliMax/plugin/pl_player/models/bottom_progress_behavior.dart';
@@ -72,6 +70,8 @@ abstract final class Pref {
         SettingBoxKey.antiGoodsDyn: () => antiGoodsDyn,
         SettingBoxKey.antiGoodsReply: () => antiGoodsReply,
         SettingBoxKey.blockAtOnlyReply: () => blockAtOnlyReply,
+        SettingBoxKey.filterIntro: () => filterIntro,
+        SettingBoxKey.enableFullScreenSC: () => enableFullScreenSC,
         SettingBoxKey.applyFilterToHotVideos: () => applyFilterToHotVideos,
         SettingBoxKey.applyFilterToRankVideos: () => applyFilterToRankVideos,
         SettingBoxKey.applyFilterToRelatedVideos: () =>
@@ -137,6 +137,7 @@ abstract final class Pref {
         SettingBoxKey.enableSlideFS: () => enableSlideFS,
         SettingBoxKey.enableSlideVolumeBrightness: () =>
             enableSlideVolumeBrightness,
+        SettingBoxKey.enableScrollVolume: () => enableScrollVolume,
         SettingBoxKey.enableSponsorBlock: () => enableSponsorBlock,
         SettingBoxKey.enableSystemProxy: () => enableSystemProxy,
         SettingBoxKey.enableTapDm: () => enableTapDm,
@@ -150,6 +151,7 @@ abstract final class Pref {
         SettingBoxKey.floatingNavBar: () => floatingNavBar,
         SettingBoxKey.fullScreenGestureReverse: () => fullScreenGestureReverse,
         SettingBoxKey.hideBottomBar: () => hideBottomBar,
+        SettingBoxKey.hideSideBarLabel: () => hideSideBarLabel,
         SettingBoxKey.hideTopBar: () => hideTopBar,
         SettingBoxKey.horizontalMemberPage: () => horizontalMemberPage,
         SettingBoxKey.horizontalPreview: () => horizontalPreview,
@@ -830,6 +832,9 @@ abstract final class Pref {
   static bool get alwaysExpandIntroPanel =>
       _setting.get(SettingBoxKey.alwaysExpandIntroPanel, defaultValue: false);
 
+  static bool get filterIntro =>
+      _setting.get(SettingBoxKey.filterIntro, defaultValue: false);
+
   static bool get expandIntroPanelH =>
       _setting.get(SettingBoxKey.expandIntroPanelH, defaultValue: false);
 
@@ -1131,6 +1136,9 @@ abstract final class Pref {
   static bool get enableSlideFS =>
       _setting.get(SettingBoxKey.enableSlideFS, defaultValue: true);
 
+  static bool get enableScrollVolume =>
+      _setting.get(SettingBoxKey.enableScrollVolume, defaultValue: true);
+
   static int get retryCount =>
       _setting.get(SettingBoxKey.retryCount, defaultValue: 2);
 
@@ -1422,6 +1430,9 @@ abstract final class Pref {
   static double get sideBarThreshold =>
       (_setting.get(SettingBoxKey.sideBarThreshold, defaultValue: 600.0) as num)
           .toDouble();
+
+  static bool get hideSideBarLabel =>
+      _setting.get(SettingBoxKey.hideSideBarLabel, defaultValue: false);
 
   static bool get dynamicsShowAllFollowedUp => _setting.get(
     SettingBoxKey.dynamicsShowAllFollowedUp,
@@ -1731,6 +1742,15 @@ abstract final class Pref {
     SettingBoxKey.fullScreenSCWidth,
     defaultValue: kFullScreenSCWidth,
   );
+
+  static bool get enableFullScreenSC =>
+      _setting.get(SettingBoxKey.enableFullScreenSC, defaultValue: true);
+
+  static double get fullScreenSCOpacity =>
+      _setting.get(SettingBoxKey.fullScreenSCOpacity, defaultValue: 1.0);
+
+  static double get fullScreenSCScale =>
+      _setting.get(SettingBoxKey.fullScreenSCScale, defaultValue: 1.0);
 
   static bool get minimizeOnExit =>
       _setting.get(SettingBoxKey.minimizeOnExit, defaultValue: true);

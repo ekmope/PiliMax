@@ -1295,6 +1295,7 @@ abstract final class PageUtils {
     String? heroTag,
     String? cover,
     String? title,
+    bool viewLater = false,
   }) {
     RegExpMatch? match = _pgcRegex.firstMatch(uri);
     if (match != null) {
@@ -1309,6 +1310,7 @@ abstract final class PageUtils {
           heroTag: heroTag,
           cover: cover,
           title: title,
+          viewLater: viewLater,
         );
       } else {
         viewPugv(
@@ -1320,6 +1322,7 @@ abstract final class PageUtils {
           heroTag: heroTag,
           cover: cover,
           title: title,
+          viewLater: viewLater,
         );
       }
       return true;
@@ -1351,6 +1354,7 @@ abstract final class PageUtils {
     String? heroTag,
     String? cover,
     String? title,
+    bool viewLater = false,
   }) async {
     final arguments = _buildVideoPageArguments(
       videoType: VideoType.pgc,
@@ -1364,6 +1368,7 @@ abstract final class PageUtils {
       title: title,
       heroTag: heroTag,
       pendingLaunchType: VideoPendingLaunchType.pgc,
+      extraArguments: viewLater ? const {'viewLater': true} : null,
     );
     if (heroTag != null && !off) {
       _openVideoPage(arguments, off: false);
@@ -1381,6 +1386,7 @@ abstract final class PageUtils {
     String? heroTag,
     String? cover,
     String? title,
+    bool viewLater = false,
   }) async {
     final arguments = _buildVideoPageArguments(
       videoType: VideoType.pugv,
@@ -1394,6 +1400,7 @@ abstract final class PageUtils {
       title: title,
       heroTag: heroTag,
       pendingLaunchType: VideoPendingLaunchType.pugv,
+      extraArguments: viewLater ? const {'viewLater': true} : null,
     );
     if (heroTag != null && !off) {
       _openVideoPage(arguments, off: false);

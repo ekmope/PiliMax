@@ -9,14 +9,14 @@ Future<void> onPushLater(
   ValueChanged<int>? onViewLater,
 }) async {
   if (item.isPugv ?? false) {
-    PageUtils.viewPugv(seasonId: item.aid);
+    PageUtils.viewPugv(seasonId: item.aid, viewLater: true);
     return;
   }
   if (item.isPgc ?? false) {
     if (item.bangumi?.epId != null) {
-      PageUtils.viewPgc(epId: item.bangumi!.epId);
+      PageUtils.viewPgc(epId: item.bangumi!.epId, viewLater: true);
     } else if (item.redirectUrl?.isNotEmpty == true) {
-      PageUtils.viewPgcFromUri(item.redirectUrl!);
+      PageUtils.viewPgcFromUri(item.redirectUrl!, viewLater: true);
     }
     return;
   }

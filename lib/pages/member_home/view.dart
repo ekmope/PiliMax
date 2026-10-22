@@ -138,9 +138,7 @@ class _MemberHomeState extends State<MemberHome>
                     SliverToBoxAdapter(
                       child: SizedBox(
                         height: 110,
-                        child: MemberFavItem(
-                          item: res.favourite2!.item!.first,
-                        ),
+                        child: MemberFavItem(res.favourite2!.item!.first),
                       ),
                     ),
                   ],
@@ -221,9 +219,7 @@ class _MemberHomeState extends State<MemberHome>
                     SliverToBoxAdapter(
                       child: SizedBox(
                         height: 110,
-                        child: MemberArticleItem(
-                          item: res.article!.item!.first,
-                        ),
+                        child: MemberArticleItem(res.article!.item!.first),
                       ),
                     ),
                   ],
@@ -238,9 +234,7 @@ class _MemberHomeState extends State<MemberHome>
                     SliverGrid.builder(
                       gridDelegate: gridDelegateAudio,
                       itemBuilder: (context, index) {
-                        return MemberAudioItem(
-                          item: res.audios!.item![index],
-                        );
+                        return MemberAudioItem(res.audios!.item![index]);
                       },
                       itemCount: isVertical ? 1 : min(3, res.audios!.count!),
                     ),
@@ -256,7 +250,7 @@ class _MemberHomeState extends State<MemberHome>
                     SliverGrid.builder(
                       gridDelegate: gridDelegate,
                       itemBuilder: (context, index) {
-                        return MemberComicItem(item: res.comic!.item![index]);
+                        return MemberComicItem(res.comic!.item![index]);
                       },
                       itemCount: isVertical ? 1 : min(3, res.comic!.count!),
                     ),

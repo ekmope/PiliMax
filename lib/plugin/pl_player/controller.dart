@@ -81,6 +81,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
 
 typedef PlayCallback = Future<void>? Function();
+typedef PlayOwner = ({String tag, Type? type});
 
 class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   Player? _videoPlayerController;
@@ -648,6 +649,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   late final darkVideoPage = Pref.darkVideoPage;
   late final enableSlideVolumeBrightness = Pref.enableSlideVolumeBrightness;
   late final enableSlideFS = Pref.enableSlideFS;
+  late final enableScrollVolume = Pref.enableScrollVolume;
   late final enableDragSubtitle = Pref.enableDragSubtitle;
   late final fastForBackwardDuration = Duration(
     seconds: Pref.fastForBackwardDuration,
@@ -804,9 +806,16 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     return _instance != null;
   }
 
-  static void setPlayCallBack(PlayCallback? playCallBack) {
+  static void setPlayCallBack(
+    PlayCallback? playCallBack, {
+    PlayOwner? playOwner,
+  }) {
     _playCallBack = playCallBack;
+    _playOwner = playOwner;
   }
+
+  static PlayOwner? _playOwner;
+  static PlayOwner? get playOwner => _playOwner;
 
   static PlayCallback? _playCallBack;
 

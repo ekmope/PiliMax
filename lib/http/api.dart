@@ -1044,4 +1044,7 @@ abstract final class Api {
 
   static const String liveFansMedalTakeOff =
       '${HttpString.liveBaseUrl}/xlive/app-ucenter/v1/fansMedal/take_off';
+
+  static const String liveMasterInfo =
+      '${HttpString.liveBaseUrl}/live_user/v1/Master/info';
 }

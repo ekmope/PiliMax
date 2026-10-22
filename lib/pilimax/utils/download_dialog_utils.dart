@@ -1,6 +1,6 @@
 import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/http/search.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';

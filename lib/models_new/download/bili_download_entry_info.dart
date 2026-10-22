@@ -1,7 +1,8 @@
 import 'dart:io' show Platform, Process;
 
 import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
+import 'package:PiliMax/models_new/sponsor_block/segment_item.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart'
     show MultiSelectData;
@@ -65,6 +66,9 @@ class BiliDownloadEntryInfo with MultiSelectData {
   final String cover;
   int? videoQuality;
   int preferedVideoQuality;
+
+  /// 缓存时选择的音质，null 表示跟随设置中的默认音质
+  int? preferedAudioQuality;
   String qualityPithyDescription;
   final int guessedTotalBytes;
   int totalTimeMilli;
@@ -82,6 +86,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
   final String? seasonId;
   final SourceInfo? source;
   EpInfo? ep;
+  List<SegmentItemModel>? segments;
   final String? autoFolderTitle;
   final String? autoFolderSourceKey;
   final int? autoFolderIndex;
@@ -237,6 +242,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
     required this.cover,
     this.videoQuality,
     required this.preferedVideoQuality,
+    this.preferedAudioQuality,
     this.qualityPithyDescription = '',
     required this.guessedTotalBytes,
     required this.totalTimeMilli,
@@ -254,6 +260,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
     this.seasonId,
     this.source,
     this.ep,
+    this.segments,
     this.autoFolderTitle,
     this.autoFolderSourceKey,
     this.autoFolderIndex,
@@ -272,6 +279,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
         cover: json['cover'] as String,
         videoQuality: json['video_quality'] as int?,
         preferedVideoQuality: json['prefered_video_quality'] as int,
+        preferedAudioQuality: json['prefered_audio_quality'] as int?,
         qualityPithyDescription: json['quality_pithy_description'] as String,
         guessedTotalBytes: json['guessed_total_bytes'] as int,
         totalTimeMilli: json['total_time_milli'] as int,
@@ -296,6 +304,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
         ep: json['ep'] != null
             ? EpInfo.fromJson(json['ep'] as Map<String, dynamic>)
             : null,
+        segments: SegmentItemModel.fromCache(json['segments']),
         autoFolderTitle: json['auto_folder_title'] as String?,
         autoFolderSourceKey: json['auto_folder_source_key'] as String?,
         autoFolderIndex: json['auto_folder_index'] as int?,
@@ -315,6 +324,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
     'cover': cover,
     'video_quality': ?videoQuality,
     'prefered_video_quality': preferedVideoQuality,
+    'prefered_audio_quality': ?preferedAudioQuality,
     'quality_pithy_description': qualityPithyDescription,
     'guessed_total_bytes': guessedTotalBytes,
     'total_time_milli': totalTimeMilli,
@@ -332,6 +342,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
     'season_id': ?seasonId,
     'source': ?source?.toJson(),
     'ep': ?ep?.toJson(),
+    'segments': ?segments?.map((e) => e.toJson()).toList(),
     'auto_folder_title': ?autoFolderTitle,
     'auto_folder_source_key': ?autoFolderSourceKey,
     'auto_folder_index': ?autoFolderIndex,

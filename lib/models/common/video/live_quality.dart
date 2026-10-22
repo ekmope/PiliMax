@@ -1,8 +1,7 @@
-final class LiveQuality {
-  final int code;
-  final String desc;
+part of 'base_quality.dart';
 
-  const LiveQuality(this.code, this.desc);
+final class LiveQuality extends BaseQuality {
+  const LiveQuality(super.code, super.desc);
 
   @override
   String toString() => 'code: $code, desc: $desc';
@@ -38,7 +37,7 @@ final class LiveQuality {
 
   static final _codeMap = {for (final quality in values) quality.code: quality};
 
-  factory LiveQuality.fromId(int code) => LiveQuality(code, code.toString());
+  LiveQuality.fromId(super.code) : super.fromId();
 
   factory LiveQuality.fromCode(int code) =>
       _codeMap[code] ?? LiveQuality.fromId(code);

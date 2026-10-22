@@ -2,7 +2,7 @@ import 'dart:collection';
 
 import 'package:PiliMax/grpc/bilibili/app/playurl/v1.pb.dart';
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 
 final class TrialPlayViewRequestSpec {
   const TrialPlayViewRequestSpec({required this.quality});

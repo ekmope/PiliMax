@@ -6,7 +6,6 @@ import 'package:PiliMax/http/api.dart';
 import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
-import 'package:PiliMax/http/login.dart';
 import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/models/common/live/live_contribution_rank_type.dart';
 import 'package:PiliMax/models/common/live/live_search_type.dart';
@@ -231,7 +230,7 @@ abstract final class LiveHttp {
       queryParameters: params,
       options: Options(
         headers: {
-          'buvid': LoginHttp.buvid,
+          'buvid': recommend.buvid,
           'fp_local': '1111111111111111111111111111111111111111111111111111111111111111',
           'fp_remote': '1111111111111111111111111111111111111111111111111111111111111111',
           'session_id': '11111111',
@@ -309,7 +308,7 @@ abstract final class LiveHttp {
       queryParameters: params,
       options: Options(
         headers: {
-          'buvid': LoginHttp.buvid,
+          'buvid': recommend.buvid,
           'fp_local': '1111111111111111111111111111111111111111111111111111111111111111',
           'fp_remote': '1111111111111111111111111111111111111111111111111111111111111111',
           'session_id': '11111111',
@@ -1021,6 +1020,19 @@ abstract final class LiveHttp {
     medalId: medalId,
     targetId: targetId,
   );
+
+  static Future<LoadingState<String?>> liveMedalName(Object uid) async {
+    final res = await Request().get(
+      Api.liveMasterInfo,
+      queryParameters: {'uid': uid},
+    );
+    final body = _jsonMap(res.data);
+    if (_responseCode(body?['code']) != 0) {
+      return Error(body?['message']?.toString() ?? '获取勋章名称失败');
+    }
+    final data = _jsonMap(body?['data']);
+    return Success(data?['medal_name']?.toString());
+  }
 
   static Map<String, dynamic>? _jsonMap(Object? value) {
     if (value is Map<String, dynamic>) return value;

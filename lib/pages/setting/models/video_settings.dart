@@ -1,9 +1,7 @@
 import 'dart:io';
 
-import 'package:PiliMax/models/common/video/audio_quality.dart';
-import 'package:PiliMax/models/common/video/live_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models/common/video/video_decode_type.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/pages/setting/widgets/cdn_node_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/cdn_select_dialog.dart';
@@ -142,8 +140,7 @@ List<SettingsModel> get videoSettings => [
   NormalModel(
     title: '直播默认画质',
     leading: const Icon(Icons.video_settings_outlined),
-    getSubtitle: () =>
-        '当前画质：${LiveQuality.fromCode(Pref.liveQuality).desc}',
+    getSubtitle: () => '当前画质：${LiveQuality.fromCode(Pref.liveQuality).desc}',
     onTap: _showLiveQaDialog,
   ),
   NormalModel(

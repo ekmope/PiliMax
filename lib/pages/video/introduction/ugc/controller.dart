@@ -150,11 +150,12 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         cid.value,
         heroTag,
       );
-      if (videoDetail.value.ugcSeason?.id == response.ugcSeason?.id) {
+      final currentDetail = videoDetail.value;
+      if (currentDetail.ugcSeason?.id == response.ugcSeason?.id) {
         // keep reversed season
-        response.ugcSeason = videoDetail.value.ugcSeason;
+        response.ugcSeason = currentDetail.ugcSeason;
       }
-      if (videoDetail.value.cid == response.cid) {
+      if (currentDetail.cid == response.cid) {
         // keep reversed pages
         response
           ..pages = videoDetail.value.pages
@@ -169,12 +170,13 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         }
         if (videoDetailCtr.showReply) {
           try {
-            Get.find<VideoReplyController>(tag: heroTag).count.value =
-                response.stat?.reply ?? 0;
+            Get.find<VideoReplyController>(tag: heroTag)
+              ..count.value = response.stat?.reply ?? 0
+              ..intro = response.desc?.trim();
           } catch (_) {}
         }
       } catch (_) {}
-      final pages = videoDetail.value.pages;
+      final pages = response.pages;
       if (pages != null && pages.isNotEmpty && cid.value == 0) {
         cid.value = pages.first.cid!;
         videoDetailCtr.cid.value = cid.value;

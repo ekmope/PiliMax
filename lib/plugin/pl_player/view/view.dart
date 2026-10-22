@@ -27,7 +27,7 @@ import 'package:PiliMax/models/common/sponsor_block/action_type.dart';
 import 'package:PiliMax/models/common/sponsor_block/post_segment_model.dart';
 import 'package:PiliMax/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliMax/models/common/super_resolution_type.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models/video/play/url.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart' as ugc;
 import 'package:PiliMax/models_new/video/video_detail/ugc_season.dart';
@@ -687,37 +687,23 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             widget.showEpisodes?.call();
             return;
           }
-          int? index;
-          int currentCid = plPlayerController.cid!;
-          String bvid = plPlayerController.bvid;
-          List<ugc.BaseEpisodeItem> episodes = [];
-          if (isSeason) {
-            final sections = videoDetail.ugcSeason!.sections!;
-            for (int i = 0; i < sections.length; i++) {
-              final episodesList = sections[i].episodes!;
-              for (final item in episodesList) {
-                if (item.cid == currentCid) {
-                  index = i;
-                  episodes = episodesList;
-                  break;
-                }
-              }
-            }
-          } else if (isPart) {
+          final bvid = plPlayerController.bvid;
+          List<ugc.BaseEpisodeItem>? episodes;
+          if (isPart) {
             episodes = videoDetail.pages!;
           } else if (isPgc) {
             episodes =
                 (introController as PgcIntroController).pgcItem.episodes!;
           }
           widget.showEpisodes?.call(
-            index,
+            isSeason ? videoDetailController.seasonIndex.value : null,
             isSeason ? videoDetail.ugcSeason! : null,
             isSeason ? null : episodes,
             bvid,
             IdUtils.bv2av(bvid),
-            isSeason && isPart
-                ? videoDetailController.seasonCid ?? currentCid
-                : currentCid,
+            isSeason
+                ? videoDetailController.seasonCid
+                : plPlayerController.cid!,
           );
         },
       ),
@@ -2373,7 +2359,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
               final videoChild = MouseInteractiveViewer(
                 scaleEnabled: !plPlayerController.controlsLock.value,
                 rotateEnabled: plPlayerController.enablePinchRotate,
-                pointerSignalFallback: _onPointerSignal,
+                pointerSignalFallback: plPlayerController.enableScrollVolume
+                    ? _onPointerSignal
+                    : null,
                 onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
                 onPointerPanZoomEnd: _onPointerPanZoomEnd,
                 onPointerDown: _onPointerDown,

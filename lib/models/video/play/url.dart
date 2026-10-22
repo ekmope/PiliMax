@@ -1,7 +1,6 @@
 import 'dart:math' show max, min;
 
-import 'package:PiliMax/models/common/video/audio_quality.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models_new/sponsor_block/segment_item.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;

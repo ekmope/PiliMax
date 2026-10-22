@@ -67,6 +67,7 @@ class VideoCardHLater extends StatelessWidget {
                       heroTag: _heroTag,
                       cover: videoItem.pic,
                       title: videoItem.title,
+                      viewLater: true,
                     );
                     return;
                   }
@@ -77,6 +78,7 @@ class VideoCardHLater extends StatelessWidget {
                         heroTag: _heroTag,
                         cover: videoItem.pic,
                         title: videoItem.title,
+                        viewLater: true,
                       );
                     } else if (videoItem.redirectUrl?.isNotEmpty == true) {
                       PageUtils.viewPgcFromUri(
@@ -84,6 +86,7 @@ class VideoCardHLater extends StatelessWidget {
                         heroTag: _heroTag,
                         cover: videoItem.pic,
                         title: videoItem.title,
+                        viewLater: true,
                       );
                     }
                     return;

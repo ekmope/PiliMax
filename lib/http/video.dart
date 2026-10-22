@@ -9,7 +9,6 @@ import 'package:PiliMax/http/constants.dart';
 import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pilimax/http/web_request_headers.dart';
-import 'package:PiliMax/http/login.dart';
 import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models/home/rcmd/result.dart';
@@ -167,7 +166,7 @@ abstract final class VideoHttp {
       queryParameters: params,
       options: Options(
         headers: {
-          'buvid': LoginHttp.buvid,
+          'buvid': Accounts.get(.recommend).buvid,
           'fp_local': '1111111111111111111111111111111111111111111111111111111111111111',
           'fp_remote': '1111111111111111111111111111111111111111111111111111111111111111',
           'session_id': '11111111',

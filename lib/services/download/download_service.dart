@@ -9,7 +9,7 @@ import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/sponsor_block.dart';
 import 'package:PiliMax/http/video.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/models_new/download/bili_download_media_file_info.dart';
 import 'package:PiliMax/pilimax/models_new/download/playback_meta.dart';
@@ -31,7 +31,8 @@ import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart'
+    show kDebugMode, debugPrint, ValueChanged, VoidCallback;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as path;
@@ -354,11 +355,13 @@ class DownloadService extends GetxService {
     return result;
   }
 
-  void downloadVideo(
-    Part page,
+  void downloadVideo({
+    required int index,
+    required Part page,
     VideoDetailData? videoDetail,
     ugc.EpisodeItem? videoArc,
-    VideoQuality videoQuality, {
+    required VideoQuality videoQuality,
+    AudioQuality? audioQuality,
     String? autoFolderTitle,
     String? autoFolderSourceKey,
     int? autoFolderIndex,
@@ -396,6 +399,7 @@ class DownloadService extends GetxService {
       typeTag: videoQuality.code.toString(),
       cover: (videoDetail?.pic ?? videoArc!.cover!).http2https,
       preferedVideoQuality: videoQuality.code,
+      preferedAudioQuality: audioQuality?.code,
       qualityPithyDescription: videoQuality.desc,
       guessedTotalBytes: 0,
       totalTimeMilli: (page.duration ?? 0) * 1000,
@@ -422,12 +426,13 @@ class DownloadService extends GetxService {
     _createDownload(entry);
   }
 
-  void downloadBangumi(
-    int index,
-    PgcInfoModel pgcItem,
-    pgc.EpisodeItem episode,
-    VideoQuality quality,
-  ) {
+  void downloadBangumi({
+    required int index,
+    required PgcInfoModel pgcItem,
+    required pgc.EpisodeItem episode,
+    required VideoQuality quality,
+    AudioQuality? audioQuality,
+  }) {
     final cid = episode.cid!;
     if (downloadList.indexWhere((e) => e.cid == cid) != -1) {
       return;
@@ -465,6 +470,7 @@ class DownloadService extends GetxService {
       typeTag: quality.code.toString(),
       cover: episode.cover!,
       preferedVideoQuality: quality.code,
+      preferedAudioQuality: audioQuality?.code,
       qualityPithyDescription: quality.desc,
       guessedTotalBytes: 0,
       totalTimeMilli:

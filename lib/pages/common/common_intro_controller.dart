@@ -12,10 +12,12 @@ import 'package:PiliMax/models_new/video/video_tag/data.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/triple_mixin.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/pilimax/utils/loading_action_mixin.dart';
 import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -210,6 +212,7 @@ mixin FavMixin on TripleMixin {
   Set<int>? favIds;
   final Rx<FavFolderData> favFolderData = FavFolderData().obs;
   BuildContext? _favContext;
+  late final enableQuickFav = Pref.enableQuickFav;
 
   String get _favFeedbackTag => 'favorite-feedback-$hashCode';
 
@@ -260,7 +263,7 @@ mixin FavMixin on TripleMixin {
     if (isActionLoading(IntroAction.favorite)) {
       return;
     }
-    if (isLongPress) {
+    if (isLongPress || !enableQuickFav) {
       PageUtils.showFavBottomSheet(context: context, ctr: this);
     } else {
       actionFavVideo(isQuick: true);
@@ -369,7 +372,19 @@ mixin FavMixin on TripleMixin {
           SmartDialog.showToast('未找到默认收藏夹');
           return;
         }
-        final defaultFolder = folders.first;
+        final preferredFolderId = Pref.quickFavId;
+        var defaultFolder = folders.first;
+        if (preferredFolderId != null) {
+          for (final folder in folders) {
+            if (folder.id == preferredFolderId) {
+              defaultFolder = folder;
+              break;
+            }
+          }
+          if (defaultFolder.id != preferredFolderId) {
+            await GStorage.setting.delete(SettingBoxKey.quickFavId);
+          }
+        }
         final oldIds = Set<int>.of(favIds ?? const <int>{});
         final wasInDefault = oldIds.contains(defaultFolder.id);
         final result = await FavHttp.favVideo(
@@ -407,7 +422,7 @@ mixin FavMixin on TripleMixin {
           );
         } else {
           await _showFavFeedback(
-            message: '已加入「默认收藏夹」',
+            message: '已加入「${defaultFolder.title}」',
             alignment: Alignment.bottomCenter,
             duration: const Duration(seconds: 4),
             showModify: true,

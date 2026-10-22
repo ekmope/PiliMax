@@ -1,11 +1,9 @@
-import 'package:PiliMax/models/video/play/url.dart' show FormatItem;
+part of 'base_quality.dart';
 
-final class VideoQuality {
-  final int code;
-  final String desc;
+final class VideoQuality extends BaseQuality {
   final String shortDesc;
 
-  const VideoQuality(this.code, this.desc, this.shortDesc);
+  const VideoQuality(super.code, super.desc, this.shortDesc);
 
   @override
   String toString() => 'code: $code, desc: $desc, shortDesc: $shortDesc';
@@ -51,8 +49,7 @@ final class VideoQuality {
 
   static final _codeMap = {for (final quality in values) quality.code: quality};
 
-  factory VideoQuality.fromId(int id, String idStr) =>
-      VideoQuality(id, idStr, idStr);
+  VideoQuality.fromId(super.code, super.desc) : shortDesc = desc;
 
   factory VideoQuality.fromCode(int code) =>
       _codeMap[code] ?? VideoQuality.fromId(code, code.toString());

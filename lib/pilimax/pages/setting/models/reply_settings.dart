@@ -56,6 +56,12 @@ List<SettingsModel> get replySettings => [
     setKey: SettingBoxKey.blockAtOnlyReply,
     onChanged: (value) => ReplyGrpc.blockAtOnlyReply = value,
   ),
+  const SwitchModel(
+    title: '屏蔽复制简介评论',
+    subtitle: '过滤与视频简介重复的评论',
+    leading: Icon(Icons.summarize),
+    setKey: SettingBoxKey.filterIntro,
+  ),
   SwitchModel(
     title: '保留 UP 主自己的评论',
     subtitle: '保留 UP 主发布的评论，黑名单和带货屏蔽仍会生效',

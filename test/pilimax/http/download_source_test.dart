@@ -1,6 +1,6 @@
 import 'package:PiliMax/pilimax/http/download_source.dart';
 import 'package:PiliMax/models/common/video/video_decode_type.dart';
-import 'package:PiliMax/models/common/video/video_quality.dart';
+import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models/video/play/url.dart';
 import 'package:flutter_test/flutter_test.dart';
 

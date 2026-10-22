@@ -41,17 +41,21 @@ abstract final class ReplyGrpc {
   //   );
   // }
 
+  static bool _hasGoods(Url url) =>
+      url.hasExtra() &&
+      (url.extra.goodsCmControl == Int64.ONE ||
+          url.extra.hasGoodsItemId() ||
+          url.extra.hasGoodsPrefetchedCache());
+
   // ref BiliRoamingX
-  static bool needRemoveGoodGrpc(ReplyInfo reply) {
+  @pragma('vm:prefer-inline')
+  static bool _needRemoveGoodGrpc(ReplyInfo reply) {
     return (reply.content.urls.isNotEmpty &&
-            reply.content.urls.values.any((url) {
-              return url.hasExtra() &&
-                  (url.extra.goodsCmControl == Int64.ONE ||
-                      url.extra.hasGoodsItemId() ||
-                      url.extra.hasGoodsPrefetchedCache());
-            })) ||
+            reply.content.urls.values.any(_hasGoods)) ||
         reply.content.message.contains(Constants.goodsUrlPrefix);
   }
+
+  static bool needRemoveGoodGrpc(ReplyInfo reply) => _needRemoveGoodGrpc(reply);
 
   static bool _isReplyWhitespace(int codeUnit) => switch (codeUnit) {
     0x09 || 0x0A || 0x0B || 0x0C || 0x0D || 0x20 || 0xA0 || 0x1680 => true,

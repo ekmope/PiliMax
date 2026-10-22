@@ -33,6 +33,7 @@ abstract final class SettingBoxKey {
       enableAutoExit = 'enableAutoExit',
       enableOnlineTotal = 'enableOnlineTotal',
       enableDmCount = 'enableDmCount',
+      enableScrollVolume = 'enableScrollVolume',
       superChatType = 'superChatType',
       superChatTimeType = 'superChatTimeType',
       fullScreenSCWidth = 'fullScreenSCWidth',
@@ -222,7 +223,12 @@ abstract final class SettingBoxKey {
       mineTabs = 'mineTabs',
       buvid = 'buvid',
       blockAtOnlyReply = 'blockAtOnlyReply',
-      blockReplyAtCount = 'blockReplyAtCount';
+      blockReplyAtCount = 'blockReplyAtCount',
+      filterIntro = 'filterIntro';
+
+  static const String enableFullScreenSC = 'enableFullScreenSC',
+      fullScreenSCOpacity = 'fullScreenSCOpacity',
+      fullScreenSCScale = 'fullScreenSCScale';
 
   static const String enableAiChat = 'enableAiChat',
       aiApiUrl = 'aiApiUrl',
@@ -336,6 +342,7 @@ abstract final class SettingBoxKey {
       useSideBar = 'useSideBar',
       autoSideBar = 'autoSideBar',
       sideBarThreshold = 'sideBarThreshold',
+      hideSideBarLabel = 'hideSideBarLabel',
       enableMYBar = 'enableMYBar',
       enableGradientBg = 'enableGradientBg',
       showNavBarLabel = 'showNavBarLabel',

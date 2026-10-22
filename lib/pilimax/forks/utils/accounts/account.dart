@@ -3,6 +3,9 @@ import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/accounts/grpc_headers.dart';
 import 'package:PiliMax/utils/id_utils.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:hive_ce/hive.dart';
 
@@ -34,6 +37,10 @@ sealed class Account {
   int get mid => throw UnimplementedError();
 
   String? get refresh => throw UnimplementedError();
+
+  String get buvid => throw UnimplementedError();
+
+  set buvid(String value) => throw UnimplementedError();
 
   const Account();
 }
@@ -81,6 +88,18 @@ class LoginAccount extends Account {
   @HiveField(3)
   final Set<AccountType> type;
 
+  late String _buvid = AnonymousAccount().buvid;
+  @override
+  @HiveField(4)
+  String get buvid => _buvid;
+  @override
+  set buvid(String value) {
+    if (_buvid == value) return;
+    _buvid = value;
+    grpcHeaders.addAll(GrpcHeaders.newHeaders(this));
+    onChange();
+  }
+
   @override
   bool activated = false;
 
@@ -109,7 +128,7 @@ class LoginAccount extends Account {
 
   @override
   late final Map<String, String> grpcHeaders = GrpcHeaders.newHeaders(
-    accessKey,
+    this,
   );
 
   @override
@@ -164,6 +183,7 @@ class LoginAccount extends Account {
     'cookies': cookieJar.toJson(),
     'accessKey': accessKey,
     'refresh': refresh,
+    'buvid': buvid,
     'type': type.map((i) => i.index).toList(),
   };
 
@@ -174,6 +194,7 @@ class LoginAccount extends Account {
     Object? accessKey,
     Object? refresh, [
     Set<AccountType>? type,
+    String? buvid,
   ]) {
     final identity = _validateIdentity(cookieJar);
     return _createValidated(
@@ -182,6 +203,7 @@ class LoginAccount extends Account {
       refresh,
       type,
       identity,
+      buvid,
     );
   }
 
@@ -191,6 +213,7 @@ class LoginAccount extends Account {
     Object? refresh,
     Set<AccountType>? type,
     _LoginIdentity identity,
+    String? buvid,
   ) {
     final account = LoginAccount._(
       cookieJar,
@@ -199,6 +222,7 @@ class LoginAccount extends Account {
       type ?? <AccountType>{},
       identity,
       null,
+      buvid,
     );
     cookieJar.setBuvid3();
     return account;
@@ -211,22 +235,35 @@ class LoginAccount extends Account {
     this.type,
     this._identity,
     this.validationIssue,
-  );
+    String? buvid,
+  ) {
+    if (buvid != null) _buvid = buvid;
+  }
 
   factory LoginAccount.fromCookieMap(
     Object? cookies, {
     Object? accessKey,
     Object? refresh,
     Set<AccountType>? type,
+    Object? buvid,
   }) {
     final cookieMap = _parseCookieMap(cookies);
     final identity = _validateIdentityValues(cookieMap);
+    final String? safeBuvid;
+    if (buvid == null || buvid is String) {
+      safeBuvid = buvid as String?;
+    } else {
+      throw const LoginAccountValidationException(
+        LoginAccountValidationIssue.malformedAccountData,
+      );
+    }
     return _createValidated(
       _cookieJarFromValues(cookieMap),
       accessKey,
       refresh,
       type,
       identity,
+      safeBuvid,
     );
   }
 
@@ -235,11 +272,13 @@ class LoginAccount extends Account {
     Object? accessKey,
     Object? refresh,
     Set<AccountType>? type,
+    Object? buvid,
   }) => LoginAccount.fromCookieMap(
     _parseCookieList(cookies),
     accessKey: accessKey,
     refresh: refresh,
     type: type,
+    buvid: buvid,
   );
 
   factory LoginAccount.fromJson(Object? json) {
@@ -253,6 +292,7 @@ class LoginAccount extends Account {
       accessKey: json['accessKey'],
       refresh: json['refresh'],
       type: _accountTypesFromJson(json['type']),
+      buvid: json['buvid'],
     );
   }
 
@@ -261,6 +301,7 @@ class LoginAccount extends Account {
     Object? accessKey,
     Object? refresh,
     Object? type,
+    Object? buvid,
   }) {
     LoginAccountValidationIssue? issue;
     final DefaultCookieJar safeCookieJar;
@@ -302,6 +343,14 @@ class LoginAccount extends Account {
       }
     }
 
+    final String? safeBuvid;
+    if (buvid == null || buvid is String) {
+      safeBuvid = buvid as String?;
+    } else {
+      safeBuvid = null;
+      issue ??= LoginAccountValidationIssue.malformedAccountData;
+    }
+
     _LoginIdentity? identity;
     try {
       identity = _validateIdentity(safeCookieJar);
@@ -316,6 +365,7 @@ class LoginAccount extends Account {
       safeTypes,
       identity,
       issue,
+      safeBuvid,
     );
     if (account.isValid) {
       safeCookieJar.setBuvid3();
@@ -425,8 +475,19 @@ class AnonymousAccount extends Account {
   @override
   final Map<String, String> headers = Constants.baseHeaders;
 
+  late String _buvid = Pref.buvid;
   @override
-  final Map<String, String> grpcHeaders = GrpcHeaders.newHeaders();
+  String get buvid => _buvid;
+  @override
+  set buvid(String value) {
+    if (_buvid == value) return;
+    _buvid = value;
+    grpcHeaders.addAll(GrpcHeaders.newHeaders(this));
+    GStorage.setting.put(SettingBoxKey.buvid, value);
+  }
+
+  @override
+  late final Map<String, String> grpcHeaders = GrpcHeaders.newHeaders(this);
 
   @override
   bool activated = false;

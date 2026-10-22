@@ -33,7 +33,7 @@ class TeamInfoLayout
   Iterable<TeamInfoType> get slots => TeamInfoType.values;
 }
 
-const _spacing = 30.0;
+const _spacing = 40.0;
 
 class RenderTeamInfoLayout extends RenderBox
     with
@@ -68,11 +68,31 @@ class RenderTeamInfoLayout extends RenderBox
     final width = (maxTeamWidth + _spacing) * 2 + statusSize.width;
     final maxWidth = constraints.maxWidth;
     var dx = maxWidth > width ? 0.0 : (maxWidth - width) / 2;
-    setOffset(home, Offset(dx, (height - homeSize.height) / 2));
+    setOffset(
+      home,
+      Offset(
+        dx +
+            (maxTeamWidth > homeSize.width
+                ? (maxTeamWidth - homeSize.width) / 2
+                : 0),
+        (height - homeSize.height) / 2,
+      ),
+    );
     dx += maxTeamWidth + _spacing;
     setOffset(status, Offset(dx, (height - statusSize.height) / 2));
-    dx += maxTeamWidth + _spacing;
-    setOffset(away, Offset(dx, (height - awaySize.height) / 2));
+    dx +=
+        statusSize.width +
+        _spacing +
+        (maxTeamWidth > awaySize.width
+            ? (maxTeamWidth - awaySize.width) / 2
+            : 0);
+    setOffset(
+      away,
+      Offset(
+        dx,
+        (height - awaySize.height) / 2,
+      ),
+    );
     size = constraints.constrainDimensions(width, height);
   }
 

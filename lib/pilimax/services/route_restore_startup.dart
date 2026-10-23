@@ -3,6 +3,16 @@ import 'dart:convert';
 
 enum RouteRestoreNativeDecision { restore, reject, unavailable }
 
+final class RouteRestoreIntentGate {
+  int _generation = 0;
+
+  int get generation => _generation;
+
+  void recordUserNavigation() => _generation++;
+
+  bool isUnchangedSince(int generation) => _generation == generation;
+}
+
 final class RouteRestoreStartupCoordinator<T> {
   Completer<T>? _completer;
   bool _started = false;
@@ -15,10 +25,8 @@ final class RouteRestoreStartupCoordinator<T> {
       return completer.future;
     }
     _started = true;
-    Future<T>.sync(operation).then(
-      completer.complete,
-      onError: completer.completeError,
-    );
+    Future<T>.sync(operation)
+        .then(completer.complete, onError: completer.completeError);
     return completer.future;
   }
 }
@@ -45,10 +53,8 @@ final class RouteRestoreDecisionResolver {
       if (remaining <= Duration.zero) {
         return RouteRestoreNativeDecision.unavailable;
       }
-      final decision =
-          await Future<RouteRestoreNativeDecision>.sync(
-            query,
-          ).timeout(
+      final decision = await Future<RouteRestoreNativeDecision>.sync(query)
+          .timeout(
             remaining,
             onTimeout: () => RouteRestoreNativeDecision.unavailable,
           );

@@ -153,9 +153,16 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Future<void> _restoreRoute(Future<void> navigationReady) async {
+    final restoreIntentGeneration =
+        _mainController.startupRestoreIntent.generation;
     final shouldRecordCurrentState = await RouteRestoreService.restoreIfNeeded(
       restoreMainState: _restoreMainState,
       navigationReady: navigationReady,
+      canApplyRestore: () =>
+          mounted &&
+          _mainController.startupRestoreIntent.isUnchangedSince(
+            restoreIntentGeneration,
+          ),
     );
     if (mounted) {
       if (shouldRecordCurrentState) {

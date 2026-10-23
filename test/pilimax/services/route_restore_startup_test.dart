@@ -4,6 +4,18 @@ import 'package:PiliMax/pilimax/services/route_restore_startup.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('a user navigation invalidates a pending startup restore', () {
+    final intent = RouteRestoreIntentGate();
+    final restoreGeneration = intent.generation;
+
+    expect(intent.isUnchangedSince(restoreGeneration), isTrue);
+
+    intent.recordUserNavigation();
+
+    expect(intent.isUnchangedSince(restoreGeneration), isFalse);
+    expect(intent.isUnchangedSince(intent.generation), isTrue);
+  });
+
   group('RouteRestoreStartupCoordinator', () {
     test('registers one shared future and starts only once', () async {
       final coordinator = RouteRestoreStartupCoordinator<int>();
@@ -67,10 +79,7 @@ void main() {
     test('shares one deadline across queries and retry delays', () async {
       const resolver = RouteRestoreDecisionResolver(
         deadline: Duration(milliseconds: 300),
-        retryDelays: [
-          Duration(milliseconds: 180),
-          Duration(milliseconds: 180),
-        ],
+        retryDelays: [Duration(milliseconds: 180), Duration(milliseconds: 180)],
       );
       var queries = 0;
       final stopwatch = Stopwatch()..start();

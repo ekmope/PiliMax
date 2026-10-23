@@ -16,6 +16,7 @@ import 'package:PiliMax/pages/video/view.dart';
 import 'package:PiliMax/pilimax/services/live_pip_overlay_service.dart';
 import 'package:PiliMax/pilimax/services/pip_overlay_service.dart';
 import 'package:PiliMax/pilimax/services/pip_replacement_handoff.dart';
+import 'package:PiliMax/pilimax/services/pip_replacement_transition.dart';
 import 'package:PiliMax/pilimax/services/route_restore_service.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -89,7 +90,10 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   ui.Rect? _pipReplacementSourceRect;
   bool _pipReplacementVisible = false;
   bool _pipReplacementAnimating = false;
+  bool _pipReplacementFallbackCoverVisible = false;
+  bool _pipReplacementFallbackCoverRevealed = false;
   Timer? _pipReplacementTimeoutTimer;
+  late final PipReplacementTransitionState _pipReplacementTransition;
   bool _preparedExitUsesPlayerHandoff = false;
   bool _pendingPresentationReady = false;
   bool _isResolving = false;
@@ -109,6 +113,10 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
 
   bool get _showPipReplacementHandoff =>
       _entryMediaSurface == _VideoEntryMediaSurface.pipReplacement;
+
+  bool get _showPipReplacementFallbackCover =>
+      _arguments[videoDetailPipReplacementKey] == true &&
+      _pipReplacementFallbackCoverVisible;
 
   bool get _hasPendingLaunch =>
       _arguments[PageUtils.videoPendingLaunchKey] is VideoPendingLaunchType;
@@ -267,16 +275,60 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         !session.matchesLaunchContent) {
       return;
     }
-    _initialPlayerVisualReady = true;
+    setState(() {
+      _initialPlayerVisualReady = true;
+      _pipReplacementTransition.markPlayerVisualReady();
+    });
     _beginPipReplacementFade();
     _scheduleDetailReveal();
   }
 
   void _beginPipReplacementFade() {
-    if (!mounted || !_pipReplacementVisible || _pipReplacementAnimating) return;
+    if (!mounted ||
+        !_pipReplacementVisible ||
+        !_pipReplacementTransition.shouldFadeSnapshot ||
+        _pipReplacementAnimating) {
+      return;
+    }
     _pipReplacementTimeoutTimer?.cancel();
     _pipReplacementTimeoutTimer = null;
     setState(() => _pipReplacementAnimating = true);
+  }
+
+  void _fallbackPipReplacementToCover() {
+    if (!mounted ||
+        !_pipReplacementVisible ||
+        _pipReplacementTransition.playerVisualReady) {
+      return;
+    }
+    _pipReplacementTransition.markFallbackElapsed();
+    setState(() {
+      _pipReplacementFallbackCoverVisible = true;
+      _pipReplacementFallbackCoverRevealed = false;
+    });
+    _schedulePipReplacementFallbackCoverReveal();
+    _beginPipReplacementFade();
+  }
+
+  void _schedulePipReplacementFallbackCoverReveal() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_pipReplacementFallbackCoverVisible ||
+          _pipReplacementTransition.playerVisualReady ||
+          _pipReplacementFallbackCoverRevealed) {
+        return;
+      }
+      setState(() => _pipReplacementFallbackCoverRevealed = true);
+    });
+  }
+
+  void _finishPipReplacementFallbackCoverFade() {
+    if (!mounted ||
+        !_pipReplacementFallbackCoverVisible ||
+        !_pipReplacementTransition.playerVisualReady) {
+      return;
+    }
+    setState(() => _pipReplacementFallbackCoverVisible = false);
   }
 
   void _finishPipReplacementFade() {
@@ -370,9 +422,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         _entryExitInProgress) {
       return;
     }
-    setState(
-      () => _entryMediaSurface = _VideoEntryMediaSurface.none,
-    );
+    setState(() => _entryMediaSurface = _VideoEntryMediaSurface.none);
   }
 
   VideoDetailExitMode _prepareForExit() {
@@ -534,8 +584,9 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
   @override
   void initState() {
     super.initState();
+    PipReplacementFrame? handoff;
     if (_arguments[videoDetailPipReplacementHandoffKey] == true) {
-      final handoff = PipReplacementHandoff.take();
+      handoff = PipReplacementHandoff.take();
       if (handoff != null) {
         _pipReplacementFrame = handoff.image;
         _pipReplacementSourceRect = handoff.sourceRect;
@@ -544,10 +595,18 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         _entryMediaSurface = _VideoEntryMediaSurface.pipReplacement;
         _pipReplacementTimeoutTimer = Timer(
           _pipReplacementTimeout,
-          _beginPipReplacementFade,
+          _fallbackPipReplacementToCover,
         );
       }
     }
+    _pipReplacementTransition = PipReplacementTransitionState(
+      hasSnapshot: handoff != null,
+    );
+    _pipReplacementFallbackCoverVisible =
+        _arguments[videoDetailPipReplacementKey] == true &&
+        _pipReplacementTransition.shouldShowIncomingCover;
+    _pipReplacementFallbackCoverRevealed =
+        _pipReplacementFallbackCoverVisible && handoff == null;
     _detailRevealController = AnimationController(
       vsync: this,
       duration: _detailRevealDuration,
@@ -716,10 +775,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     _tryMountDetail();
   }
 
-  void _markEntryOrientation(
-    VideoDetailSession session,
-    bool? orientation,
-  ) {
+  void _markEntryOrientation(VideoDetailSession session, bool? orientation) {
     if (!mounted ||
         !identical(session, _session) ||
         orientation == null ||
@@ -1023,6 +1079,8 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
       _entryMediaSurface = _VideoEntryMediaSurface.none;
       _pipReplacementVisible = false;
       _pipReplacementAnimating = false;
+      _pipReplacementFallbackCoverVisible = false;
+      _pipReplacementFallbackCoverRevealed = false;
     });
   }
 
@@ -1085,9 +1143,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
     );
   }
 
-  Widget _entryMediaHandoffLayer(
-    BuildContext context,
-  ) {
+  Widget _entryMediaHandoffLayer(BuildContext context) {
     if (_showPipReplacementHandoff) {
       final frame = _pipReplacementFrame;
       if (frame == null) return const SizedBox.shrink();
@@ -1206,6 +1262,43 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
         // cover owns geometry during that period, so a window/orientation
         // change cannot expose an intermediate black texture.
         animateGeometry: !showPlayerHandoffCover,
+      ),
+    );
+  }
+
+  Widget _pipReplacementFallbackCoverLayer(BuildContext context) {
+    final playerRect = _entryLayout(context).playerRect;
+    final cover = _entryCover;
+    final disableAnimations =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return Positioned(
+      left: playerRect.left,
+      top: playerRect.top,
+      width: playerRect.width,
+      height: playerRect.height,
+      child: IgnorePointer(
+        child: AnimatedOpacity(
+          opacity: _pipReplacementFallbackCoverRevealed
+              ? _pipReplacementTransition.incomingCoverOpacity
+              : 0,
+          duration: disableAnimations
+              ? const Duration(milliseconds: 100)
+              : _pipReplacementFadeDuration,
+          curve: Curves.easeOutCubic,
+          onEnd: _finishPipReplacementFallbackCoverFade,
+          child: cover == null
+              ? const ColoredBox(color: Colors.black)
+              : NetworkImgLayer(
+                  key: ValueKey(('pip-replacement-cover', cover)),
+                  src: cover,
+                  width: playerRect.width,
+                  height: playerRect.height,
+                  fadeInDuration: Duration.zero,
+                  fadeOutDuration: Duration.zero,
+                  fit: BoxFit.cover,
+                  clip: false,
+                ),
+        ),
       ),
     );
   }
@@ -1386,9 +1479,7 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
             if (!_externalEntryOwnsPresentation)
               IgnorePointer(child: _animatedEntryShell(context)),
             if (_showEntryMediaLayer)
-              IgnorePointer(
-                child: _entryMediaHandoffLayer(context),
-              ),
+              IgnorePointer(child: _entryMediaHandoffLayer(context)),
           ],
         ),
       );
@@ -1420,11 +1511,11 @@ class _VideoDetailRoutePageState extends State<VideoDetailRoutePage>
               ),
             ),
           ),
+        if (_showPipReplacementFallbackCover)
+          _pipReplacementFallbackCoverLayer(context),
         if (_showEntryMediaLayer)
           Positioned.fill(
-            child: IgnorePointer(
-              child: _entryMediaHandoffLayer(context),
-            ),
+            child: IgnorePointer(child: _entryMediaHandoffLayer(context)),
           ),
       ],
     );

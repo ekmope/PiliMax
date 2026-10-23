@@ -18,6 +18,7 @@ import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
+import 'package:PiliMax/pilimax/services/route_restore_startup.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/update.dart';
@@ -64,6 +65,7 @@ class MainController extends GetxController
   late final Rx<GlassStyle> glassStyle = Pref.glassStyle.obs;
   late final RxInt liquidGlassStrength = Pref.liquidGlassStrength.obs;
   late final RxDouble floatingNavBottomLift = Pref.floatingNavBottomLift.obs;
+  final startupRestoreIntent = RouteRestoreIntentGate();
   final useSideBar = Pref.useSideBar;
   final hideSideBarLabel = Pref.hideSideBarLabel;
   final mainTabBarView = Pref.mainTabBarView;
@@ -75,6 +77,7 @@ class MainController extends GetxController
 
   static const _period = 5 * 60 * 1000;
   late int _lastSelectTime = 0;
+  bool _navigationPageSyncScheduled = false;
 
   @override
   void onInit() {
@@ -255,9 +258,7 @@ class MainController extends GetxController
     int now = DateTime.now().millisecondsSinceEpoch;
     if (now - _lastCheckDynamicAt >= dynamicPeriod) {
       _lastCheckDynamicAt = now;
-      unawaited(
-        getUnreadDynamic(scene: DynRedScene.periodicallyAwake),
-      );
+      unawaited(getUnreadDynamic(scene: DynRedScene.periodicallyAwake));
     }
   }
 
@@ -338,12 +339,30 @@ class MainController extends GetxController
 
     final pageController = controller as PageController;
     if (!pageController.hasClients) {
+      _scheduleNavigationPageSync();
       return;
     }
     final page = pageController.page;
     if (page == null || (page - targetIndex).abs() > 0.001) {
       pageController.jumpToPage(targetIndex);
     }
+  }
+
+  void _scheduleNavigationPageSync() {
+    if (_navigationPageSyncScheduled || isClosed) {
+      return;
+    }
+    _navigationPageSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _navigationPageSyncScheduled = false;
+      if (isClosed || mainTabBarView) {
+        return;
+      }
+      final pageController = controller as PageController;
+      if (pageController.hasClients) {
+        syncNavigationPage();
+      }
+    });
   }
 
   void toHomePage() {
@@ -359,6 +378,7 @@ class MainController extends GetxController
   }
 
   void selectNavigation(int value) {
+    startupRestoreIntent.recordUserNavigation();
     _setIndex(value, animate: true);
   }
 
@@ -407,6 +427,8 @@ class MainController extends GetxController
         final pageController = controller as PageController;
         if (pageController.hasClients) {
           pageController.jumpToPage(value);
+        } else {
+          _scheduleNavigationPageSync();
         }
       }
       if (currentNav == NavigationBarType.home) {

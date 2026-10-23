@@ -61,10 +61,7 @@ abstract final class RouteRestoreService {
     if (route.isEmpty || !route.startsWith('/')) return;
     if (route == '/') {
       if (_latestMainState case final mainState?) {
-        final restorable = RestorableRoute(
-          route: route,
-          mainState: mainState,
-        );
+        final restorable = RestorableRoute(route: route, mainState: mainState);
         _latestRoute = restorable;
         unawaited(_save(restorable));
       }
@@ -163,6 +160,7 @@ abstract final class RouteRestoreService {
   static Future<bool> restoreIfNeeded({
     required void Function(MainRestoreState state) restoreMainState,
     required Future<void> navigationReady,
+    required bool Function() canApplyRestore,
   }) {
     return _startupRestore.start(
       () => _phase != _RouteRestorePhase.startup
@@ -170,6 +168,7 @@ abstract final class RouteRestoreService {
           : _restoreIfNeeded(
               restoreMainState: restoreMainState,
               navigationReady: navigationReady,
+              canApplyRestore: canApplyRestore,
             ),
     );
   }
@@ -185,6 +184,7 @@ abstract final class RouteRestoreService {
   static Future<bool> _restoreIfNeeded({
     required void Function(MainRestoreState state) restoreMainState,
     required Future<void> navigationReady,
+    required bool Function() canApplyRestore,
   }) async {
     _phase = _RouteRestorePhase.checking;
     if (!_enabled) {
@@ -216,7 +216,7 @@ abstract final class RouteRestoreService {
           return false;
       }
       await navigationReady;
-      if (Get.currentRoute != '/') {
+      if (Get.currentRoute != '/' || !canApplyRestore()) {
         _phase = _RouteRestorePhase.ready;
         return true;
       }
@@ -246,10 +246,7 @@ abstract final class RouteRestoreService {
         route: route,
         arguments: arguments,
         parameters: parameters,
-        mainState: _parseMainState(
-          state['mainNavigation'],
-          state['homeTab'],
-        ),
+        mainState: _parseMainState(state['mainNavigation'], state['homeTab']),
       );
       if (!_isValid(restorable)) {
         return _rejectRestoreState();
@@ -367,14 +364,9 @@ abstract final class RouteRestoreService {
     });
   });
 
-  static Future<void> _enqueueStorage(
-    Future<void> Function() operation,
-  ) {
+  static Future<void> _enqueueStorage(Future<void> Function() operation) {
     final next = _storageQueue.then((_) => operation());
-    _storageQueue = next.then<void>(
-      (_) {},
-      onError: (_, _) {},
-    );
+    _storageQueue = next.then<void>((_) {}, onError: (_, _) {});
     return next;
   }
 
@@ -455,10 +447,7 @@ abstract final class RouteRestoreService {
     final validHomeTab = homeTab is String && _homeTabNames.contains(homeTab)
         ? homeTab
         : null;
-    return MainRestoreState(
-      navigation: navigation,
-      homeTab: validHomeTab,
-    );
+    return MainRestoreState(navigation: navigation, homeTab: validHomeTab);
   }
 
   static Map<String, dynamic>? _videoArguments(dynamic args) {
@@ -535,10 +524,7 @@ abstract final class RouteRestoreService {
           return (aid, IdUtils.av2bv(aid));
         }
       }
-      return (
-        aid,
-        IdUtils.av2bv(aid),
-      );
+      return (aid, IdUtils.av2bv(aid));
     }
 
     if (bvid == null) {
@@ -579,11 +565,8 @@ abstract final class RouteRestoreService {
     _ => VideoType.ugc.name,
   };
 
-  static VideoType _videoTypeFromName(dynamic value) =>
-      VideoType.values.firstWhere(
-        (item) => item.name == value,
-        orElse: () => VideoType.ugc,
-      );
+  static VideoType _videoTypeFromName(dynamic value) => VideoType.values
+      .firstWhere((item) => item.name == value, orElse: () => VideoType.ugc);
 
   static SourceType _sourceTypeFromName(dynamic value) =>
       SourceType.values.firstWhere(
@@ -595,10 +578,7 @@ abstract final class RouteRestoreService {
 enum _RouteRestorePhase { startup, checking, restoring, ready }
 
 class MainRestoreState {
-  const MainRestoreState({
-    required this.navigation,
-    this.homeTab,
-  });
+  const MainRestoreState({required this.navigation, this.homeTab});
 
   final String navigation;
   final String? homeTab;

@@ -108,6 +108,16 @@ typedef VideoDetailInitialLayoutReady = void Function(
   VideoDetailSession session,
 );
 
+class _InitialVideoSourceBaseline {
+  const _InitialVideoSourceBaseline({
+    required this.videoController,
+    required this.sourceGeneration,
+  });
+
+  final VideoController? videoController;
+  final int? sourceGeneration;
+}
+
 class VideoDetailPageV extends StatefulWidget {
   const VideoDetailPageV({
     super.key,
@@ -330,17 +340,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           _handleFullScreenExitProcessingChanged,
         ),
       )
+      ..add(ever<bool>(controller.isFullScreen, _handleFullScreenChanged))
       ..add(
-        ever<bool>(
-          controller.isFullScreen,
-          _handleFullScreenChanged,
-        ),
-      )
-      ..add(
-        ever<bool>(
-          controller.isNativePip,
-          (_) => _syncAndroidPredictiveBack(),
-        ),
+        ever<bool>(controller.isNativePip, (_) => _syncAndroidPredictiveBack()),
       );
     _syncAndroidPredictiveBack();
   }
@@ -574,10 +576,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     if (pageRenderObject is! RenderBox || !pageRenderObject.attached) {
       return null;
     }
-    return renderObject.localToGlobal(
-          Offset.zero,
-          ancestor: pageRenderObject,
-        ) &
+    return renderObject.localToGlobal(Offset.zero, ancestor: pageRenderObject) &
         renderObject.size;
   }
 
@@ -1097,29 +1096,35 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     widget.onInitialLayoutReady!(session);
   }
 
-  Future<void> _startInitialPlayerAndReportVisual(int generation) async {
+  Future<void> _startInitialPlayerAndReportVisual(
+    int generation, {
+    bool initializePlayer = true,
+    _InitialVideoSourceBaseline? sourceBaseline,
+  }) async {
     final callback = widget.onInitialVisualReady;
     final session = widget.session;
-    final initialController = videoDetailController.plPlayerController;
-    final initialVideoController = initialController.videoController;
-    final initialSourceGeneration = initialController.activeSourceGeneration;
+    final baseline = sourceBaseline ?? _captureInitialVideoSourceBaseline();
+    final initialVideoController = baseline.videoController;
+    final initialSourceGeneration = baseline.sourceGeneration;
     if (!_isInitialPlayerStartCurrent(generation)) {
       return;
     }
 
-    if (videoDetailController.isFileSource) {
-      await videoDetailController.queryVideoUrl(autoFullScreenFlag: false);
-    } else {
-      if (videoDetailController.videoUrl == null ||
-          videoDetailController.audioUrl == null) {
-        return;
+    if (initializePlayer) {
+      if (videoDetailController.isFileSource) {
+        await videoDetailController.queryVideoUrl(autoFullScreenFlag: false);
+      } else {
+        if (videoDetailController.videoUrl == null ||
+            videoDetailController.audioUrl == null) {
+          return;
+        }
+        await videoDetailController.playerInit(
+          autoplay: true,
+          // Orientation/window changes are performed after the first frame,
+          // while the route's opaque handoff cover is still active.
+          autoFullScreenFlag: false,
+        );
       }
-      await videoDetailController.playerInit(
-        autoplay: true,
-        // Orientation/window changes are performed after the first frame,
-        // while the route's opaque handoff cover is still active.
-        autoFullScreenFlag: false,
-      );
     }
 
     if (callback == null || !_canReportInitialVisual(generation, session)) {
@@ -1235,10 +1240,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           )) {
         return;
       }
-      if (!identical(
-        postFullscreenVideoController,
-        currentVideoController,
-      )) {
+      if (!identical(postFullscreenVideoController, currentVideoController)) {
         final usesPlaybackProgress =
             videoDetailInitialSurfaceUsesPlaybackProgress(
               isDesktop: PlatformUtils.isDesktop,
@@ -1416,10 +1418,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     final sizeSubscription = videoController.player.stream.size.listen(
       (_) => scheduleCheck(),
     );
-    final timeout = Timer(
-      _initialVideoSurfaceWaitTimeout,
-      () => finish(false),
-    );
+    final timeout = Timer(_initialVideoSurfaceWaitTimeout, () => finish(false));
     // Some platforms do not emit a Rect/size notification after a reused
     // controller is reopened. Keep a low-frequency probe during the bounded
     // handoff instead of waiting forever for a missing event.
@@ -1501,10 +1500,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       player.stream.playing.listen((_) => check()),
       player.stream.buffering.listen((_) => check()),
     ];
-    final timeout = Timer(
-      _initialVideoSurfaceWaitTimeout,
-      () => finish(false),
-    );
+    final timeout = Timer(_initialVideoSurfaceWaitTimeout, () => finish(false));
     check();
     try {
       return await result.future;
@@ -1607,10 +1603,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       }
     }
 
-    final timeout = Timer(
-      _initialVideoSurfaceWaitTimeout,
-      () => finish(false),
-    );
+    final timeout = Timer(_initialVideoSurfaceWaitTimeout, () => finish(false));
     final probeTimer = Timer.periodic(
       const Duration(milliseconds: 100),
       (_) => unawaited(checkLayout()),
@@ -1648,10 +1641,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   bool _isInitialPlayerStartCurrent(int generation) =>
       mounted && generation == _initialVisualReadyGeneration;
 
-  bool _canReportInitialVisual(
-    int generation,
-    VideoDetailSession? session,
-  ) =>
+  bool _canReportInitialVisual(int generation, VideoDetailSession? session) =>
       _isInitialPlayerStartCurrent(generation) &&
       !_initialVisualReadyReported &&
       session != null &&
@@ -1959,12 +1949,17 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     if (!_allowPlayerMount) {
       return null;
     }
+    final sourceBaseline = _captureInitialVideoSourceBaseline();
     // A user's play action takes precedence over the asynchronous first-load
     // Wi-Fi check, including while the initial source request is still active.
     videoDetailController.autoPlay = true;
     if (!videoDetailController.isFileSource) {
       if (videoDetailController.isQuerying) {
         if (kDebugMode) debugPrint('handlePlay: querying');
+        _watchManualPlaybackVisual(
+          videoDetailController.queryVideoUrl(),
+          sourceBaseline,
+        );
         return null;
       }
       if (videoDetailController.videoUrl == null ||
@@ -1972,7 +1967,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         if (kDebugMode) {
           debugPrint('handlePlay: videoUrl/audioUrl not initialized');
         }
-        videoDetailController.queryVideoUrl();
+        final query = videoDetailController.queryVideoUrl();
+        _watchManualPlaybackVisual(query, sourceBaseline);
         return null;
       }
     }
@@ -1983,13 +1979,50 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       if (plPlayerController.autoEnterFullScreen) {
         plPlayerController.triggerFullScreen();
       }
-      return plPlayerController.play();
+      final playback = plPlayerController.play();
+      _watchManualPlaybackVisual(playback, sourceBaseline);
+      return playback;
     } else {
-      return videoDetailController.playerInit(
+      final playback = videoDetailController.playerInit(
         autoplay: true,
         autoFullScreenFlag: true,
       );
+      _watchManualPlaybackVisual(playback, sourceBaseline);
+      return playback;
     }
+  }
+
+  _InitialVideoSourceBaseline _captureInitialVideoSourceBaseline() {
+    final playerController = videoDetailController.plPlayerController;
+    return _InitialVideoSourceBaseline(
+      videoController: playerController.videoController,
+      sourceGeneration: playerController.activeSourceGeneration,
+    );
+  }
+
+  void _watchManualPlaybackVisual(
+    Future<void>? playback,
+    _InitialVideoSourceBaseline sourceBaseline,
+  ) {
+    if (widget.session?.arguments[videoDetailPipReplacementKey] != true ||
+        widget.onInitialVisualReady == null ||
+        _initialVisualReadyReported) {
+      return;
+    }
+    _initialPlayerStarted = true;
+    final generation = ++_initialVisualReadyGeneration;
+    unawaited(() async {
+      try {
+        await playback;
+        await _startInitialPlayerAndReportVisual(
+          generation,
+          initializePlayer: false,
+          sourceBaseline: sourceBaseline,
+        );
+      } catch (_) {
+        // Keep the poster visible if manual playback fails before a frame.
+      }
+    }());
   }
 
   @override
@@ -2394,14 +2427,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     );
     videoDetailController.plPlayerController.screenRatio = maxHeight / maxWidth;
 
-    final minVideoHeight = videoDetailPlayerHeight(
-      size,
-      isVertical: false,
-    );
-    final maxVideoHeight = videoDetailPlayerHeight(
-      size,
-      isVertical: true,
-    );
+    final minVideoHeight = videoDetailPlayerHeight(size, isVertical: false);
+    final maxVideoHeight = videoDetailPlayerHeight(size, isVertical: true);
     videoDetailController
       ..isPortrait = isPortrait = maxHeight >= maxWidth
       ..minVideoHeight = minVideoHeight
@@ -2693,9 +2720,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                     videoDetailController.audioUrl == null) {
                   videoDetailController.autoPlay = true;
                   if (kDebugMode) {
-                    debugPrint(
-                      'handlePlay: videoUrl/audioUrl not initialized',
-                    );
+                    debugPrint('handlePlay: videoUrl/audioUrl not initialized');
                   }
                   videoDetailController.queryVideoUrl();
                   return;
@@ -3397,9 +3422,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             );
           });
         } else {
-          return Tab(
-            child: Text(text, softWrap: false, overflow: .visible),
-          );
+          return Tab(child: Text(text, softWrap: false, overflow: .visible));
         }
       }).toList(),
     );
@@ -4536,11 +4559,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
             'Tap to return from PiP, args contains: bvid=${args['bvid']}, cid=${args['cid']}, heroTag=${args['heroTag']}, title=${args['title']}, segmentList.length: ${videoDetailController.segmentList.length}',
           );
 
-          Get.toNamed(
-            '/videoV',
-            arguments: args,
-            preventDuplicates: false,
-          );
+          Get.toNamed('/videoV', arguments: args, preventDuplicates: false);
         },
         onStartFailed: handleStartFailure,
         onOverlayInserted: () {

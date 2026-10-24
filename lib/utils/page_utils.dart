@@ -986,7 +986,9 @@ abstract final class PageUtils {
       }
       _videoRouteNavigationInstalling = true;
       final useAdvancedRoute =
-          !off && arguments[videoTransitionTokenKey] is VideoTransitionToken;
+          !off &&
+          (arguments[videoTransitionTokenKey] is VideoTransitionToken ||
+              arguments[videoDetailPipReplacementKey] == true);
       final videoPage = useAdvancedRoute
           ? Get.routeTree.matchRoute('/videoV').route
           : null;

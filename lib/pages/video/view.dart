@@ -190,10 +190,18 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   PlPlayerController? plPlayerController;
   PlPlayerController? _playerListenersController;
   PlPlayerController? _predictiveBackController;
+  VideoController? _nativePipVideoController;
+  int? _nativePipSourceGeneration;
+  bool? _lastObservedNativePip;
+  bool _nativePipRestorePending = false;
+  bool _mobileObserverRegistered = false;
   late final VideoDetailPipExitIntent _pipExitIntentProvider;
   final List<Worker> _predictiveBackWorkers = <Worker>[];
   final Set<TabController> _pendingTabControllerDisposals = <TabController>{};
   static const Duration _fullScreenExitSettleTimeout = Duration(seconds: 2);
+  static const Duration _pipReturnPosterFadeDuration = Duration(
+    milliseconds: 180,
+  );
   // A newly-created VideoController has a real native first-frame signal.
   // Keep waiting for it for the same bounded interval as the surface probe;
   // geometry alone can be valid before Android has uploaded a texture frame.
@@ -245,7 +253,34 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
   bool _pipRestoreInFlight = false;
   int _pipRestoreRectAttempts = 0;
   Timer? _pipRestoreFallbackTimer;
+  bool _pipReturnPosterVisible = false;
+  bool _pipReturnPosterFading = false;
+  int _pipReturnPresentationGeneration = 0;
+  PlPlayerController? _pipReturnPosterController;
+  VideoController? _pipReturnPosterVideoController;
+  int? _pipReturnPosterSourceGeneration;
+  int? _pipReturnPosterCid;
+  String? _pipReturnPosterCover;
+  int? _pipReturnPosterSourceRevision;
+  bool _pipReturnPosterWaiting = false;
+  int? _pipReturnPosterRetirementScheduledFor;
   final _pageRootKey = GlobalKey();
+
+  void _ensureMobileObserverRegistered() {
+    if (_mobileObserverRegistered) {
+      return;
+    }
+    addObserverMobile(this);
+    _mobileObserverRegistered = PlatformUtils.isMobile;
+  }
+
+  void _removeMobileObserver() {
+    if (!_mobileObserverRegistered) {
+      return;
+    }
+    removeObserverMobile(this);
+    _mobileObserverRegistered = false;
+  }
 
   // intro ctr
   late final CommonIntroController introController =
@@ -342,8 +377,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       )
       ..add(ever<bool>(controller.isFullScreen, _handleFullScreenChanged))
       ..add(
-        ever<bool>(controller.isNativePip, (_) => _syncAndroidPredictiveBack()),
+        ever<bool>(controller.isNativePip, _handleNativePipChanged),
       );
+    _lastObservedNativePip = controller.isNativePip.value;
+    _nativePipRestorePending = controller.isNativePip.value;
+    if (_nativePipRestorePending) {
+      _nativePipVideoController = controller.videoController;
+      _nativePipSourceGeneration = controller.activeSourceGeneration;
+    }
     _syncAndroidPredictiveBack();
   }
 
@@ -353,7 +394,359 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     }
     _predictiveBackWorkers.clear();
     _predictiveBackController = null;
+    _clearPendingNativePipRestore();
+    _lastObservedNativePip = null;
+    _nativePipRestorePending = false;
     _lastObservedFullScreen = null;
+  }
+
+  void _handleNativePipChanged(bool isNativePip) {
+    final wasNativePip = _lastObservedNativePip;
+    _lastObservedNativePip = isNativePip;
+    _syncAndroidPredictiveBack();
+    if (isNativePip) {
+      _ensureMobileObserverRegistered();
+      if (wasNativePip != true) {
+        _nativePipRestorePending = true;
+        final controller = _predictiveBackController;
+        _nativePipVideoController = controller?.videoController;
+        _nativePipSourceGeneration = controller?.activeSourceGeneration;
+      }
+    } else if (wasNativePip == true) {
+      _ensureMobileObserverRegistered();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _tryRestoreAfterNativePip();
+      });
+    }
+  }
+
+  bool _isPipReturnSourceSnapshotCurrent(
+    PlPlayerController controller,
+    VideoController videoController,
+    int sourceGeneration,
+  ) =>
+      mounted &&
+      identical(plPlayerController, controller) &&
+      identical(videoDetailController.plPlayerController, controller) &&
+      identical(controller.videoController, videoController) &&
+      controller.activeSourceGeneration == sourceGeneration &&
+      controller.isSourceOwnerActive(videoDetailController) &&
+      videoDetailController.isCurrentPlayerSource;
+
+  bool _isPipReturnSourceCurrent(
+    PlPlayerController controller,
+    VideoController videoController,
+    int sourceGeneration,
+  ) =>
+      _isPipReturnSourceSnapshotCurrent(
+        controller,
+        videoController,
+        sourceGeneration,
+      ) &&
+      _isPageOwner &&
+      isShowing;
+
+  void _clearPendingNativePipRestore() {
+    _nativePipRestorePending = false;
+    _nativePipVideoController = null;
+    _nativePipSourceGeneration = null;
+  }
+
+  bool _isPipReturnPosterCurrent(int currentCid, int currentSourceRevision) {
+    final controller = _pipReturnPosterController;
+    final videoController = _pipReturnPosterVideoController;
+    final sourceGeneration = _pipReturnPosterSourceGeneration;
+    return _pipReturnPosterVisible &&
+        controller != null &&
+        videoController != null &&
+        sourceGeneration != null &&
+        _pipReturnPosterCid == currentCid &&
+        _pipReturnPosterSourceRevision == currentSourceRevision &&
+        _pipReturnPosterCover == videoDetailController.cover.value &&
+        _isPipReturnSourceCurrent(
+          controller,
+          videoController,
+          sourceGeneration,
+        );
+  }
+
+  void _clearPipReturnPosterState() {
+    _pipReturnPosterVisible = false;
+    _pipReturnPosterFading = false;
+    _pipReturnPosterController = null;
+    _pipReturnPosterVideoController = null;
+    _pipReturnPosterSourceGeneration = null;
+    _pipReturnPosterCid = null;
+    _pipReturnPosterCover = null;
+    _pipReturnPosterSourceRevision = null;
+    _pipReturnPosterWaiting = false;
+    _pipReturnPosterRetirementScheduledFor = null;
+  }
+
+  void _restorePipReturnPresentation({
+    required PlPlayerController controller,
+    required VideoController videoController,
+    required int sourceGeneration,
+  }) {
+    if (!_isPipReturnSourceCurrent(
+      controller,
+      videoController,
+      sourceGeneration,
+    )) {
+      return;
+    }
+
+    _clearPendingNativePipRestore();
+    ++_pipReturnPresentationGeneration;
+    final keepPosterUntilSurfaceReady =
+        videoDetailController.autoPlay &&
+        videoDetailController.cover.value.isNotEmpty;
+    _pipReturnPosterVisible = keepPosterUntilSurfaceReady;
+    _pipReturnPosterFading = false;
+    _pipReturnPosterController = keepPosterUntilSurfaceReady
+        ? controller
+        : null;
+    _pipReturnPosterVideoController = keepPosterUntilSurfaceReady
+        ? videoController
+        : null;
+    _pipReturnPosterSourceGeneration = keepPosterUntilSurfaceReady
+        ? sourceGeneration
+        : null;
+    _pipReturnPosterCid = keepPosterUntilSurfaceReady
+        ? videoDetailController.cid.value
+        : null;
+    _pipReturnPosterCover = keepPosterUntilSurfaceReady
+        ? videoDetailController.cover.value
+        : null;
+    _pipReturnPosterSourceRevision = keepPosterUntilSurfaceReady
+        ? controller.sourceRevision.value
+        : null;
+    videoDetailController.videoState.value = true;
+    setState(() {});
+    if (keepPosterUntilSurfaceReady) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _startPipReturnPosterFadeCheck();
+      });
+    }
+  }
+
+  void _schedulePipReturnPresentationRestore({
+    required PlPlayerController controller,
+    required VideoController videoController,
+    required int sourceGeneration,
+  }) {
+    final generation = ++_pipReturnPresentationGeneration;
+    unawaited(() async {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || generation != _pipReturnPresentationGeneration) {
+        return;
+      }
+      if (!_isPipReturnSourceCurrent(
+        controller,
+        videoController,
+        sourceGeneration,
+      )) {
+        return;
+      }
+      // A user may pause the player while the PiP route is being restored.
+      // Restoring the page presentation must not implicitly resume playback.
+      _restorePipReturnPresentation(
+        controller: controller,
+        videoController: videoController,
+        sourceGeneration: sourceGeneration,
+      );
+    }());
+  }
+
+  void _tryRestoreAfterNativePip() {
+    if (!_nativePipRestorePending || !mounted || !isShowing || !_isPageOwner) {
+      return;
+    }
+    final controller = _predictiveBackController;
+    final videoController = _nativePipVideoController;
+    final sourceGeneration = _nativePipSourceGeneration;
+    if (controller == null ||
+        videoController == null ||
+        sourceGeneration == null) {
+      _clearPendingNativePipRestore();
+      return;
+    }
+    if (!_isPipReturnSourceSnapshotCurrent(
+      controller,
+      videoController,
+      sourceGeneration,
+    )) {
+      _clearPendingNativePipRestore();
+      return;
+    }
+    if (!isShowing ||
+        !_isPageOwner ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed ||
+        controller.isPipMode) {
+      return;
+    }
+    _restorePipReturnPresentation(
+      controller: controller,
+      videoController: videoController,
+      sourceGeneration: sourceGeneration,
+    );
+  }
+
+  Future<void> _waitForPipReturnSurface({
+    required int presentationGeneration,
+    required PlPlayerController controller,
+    required VideoController videoController,
+    required int sourceGeneration,
+  }) async {
+    bool isCurrent() =>
+        presentationGeneration == _pipReturnPresentationGeneration &&
+        _isPipReturnSourceCurrent(
+          controller,
+          videoController,
+          sourceGeneration,
+        );
+
+    final playbackAdvanced =
+        !controller.playerStatus.isPlaying ||
+        await _waitForCurrentPlaybackAdvance(
+          generation: presentationGeneration,
+          session: widget.session,
+          controller: controller,
+          videoController: videoController,
+          sourceGeneration: sourceGeneration,
+          minimumAdvanceEvents: Platform.isAndroid ? 2 : 1,
+          isStillCurrent: isCurrent,
+        );
+    final surfaceReady =
+        playbackAdvanced &&
+        await _waitForStableInitialVideoSurface(
+          generation: presentationGeneration,
+          session: widget.session,
+          controller: controller,
+          videoController: videoController,
+          sourceGeneration: sourceGeneration,
+          stableFrameCount: 3,
+          isStillCurrent: isCurrent,
+        );
+    if (surfaceReady && isCurrent()) {
+      setState(() => _pipReturnPosterFading = true);
+    } else {
+      _clearPipReturnPosterIfSourceChanged(
+        presentationGeneration,
+        controller,
+        videoController,
+        sourceGeneration,
+      );
+    }
+  }
+
+  void _startPipReturnPosterFadeCheck() {
+    if (!_pipReturnPosterVisible || _pipReturnPosterFading || !mounted) {
+      return;
+    }
+    if (_pipReturnPosterWaiting || _pipRestoreInFlight) {
+      return;
+    }
+    final controller = _pipReturnPosterController;
+    final videoController = _pipReturnPosterVideoController;
+    final sourceGeneration = _pipReturnPosterSourceGeneration;
+    final presentationGeneration = _pipReturnPresentationGeneration;
+    if (controller == null ||
+        videoController == null ||
+        sourceGeneration == null ||
+        !_isPipReturnPosterCurrent(
+          videoDetailController.cid.value,
+          controller.sourceRevision.value,
+        )) {
+      _retirePipReturnPoster(presentationGeneration);
+      return;
+    }
+    _pipReturnPosterWaiting = true;
+    unawaited(() async {
+      try {
+        await _waitForPipReturnSurface(
+          presentationGeneration: presentationGeneration,
+          controller: controller,
+          videoController: videoController,
+          sourceGeneration: sourceGeneration,
+        );
+      } finally {
+        if (mounted &&
+            presentationGeneration == _pipReturnPresentationGeneration) {
+          _pipReturnPosterWaiting = false;
+        }
+      }
+    }());
+  }
+
+  void _retirePipReturnPoster(int presentationGeneration) {
+    if (!mounted ||
+        presentationGeneration != _pipReturnPresentationGeneration ||
+        !_pipReturnPosterVisible) {
+      return;
+    }
+    setState(() {
+      _pipReturnPresentationGeneration++;
+      _clearPipReturnPosterState();
+    });
+  }
+
+  void _schedulePipReturnPosterRetirement(
+    int presentationGeneration,
+    int currentCid,
+    int currentSourceRevision,
+  ) {
+    if (_pipReturnPosterRetirementScheduledFor == presentationGeneration) {
+      return;
+    }
+    _pipReturnPosterRetirementScheduledFor = presentationGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_pipReturnPosterRetirementScheduledFor == presentationGeneration) {
+        _pipReturnPosterRetirementScheduledFor = null;
+      }
+      if (!mounted ||
+          presentationGeneration != _pipReturnPresentationGeneration ||
+          _isPipReturnPosterCurrent(currentCid, currentSourceRevision)) {
+        return;
+      }
+      _retirePipReturnPoster(presentationGeneration);
+    });
+  }
+
+  void _clearPipReturnPosterIfSourceChanged(
+    int presentationGeneration,
+    PlPlayerController controller,
+    VideoController videoController,
+    int sourceGeneration,
+  ) {
+    if (!mounted ||
+        presentationGeneration != _pipReturnPresentationGeneration ||
+        _isPipReturnSourceSnapshotCurrent(
+          controller,
+          videoController,
+          sourceGeneration,
+        )) {
+      return;
+    }
+    setState(_clearPipReturnPosterState);
+  }
+
+  void _finishPipReturnPosterFade(
+    int presentationGeneration,
+    int currentCid,
+    int currentSourceRevision,
+  ) {
+    if (!mounted ||
+        presentationGeneration != _pipReturnPresentationGeneration ||
+        !_pipReturnPosterVisible ||
+        !_pipReturnPosterFading) {
+      return;
+    }
+    if (!_isPipReturnPosterCurrent(currentCid, currentSourceRevision)) {
+      _retirePipReturnPoster(presentationGeneration);
+      return;
+    }
+    setState(_clearPipReturnPosterState);
   }
 
   void _handleFullScreenEntryProcessingChanged(bool isEntering) {
@@ -589,6 +982,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       // the page even if an overlay callback is lost during route teardown.
       setState(() => _pipRestoreInFlight = false);
       _resetEnteringPipFlags();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _startPipReturnPosterFadeCheck();
+      });
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _attachPipRestore());
   }
@@ -614,6 +1010,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         setState(() => _pipRestoreInFlight = false);
         plPlayerController?.controls = false;
         _resetEnteringPipFlags();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _startPipReturnPosterFadeCheck();
+        });
       },
     );
   }
@@ -839,7 +1238,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       _initialPlayerStarted = true;
 
       plPlayerController = videoDetailController.plPlayerController;
-      final wasPlaying = plPlayerController!.playerStatus.isPlaying;
+      final pipVideoController = plPlayerController!.videoController;
+      final pipSourceGeneration = plPlayerController!.activeSourceGeneration;
 
       // 重新创建 TabController，因为旧的 vsync (State) 已经失效
       final List<String> initialTabs = [
@@ -882,10 +1282,18 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
         videoDetailController.videoState.value = true;
         videoDetailController.videoState.refresh();
-        if (wasPlaying &&
-            videoDetailController.isCurrentPlayerSource &&
-            !plPlayerController!.playerStatus.isPlaying) {
-          plPlayerController!.play();
+        if (pipVideoController != null &&
+            pipSourceGeneration != null &&
+            _isPipReturnSourceCurrent(
+              plPlayerController!,
+              pipVideoController,
+              pipSourceGeneration,
+            )) {
+          _schedulePipReturnPresentationRestore(
+            controller: plPlayerController!,
+            videoController: pipVideoController,
+            sourceGeneration: pipSourceGeneration,
+          );
         }
         videoDetailController.cid.refresh();
         videoDetailController.cover.refresh();
@@ -953,7 +1361,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       videoSourceInit();
     }
 
-    addObserverMobile(this);
+    _ensureMobileObserverRegistered();
   }
 
   // 获取视频资源，初始化播放器
@@ -1318,6 +1726,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     required VideoController videoController,
     required int sourceGeneration,
     int stableFrameCount = 1,
+    bool Function()? isStillCurrent,
   }) async {
     final result = Completer<bool>();
     var stopped = false;
@@ -1348,13 +1757,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
           finish(false);
           return;
         }
-        if (!_isInitialVisualSourceCurrent(
-          generation,
-          session,
-          controller,
-          videoController,
-          sourceGeneration,
-        )) {
+        if (!(isStillCurrent?.call() ??
+            _isInitialVisualSourceCurrent(
+              generation,
+              session,
+              controller,
+              videoController,
+              sourceGeneration,
+            ))) {
           finish(false);
           return;
         }
@@ -1393,13 +1803,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         if (stableFrames < stableFrameCount) {
           return;
         }
-        if (!_isInitialVisualSourceCurrent(
-          generation,
-          session,
-          controller,
-          videoController,
-          sourceGeneration,
-        )) {
+        if (!(isStillCurrent?.call() ??
+            _isInitialVisualSourceCurrent(
+              generation,
+              session,
+              controller,
+              videoController,
+              sourceGeneration,
+            ))) {
           finish(false);
           return;
         }
@@ -1446,6 +1857,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     required VideoController videoController,
     required int sourceGeneration,
     int minimumAdvanceEvents = 1,
+    bool Function()? isStillCurrent,
   }) async {
     final player = controller.videoPlayerController;
     if (player == null) {
@@ -1467,13 +1879,14 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
       if (stopped || result.isCompleted) {
         return;
       }
-      if (!_isInitialVisualSourceCurrent(
-        generation,
-        session,
-        controller,
-        videoController,
-        sourceGeneration,
-      )) {
+      if (!(isStillCurrent?.call() ??
+          _isInitialVisualSourceCurrent(
+            generation,
+            session,
+            controller,
+            videoController,
+            sourceGeneration,
+          ))) {
         finish(false);
         return;
       }
@@ -1876,6 +2289,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         introController.startTimer();
         ctr.showDanmaku = true;
       }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _tryRestoreAfterNativePip();
+      });
     } else if (state == .paused) {
       introController.cancelTimer();
       ctr.showDanmaku = false;
@@ -1891,6 +2307,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   // 播放器状态监听
   Future<void> playerListener(PlayerStatus status) async {
+    _tryRestoreAfterNativePip();
+    _startPipReturnPosterFadeCheck();
     final isPlaying = status.isPlaying;
     if (isPlaying) {
       _completedProgressSynced = false;
@@ -2027,6 +2445,8 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   @override
   void dispose() {
+    _pipReturnPresentationGeneration++;
+    _clearPipReturnPosterState();
     _pipRestoreFallbackTimer?.cancel();
     _pipRestoreFallbackTimer = null;
     _fullScreenExitSettleGeneration++;
@@ -2039,7 +2459,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     playerFocusNode.dispose();
     if (!_hasVideoDetailController) {
       VideoStackManager.decrement();
-      removeObserverMobile(this);
+      _removeMobileObserver();
       super.dispose();
       return;
     }
@@ -2113,7 +2533,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         }
       }
     }
-    removeObserverMobile(this);
+    _removeMobileObserver();
 
     super.dispose();
   }
@@ -2125,8 +2545,10 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     _didPopNextGeneration++;
     super.didPushNext();
     isShowing = false;
+    _pipReturnPresentationGeneration++;
+    _clearPipReturnPosterState();
 
-    removeObserverMobile(this);
+    _removeMobileObserver();
     if (!_hasVideoDetailController) {
       return;
     }
@@ -2219,7 +2641,11 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
     isShowing = true;
 
-    addObserverMobile(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _tryRestoreAfterNativePip();
+    });
+
+    _ensureMobileObserverRegistered();
 
     plPlayerController?.isLive = false;
 
@@ -3519,16 +3945,17 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
 
   Widget videoPlayer({required double width, required double height}) {
     final isFullScreen = this.isFullScreen;
-    Widget cover() => Obx(
-      () => NetworkImgLayer(
-        clip: false,
-        src: videoDetailController.cover.value,
-        width: width,
-        height: height,
-        cacheWidth: true,
-        getPlaceHolder: () => Center(child: Image.asset(Assets.loading)),
-      ),
+    Widget coverImage(String source) => NetworkImgLayer(
+      clip: false,
+      src: source,
+      width: width,
+      height: height,
+      cacheWidth: true,
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
+      getPlaceHolder: () => Center(child: Image.asset(Assets.loading)),
     );
+    Widget cover() => Obx(() => coverImage(videoDetailController.cover.value));
     return MouseRegion(
       onEnter: (_) => playerFocusNode.requestFocus(),
       child: Listener(
@@ -3545,21 +3972,71 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
                 clipBehavior: Clip.none,
                 children: [
                   Obx(() {
-                    if (!videoDetailController.autoPlay) {
-                      // The poster belongs to manual playback only. Keeping
-                      // it inside this branch prevents it from outliving a
-                      // source switch and covering the native texture.
-                      return Positioned.fill(
-                        child: _routeFadeTransition(
-                          child: GestureDetector(
-                            onTap: handlePlay,
-                            behavior: .opaque,
-                            child: ClipRect(child: cover()),
-                          ),
-                        ),
+                    final isManualPoster = !videoDetailController.autoPlay;
+                    final currentCid = videoDetailController.cid.value;
+                    final playerController =
+                        videoDetailController.plPlayerController;
+                    final sourceRevision =
+                        playerController.sourceRevision.value;
+                    final isCurrentPipReturnPoster = _isPipReturnPosterCurrent(
+                      currentCid,
+                      sourceRevision,
+                    );
+                    if (_pipReturnPosterVisible && !isCurrentPipReturnPoster) {
+                      _schedulePipReturnPosterRetirement(
+                        _pipReturnPresentationGeneration,
+                        currentCid,
+                        sourceRevision,
                       );
                     }
-                    return const SizedBox.shrink();
+                    if (!isManualPoster && !isCurrentPipReturnPoster) {
+                      return const SizedBox.shrink();
+                    }
+                    final canStartPlayback =
+                        isManualPoster && !isCurrentPipReturnPoster;
+                    final reducedMotion =
+                        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+                    final presentationGeneration =
+                        _pipReturnPresentationGeneration;
+                    return Positioned.fill(
+                      child: IgnorePointer(
+                        ignoring: !canStartPlayback,
+                        child: ExcludeSemantics(
+                          excluding: !canStartPlayback,
+                          child: AnimatedOpacity(
+                            opacity:
+                                isCurrentPipReturnPoster &&
+                                    _pipReturnPosterFading
+                                ? 0
+                                : 1,
+                            duration: isCurrentPipReturnPoster
+                                ? reducedMotion
+                                      ? const Duration(milliseconds: 100)
+                                      : _pipReturnPosterFadeDuration
+                                : Duration.zero,
+                            curve: Curves.easeOutCubic,
+                            onEnd: isCurrentPipReturnPoster
+                                ? () => _finishPipReturnPosterFade(
+                                    presentationGeneration,
+                                    currentCid,
+                                    sourceRevision,
+                                  )
+                                : null,
+                            child: _routeFadeTransition(
+                              child: GestureDetector(
+                                onTap: canStartPlayback ? handlePlay : null,
+                                behavior: .opaque,
+                                child: ClipRect(
+                                  child: isCurrentPipReturnPoster
+                                      ? coverImage(_pipReturnPosterCover!)
+                                      : cover(),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
                   }),
                   _routeFadeTransition(child: manualPlayerWidget),
 

@@ -3,6 +3,7 @@ import 'dart:ui' show Tristate;
 import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/semantics.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -292,6 +293,41 @@ void main() {
       expect(selected, [0, 1, 1]);
     },
   );
+
+  testWidgets('keeps a completed tap when a competing recognizer wins', (
+    tester,
+  ) async {
+    final selected = <int>[];
+    await tester.pumpWidget(
+      host(
+        onSelected: selected.add,
+        wrapBar: (bar) => RawGestureDetector(
+          gestures: {
+            EagerGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<EagerGestureRecognizer>(
+                  EagerGestureRecognizer.new,
+                  (recognizer) {},
+                ),
+          },
+          child: bar,
+        ),
+      ),
+    );
+    final shell = tester.getRect(
+      find.byKey(const ValueKey('glassVisualShell')),
+    );
+
+    await tester.tapAt(
+      Offset(shell.left + shell.width * 0.75, shell.center.dy),
+    );
+    await tester.pumpAndSettle();
+
+    expect(selected, [1]);
+    final indicator = tester.getRect(
+      find.byKey(const ValueKey('floatingNavigationIndicator')),
+    );
+    expect(indicator.center.dx, greaterThan(shell.center.dx));
+  });
 
   testWidgets('press feedback expands the indicator before release', (
     tester,

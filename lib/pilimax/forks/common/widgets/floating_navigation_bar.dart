@@ -655,8 +655,23 @@ class _InteractiveFloatingNavigationBarState
         return;
       }
       _interactionCommitted = true;
-      if (_isVerticalGesture || !_gestureDirectionLocked) {
+      if (_isVerticalGesture) {
         _animateTo(widget.selectedIndex.toDouble());
+        _scheduleInteractionReset();
+        return;
+      }
+      if (!_gestureDirectionLocked) {
+        // The NavigationBar tap recognizer normally commits this selection
+        // first. If it does not, keep the completed pointer tap from snapping
+        // the indicator back without changing the page.
+        final tappedIndex = _indexForX(_pointerDownPosition.dx).round();
+        if (_destinationEnabled(tappedIndex) &&
+            widget.onDestinationSelected != null) {
+          _animateTo(tappedIndex.toDouble());
+          widget.onDestinationSelected?.call(tappedIndex);
+        } else {
+          _animateTo(widget.selectedIndex.toDouble());
+        }
         _scheduleInteractionReset();
         return;
       }

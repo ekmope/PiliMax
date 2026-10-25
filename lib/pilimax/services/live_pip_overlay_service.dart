@@ -18,6 +18,7 @@ import 'package:flutter/gestures.dart'
         PointerEnterEvent,
         PointerExitEvent,
         PointerScrollEvent;
+import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -278,8 +279,17 @@ class _LivePipWidgetState extends State<LivePipWidget>
     vsync: this,
     duration: PipTransitionCoordinator.closeFadeDuration,
   );
+  late final Animation<double> _closeOpacity = _closeController.drive(
+    Tween<double>(begin: 1, end: 0),
+  );
+  late final Animation<double> _closeScale = _closeController.drive(
+    Tween<double>(begin: 1, end: 0.85).chain(
+      CurveTween(curve: Curves.easeOut),
+    ),
+  );
 
   final ValueNotifier<int> _geometryRevision = ValueNotifier(0);
+  bool _geometryRevisionScheduled = false;
 
   bool _disableAnimations = false;
 
@@ -535,7 +545,12 @@ class _LivePipWidgetState extends State<LivePipWidget>
   }
 
   void _notifyGeometryChanged() {
-    _geometryRevision.value++;
+    if (_geometryRevisionScheduled) return;
+    _geometryRevisionScheduled = true;
+    SchedulerBinding.instance.scheduleFrameCallback((_) {
+      _geometryRevisionScheduled = false;
+      if (mounted) _geometryRevision.value++;
+    });
   }
 
   void _cancelWheelResize() {
@@ -675,6 +690,10 @@ class _LivePipWidgetState extends State<LivePipWidget>
           final inTransition =
               phase == PipPhase.entering || phase == PipPhase.restoring;
           final interactive = phase == PipPhase.active && !_isClosing;
+          // Keep the transition window at a fixed layout size and express
+          // its changing geometry through transforms. The active window
+          // keeps the existing layout so control spacing remains unchanged.
+          final transformGeometry = inTransition || _isClosing;
           final baseSize = _unscaledWindowSize;
 
           return TweenAnimationBuilder<Rect?>(
@@ -700,21 +719,32 @@ class _LivePipWidgetState extends State<LivePipWidget>
               return Positioned(
                 left: 0,
                 top: 0,
-                child: Transform.translate(
-                  offset: currentRect.topLeft,
-                  child: FadeTransition(
-                    opacity: _closeController.drive(
-                      Tween<double>(begin: 1, end: 0),
+                child: Transform(
+                  transform: Matrix4.identity()
+                    ..translateByDouble(
+                      currentRect.left,
+                      currentRect.top,
+                      0,
+                      1,
+                    )
+                    ..scaleByDouble(
+                      transformGeometry ? scaleX : 1,
+                      transformGeometry ? scaleY : 1,
+                      1,
+                      1,
                     ),
+                  alignment: Alignment.topLeft,
+                  child: FadeTransition(
+                    opacity: _closeOpacity,
                     child: ScaleTransition(
-                      scale: _closeController.drive(
-                        Tween<double>(begin: 1, end: 0.85).chain(
-                          CurveTween(curve: Curves.easeOut),
-                        ),
-                      ),
+                      scale: _closeScale,
                       child: SizedBox(
-                        width: currentRect.width,
-                        height: currentRect.height,
+                        width: transformGeometry
+                            ? baseSize.width
+                            : currentRect.width,
+                        height: transformGeometry
+                            ? baseSize.height
+                            : currentRect.height,
                         child: IgnorePointer(
                           ignoring: !interactive,
                           child: Listener(
@@ -778,8 +808,12 @@ class _LivePipWidgetState extends State<LivePipWidget>
                                         minHeight: baseSize.height,
                                         maxHeight: baseSize.height,
                                         child: Transform.scale(
-                                          scaleX: scaleX,
-                                          scaleY: scaleY,
+                                          scaleX: transformGeometry
+                                              ? 1
+                                              : scaleX,
+                                          scaleY: transformGeometry
+                                              ? 1
+                                              : scaleY,
                                           alignment: Alignment.topLeft,
                                           child: SizedBox(
                                             width: baseSize.width,
@@ -791,7 +825,9 @@ class _LivePipWidgetState extends State<LivePipWidget>
                                                 boxShadow: [
                                                   BoxShadow(
                                                     color: Colors.black
-                                                        .withValues(alpha: 0.6),
+                                                        .withValues(
+                                                          alpha: 0.6,
+                                                        ),
                                                     blurRadius:
                                                         12 / radiusScale,
                                                     spreadRadius:
@@ -839,7 +875,9 @@ class _LivePipWidgetState extends State<LivePipWidget>
                                                 child: GestureDetector(
                                                   onTap: _beginClose,
                                                   child: const Padding(
-                                                    padding: EdgeInsets.all(8),
+                                                    padding: EdgeInsets.all(
+                                                      8,
+                                                    ),
                                                     child: Icon(
                                                       Icons.close,
                                                       color: Colors.white,
@@ -858,7 +896,9 @@ class _LivePipWidgetState extends State<LivePipWidget>
                                                     widget.onReturn();
                                                   },
                                                   child: const Padding(
-                                                    padding: EdgeInsets.all(8),
+                                                    padding: EdgeInsets.all(
+                                                      8,
+                                                    ),
                                                     child: Icon(
                                                       Icons.open_in_full,
                                                       color: Colors.white,

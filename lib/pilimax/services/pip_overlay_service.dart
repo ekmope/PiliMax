@@ -20,6 +20,7 @@ import 'package:flutter/gestures.dart'
         PointerEnterEvent,
         PointerExitEvent,
         PointerScrollEvent;
+import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
@@ -494,8 +495,17 @@ class _PipWidgetState extends State<PipWidget>
     vsync: this,
     duration: PipTransitionCoordinator.closeFadeDuration,
   );
+  late final Animation<double> _closeOpacity = _closeController.drive(
+    Tween<double>(begin: 1, end: 0),
+  );
+  late final Animation<double> _closeScale = _closeController.drive(
+    Tween<double>(begin: 1, end: 0.85).chain(
+      CurveTween(curve: Curves.easeOut),
+    ),
+  );
 
   final ValueNotifier<int> _geometryRevision = ValueNotifier(0);
+  bool _geometryRevisionScheduled = false;
 
   bool _disableAnimations = false;
 
@@ -732,7 +742,12 @@ class _PipWidgetState extends State<PipWidget>
   }
 
   void _notifyGeometryChanged() {
-    _geometryRevision.value++;
+    if (_geometryRevisionScheduled) return;
+    _geometryRevisionScheduled = true;
+    SchedulerBinding.instance.scheduleFrameCallback((_) {
+      _geometryRevisionScheduled = false;
+      if (mounted) _geometryRevision.value++;
+    });
   }
 
   void _cancelWheelResize() {
@@ -873,6 +888,11 @@ class _PipWidgetState extends State<PipWidget>
           final inTransition =
               phase == PipPhase.entering || phase == PipPhase.restoring;
           final interactive = phase == PipPhase.active && !_isClosing;
+          // During non-interactive transitions the controls are hidden, so
+          // keep the window's layout size fixed and express its geometry with
+          // transforms. The active window retains its existing layout so
+          // control spacing stays identical when users resize the PiP.
+          final transformGeometry = inTransition || _isClosing;
           final baseSize = _unscaledWindowSize;
           return TweenAnimationBuilder<Rect?>(
             tween: RectTween(end: rect),
@@ -898,21 +918,32 @@ class _PipWidgetState extends State<PipWidget>
               return Positioned(
                 left: 0,
                 top: 0,
-                child: Transform.translate(
-                  offset: currentRect.topLeft,
-                  child: FadeTransition(
-                    opacity: _closeController.drive(
-                      Tween<double>(begin: 1, end: 0),
+                child: Transform(
+                  transform: Matrix4.identity()
+                    ..translateByDouble(
+                      currentRect.left,
+                      currentRect.top,
+                      0,
+                      1,
+                    )
+                    ..scaleByDouble(
+                      transformGeometry ? scaleX : 1,
+                      transformGeometry ? scaleY : 1,
+                      1,
+                      1,
                     ),
+                  alignment: Alignment.topLeft,
+                  child: FadeTransition(
+                    opacity: _closeOpacity,
                     child: ScaleTransition(
-                      scale: _closeController.drive(
-                        Tween<double>(begin: 1, end: 0.85).chain(
-                          CurveTween(curve: Curves.easeOut),
-                        ),
-                      ),
+                      scale: _closeScale,
                       child: SizedBox(
-                        width: currentRect.width,
-                        height: currentRect.height,
+                        width: transformGeometry
+                            ? baseSize.width
+                            : currentRect.width,
+                        height: transformGeometry
+                            ? baseSize.height
+                            : currentRect.height,
                         child: IgnorePointer(
                           ignoring: !interactive,
                           child: Listener(
@@ -972,8 +1003,12 @@ class _PipWidgetState extends State<PipWidget>
                                         minHeight: baseSize.height,
                                         maxHeight: baseSize.height,
                                         child: Transform.scale(
-                                          scaleX: scaleX,
-                                          scaleY: scaleY,
+                                          scaleX: transformGeometry
+                                              ? 1
+                                              : scaleX,
+                                          scaleY: transformGeometry
+                                              ? 1
+                                              : scaleY,
                                           alignment: Alignment.topLeft,
                                           child: SizedBox(
                                             width: baseSize.width,
@@ -985,7 +1020,9 @@ class _PipWidgetState extends State<PipWidget>
                                                 boxShadow: [
                                                   BoxShadow(
                                                     color: Colors.black
-                                                        .withValues(alpha: 0.5),
+                                                        .withValues(
+                                                          alpha: 0.5,
+                                                        ),
                                                     blurRadius:
                                                         10 / radiusScale,
                                                     spreadRadius:

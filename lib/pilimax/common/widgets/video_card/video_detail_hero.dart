@@ -842,7 +842,11 @@ class _VideoDetailHeroShellState extends State<VideoDetailHeroShell>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Keep the shimmer tied to the route's ticker visibility. This preserves
+    // the active entry appearance while preventing hidden/offstage shells from
+    // requesting frames after their parent disables the ticker subtree.
     final shouldAnimate =
+        TickerMode.valuesOf(context).enabled &&
         !(MediaQuery.maybeOf(context)?.disableAnimations ?? false);
     if (shouldAnimate == _shimmerEnabled) {
       return;

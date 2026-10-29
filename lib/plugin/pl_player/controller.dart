@@ -651,8 +651,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   late final enableSlideFS = Pref.enableSlideFS;
   late final enableScrollVolume = Pref.enableScrollVolume;
   late final enableDragSubtitle = Pref.enableDragSubtitle;
+  late final fastForBackwardInSeconds = Pref.fastForBackwardDuration;
   late final fastForBackwardDuration = Duration(
-    seconds: Pref.fastForBackwardDuration,
+    seconds: fastForBackwardInSeconds,
   );
 
   late final horizontalSeasonPanel = Pref.horizontalSeasonPanel;
@@ -1611,6 +1612,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     VoidCallback? onInit,
     Volume? volume,
     bool autoFullScreenFlag = false,
+    int? rotate,
   }) {
     final nextContextKey = _buildSourceContextKey(
       isLive: isLive,
@@ -1646,6 +1648,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
           onInit: onInit,
           volume: volume,
           autoFullScreenFlag: autoFullScreenFlag,
+          rotate: rotate,
           sourceOwner: sourceOwner,
         ),
         onError: (err, stackTrace, attempt) {
@@ -1687,6 +1690,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     required VoidCallback? onInit,
     required Volume? volume,
     required bool autoFullScreenFlag,
+    required int? rotate,
     required Object sourceOwner,
   }) async {
     bool isCurrent() => attempt.isCurrent;
@@ -1750,6 +1754,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       dataSource,
       seekTo,
       volume,
+      rotate: rotate,
       attempt: attempt,
     );
     if (preparedMedia == null) return null;
@@ -2289,6 +2294,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     DataSource dataSource,
     Duration? seekTo,
     Volume? volume, {
+    int? rotate,
     required PlPlayerSourceAttempt<Player> attempt,
   }) async {
     bool isCurrent() => attempt.isCurrent;
@@ -2316,6 +2322,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
 
     final Map<String, String> extras = {
+      if (rotate != null) 'video-rotate': rotate.toString(),
       if (dataSource is FileSource)
         'cache': 'no'
       else if (isLive)
@@ -3391,6 +3398,24 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   void onBackward(Duration duration) {
     onForwardBackward(videoPlayerController!.state.position - duration);
+  }
+
+  void multiBackwardStart([_]) {
+    if (!isSeeking.value) {
+      seekPosition.value = position.value;
+      isSeeking.value = true;
+    }
+    seekPosition.value = max(0, seekPosition.value - fastForBackwardInSeconds);
+  }
+
+  void multiBackwardEnd() {
+    if (isSeeking.value) {
+      final target = seekPosition.value;
+      isSeeking.value = false;
+      onForwardBackward(Duration(seconds: target));
+    } else {
+      onBackward(fastForBackwardDuration);
+    }
   }
 
   void onForwardBackward(Duration duration) {

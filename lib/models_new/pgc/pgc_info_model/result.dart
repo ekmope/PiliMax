@@ -23,7 +23,7 @@ class PgcInfoModel {
   Rating? rating;
   int? seasonId;
   String? seasonTitle;
-  List<Section>? section;
+  List<Section>? sections;
   PgcStat? stat;
   String? subtitle;
   String? title;
@@ -35,6 +35,8 @@ class PgcInfoModel {
   List<Season>? seasons;
 
   bool get hasSeasons => seasons != null && seasons!.length > 1;
+
+  bool get hasSections => sections?.isNotEmpty ?? false;
 
   bool get hasEpisodes => episodes?.isNotEmpty ?? false;
 
@@ -50,7 +52,7 @@ class PgcInfoModel {
     this.rating,
     this.seasonId,
     this.seasonTitle,
-    this.section,
+    this.sections,
     this.stat,
     this.subtitle,
     this.title,
@@ -84,7 +86,7 @@ class PgcInfoModel {
         : Rating.fromJson(json['rating'] as Map<String, dynamic>),
     seasonId: json['season_id'] as int?,
     seasonTitle: json['season_title'] as String?,
-    section: (json['section'] as List<dynamic>?)
+    sections: (json['section'] as List<dynamic>?)
         ?.map((e) => Section.fromJson(e as Map<String, dynamic>))
         .toList(),
     stat: json['stat'] == null

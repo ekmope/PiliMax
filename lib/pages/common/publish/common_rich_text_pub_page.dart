@@ -46,6 +46,7 @@ abstract class CommonRichTextPubPage
     this.pics,
     super.onSave,
     super.autofocus,
+    super.panelType,
     super.imageLengthLimit,
   });
 
@@ -58,7 +59,7 @@ abstract class CommonRichTextPubPageState<T extends CommonRichTextPubPage>
   final key = GlobalKey<RichTextFieldState>();
   late final imagePicker = ImagePicker();
   late final RxList<PicModel> imageList;
-  int get limit => widget.imageLengthLimit ?? 9;
+  int get limit => widget.imageLengthLimit;
 
   @override
   late final RichTextEditingController editController;

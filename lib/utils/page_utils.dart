@@ -1128,7 +1128,7 @@ abstract final class PageUtils {
         );
       }
       if (episode == null) {
-        for (final section in response.section ?? const []) {
+        for (final section in response.sections ?? const []) {
           for (final sectionEpisode in section.episodes ?? const []) {
             if (sectionEpisode.epId.toString() == requestedEpId) {
               episode = sectionEpisode;
@@ -1149,7 +1149,7 @@ abstract final class PageUtils {
         epId: response.userStatus?.progress?.lastEpId,
       );
     } else if (episode == null) {
-      episode = response.section?.firstOrNull?.episodes?.firstOrNull;
+      episode = response.sections?.firstOrNull?.episodes?.firstOrNull;
       viewAsSection = episode != null;
     }
     if (episode == null) {

@@ -9,6 +9,7 @@ import 'package:PiliMax/http/pgc.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
+import 'package:PiliMax/models/common/pgc_episode_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
@@ -35,7 +36,27 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
+typedef OnChangePgcEpisode = Future<bool> Function(
+  BaseEpisodeItem episode, {
+  PgcEpisodeType? episodeType,
+});
+
+typedef ShowEpisodes = Function;
+
 class PgcIntroController extends CommonIntroController {
+  PgcEpisodeType episodeType = PgcEpisodeType.episode;
+  int sectionIndex = 0;
+
+  int get pvIndex {
+    final sections = pgcItem.sections;
+    if (episodeType != PgcEpisodeType.section || sections == null) return 0;
+    final episodes =
+        sections.elementAtOrNull(sectionIndex)?.episodes ?? const [];
+    final currentCid = videoDetailCtr.cid.value;
+    final index = episodes.indexWhere((e) => e.cid == currentCid);
+    return index < 0 ? 0 : index;
+  }
+
   int? seasonId;
   int? epId;
 
@@ -85,6 +106,14 @@ class PgcIntroController extends CommonIntroController {
     epId = args['epId'];
     isPgc = args['videoType'] == VideoType.pgc;
     pgcItem = args['pgcItem'];
+    final initialSection = pgcItem.sections?.indexWhere(
+      (section) =>
+          section.episodes?.any((episode) => episode.epId == epId) ?? false,
+    );
+    if (initialSection != null && initialSection >= 0) {
+      episodeType = PgcEpisodeType.section;
+      sectionIndex = initialSection;
+    }
 
     super.onInit();
 
@@ -118,13 +147,28 @@ class PgcIntroController extends CommonIntroController {
       );
       if (result case Success(:final response)) {
         final episodes = response.episodes;
-        if (episodes == null || episodes.isEmpty) {
+        final episode =
+            episodes?.firstOrNull ??
+            response.sections?.firstOrNull?.episodes?.firstOrNull;
+        if (episode == null) {
           SmartDialog.showToast('剧集为空');
           return false;
         }
         pgcItem = response;
         seasonId = nextSeasonId;
-        final changed = await onChangeEpisode(episodes.first);
+        final sectionIndex = response.sections?.indexWhere(
+          (section) =>
+              section.episodes?.any((item) => item.epId == episode.epId) ??
+              false,
+        );
+        final isSection = sectionIndex != null && sectionIndex >= 0;
+        if (isSection) this.sectionIndex = sectionIndex;
+        final changed = await onChangeEpisode(
+          episode,
+          episodeType: isSection
+              ? PgcEpisodeType.section
+              : PgcEpisodeType.episode,
+        );
         if (changed) _refreshPgcState();
         return changed;
       }
@@ -303,10 +347,12 @@ class PgcIntroController extends CommonIntroController {
   // 修改分P或番剧分集
   Future<bool> onChangeEpisode(
     BaseEpisodeItem episode, {
+    PgcEpisodeType? episodeType,
     bool fromAudioPage = false,
     Duration? audioPosition,
     bool manual = false,
   }) async {
+    this.episodeType = episodeType ?? PgcEpisodeType.episode;
     // Allocate the token before cid lookup so a slow, older selection cannot
     // become current merely because its asynchronous lookup completed last.
     final currentIntroGeneration = nextIntroRequestGeneration();
@@ -432,7 +478,7 @@ class PgcIntroController extends CommonIntroController {
 
   @override
   bool prevPlay({bool manual = false}) {
-    final episodes = pgcItem.episodes;
+    final episodes = currentEpisodes;
     if (episodes == null || episodes.isEmpty) {
       return false;
     }
@@ -459,7 +505,7 @@ class PgcIntroController extends CommonIntroController {
   @override
   bool nextPlay({bool manual = false}) {
     try {
-      final episodes = pgcItem.episodes;
+      final episodes = currentEpisodes;
       if (episodes == null || episodes.isEmpty) {
         return false;
       }
@@ -489,6 +535,11 @@ class PgcIntroController extends CommonIntroController {
       return false;
     }
   }
+
+  List<EpisodeItem>? get currentEpisodes =>
+      episodeType == PgcEpisodeType.section
+      ? pgcItem.sections?.elementAtOrNull(sectionIndex)?.episodes
+      : pgcItem.episodes;
 
   // 一键三连
   @override

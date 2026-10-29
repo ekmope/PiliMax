@@ -13,7 +13,7 @@ import 'package:PiliMax/models/common/enum_with_label.dart';
 import 'package:PiliMax/pages/article/widgets/sliver_list.dart';
 import 'package:PiliMax/pages/common/dyn/common_dyn_controller.dart';
 import 'package:PiliMax/pages/common/fab_mixin.dart';
-import 'package:PiliMax/pages/video/reply/vote/reply_vote_item.dart';
+import 'package:PiliMax/pages/common/reply/vote/reply_vote_item.dart';
 import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliMax/pages/video/reply_reply/view.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';

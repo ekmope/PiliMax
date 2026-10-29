@@ -13,8 +13,9 @@ import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/stat.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
-import 'package:PiliMax/pages/video/introduction/pgc/widgets/pgc_panel.dart';
+import 'package:PiliMax/pages/video/introduction/pgc/widgets/episode.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/widgets/season.dart';
+import 'package:PiliMax/pages/video/introduction/pgc/widgets/section.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/widgets/action_item.dart';
 import 'package:PiliMax/pilimax/pages/video/video_layout_metrics.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
@@ -102,6 +103,12 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
               onChangeEpisode: introController.onChangeEpisode,
               showEpisodes: widget.showEpisodes,
               newEp: item.newEp,
+            ),
+          if (item.hasSections)
+            SectionPanel(
+              pgcController: introController,
+              showEpisodes: widget.showEpisodes,
+              onChangeEpisode: introController.onChangeEpisode,
             ),
         ],
       ),

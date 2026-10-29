@@ -151,7 +151,7 @@ abstract final class ReplyGrpc {
   }
 
   static Future<LoadingState<MainListReply>> mainList({
-    int type = 1,
+    required int type,
     required int oid,
     Int64? rpid,
     required Mode mode,
@@ -164,12 +164,12 @@ abstract final class ReplyGrpc {
         oid: Int64(oid),
         type: Int64(type),
         rpid: rpid,
-        cursor: CursorReq(
-          mode: mode,
-          next: cursorNext,
-        ),
-        // mode: mode,
-        // pagination: offset == null ? null : FeedPagination(offset: offset),
+        // cursor: CursorReq(
+        //   mode: mode,
+        //   next: cursorNext,
+        // ),
+        mode: mode,
+        pagination: offset == null ? null : FeedPagination(offset: offset),
       ),
       MainListReply.fromBuffer,
     );
@@ -203,7 +203,7 @@ abstract final class ReplyGrpc {
   }
 
   static Future<LoadingState<DetailListReply>> detailList({
-    int type = 1,
+    required int type,
     required int oid,
     required int root,
     required int rpid,
@@ -232,8 +232,25 @@ abstract final class ReplyGrpc {
     return res;
   }
 
+  static Future<LoadingState<FoldListResp>> foldList({
+    required int type,
+    required int oid,
+    required FeedPagination pagination,
+  }) async {
+    final res = await GrpcReq.request(
+      GrpcUrl.foldList,
+      FoldListReq(
+        oid: Int64(oid),
+        type: Int64(type),
+        pagination: pagination,
+      ),
+      FoldListResp.fromBuffer,
+    );
+    return res..dataOrNull?.replies.removeWhere(needRemoveGrpc);
+  }
+
   static Future<LoadingState<DialogListReply>> dialogList({
-    int type = 1,
+    required int type,
     required int oid,
     required int root,
     required int dialog,
@@ -263,7 +280,7 @@ abstract final class ReplyGrpc {
     required int page,
     required SearchItemType itemType,
     required int oid,
-    int type = 1,
+    required int type,
     String? keyword,
   }) {
     return GrpcReq.request(

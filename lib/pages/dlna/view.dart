@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/common/widgets/view_sliver_safe_area.dart';
+import 'package:PiliMax/utils/device_utils.dart';
+import 'package:PiliMax/utils/permission_handler.dart';
 import 'package:dlna_dart/dlna.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
@@ -22,6 +25,8 @@ class _DLNAPageState extends State<DLNAPage> {
 
   Timer? _timer;
   bool _isSearching = false;
+  PermissionStatus? _permissionStatus;
+  String? _searchError;
   DLNADevice? _lastDevice;
   String? _lastDeviceKey;
 
@@ -34,26 +39,40 @@ class _DLNAPageState extends State<DLNAPage> {
   Future<void> _onSearch({bool isInit = false}) async {
     if (_isSearching) return;
     _isSearching = true;
+    _permissionStatus = null;
+    _searchError = null;
     if (!isInit && mounted) {
       _lastDevice = null;
       _deviceList.clear();
       setState(() {});
     }
-    final deviceManager = await _searcher.start();
-    if (!mounted) {
-      return;
-    }
-    _timer = Timer(const Duration(seconds: 20), _searcher.stop);
-    await for (final deviceList in deviceManager.devices.stream) {
-      if (mounted) {
-        _deviceList.addAll(deviceList);
-        setState(() {});
+    try {
+      if (Platform.isAndroid && DeviceUtils.sdkInt >= 37) {
+        final status = await Permission.accessLocalNetwork.request();
+        if (!mounted) return;
+        _permissionStatus = status;
+        if (!status.isGranted) return;
       }
-    }
-    if (mounted) {
-      setState(() {
-        _isSearching = false;
-      });
+      final deviceManager = await _searcher.start();
+      if (!mounted) return;
+      _timer = Timer(const Duration(seconds: 20), _searcher.stop);
+      await for (final deviceList in deviceManager.devices.stream) {
+        if (mounted) {
+          _deviceList.addAll(deviceList);
+          setState(() {});
+        }
+      }
+    } catch (_) {
+      _searchError = '搜索设备失败，请检查网络后重试';
+    } finally {
+      _timer?.cancel();
+      _timer = null;
+      _searcher.stop();
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+        });
+      }
     }
   }
 
@@ -94,8 +113,22 @@ class _DLNAPageState extends State<DLNAPage> {
 
   Widget _buildBody(ColorScheme colorScheme) {
     if (!_isSearching && _deviceList.isEmpty) {
+      if (_permissionStatus case final status? when !status.isGranted) {
+        final permanentlyDenied = status.isPermanentlyDenied;
+        return HttpError(
+          errMsg: permanentlyDenied
+              ? '局域网权限未授权，请在系统设置中允许附近的设备，返回后点击搜索'
+              : '需要局域网权限才能搜索投屏设备',
+          btnText: permanentlyDenied ? '前往设置' : '授予权限',
+          onReload: permanentlyDenied
+              ? () {
+                  openAppSettings();
+                }
+              : _onSearch,
+        );
+      }
       return HttpError(
-        errMsg: '没有设备',
+        errMsg: _searchError ?? '没有设备',
         onReload: _onSearch,
       );
     }

@@ -5,7 +5,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliMax/models/common/reply/reply_sort_type.dart';
 import 'package:PiliMax/pages/common/publish/publish_route.dart';
-import 'package:PiliMax/pages/common/reply_controller.dart';
+import 'package:PiliMax/pages/common/reply/reply_controller.dart';
 import 'package:PiliMax/pages/video/reply_new/view.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';

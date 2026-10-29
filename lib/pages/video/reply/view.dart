@@ -9,7 +9,7 @@ import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/common/fab_mixin.dart';
 import 'package:PiliMax/pages/video/reply/controller.dart';
-import 'package:PiliMax/pages/video/reply/vote/reply_vote_item.dart';
+import 'package:PiliMax/pages/common/reply/vote/reply_vote_item.dart';
 import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliMax/pages/video/reply_reply/view.dart';
 import 'package:PiliMax/pages/video/widgets/keyboard_scrollable.dart';

@@ -2197,22 +2197,56 @@ class HeaderControlState extends State<HeaderControl>
                   ),
               ],
               Obx(
-                () => videoDetailCtr.segmentProgressList.isNotEmpty
-                    ? SizedBox(
-                        width: btnWidth,
-                        height: btnHeight,
-                        child: IconButton(
-                          tooltip: '片段信息',
-                          style: btnStyle,
-                          onPressed: videoDetailCtr.showSBDetail,
-                          icon: const Icon(
-                            MdiIcons.advertisements,
-                            size: 19,
+                () {
+                  if (videoDetailCtr.sponsorBlockIsLoading) {
+                    return const SizedBox(
+                      width: btnWidth,
+                      height: btnHeight,
+                      child: Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
                             color: Colors.white,
                           ),
                         ),
-                      )
-                    : const SizedBox.shrink(),
+                      ),
+                    );
+                  }
+                  if (videoDetailCtr.sponsorBlockCanRetry) {
+                    return SizedBox(
+                      width: btnWidth,
+                      height: btnHeight,
+                      child: IconButton(
+                        tooltip: '重试加载片段',
+                        style: btnStyle,
+                        onPressed: videoDetailCtr.retrySponsorBlock,
+                        icon: const Icon(
+                          Icons.refresh,
+                          size: 19,
+                          color: Colors.white,
+                        ),
+                      ),
+                    );
+                  }
+                  return videoDetailCtr.segmentProgressList.isNotEmpty
+                      ? SizedBox(
+                          width: btnWidth,
+                          height: btnHeight,
+                          child: IconButton(
+                            tooltip: '片段信息',
+                            style: btnStyle,
+                            onPressed: videoDetailCtr.showSBDetail,
+                            icon: const Icon(
+                              MdiIcons.advertisements,
+                              size: 19,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink();
+                },
               ),
               if (isPortrait &&
                   !isFullScreen &&

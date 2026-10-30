@@ -176,6 +176,23 @@ class _AudioPageState extends State<AudioPage> {
             actions: [
               if (_controller.isUgc && _controller.enableSponsorBlock)
                 Obx(() {
+                  if (_controller.sponsorBlockIsLoading) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    );
+                  }
+                  if (_controller.sponsorBlockCanRetry) {
+                    return IconButton(
+                      tooltip: '重试加载片段',
+                      onPressed: _controller.retrySponsorBlock,
+                      icon: const Icon(Icons.refresh, size: 22),
+                    );
+                  }
                   if (_controller.segmentProgressList.isNotEmpty) {
                     return IconButton(
                       tooltip: '片段信息',

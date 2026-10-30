@@ -21,11 +21,21 @@ import 'package:media_kit/media_kit.dart';
 
 enum BlockSkipSource { manual, automatic }
 
+enum SponsorBlockQueryState {
+  idle,
+  loading,
+  success,
+  empty,
+  notFound,
+  networkError,
+  parseError,
+}
+
 mixin BlockConfigMixin {
   late final pgcSkipType = Pref.pgcSkipType;
   late final enablePgcSkip = pgcSkipType != SkipType.disable;
-  late final enableSponsorBlock = Pref.enableSponsorBlock;
-  late final enableBlock = enableSponsorBlock || enablePgcSkip;
+  bool get enableSponsorBlock => Pref.enableSponsorBlock;
+  bool get enableBlock => enableSponsorBlock || enablePgcSkip;
   late final blockColor = Pref.blockColor;
   late final blockLimit = Pref.blockLimit * 1000;
   late final blockSettings = Pref.blockSettings;
@@ -47,6 +57,21 @@ mixin BlockMixin on GetxController {
   late final List<SegmentModel> _segmentList = <SegmentModel>[];
   List<SegmentModel> get segmentList => _segmentList;
   late final RxList<Segment> segmentProgressList = <Segment>[].obs;
+  late final Rx<SponsorBlockQueryState> sponsorBlockState =
+      SponsorBlockQueryState.idle.obs;
+  String? sponsorBlockError;
+
+  String? _lastSponsorBlockBvid;
+  int? _lastSponsorBlockCid;
+  bool Function()? _lastSponsorBlockIsCurrent;
+
+  bool get sponsorBlockIsLoading =>
+      sponsorBlockState.value == SponsorBlockQueryState.loading;
+  bool get sponsorBlockCanRetry => switch (sponsorBlockState.value) {
+    SponsorBlockQueryState.networkError ||
+    SponsorBlockQueryState.parseError => true,
+    _ => false,
+  };
 
   Timer? _skipTimer;
   late final listKey = GlobalKey<AnimatedListState>();
@@ -77,25 +102,69 @@ mixin BlockMixin on GetxController {
     required String bvid,
     required int cid,
     bool Function()? isCurrent,
+    bool forceRefresh = false,
   }) async {
     // This request starts before the player source becomes loaded. Route
     // identity prevents stale responses; source readiness is enforced when a
     // skip listener is attached or a seek is performed.
     bool isRequestCurrent() => !isClosed && (isCurrent?.call() ?? true);
     if (!isRequestCurrent()) return;
+    _lastSponsorBlockBvid = bvid;
+    _lastSponsorBlockCid = cid;
+    _lastSponsorBlockIsCurrent = isCurrent;
+    sponsorBlockError = null;
+    sponsorBlockState.value = SponsorBlockQueryState.loading;
     resetBlock();
 
-    final result = await SponsorBlock.getSkipSegments(bvid: bvid, cid: cid);
+    LoadingState<List<SegmentItemModel>> result;
+    try {
+      result = await SponsorBlock.getSkipSegmentsCached(
+        bvid: bvid,
+        cid: cid,
+        forceRefresh: forceRefresh,
+      );
+    } catch (error) {
+      if (isRequestCurrent()) {
+        sponsorBlockError = 'SponsorBlock 请求失败：${error.runtimeType}';
+        sponsorBlockState.value = SponsorBlockQueryState.networkError;
+      }
+      return;
+    }
     if (!isRequestCurrent()) return;
     switch (result) {
       case Success<List<SegmentItemModel>>(:final response):
         await handleSBData(response, isCurrent: isRequestCurrent);
-      case Error(:final code) when code != 404:
-        if (kDebugMode) {
+        if (isRequestCurrent()) {
+          sponsorBlockState.value = _segmentList.isEmpty
+              ? SponsorBlockQueryState.empty
+              : SponsorBlockQueryState.success;
+        }
+      case Error(:final code, :final errMsg):
+        sponsorBlockError = errMsg;
+        sponsorBlockState.value = switch (code) {
+          404 => SponsorBlockQueryState.notFound,
+          -2 => SponsorBlockQueryState.parseError,
+          _ => SponsorBlockQueryState.networkError,
+        };
+        if (kDebugMode && code != 404) {
           result.toast();
         }
-      default:
+      case Loading():
+        sponsorBlockError = 'SponsorBlock 请求状态未知';
+        sponsorBlockState.value = SponsorBlockQueryState.networkError;
     }
+  }
+
+  Future<void> retrySponsorBlock() async {
+    final bvid = _lastSponsorBlockBvid;
+    final cid = _lastSponsorBlockCid;
+    if (bvid == null || cid == null) return;
+    await querySponsorBlock(
+      bvid: bvid,
+      cid: cid,
+      isCurrent: _lastSponsorBlockIsCurrent,
+      forceRefresh: true,
+    );
   }
 
   void initSkip() {

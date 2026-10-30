@@ -905,7 +905,7 @@ class DownloadService extends GetxService {
     required int fetchedAt,
   }) async {
     try {
-      final res = await SponsorBlock.getSkipSegments(
+      final res = await SponsorBlock.getSkipSegmentsCached(
         bvid: entry.bvid,
         cid: entry.cid,
       );

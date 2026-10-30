@@ -368,6 +368,9 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                     _blockServer = HttpString.sponsorBlockBaseUrl;
                     setting.put(SettingBoxKey.blockServer, _blockServer);
                     AccountManager.blockServer = _blockServer;
+                    SponsorBlock.invalidateSegments();
+                    _checkServerStatus();
+                    _getUserInfo();
                     (context as Element).markNeedsBuild();
                   },
                   child: const Text('重置'),
@@ -383,10 +386,18 @@ class _SponsorBlockPageState extends State<SponsorBlockPage> {
                 ),
                 TextButton(
                   onPressed: () {
+                    final normalized = SponsorBlock.normalizeBlockServer(
+                      _textController.text,
+                    );
+                    if (normalized == null) {
+                      SmartDialog.showToast('服务器地址无效');
+                      return;
+                    }
                     Get.back();
-                    _blockServer = _textController.text;
+                    _blockServer = normalized;
                     setting.put(SettingBoxKey.blockServer, _blockServer);
                     AccountManager.blockServer = _blockServer;
+                    SponsorBlock.invalidateSegments();
                     _checkServerStatus();
                     _getUserInfo();
                     (context as Element).markNeedsBuild();

@@ -84,6 +84,21 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
 
   late final Map<int?, bool> seasonFavState = {};
 
+  // State consumed by the controller-driven episode panel. Keep these values
+  // derived from the current detail/CID so panel highlights cannot drift from
+  // the player during asynchronous episode switches.
+  int _partIndex = 0;
+  int _sectionIndex = 0;
+  int _seasonIndex = 0;
+  int? _seasonCid;
+
+  int get partIndex => _partIndex;
+  int get sectionIndex => _sectionIndex;
+  int get seasonIndex => _seasonIndex;
+  int? get seasonCid => _seasonCid;
+
+  final ValueNotifier<int> indexNotifier = ValueNotifier<int>(0);
+
   @override
   void onInit() {
     super.onInit();
@@ -151,6 +166,21 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         heroTag,
       );
       final currentDetail = videoDetail.value;
+      if (currentDetail.bvid != response.bvid) {
+        final selectedSeasonCid = videoDetailCtr.seasonCid;
+        final selectedEpisodeExists =
+            response.ugcSeason?.sections?.any(
+              (section) =>
+                  section.episodes?.any(
+                    (episode) => episode.cid == selectedSeasonCid,
+                  ) ??
+                  false,
+            ) ??
+            false;
+        if (!selectedEpisodeExists) {
+          videoDetailCtr.seasonCid = null;
+        }
+      }
       if (currentDetail.ugcSeason?.id == response.ugcSeason?.id) {
         // keep reversed season
         response.ugcSeason = currentDetail.ugcSeason;
@@ -181,6 +211,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
         cid.value = pages.first.cid!;
         videoDetailCtr.cid.value = cid.value;
       }
+      updateIndex(data: response, force: true);
       queryUserStat(response.staff, isCurrent: isCurrentIntro);
     } else {
       if (!isCurrentIntro()) {
@@ -197,6 +228,65 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       queryAllStatus(isCurrent: isCurrentIntro);
       queryFollowStatus(isCurrent: isCurrentIntro);
     }
+  }
+
+  void updateIndex({VideoDetailData? data, bool force = false}) {
+    if (isClosed) return;
+    data ??= videoDetail.rawValue;
+
+    final pages = data.pages;
+    final currentCid = cid.value;
+    _partIndex = pages == null || pages.length < 2
+        ? 0
+        : max(0, pages.indexWhere((item) => item.cid == currentCid));
+
+    final sections = data.ugcSeason?.sections ?? const <SectionItem>[];
+    final explicitSeasonCid = videoDetailCtr.seasonCid;
+
+    (int, int)? findSeasonPosition(int? seasonCid) {
+      if (seasonCid == null) return null;
+      for (
+        var sectionIndex = 0;
+        sectionIndex < sections.length;
+        sectionIndex++
+      ) {
+        final episodes = sections[sectionIndex].episodes ?? const [];
+        final seasonIndex = episodes.indexWhere(
+          (episode) => episode.cid == seasonCid,
+        );
+        if (seasonIndex >= 0) return (sectionIndex, seasonIndex);
+      }
+      return null;
+    }
+
+    final pageSeasonCid = pages?.isNotEmpty == true
+        ? data.listOrder.isDesc
+              ? pages!.last.cid
+              : pages!.first.cid
+        : null;
+    final int? defaultSeasonCid =
+        pageSeasonCid ?? (currentCid != 0 ? currentCid : data.cid);
+    final explicitPosition = findSeasonPosition(explicitSeasonCid);
+    final nextSeasonCid = explicitPosition != null
+        ? explicitSeasonCid
+        : defaultSeasonCid;
+    final position = explicitPosition ?? findSeasonPosition(nextSeasonCid);
+    final nextSectionIndex = position?.$1 ?? 0;
+    final nextSeasonIndex = position?.$2 ?? 0;
+
+    if (force ||
+        _seasonCid != nextSeasonCid ||
+        _sectionIndex != nextSectionIndex ||
+        _seasonIndex != nextSeasonIndex) {
+      _seasonCid = nextSeasonCid;
+      _sectionIndex = nextSectionIndex;
+      _seasonIndex = nextSeasonIndex;
+      if (videoDetailCtr.seasonIndex.value != nextSectionIndex) {
+        videoDetailCtr.seasonIndex.value = nextSectionIndex;
+      }
+    }
+
+    indexNotifier.value++;
   }
 
   // 获取up主粉丝数
@@ -718,6 +808,10 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
       }
 
       this.cid.value = cid;
+      if (episode is EpisodeItem) {
+        videoDetailCtr.seasonCid = episode.cid;
+      }
+      updateIndex();
       queryOnlineTotal(
         isCurrent: () => isCurrentIntroRequest(currentIntroGeneration),
       );
@@ -742,6 +836,7 @@ class UgcIntroController extends CommonIntroController with ReloadMixin {
     }
     _pendingRelatedContinuation = null;
     _pendingRelatedBvid = null;
+    indexNotifier.dispose();
     super.onClose();
   }
 

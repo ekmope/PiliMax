@@ -23,20 +23,18 @@ import 'package:PiliMax/common/widgets/progress_bar/audio_video_progress_bar.dar
 import 'package:PiliMax/common/widgets/progress_bar/segment_progress_bar.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
+import 'package:PiliMax/models/common/episode_panel_type.dart';
 import 'package:PiliMax/models/common/sponsor_block/action_type.dart';
 import 'package:PiliMax/models/common/sponsor_block/post_segment_model.dart';
 import 'package:PiliMax/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliMax/models/common/super_resolution_type.dart';
 import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models/video/play/url.dart';
-import 'package:PiliMax/models_new/video/video_detail/episode.dart' as ugc;
-import 'package:PiliMax/models_new/video/video_detail/ugc_season.dart';
 import 'package:PiliMax/pages/common/common_intro_controller.dart';
 import 'package:PiliMax/pages/danmaku/danmaku_model.dart';
 import 'package:PiliMax/pages/live_room/widgets/bottom_control.dart'
     as live_bottom;
 import 'package:PiliMax/pages/video/controller.dart';
-import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliMax/pages/video/post_panel/popup_menu_text.dart';
 import 'package:PiliMax/pages/video/post_panel/view.dart';
 import 'package:PiliMax/pages/video/widgets/header_control.dart';
@@ -62,7 +60,6 @@ import 'package:PiliMax/utils/desktop/window_controller.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
-import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/ios/pip_helper.dart';
 import 'package:PiliMax/utils/mobile_observer.dart';
@@ -117,15 +114,7 @@ class PLVideoPlayer extends StatefulWidget {
   final Widget headerControl;
   final Widget? bottomControl;
   final Widget? danmuWidget;
-  final void Function([
-    int?,
-    UgcSeason?,
-    List<ugc.BaseEpisodeItem>?,
-    String?,
-    int?,
-    int?,
-  ])?
-  showEpisodes;
+  final void Function({EpisodeType? type})? showEpisodes;
   final VoidCallback? showViewPoints;
   final bool isPipMode;
 
@@ -687,23 +676,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             widget.showEpisodes?.call();
             return;
           }
-          final bvid = plPlayerController.bvid;
-          List<ugc.BaseEpisodeItem>? episodes;
-          if (isPart) {
-            episodes = videoDetail.pages!;
-          } else if (isPgc) {
-            episodes =
-                (introController as PgcIntroController).pgcItem.episodes!;
-          }
           widget.showEpisodes?.call(
-            isSeason ? videoDetailController.seasonIndex.value : null,
-            isSeason ? videoDetail.ugcSeason! : null,
-            isSeason ? null : episodes,
-            bvid,
-            IdUtils.bv2av(bvid),
-            isSeason
-                ? videoDetailController.seasonCid
-                : plPlayerController.cid!,
+            type: isSeason
+                ? EpisodeType.season
+                : isPart
+                ? EpisodeType.part
+                : EpisodeType.pgc,
           );
         },
       ),

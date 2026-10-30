@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart';
+import 'package:PiliMax/models/common/episode_panel_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/new_ep.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart'
     hide EpisodeItem;
@@ -117,14 +118,7 @@ class _PgcPanelState extends State<PgcPanel> {
                   style: const ButtonStyle(
                     padding: WidgetStatePropertyAll(EdgeInsets.zero),
                   ),
-                  onPressed: () => widget.showEpisodes(
-                    null,
-                    null,
-                    widget.pages,
-                    videoDetailCtr.bvid,
-                    videoDetailCtr.aid,
-                    cid,
-                  ),
+                  onPressed: () => widget.showEpisodes(type: EpisodeType.pgc),
                   child: Text(
                     widget.newEp?.desc?.contains('连载') == true
                         ? '连载中，更新至${Utils.isStringNumeric(widget.newEp!.title!) ? '第${widget.newEp!.title}话' : '${widget.newEp!.title}'}'

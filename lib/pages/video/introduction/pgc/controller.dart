@@ -57,6 +57,14 @@ class PgcIntroController extends CommonIntroController {
     return index < 0 ? 0 : index;
   }
 
+  int get episodeIndex {
+    if (episodeType != PgcEpisodeType.episode) return -1;
+    final episodes = pgcItem.episodes ?? const [];
+    final currentCid = cid.value;
+    final index = episodes.indexWhere((episode) => episode.cid == currentCid);
+    return index < 0 ? 0 : index;
+  }
+
   int? seasonId;
   int? epId;
 

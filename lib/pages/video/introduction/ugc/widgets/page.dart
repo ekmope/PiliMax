@@ -3,10 +3,10 @@ import 'dart:math';
 
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/models_new/video/video_detail/page.dart';
+import 'package:PiliMax/models/common/episode_panel_type.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
-import 'package:PiliMax/utils/id_utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -20,6 +20,7 @@ class PagesPanel extends StatefulWidget {
     required this.bvid,
     required this.heroTag,
     this.showEpisodes,
+    this.onBack,
     required this.ugcIntroController,
     this.onDownload,
     this.cidSet,
@@ -31,6 +32,7 @@ class PagesPanel extends StatefulWidget {
   final String bvid;
   final String heroTag;
   final Function? showEpisodes;
+  final VoidCallback? onBack;
   final UgcIntroController ugcIntroController;
 
   final Set<int>? cidSet;
@@ -129,14 +131,8 @@ class _PagesPanelState extends State<PagesPanel> {
                     style: const ButtonStyle(
                       padding: WidgetStatePropertyAll(.zero),
                     ),
-                    onPressed: () => widget.showEpisodes!(
-                      null,
-                      null,
-                      pages,
-                      widget.bvid,
-                      IdUtils.bv2av(widget.bvid),
-                      cid,
-                    ),
+                    onPressed: () =>
+                        widget.showEpisodes!(type: EpisodeType.part),
                     child: Text(
                       '共${pages.length}集',
                       style: const TextStyle(fontSize: 13),
@@ -176,7 +172,7 @@ class _PagesPanelState extends State<PagesPanel> {
                         return;
                       }
                       if (widget.showEpisodes == null) {
-                        Get.back();
+                        widget.onBack?.call();
                       }
                       if (isCurrentIndex) return;
                       widget.ugcIntroController.onChangeEpisode(

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart';
+import 'package:PiliMax/models/common/episode_panel_type.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/pilimax/pages/video/video_layout_metrics.dart';
@@ -103,14 +104,7 @@ class _SeasonPanelState extends State<SeasonPanel> {
             Radius.circular(VideoDetailLayoutMetrics.seasonPanelRadius),
           ),
           onTap: widget.canTap
-              ? () => widget.showEpisodes(
-                  _videoDetailController.seasonIndex.value,
-                  videoDetail.ugcSeason,
-                  null,
-                  _videoDetailController.bvid,
-                  null,
-                  _videoDetailController.seasonCid,
-                )
+              ? () => widget.showEpisodes(type: EpisodeType.season)
               : null,
           child: Padding(
             padding: const EdgeInsets.symmetric(
@@ -202,6 +196,7 @@ class _SeasonPanelState extends State<SeasonPanel> {
       if (_videoDetailController.seasonIndex.value != index) {
         _videoDetailController.seasonIndex.value = index;
       }
+      ugcIntroController.updateIndex(force: true);
     });
   }
 }

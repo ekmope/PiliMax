@@ -50,7 +50,7 @@ class DynamicsDataModel {
       'DynamicsDataModel.invalidStoredPattern',
     ),
   );
-  static RegExp banWordForDyn = _initialFilter.regExp;
+  static CompiledFilterPattern banWordForDyn = _initialFilter;
   static bool enableFilter = _initialFilter.isEnabled;
 
   static bool antiGoodsDyn = Pref.antiGoodsDyn;

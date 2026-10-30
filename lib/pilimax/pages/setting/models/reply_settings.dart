@@ -1,3 +1,10 @@
+import 'dart:io';
+
+import 'package:PiliMax/models/common/reply/reply_sort_type.dart';
+import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:get/get.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/grpc/reply.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
@@ -10,16 +17,93 @@ import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 List<SettingsModel> get replySettings => [
+  const SwitchModel(
+    title: '显示视频评论',
+    leading: Icon(MdiIcons.commentTextOutline),
+    setKey: SettingBoxKey.showVideoReply,
+  ),
+  const SwitchModel(
+    title: '显示番剧评论',
+    leading: Icon(MdiIcons.commentTextOutline),
+    setKey: SettingBoxKey.showBangumiReply,
+  ),
+  NormalModel(
+    title: '评论折叠行数',
+    subtitle: '0行为不折叠',
+    leading: const Icon(Icons.compress),
+    getTrailing: (theme) => Text(
+      '${ReplyItemGrpc.replyLengthLimit}行',
+      style: theme.textTheme.titleSmall,
+    ),
+    onTap: _showReplyLengthDialog,
+  ),
+  const SwitchModel(
+    title: '评论点赞/点踩按钮交换位置',
+    subtitle: '交换后：点赞在左，点踩在右（与官方客户端一致）',
+    leading: Icon(Icons.swap_horiz),
+    setKey: SettingBoxKey.swapReplyLikeDislike,
+  ),
+  const SwitchModel(
+    title: '记录评论',
+    leading: Icon(Icons.message_outlined),
+    setKey: SettingBoxKey.saveReply,
+    needReboot: true,
+  ),
+  const SwitchModel(
+    title: 'PiliMax 内置发评反诈',
+    subtitle: '发送评论后由 PiliMax 检查可见性；与外部模式同时开启时优先使用此项',
+    leading: Icon(CustomIcons.shield_reply),
+    setKey: SettingBoxKey.enableCommAntifraud,
+  ),
+  if (Platform.isAndroid)
+    const SwitchModel(
+      title: '外部「哔哩发评反诈」兼容模式',
+      subtitle:
+          '需另装外部应用，仅用于自动检查；会传递评论内容与 UID，但不传账号 Cookie；手动检查仍使用 PiliMax 内置逻辑',
+      leading: Icon(FontAwesomeIcons.b, size: 22),
+      setKey: SettingBoxKey.biliSendCommAntifraud,
+    ),
+  SwitchModel(
+    title: '评论区搜索关键词',
+    subtitle: '展示评论区搜索关键词',
+    leading: const Icon(Icons.search_outlined),
+    setKey: SettingBoxKey.enableWordRe,
+    onChanged: (value) => ReplyItemGrpc.enableWordRe = value,
+  ),
+  const SwitchModel(
+    title: '默认展示评论区',
+    subtitle: '在视频详情页默认切换至评论区页（仅Tab型布局）',
+    leading: Icon(Icons.mode_comment_outlined),
+    setKey: SettingBoxKey.defaultShowComment,
+  ),
+  PopupModel(
+    title: '评论展示',
+    leading: const Icon(Icons.whatshot_outlined),
+    value: () => Pref.replySortType,
+    items: ReplySortType.values.take(2),
+    onSelected: (value, setState) => GStorage.setting
+        .put(SettingBoxKey.replySortType, value.index)
+        .whenComplete(setState),
+  ),
+  PopupModel(
+    title: '楼中楼评论展示',
+    leading: const Icon(Icons.forum_outlined),
+    value: () => Pref.replyReplySortType,
+    items: ReplySortType.values.take(2),
+    onSelected: (value, setState) => GStorage.setting
+        .put(SettingBoxKey.replyReplySortType, value.index)
+        .whenComplete(setState),
+  ),
   getListBanWordModel(
-    title: '关键词过滤',
+    title: '评论关键词过滤',
     key: SettingBoxKey.banWordForReply,
     onChanged: (value) {
       ReplyGrpc.replyRegExp = value;
-      ReplyGrpc.enableFilter = value.pattern.isNotEmpty;
+      ReplyGrpc.enableFilter = value.isEnabled;
     },
   ),
   getListUidWithNameModel(
-    title: '屏蔽用户',
+    title: '评论屏蔽用户',
     getUidsMap: () => Pref.replyBlockedMids,
     setUidsMap: (mids) {
       Pref.replyBlockedMids = mids;
@@ -28,7 +112,7 @@ List<SettingsModel> get replySettings => [
     onUpdate: () {},
   ),
   getListUidWithNameModel(
-    title: '白名单用户',
+    title: '评论白名单用户',
     leading: const Icon(Icons.person_add_alt_1_outlined),
     emptySubtitle: '点击添加白名单用户',
     countSubtitleBuilder: (count) => '已加入白名单 $count 个用户',
@@ -120,6 +204,47 @@ List<SettingsModel> get replySettings => [
     ),
   ),
 ];
+
+void _showReplyLengthDialog(BuildContext context, VoidCallback setState) {
+  String replyLengthLimit = ReplyItemGrpc.replyLengthLimit.toString();
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('评论折叠行数'),
+      content: TextFormField(
+        autofocus: true,
+        initialValue: replyLengthLimit,
+        keyboardType: TextInputType.number,
+        onChanged: (value) => replyLengthLimit = value,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: const InputDecoration(suffixText: '行'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () async {
+            try {
+              final val = int.parse(replyLengthLimit);
+              Get.back();
+              ReplyItemGrpc.replyLengthLimit = val == 0 ? null : val;
+              await GStorage.setting.put(SettingBoxKey.replyLengthLimit, val);
+              setState();
+            } catch (e) {
+              SmartDialog.showToast(e.toString());
+            }
+          },
+          child: const Text('确定'),
+        ),
+      ],
+    ),
+  );
+}
 
 String _replyAtCountSubtitle() {
   final count = Pref.blockReplyAtCount;

@@ -158,16 +158,14 @@ Widget _contextMenuBuilder(
             ),
             onConfirm: () async {
               final currentStored = Pref.banWordForDyn;
-              final existingKeywords = currentStored.isEmpty
-                  ? <String>[]
-                  : currentStored.split('\n');
+              final existingKeywords = FilterPatternCompiler.parseStoredRules(
+                currentStored,
+              );
               if (existingKeywords.contains(escapedText)) {
                 SmartDialog.showToast('该关键词已在过滤列表中');
                 return;
               }
-              final newStored = currentStored.isEmpty
-                  ? escapedText
-                  : '$currentStored\n$escapedText';
+              final newStored = [...existingKeywords, escapedText].join('\n');
               final CompiledFilterPattern compiled;
               try {
                 compiled = FilterPatternCompiler.compileStored(newStored);
@@ -179,7 +177,7 @@ Widget _contextMenuBuilder(
                 SettingBoxKey.banWordForDyn,
                 compiled.storedValue,
               );
-              DynamicsDataModel.banWordForDyn = compiled.regExp;
+              DynamicsDataModel.banWordForDyn = compiled;
               DynamicsDataModel.enableFilter = compiled.isEnabled;
               SmartDialog.showToast('已保存');
             },

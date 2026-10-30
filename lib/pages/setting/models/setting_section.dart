@@ -1,4 +1,5 @@
 import 'package:PiliMax/build_config.dart';
+import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/models/common/setting_type.dart';
 import 'package:PiliMax/pages/setting/models/extra_settings.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
@@ -25,7 +26,7 @@ class SettingSection {
     this.showInMain = true,
     this.searchable = true,
     this.dividerBeforeIndex,
-    this.keywordFilterIndex,
+    this.keywordFilterKey,
     this.searchKeywordsByTitle = const {},
   });
 
@@ -37,10 +38,19 @@ class SettingSection {
   final bool showInMain;
   final bool searchable;
   final int? dividerBeforeIndex;
-  final int? keywordFilterIndex;
+  final String? keywordFilterKey;
   final Map<String, List<String>> searchKeywordsByTitle;
 
   List<SettingsModel> createSettings() => settingsFactory();
+
+  NormalModel? findKeywordFilter(Iterable<SettingsModel> settings) {
+    final key = keywordFilterKey;
+    if (key == null) return null;
+    for (final model in settings) {
+      if (model is NormalModel && model.settingKey == key) return model;
+    }
+    return null;
+  }
 }
 
 List<SettingsModel> _privacySettings() => privacySettings;
@@ -70,11 +80,19 @@ final List<SettingSection> settingSections = List.unmodifiable([
   ),
   const SettingSection(
     type: SettingType.dynamicsSetting,
-    subtitle: '关键词过滤、屏蔽用户、带货动态屏蔽',
+    subtitle: '动态展示、未读检查、发布反诈、过滤与屏蔽',
     icon: Icons.auto_awesome_motion_outlined,
     routeName: '/dynamicsSetting',
     settingsFactory: _dynamicsSettings,
-    keywordFilterIndex: 0,
+    keywordFilterKey: SettingBoxKey.banWordForDyn,
+  ),
+  const SettingSection(
+    type: SettingType.replySetting,
+    subtitle: '评论展示、排序、记录、发评反诈、过滤与屏蔽',
+    icon: Icons.comment_outlined,
+    routeName: '/replySetting',
+    settingsFactory: _replySettings,
+    keywordFilterKey: SettingBoxKey.banWordForReply,
   ),
   const SettingSection(
     type: SettingType.videoSetting,
@@ -99,7 +117,7 @@ final List<SettingSection> settingSections = List.unmodifiable([
   ),
   const SettingSection(
     type: SettingType.extraSetting,
-    subtitle: '震动、搜索、收藏、ai、评论、代理、更新检查等',
+    subtitle: '震动、搜索、收藏、AI、代理、更新检查等',
     icon: Icons.extension_outlined,
     routeName: '/extraSetting',
     settingsFactory: _extraSettings,
@@ -132,15 +150,6 @@ final List<SettingSection> settingSections = List.unmodifiable([
         '识别谐音弹幕',
       ],
     },
-  ),
-  const SettingSection(
-    type: SettingType.replySetting,
-    subtitle: '关键词、用户屏蔽、等级过滤、@评论过滤、屏蔽带货评论',
-    icon: Icons.comment_outlined,
-    routeName: '/replySetting',
-    settingsFactory: _replySettings,
-    showInMain: false,
-    keywordFilterIndex: 0,
   ),
 ]);
 

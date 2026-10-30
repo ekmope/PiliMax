@@ -6,7 +6,7 @@ enum SettingType {
   playSetting('播放器设置'),
   styleSetting('外观设置'),
   extraSetting('其它设置'),
-  replySetting('评论区过滤设置'),
+  replySetting('评论设置'),
   webdavSetting('WebDAV 设置'),
   about('关于'),
   ;

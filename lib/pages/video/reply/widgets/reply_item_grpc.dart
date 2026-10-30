@@ -1377,16 +1377,14 @@ class ReplyItemGrpc extends StatelessWidget {
               onConfirm: () async {
                 final currentStored = Pref.banWordForReply;
                 // 检查是否已存在（按行分割检查）
-                final existingKeywords = currentStored.isEmpty
-                    ? <String>[]
-                    : currentStored.split('\n');
+                final existingKeywords = FilterPatternCompiler.parseStoredRules(
+                  currentStored,
+                );
                 if (existingKeywords.contains(escapedText)) {
                   SmartDialog.showToast('该关键词已在过滤列表中');
                   return;
                 }
-                final newStored = currentStored.isEmpty
-                    ? escapedText
-                    : '$currentStored\n$escapedText';
+                final newStored = [...existingKeywords, escapedText].join('\n');
                 final CompiledFilterPattern compiled;
                 try {
                   compiled = FilterPatternCompiler.compileStored(newStored);
@@ -1398,7 +1396,7 @@ class ReplyItemGrpc extends StatelessWidget {
                   SettingBoxKey.banWordForReply,
                   compiled.storedValue,
                 );
-                ReplyGrpc.replyRegExp = compiled.regExp;
+                ReplyGrpc.replyRegExp = compiled;
                 ReplyGrpc.enableFilter = compiled.isEnabled;
                 SmartDialog.showToast('已保存');
               },

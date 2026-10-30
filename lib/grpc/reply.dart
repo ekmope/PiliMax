@@ -21,7 +21,7 @@ abstract final class ReplyGrpc {
       'ReplyGrpc.invalidStoredPattern',
     ),
   );
-  static RegExp replyRegExp = _initialFilter.regExp;
+  static CompiledFilterPattern replyRegExp = _initialFilter;
   static bool enableFilter = _initialFilter.isEnabled;
   static Map<int, String> replyBlockedMids = Pref.replyBlockedMids;
   static int replyMinLevel = Pref.replyMinLevel;

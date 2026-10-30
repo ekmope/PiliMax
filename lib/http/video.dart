@@ -56,7 +56,7 @@ abstract final class VideoHttp {
       'VideoHttp.invalidStoredZonePattern',
     ),
   );
-  static RegExp zoneRegExp = _initialZoneFilter.regExp;
+  static CompiledFilterPattern zoneRegExp = _initialZoneFilter;
   static bool enableFilter = _initialZoneFilter.isEnabled;
   static Future<Response> _getWbiFeed(
     String url,

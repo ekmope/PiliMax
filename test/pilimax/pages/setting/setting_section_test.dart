@@ -48,13 +48,14 @@ void main() {
     }
   });
 
-  test('registry keeps seven primary sections and unique legacy routes', () {
+  test('registry keeps eight primary sections and unique legacy routes', () {
     expect(
       mainSettingSections.map((section) => section.type),
       [
         SettingType.privacySetting,
         SettingType.recommendSetting,
         SettingType.dynamicsSetting,
+        SettingType.replySetting,
         SettingType.videoSetting,
         SettingType.playSetting,
         SettingType.styleSetting,
@@ -71,7 +72,7 @@ void main() {
     expect(routes.whereType<String>().toSet(), hasLength(routes.length));
 
     final reply = settingSectionFor(SettingType.replySetting);
-    expect(reply.showInMain, isFalse);
+    expect(reply.showInMain, isTrue);
     expect(reply.searchable, isTrue);
     expect(reply.routeName, '/replySetting');
   });
@@ -96,9 +97,12 @@ void main() {
       sections.add(section);
       expect(searchableSettingSections, contains(section));
       final settings = section.createSettings();
-      final keywordModel = settings[section.keywordFilterIndex!];
-      expect(keywordModel, isA<NormalModel>());
-      expect(keywordModel.effectiveTitle, '关键词过滤');
+      final keywordModel = section.findKeywordFilter(settings);
+      final scope = type == SettingType.dynamicsSetting ? '动态' : '评论';
+      expect(keywordModel, isNotNull);
+      expect(keywordModel!.settingKey, section.keywordFilterKey);
+      expect(keywordModel.effectiveTitle, '$scope关键词过滤');
+      expect(settings.indexOf(keywordModel), greaterThan(0));
     }
 
     final searchEntries = buildSettingSearchIndex(
@@ -106,11 +110,12 @@ void main() {
       sections: sections,
     );
     for (final section in sections) {
+      final scope = section.type == SettingType.dynamicsSetting ? '动态' : '评论';
       expect(
         searchEntries
             .where((entry) => entry.owner == section.type.title)
             .map((entry) => entry.title),
-        contains('关键词过滤'),
+        contains('$scope关键词过滤'),
       );
     }
 
@@ -120,6 +125,105 @@ void main() {
     expect(
       replySettings.whereType<WidgetModel>().map((model) => model.searchTitle),
       contains('屏蔽低等级用户评论'),
+    );
+  });
+
+  test('reply and dynamic settings move without duplicate legacy entries', () {
+    final replySettings = settingSectionFor(
+      SettingType.replySetting,
+    ).createSettings();
+    final dynamicsSettings = settingSectionFor(
+      SettingType.dynamicsSetting,
+    ).createSettings();
+    final extraSettings = settingSectionFor(
+      SettingType.extraSetting,
+    ).createSettings();
+    final replyTitles = replySettings.map((model) => model.effectiveTitle);
+    final dynamicsTitles = dynamicsSettings.map(
+      (model) => model.effectiveTitle,
+    );
+    final extraTitles = extraSettings.map((model) => model.effectiveTitle);
+
+    final movedReplyTitles = [
+      '显示视频评论',
+      '显示番剧评论',
+      '评论折叠行数',
+      '评论点赞/点踩按钮交换位置',
+      '记录评论',
+      'PiliMax 内置发评反诈',
+      if (Platform.isAndroid) '外部「哔哩发评反诈」兼容模式',
+      '评论区搜索关键词',
+      '默认展示评论区',
+      '评论展示',
+      '楼中楼评论展示',
+    ];
+    const movedDynamicsTitles = [
+      '检查未读动态',
+      '显示动态警告/争议信息',
+      '发布/转发动态反诈',
+      '动态/专栏详情页展示底部操作栏',
+      '动态展示',
+      '显示动态互动内容',
+    ];
+    for (final title in movedReplyTitles) {
+      expect(replyTitles.where((value) => value == title), hasLength(1));
+      expect(extraTitles, isNot(contains(title)));
+    }
+    for (final title in movedDynamicsTitles) {
+      expect(dynamicsTitles.where((value) => value == title), hasLength(1));
+      expect(extraTitles, isNot(contains(title)));
+    }
+    expect(extraTitles, isNot(contains('评论区过滤设置')));
+    expect(extraTitles, isNot(contains('评论设置')));
+    expect(extraTitles, isNot(contains('屏蔽带货动态')));
+    expect(
+      dynamicsTitles.where((title) => title == '屏蔽带货动态'),
+      hasLength(1),
+    );
+    expect(
+      replySettings
+          .whereType<SwitchModel>()
+          .singleWhere((model) => model.setKey == SettingBoxKey.saveReply)
+          .needReboot,
+      isTrue,
+    );
+    expect(
+      replySettings.whereType<SwitchModel>().any(
+        (model) => model.setKey == SettingBoxKey.biliSendCommAntifraud,
+      ),
+      Platform.isAndroid,
+    );
+    expect(
+      replySettings.whereType<WidgetModel>().map((model) => model.searchTitle),
+      containsAll(['屏蔽低等级用户评论', '评论区过滤说明']),
+    );
+    expect(
+      dynamicsSettings.whereType<WidgetModel>().map(
+        (model) => model.searchTitle,
+      ),
+      contains('动态流过滤说明'),
+    );
+  });
+
+  test('keyword filter lookup requires a matching stable storage key', () {
+    const keyword = NormalModel(
+      title: '任意标题',
+      settingKey: SettingBoxKey.banWordForDyn,
+    );
+    const decoy = NormalModel(title: '关键词过滤');
+    final section = SettingSection(
+      type: SettingType.dynamicsSetting,
+      subtitle: '测试',
+      icon: Icons.settings,
+      settingsFactory: () => const [decoy, keyword],
+      keywordFilterKey: SettingBoxKey.banWordForDyn,
+    );
+
+    expect(section.findKeywordFilter([decoy, keyword]), same(keyword));
+    expect(section.findKeywordFilter([decoy]), isNull);
+    expect(
+      settingSectionFor(SettingType.extraSetting).findKeywordFilter([keyword]),
+      isNull,
     );
   });
 
@@ -223,6 +327,7 @@ void main() {
     tester,
   ) async {
     var openCount = 0;
+    var decoyOpenCount = 0;
     final section = SettingSection(
       type: SettingType.dynamicsSetting,
       subtitle: '测试',
@@ -230,10 +335,15 @@ void main() {
       settingsFactory: () => [
         NormalModel(
           title: '关键词过滤',
+          onTap: (_, _) => decoyOpenCount++,
+        ),
+        NormalModel(
+          title: '改名后的过滤入口',
+          settingKey: SettingBoxKey.banWordForDyn,
           onTap: (_, _) => openCount++,
         ),
       ],
-      keywordFilterIndex: 0,
+      keywordFilterKey: SettingBoxKey.banWordForDyn,
     );
 
     Widget app(bool autoOpen) => MaterialApp(
@@ -255,6 +365,7 @@ void main() {
     await tester.pumpWidget(app(true));
     await tester.pump();
     expect(openCount, 2);
+    expect(decoyOpenCount, 0);
   });
 
   test(

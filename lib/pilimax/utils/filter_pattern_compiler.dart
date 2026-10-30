@@ -1,8 +1,7 @@
-typedef FilterPatternErrorReporter =
-    void Function(
-      Object error,
-      StackTrace stackTrace,
-    );
+typedef FilterPatternErrorReporter = void Function(
+  Object error,
+  StackTrace stackTrace,
+);
 
 class FilterPatternException implements Exception {
   const FilterPatternException(this.message);
@@ -14,17 +13,34 @@ class FilterPatternException implements Exception {
 }
 
 class CompiledFilterPattern {
-  const CompiledFilterPattern({
+  const CompiledFilterPattern._(
+    this._expressions, {
     required this.rules,
     required this.storedValue,
-    required this.regExp,
+    this.invalidRuleCount = 0,
   });
+
+  const CompiledFilterPattern.empty({this.invalidRuleCount = 0})
+    : rules = const [],
+      storedValue = '',
+      _expressions = const [];
 
   final List<String> rules;
   final String storedValue;
-  final RegExp regExp;
+  final List<RegExp> _expressions;
 
-  bool get isEnabled => rules.isNotEmpty;
+  /// Rejected stored rules are reported without exposing their text.
+  final int invalidRuleCount;
+
+  bool get isEnabled => _expressions.isNotEmpty;
+
+  /// Empty filters never match; independent rules short-circuit on the first hit.
+  bool hasMatch(String input) {
+    for (final expression in _expressions) {
+      if (expression.hasMatch(input)) return true;
+    }
+    return false;
+  }
 }
 
 abstract final class FilterPatternCompiler {
@@ -70,17 +86,40 @@ abstract final class FilterPatternCompiler {
     bool caseSensitive = false,
     FilterPatternErrorReporter? onError,
   }) {
+    List<String> rules = const [];
     try {
-      return compileStored(stored, caseSensitive: caseSensitive);
-    } catch (error, stackTrace) {
-      try {
-        onError?.call(error, stackTrace);
-      } catch (_) {}
-      return CompiledFilterPattern(
-        rules: const [],
-        storedValue: '',
-        regExp: RegExp('', caseSensitive: caseSensitive),
+      rules = _normalizeRules(parseStoredRules(stored));
+      // Global budgets are enforced before tolerating individual bad rules.
+      // Never silently truncate an oversized imported or historical list.
+      _validateLimits(rules);
+      final acceptedRules = <String>[];
+      final expressions = <RegExp>[];
+      var invalidRuleCount = 0;
+      for (var index = 0; index < rules.length; index++) {
+        try {
+          final expression = _compileRule(rules[index], index, caseSensitive);
+          acceptedRules.add(rules[index]);
+          expressions.add(expression);
+        } on FilterPatternException catch (error, stackTrace) {
+          invalidRuleCount++;
+          _reportError(onError, error, stackTrace);
+        }
+      }
+      return CompiledFilterPattern._(
+        List.unmodifiable(expressions),
+        rules: List.unmodifiable(acceptedRules),
+        storedValue: acceptedRules.join('\n'),
+        invalidRuleCount: invalidRuleCount,
       );
+    } catch (error, stackTrace) {
+      _reportError(
+        onError,
+        error is FilterPatternException
+            ? error
+            : const FilterPatternException('过滤规则加载失败'),
+        stackTrace,
+      );
+      return CompiledFilterPattern.empty(invalidRuleCount: rules.length);
     }
   }
 
@@ -88,6 +127,20 @@ abstract final class FilterPatternCompiler {
     Iterable<String> inputRules, {
     bool caseSensitive = false,
   }) {
+    final rules = _normalizeRules(inputRules);
+    _validateLimits(rules);
+    final expressions = <RegExp>[];
+    for (var index = 0; index < rules.length; index++) {
+      expressions.add(_compileRule(rules[index], index, caseSensitive));
+    }
+    return CompiledFilterPattern._(
+      List.unmodifiable(expressions),
+      rules: List.unmodifiable(rules),
+      storedValue: rules.join('\n'),
+    );
+  }
+
+  static List<String> _normalizeRules(Iterable<String> inputRules) {
     final rules = <String>[];
     final seen = <String>{};
     for (final inputRule in inputRules) {
@@ -96,7 +149,10 @@ abstract final class FilterPatternCompiler {
         rules.add(rule);
       }
     }
+    return rules;
+  }
 
+  static void _validateLimits(List<String> rules) {
     if (rules.length > maxRules) {
       throw const FilterPatternException('过滤规则不能超过 100 条');
     }
@@ -111,26 +167,28 @@ abstract final class FilterPatternCompiler {
       if (totalLength > maxTotalLength) {
         throw const FilterPatternException('过滤规则总长度不能超过 8192 个字符');
       }
-      _validateRule(rule, index);
-      try {
-        RegExp(rule, caseSensitive: caseSensitive);
-      } on FormatException catch (error) {
-        throw FilterPatternException(
-          '第 ${index + 1} 条正则语法无效：${error.message}',
-        );
-      }
     }
+  }
 
-    final pattern = rules.map((rule) => '(?:$rule)').join('|');
+  static RegExp _compileRule(String rule, int index, bool caseSensitive) {
+    _validateRule(rule, index);
     try {
-      return CompiledFilterPattern(
-        rules: List.unmodifiable(rules),
-        storedValue: rules.join('\n'),
-        regExp: RegExp(pattern, caseSensitive: caseSensitive),
-      );
-    } on FormatException catch (error) {
-      throw FilterPatternException('组合后的正则语法无效：${error.message}');
+      return RegExp(rule, caseSensitive: caseSensitive);
+    } on FormatException {
+      // FormatException may include user-supplied pattern text. Keep diagnostics
+      // safe for the same reporter used by runtime error and export flows.
+      throw FilterPatternException('第 ${index + 1} 条正则语法无效');
     }
+  }
+
+  static void _reportError(
+    FilterPatternErrorReporter? onError,
+    FilterPatternException error,
+    StackTrace stackTrace,
+  ) {
+    try {
+      onError?.call(error, stackTrace);
+    } catch (_) {}
   }
 
   static void validateStoredSettings(

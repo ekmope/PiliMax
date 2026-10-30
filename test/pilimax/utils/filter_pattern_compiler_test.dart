@@ -10,9 +10,47 @@ void main() {
       ]);
 
       expect(compiled.isEnabled, isTrue);
-      expect(compiled.regExp.hasMatch('NEWS42'), isTrue);
-      expect(compiled.regExp.hasMatch('本季番剧'), isTrue);
+      expect(compiled.hasMatch('NEWS42'), isTrue);
+      expect(compiled.hasMatch('本季番剧'), isTrue);
       expect(compiled.storedValue, '^news\\d+\$\n动画|番剧');
+    });
+
+    test('empty filters never match any input', () {
+      for (final compiled in [
+        const CompiledFilterPattern.empty(),
+        FilterPatternCompiler.compileRules(['', '  ']),
+        FilterPatternCompiler.compileStoredSafely(''),
+      ]) {
+        expect(compiled.isEnabled, isFalse);
+        expect(compiled.hasMatch(''), isFalse);
+        expect(compiled.hasMatch('anything'), isFalse);
+      }
+    });
+
+    test('keeps independent named groups and respects explicit case mode', () {
+      final compiled = FilterPatternCompiler.compileRules([
+        r'^(?<word>foo)$',
+        r'^(?<word>bar)$',
+      ]);
+      expect(compiled.hasMatch('FOO'), isTrue);
+      expect(compiled.hasMatch('bar'), isTrue);
+      expect(compiled.hasMatch('none'), isFalse);
+      final sensitive = FilterPatternCompiler.compileStored(
+        'FOO\nbar',
+        caseSensitive: true,
+      );
+      expect(sensitive.hasMatch('foo'), isFalse);
+      expect(sensitive.hasMatch('FOO'), isTrue);
+    });
+
+    test('normalizes CRLF, trims and deduplicates without rewriting rules', () {
+      final compiled = FilterPatternCompiler.compileStored(
+        '  foo  \r\nbar\rfoo\r\n  \r\n',
+      );
+      expect(compiled.rules, ['foo', 'bar']);
+      expect(compiled.storedValue, 'foo\nbar');
+      expect(() => compiled.rules.add('baz'), throwsUnsupportedError);
+      expect(compiled.invalidRuleCount, 0);
     });
 
     test('parses legacy pipe-separated and newline storage', () {
@@ -59,7 +97,7 @@ void main() {
 
     test('allows lazy quantifiers without nested repetition', () {
       final compiled = FilterPatternCompiler.compileRules([r'a+?b']);
-      expect(compiled.regExp.hasMatch('aaab'), isTrue);
+      expect(compiled.hasMatch('aaab'), isTrue);
     });
 
     test('enforces rule count, per-rule, and total length limits', () {
@@ -84,7 +122,7 @@ void main() {
       );
     });
 
-    test('disables only an invalid stored filter and reports it', () {
+    test('disables an entirely invalid stored filter and reports it', () {
       Object? reportedError;
       final compiled = FilterPatternCompiler.compileStoredSafely(
         r'(a+)+',
@@ -92,8 +130,50 @@ void main() {
       );
 
       expect(compiled.isEnabled, isFalse);
-      expect(compiled.regExp.pattern, isEmpty);
+      expect(compiled.hasMatch('anything'), isFalse);
+      expect(compiled.invalidRuleCount, 1);
       expect(reportedError, isA<FilterPatternException>());
+    });
+
+    test('isolates invalid stored rules and reports only safe diagnostics', () {
+      final errors = <Object>[];
+      const stored = 'good\n[private-pattern\n(a+)+\nother';
+      final compiled = FilterPatternCompiler.compileStoredSafely(
+        stored,
+        onError: (error, _) => errors.add(error),
+      );
+      expect(compiled.isEnabled, isTrue);
+      expect(compiled.rules, ['good', 'other']);
+      expect(compiled.storedValue, 'good\nother');
+      expect(compiled.invalidRuleCount, 2);
+      expect(compiled.hasMatch('GOOD'), isTrue);
+      expect(compiled.hasMatch('other'), isTrue);
+      expect(compiled.hasMatch('unmatched'), isFalse);
+      expect(errors, hasLength(2));
+      expect(errors.every((error) => error is FilterPatternException), isTrue);
+      expect(errors.join(), isNot(contains('private-pattern')));
+      expect(errors.join(), isNot(contains('(a+)+')));
+      // The compiler returns an in-memory view; it never rewrites the input.
+      expect(stored, 'good\n[private-pattern\n(a+)+\nother');
+    });
+
+    test('safe loading never truncates or bypasses global budgets', () {
+      for (final rules in [
+        List.generate(101, (index) => 'rule$index'),
+        ['good', _repeat('x', 257)],
+        List.generate(33, (index) => '$index-${_repeat('x', 252)}'),
+      ]) {
+        final errors = <Object>[];
+        final compiled = FilterPatternCompiler.compileStoredSafely(
+          rules.join('\n'),
+          onError: (error, _) => errors.add(error),
+        );
+        expect(compiled.isEnabled, isFalse);
+        expect(compiled.hasMatch('good'), isFalse);
+        expect(compiled.rules, isEmpty);
+        expect(compiled.invalidRuleCount, rules.length);
+        expect(errors, hasLength(1));
+      }
     });
 
     test('stays disabled when the error reporter throws', () {
@@ -103,10 +183,28 @@ void main() {
       );
 
       expect(compiled.isEnabled, isFalse);
-      expect(compiled.regExp.pattern, isEmpty);
+      expect(compiled.hasMatch('anything'), isFalse);
+    });
+
+    test('reporter failures do not discard valid neighboring rules', () {
+      final compiled = FilterPatternCompiler.compileStoredSafely(
+        'good\n[broken\nother',
+        onError: (_, _) => throw StateError('reporting unavailable'),
+      );
+      expect(compiled.isEnabled, isTrue);
+      expect(compiled.hasMatch('good'), isTrue);
+      expect(compiled.hasMatch('other'), isTrue);
+      expect(compiled.invalidRuleCount, 1);
     });
 
     test('validates imported setting values with the same compiler', () {
+      expect(
+        () => FilterPatternCompiler.validateStoredSettings(
+          {'recommend': 'good\n[broken\nother'},
+          const ['recommend'],
+        ),
+        throwsA(isA<FilterPatternException>()),
+      );
       expect(
         () => FilterPatternCompiler.validateStoredSettings(
           {'recommend': r'(a+)+'},

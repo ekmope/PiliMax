@@ -1,3 +1,11 @@
+import 'package:PiliMax/common/widgets/custom_icon.dart';
+import 'package:PiliMax/models/common/dynamic/dynamics_type.dart';
+import 'package:PiliMax/pages/main/controller.dart';
+import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
+import 'package:PiliMax/pilimax/forks/utils/storage.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
+import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:get/get.dart';
 import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/utils/global_data.dart';
@@ -7,16 +15,58 @@ import 'package:PiliMax/pilimax/utils/user_whitelist.dart';
 import 'package:material_ui/material_ui.dart';
 
 List<SettingsModel> get dynamicsSettings => [
+  SplitModel(
+    normalModel: const NormalModel.split(
+      title: '检查未读动态',
+      subtitle: '点击设置检查周期(min)',
+      leading: Icon(Icons.notifications_none),
+    ),
+    switchModel: SwitchModel.split(
+      setKey: SettingBoxKey.checkDynamic,
+      onChanged: (value) => Get.find<MainController>().checkDynamic = value,
+      onTap: _showDynDialog,
+    ),
+  ),
+  SwitchModel(
+    title: '显示动态警告/争议信息',
+    leading: const Icon(Icons.warning_amber_rounded),
+    setKey: SettingBoxKey.showDynDispute,
+    onChanged: (val) => ItemModulesModel.showDynDispute = val,
+  ),
+  const SwitchModel(
+    title: '发布/转发动态反诈',
+    subtitle: '发布/转发动态后检查动态是否可见',
+    leading: Icon(CustomIcons.shield_published),
+    setKey: SettingBoxKey.enableCreateDynAntifraud,
+  ),
+  const SwitchModel(
+    title: '动态/专栏详情页展示底部操作栏',
+    leading: Icon(Icons.more_horiz),
+    setKey: SettingBoxKey.showDynActionBar,
+  ),
+  NormalModel(
+    title: '动态展示',
+    leading: const Icon(Icons.dynamic_feed_rounded),
+    getSubtitle: () => '当前优先展示「${Pref.defaultDynamicType.label}」',
+    onTap: _showDefDynDialog,
+  ),
+  SwitchModel(
+    title: '显示动态互动内容',
+    subtitle: '开启后则在动态卡片底部显示互动内容（如关注的人点赞、热评等）',
+    leading: const Icon(Icons.quickreply_outlined),
+    setKey: SettingBoxKey.showDynInteraction,
+    onChanged: (val) => ItemModulesModel.showDynInteraction = val,
+  ),
   getListBanWordModel(
-    title: '关键词过滤',
+    title: '动态关键词过滤',
     key: SettingBoxKey.banWordForDyn,
     onChanged: (value) {
       DynamicsDataModel.banWordForDyn = value;
-      DynamicsDataModel.enableFilter = value.pattern.isNotEmpty;
+      DynamicsDataModel.enableFilter = value.isEnabled;
     },
   ),
   getListUidModel(
-    title: '屏蔽用户',
+    title: '动态屏蔽用户',
     getUids: () => Pref.dynamicsBlockedMids,
     setUids: (uids) {
       Pref.dynamicsBlockedMids = uids;
@@ -28,7 +78,7 @@ List<SettingsModel> get dynamicsSettings => [
     },
   ),
   getListUidWithNameModel(
-    title: '白名单用户',
+    title: '动态白名单用户',
     leading: const Icon(Icons.person_add_alt_1_outlined),
     emptySubtitle: '点击添加白名单用户',
     countSubtitleBuilder: (count) => '已加入白名单 $count 个用户',
@@ -97,3 +147,61 @@ List<SettingsModel> get dynamicsSettings => [
     ),
   ),
 ];
+
+void _showDynDialog(BuildContext context) {
+  String dynamicPeriod = Pref.dynamicPeriod.toString();
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('检查周期'),
+      content: TextFormField(
+        autofocus: true,
+        initialValue: dynamicPeriod,
+        keyboardType: TextInputType.number,
+        onChanged: (value) => dynamicPeriod = value,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: const InputDecoration(suffixText: 'min'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: Get.back,
+          child: Text(
+            '取消',
+            style: TextStyle(color: ColorScheme.of(context).outline),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            try {
+              final val = int.parse(dynamicPeriod);
+              Get.back();
+              GStorage.setting.put(SettingBoxKey.dynamicPeriod, val);
+              Get.find<MainController>().dynamicPeriod = val * 60 * 1000;
+            } catch (e) {
+              SmartDialog.showToast(e.toString());
+            }
+          },
+          child: const Text('确定'),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _showDefDynDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<DynamicsTabType>(
+    context: context,
+    builder: (context) => SelectDialog<DynamicsTabType>(
+      title: '动态展示',
+      value: Pref.defaultDynamicType,
+      values: DynamicsTabType.values.take(4).map((e) => (e, e.label)).toList(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.defaultDynamicType, res.index);
+    setState();
+  }
+}

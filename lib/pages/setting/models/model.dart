@@ -120,6 +120,7 @@ class PopupModel<T extends EnumWithLabel> extends SettingsModel {
 class NormalModel extends SettingsModel {
   @override
   final String? title;
+  final String? settingKey;
   final ValueGetter<String>? getTitle;
   final ValueGetter<String>? getSubtitle;
   final Widget Function(ThemeData theme)? getTrailing;
@@ -133,6 +134,7 @@ class NormalModel extends SettingsModel {
     super.contentPadding,
     super.titleStyle,
     this.title,
+    this.settingKey,
     this.getTitle,
     this.getSubtitle,
     this.getTrailing,
@@ -147,6 +149,7 @@ class NormalModel extends SettingsModel {
     super.contentPadding,
     super.titleStyle,
     this.title,
+    this.settingKey,
     this.getTitle,
     this.getSubtitle,
     this.getTrailing,
@@ -268,7 +271,7 @@ class WidgetModel extends SettingsModel {
 SettingsModel getListBanWordModel({
   required String title,
   required String key,
-  required ValueChanged<RegExp> onChanged,
+  required ValueChanged<CompiledFilterPattern> onChanged,
   String? banScope,
 }) {
   final stored = GStorage.setting.get(key, defaultValue: '');
@@ -277,6 +280,7 @@ SettingsModel getListBanWordModel({
   return NormalModel(
     leading: const Icon(Icons.filter_alt_outlined),
     title: title,
+    settingKey: key,
     getSubtitle: () {
       var subtitle = '点击添加';
       if (banWord.isNotEmpty) {
@@ -314,7 +318,7 @@ SettingsModel getListBanWordModel({
         }
         await GStorage.setting.put(key, compiled.storedValue);
         banWord = compiled.storedValue;
-        onChanged(compiled.regExp);
+        onChanged(compiled);
         if (context.mounted) {
           setState();
         }

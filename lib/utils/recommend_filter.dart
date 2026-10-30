@@ -22,7 +22,7 @@ abstract final class RecommendFilter {
       'RecommendFilter.invalidStoredPattern',
     ),
   );
-  static RegExp rcmdRegExp = _initialFilter.regExp;
+  static CompiledFilterPattern rcmdRegExp = _initialFilter;
   static bool enableFilter = _initialFilter.isEnabled;
   static final _initialUpNameFilter = FilterPatternCompiler.compileStoredSafely(
     Pref.banWordForRecommendUpName,
@@ -32,7 +32,7 @@ abstract final class RecommendFilter {
       'RecommendFilter.invalidStoredUpNamePattern',
     ),
   );
-  static RegExp rcmdUpNameRegExp = _initialUpNameFilter.regExp;
+  static CompiledFilterPattern rcmdUpNameRegExp = _initialUpNameFilter;
   static bool enableUpNameFilter = _initialUpNameFilter.isEnabled;
   static Map<int, String> recommendBlockedMids = Pref.recommendBlockedMids;
 

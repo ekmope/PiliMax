@@ -31,9 +31,9 @@ class _CommonSettingState extends State<CommonSetting> {
     if (!widget.autoOpenKeywordFilter) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final index = widget.section.keywordFilterIndex;
-      if (index == null || index < 0 || index >= settings.length) return;
-      if (settings[index] case NormalModel(:final onTap)) {
+      if (widget.section.findKeywordFilter(settings) case NormalModel(
+        :final onTap,
+      )) {
         onTap?.call(context, () {
           if (mounted) setState(() {});
         });

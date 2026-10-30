@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 /// A dialog for editing a list of strings with add/remove/edit functionality
@@ -37,13 +36,18 @@ class _ListEditorDialogState extends State<ListEditorDialog> {
   late List<TextEditingController> _controllers;
   final TextEditingController _addController = TextEditingController();
   final FocusNode _addFocusNode = FocusNode();
-  final Set<int> _invalidEditIndexes = {};
+  final Map<TextEditingController, String> _editErrors = {};
+  final Set<TextEditingController> _retiredControllers = {};
+  String? _addError;
 
   @override
   void initState() {
     super.initState();
     _items = List<String>.from(widget.initialItems);
     _controllers = _items.map((e) => TextEditingController(text: e)).toList();
+    if (widget.allowEdit) {
+      _validateEdits();
+    }
   }
 
   @override
@@ -51,6 +55,10 @@ class _ListEditorDialogState extends State<ListEditorDialog> {
     for (final c in _controllers) {
       c.dispose();
     }
+    for (final c in _retiredControllers) {
+      c.dispose();
+    }
+    _retiredControllers.clear();
     _addController.dispose();
     _addFocusNode.dispose();
     super.dispose();
@@ -58,79 +66,110 @@ class _ListEditorDialogState extends State<ListEditorDialog> {
 
   bool _addItem() {
     final value = _addController.text.trim();
-    if (value.isEmpty) return true;
-
-    if (widget.validator != null) {
-      final error = widget.validator!(value);
-      if (error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), duration: const Duration(seconds: 2)),
-        );
-        return false;
-      }
-    }
-
-    if (!_items.contains(value)) {
-      setState(() {
-        _items.add(value);
-        _controllers.add(TextEditingController(text: value));
-        _addController.clear();
-      });
-      return true;
-    } else {
-      _showDuplicateToast();
-      return false;
-    }
-  }
-
-  bool _commitEdit(int index) {
-    final value = _controllers[index].text.trim();
     if (value.isEmpty) {
-      _controllers[index].text = _items[index];
-      _invalidEditIndexes.remove(index);
+      if (_addError != null) setState(() => _addError = null);
       return true;
     }
-    if (value == _items[index]) {
-      _invalidEditIndexes.remove(index);
-      return true;
-    }
-
-    if (widget.validator != null) {
-      final error = widget.validator!(value);
-      if (error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), duration: const Duration(seconds: 2)),
-        );
-        _invalidEditIndexes.add(index);
-        return false;
-      }
-    }
-
-    if (_items.indexOf(value) case final duplicateIndex
-        when duplicateIndex != -1 && duplicateIndex != index) {
-      _showDuplicateToast();
-      _invalidEditIndexes.add(index);
+    final error = _addItemError(value);
+    if (error != null) {
+      setState(() => _addError = error);
       return false;
     }
-
-    _invalidEditIndexes.remove(index);
     setState(() {
-      _items[index] = value;
+      _items.add(value);
+      _controllers.add(TextEditingController(text: value));
+      _addController.clear();
+      _addError = null;
     });
     return true;
   }
 
-  void _showDuplicateToast() {
-    SmartDialog.showToast('该${widget.itemLabel}已存在');
+  String? _addItemError(String value) {
+    final error = widget.validator?.call(value);
+    if (error != null) return error;
+    if (_controllers.any((controller) => controller.text.trim() == value)) {
+      return '该${widget.itemLabel}已存在';
+    }
+    return null;
+  }
+
+  String? _validationError(String value) {
+    if (value.isEmpty) return '${widget.itemLabel}不能为空';
+    return widget.validator?.call(value);
+  }
+
+  void _refreshAddError() {
+    if (_addError == null) return;
+    final value = _addController.text.trim();
+    _addError = value.isEmpty ? null : _addItemError(value);
+  }
+
+  String? _errorTextOf(TextEditingController controller) {
+    if (_editErrors[controller] case final error?) return error;
+    final value = controller.text.trim();
+    if (_controllers.any(
+      (other) => other != controller && other.text.trim() == value,
+    )) {
+      return '该${widget.itemLabel}已存在';
+    }
+    return null;
+  }
+
+  void _updateEditError(TextEditingController controller) {
+    final error = _validationError(controller.text.trim());
+    if (error == null) {
+      _editErrors.remove(controller);
+    } else {
+      _editErrors[controller] = error;
+    }
+  }
+
+  bool _validateEdits() {
+    if (!widget.allowEdit) return true;
+    for (final controller in _controllers) {
+      _updateEditError(controller);
+    }
+    return _controllers.every((controller) => _errorTextOf(controller) == null);
+  }
+
+  void _commitEdit(TextEditingController controller) {
+    final index = _controllers.indexOf(controller);
+    if (index == -1) return;
+    setState(() {
+      _updateEditError(controller);
+      if (_errorTextOf(controller) == null) {
+        _items[index] = controller.text.trim();
+      }
+      _refreshAddError();
+    });
   }
 
   void _removeItem(int index) {
-    _controllers[index].dispose();
-    _invalidEditIndexes.clear();
+    final controller = _controllers[index];
     setState(() {
+      _editErrors.remove(controller);
       _items.removeAt(index);
       _controllers.removeAt(index);
+      _retiredControllers.add(controller);
+      _refreshAddError();
     });
+    // Let the removed TextField detach its listeners before disposing its
+    // controller. The dialog's dispose handles an earlier route removal.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_retiredControllers.remove(controller)) controller.dispose();
+    });
+  }
+
+  void _save() {
+    // Validate the visible controller values, including an edit that still has
+    // focus. Never return a previous valid value in place of an invalid edit.
+    var editsValid = false;
+    setState(() => editsValid = _validateEdits());
+    if (!editsValid || !_addItem()) return;
+    final result = widget.allowEdit
+        ? _controllers.map((controller) => controller.text.trim()).toList()
+        : List<String>.from(_items);
+    Get.back(result: result);
   }
 
   @override
@@ -157,7 +196,12 @@ class _ListEditorDialogState extends State<ListEditorDialog> {
                     decoration: InputDecoration(
                       hintText: widget.hintText,
                       isDense: true,
+                      errorText: _addError,
                     ),
+                    onChanged: (_) {
+                      if (_addError == null) return;
+                      setState(_refreshAddError);
+                    },
                     onSubmitted: (_) => _addItem(),
                   ),
                 ),
@@ -190,7 +234,9 @@ class _ListEditorDialogState extends State<ListEditorDialog> {
                     shrinkWrap: true,
                     itemCount: _items.length,
                     itemBuilder: (context, index) {
+                      final controller = _controllers[index];
                       return Card(
+                        key: ObjectKey(controller),
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
                           dense: true,
@@ -202,20 +248,24 @@ class _ListEditorDialogState extends State<ListEditorDialog> {
                           ),
                           title: widget.allowEdit
                               ? TextField(
-                                  controller: _controllers[index],
+                                  controller: controller,
                                   keyboardType: widget.keyboardType,
                                   inputFormatters: widget.inputFormatters,
                                   style: theme.textTheme.bodyMedium,
-                                  decoration: const InputDecoration(
+                                  decoration: InputDecoration(
                                     isDense: true,
                                     border: InputBorder.none,
                                     contentPadding: EdgeInsets.zero,
+                                    errorText: _errorTextOf(controller),
                                   ),
                                   onChanged: (_) {
-                                    _invalidEditIndexes.remove(index);
+                                    setState(() {
+                                      _updateEditError(controller);
+                                      _refreshAddError();
+                                    });
                                   },
-                                  onSubmitted: (_) => _commitEdit(index),
-                                  onTapOutside: (_) => _commitEdit(index),
+                                  onSubmitted: (_) => _commitEdit(controller),
+                                  onTapOutside: (_) => _commitEdit(controller),
                                 )
                               : SelectableText(
                                   _items[index],
@@ -250,20 +300,7 @@ class _ListEditorDialogState extends State<ListEditorDialog> {
           ),
         ),
         FilledButton(
-          onPressed: () {
-            // Focus loss may validate before the save callback runs.
-            if (_invalidEditIndexes.isNotEmpty) {
-              SmartDialog.showToast('存在未修正的编辑项');
-              return;
-            }
-            // Commit any in-progress edits before saving
-            for (int i = 0; i < _items.length; i++) {
-              if (!_commitEdit(i)) return;
-            }
-            // Include text that has not been explicitly added yet.
-            if (!_addItem()) return;
-            Get.back(result: _items);
-          },
+          onPressed: _save,
           child: const Text('保存'),
         ),
       ],

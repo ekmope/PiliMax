@@ -39,7 +39,6 @@ import 'package:PiliMax/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
-import 'package:PiliMax/pilimax/utils/filter_pattern_compiler.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/login_utils.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
@@ -1320,9 +1319,6 @@ abstract final class Pref {
 
   static String get banWordForDyn =>
       _setting.get(SettingBoxKey.banWordForDyn, defaultValue: '');
-
-  static String parseBanWordToRegex(String stored) =>
-      FilterPatternCompiler.compileStored(stored).regExp.pattern;
 
   static bool get enableLog =>
       _setting.get(SettingBoxKey.enableLog, defaultValue: true);

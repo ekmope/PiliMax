@@ -65,7 +65,7 @@ List<SettingsModel> get recommendSettings => [
     key: SettingBoxKey.banWordForRecommend,
     onChanged: (value) {
       RecommendFilter.rcmdRegExp = value;
-      RecommendFilter.enableFilter = value.pattern.isNotEmpty;
+      RecommendFilter.enableFilter = value.isEnabled;
     },
     banScope: '推荐、热门、分区、相关视频',
   ),
@@ -74,7 +74,7 @@ List<SettingsModel> get recommendSettings => [
     key: SettingBoxKey.banWordForRecommendUpName,
     onChanged: (value) {
       RecommendFilter.rcmdUpNameRegExp = value;
-      RecommendFilter.enableUpNameFilter = value.pattern.isNotEmpty;
+      RecommendFilter.enableUpNameFilter = value.isEnabled;
     },
     banScope: '推荐、热门、分区、相关视频',
   ),
@@ -83,12 +83,12 @@ List<SettingsModel> get recommendSettings => [
     key: SettingBoxKey.banWordForZone,
     onChanged: (value) {
       VideoHttp.zoneRegExp = value;
-      VideoHttp.enableFilter = value.pattern.isNotEmpty;
+      VideoHttp.enableFilter = value.isEnabled;
     },
     banScope: 'App推荐、热门、分区',
   ),
   getListUidWithNameModel(
-    title: '屏蔽用户',
+    title: '推荐屏蔽用户',
     getUidsMap: () => Pref.recommendBlockedMids,
     setUidsMap: (uidsMap) {
       Pref.recommendBlockedMids = uidsMap;
@@ -100,7 +100,7 @@ List<SettingsModel> get recommendSettings => [
     },
   ),
   getListUidWithNameModel(
-    title: '白名单用户',
+    title: '推荐白名单用户',
     leading: const Icon(Icons.person_add_alt_1_outlined),
     emptySubtitle: '点击添加白名单用户',
     countSubtitleBuilder: (count) => '已加入白名单 $count 个用户',

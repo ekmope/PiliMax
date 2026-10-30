@@ -15,21 +15,15 @@ import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/pilimax/http/system_proxy_config.dart';
 import 'package:PiliMax/models/common/audio_normalization.dart';
 import 'package:PiliMax/pilimax/models/common/dm_chart_source.dart';
-import 'package:PiliMax/models/common/dynamic/dynamics_type.dart';
 import 'package:PiliMax/models/common/member/tab_type.dart';
-import 'package:PiliMax/models/common/reply/reply_sort_type.dart';
 import 'package:PiliMax/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliMax/models/common/super_resolution_type.dart';
-import 'package:PiliMax/models/dynamics/result.dart'
-    show DynamicsDataModel, ItemModulesModel;
 import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
 import 'package:PiliMax/pages/home/controller.dart';
-import 'package:PiliMax/pages/main/controller.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/pilimax/pages/setting/pages/danmaku_merge_setting.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
-import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliMax/pilimax/services/route_restore_service.dart';
 import 'package:PiliMax/services/download/download_service.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -50,7 +44,6 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
@@ -118,18 +111,6 @@ List<SettingsModel> get extraSettings => [
     getSubtitle: () => '配置 OpenAI 兼容 API 和提示词模板',
     onTap: (context, _) => Get.toNamed('/aiSetting'),
   ),
-  SplitModel(
-    normalModel: const NormalModel.split(
-      title: '检查未读动态',
-      subtitle: '点击设置检查周期(min)',
-      leading: Icon(Icons.notifications_none),
-    ),
-    switchModel: SwitchModel.split(
-      setKey: SettingBoxKey.checkDynamic,
-      onChanged: (value) => Get.find<MainController>().checkDynamic = value,
-      onTap: _showDynDialog,
-    ),
-  ),
   const SwitchModel(
     title: '显示视频分段信息',
     leading: Icon(CustomIcons.view_headline_rotate_90),
@@ -145,16 +126,6 @@ List<SettingsModel> get extraSettings => [
     subtitle: '在部分列表和动态菜单中显示离线缓存入口',
     leading: Icon(MdiIcons.folderDownloadOutline),
     setKey: SettingBoxKey.showMoreDownloadButtons,
-  ),
-  const SwitchModel(
-    title: '显示视频评论',
-    leading: Icon(MdiIcons.commentTextOutline),
-    setKey: SettingBoxKey.showVideoReply,
-  ),
-  const SwitchModel(
-    title: '显示番剧评论',
-    leading: Icon(MdiIcons.commentTextOutline),
-    setKey: SettingBoxKey.showBangumiReply,
   ),
   const SwitchModel(
     title: '默认展开视频简介',
@@ -183,22 +154,6 @@ List<SettingsModel> get extraSettings => [
     onChanged: (value) => ImageGridView.horizontalPreview = value,
   ),
   NormalModel(
-    title: '评论折叠行数',
-    subtitle: '0行为不折叠',
-    leading: const Icon(Icons.compress),
-    getTrailing: (theme) => Text(
-      '${ReplyItemGrpc.replyLengthLimit}行',
-      style: theme.textTheme.titleSmall,
-    ),
-    onTap: _showReplyLengthDialog,
-  ),
-  const SwitchModel(
-    title: '评论点赞/点踩按钮交换位置',
-    subtitle: '交换后：点赞在左，点踩在右（与官方客户端一致）',
-    leading: Icon(Icons.swap_horiz),
-    setKey: SettingBoxKey.swapReplyLikeDislike,
-  ),
-  NormalModel(
     title: '弹幕行高',
     subtitle: '默认1.6',
     leading: const Icon(CustomIcons.dm_settings),
@@ -212,12 +167,6 @@ List<SettingsModel> get extraSettings => [
     title: '显示视频警告/争议信息',
     leading: Icon(Icons.warning_amber_rounded),
     setKey: SettingBoxKey.showArgueMsg,
-  ),
-  SwitchModel(
-    title: '显示动态警告/争议信息',
-    leading: const Icon(Icons.warning_amber_rounded),
-    setKey: SettingBoxKey.showDynDispute,
-    onChanged: (val) => ItemModulesModel.showDynDispute = val,
   ),
   const SwitchModel(
     title: '分P/合集：倒序播放从首集开始播放',
@@ -236,12 +185,6 @@ List<SettingsModel> get extraSettings => [
     title: '显示继续播放分P提示',
     leading: Icon(Icons.local_parking),
     setKey: SettingBoxKey.continuePlayingPart,
-  ),
-  NormalModel(
-    title: '评论区过滤设置',
-    leading: const Icon(Icons.comment_outlined),
-    getSubtitle: () => '关键词、用户屏蔽、等级过滤、屏蔽带货评论',
-    onTap: (context, _) => Get.toNamed('/replySetting'),
   ),
   const SwitchModel(
     title: '使用外部浏览器打开链接',
@@ -391,38 +334,6 @@ List<SettingsModel> get extraSettings => [
         '当前:「${Pref.dmChartSource.label}」\n显示视频弹幕热度趋势；官方无数据时可使用弹幕密度生成',
     onTap: _showDmChartSourceDialog,
   ),
-  const SwitchModel(
-    title: '记录评论',
-    leading: Icon(Icons.message_outlined),
-    setKey: SettingBoxKey.saveReply,
-    needReboot: true,
-  ),
-  const SwitchModel(
-    title: 'PiliMax 内置发评反诈',
-    subtitle: '发送评论后由 PiliMax 检查可见性；与外部模式同时开启时优先使用此项',
-    leading: Icon(CustomIcons.shield_reply),
-    setKey: SettingBoxKey.enableCommAntifraud,
-  ),
-  if (Platform.isAndroid)
-    const SwitchModel(
-      title: '外部「哔哩发评反诈」兼容模式',
-      subtitle:
-          '需另装外部应用，仅用于自动检查；会传递评论内容与 UID，但不传账号 Cookie；手动检查仍使用 PiliMax 内置逻辑',
-      leading: Icon(FontAwesomeIcons.b, size: 22),
-      setKey: SettingBoxKey.biliSendCommAntifraud,
-    ),
-  const SwitchModel(
-    title: '发布/转发动态反诈',
-    subtitle: '发布/转发动态后检查动态是否可见',
-    leading: Icon(CustomIcons.shield_published),
-    setKey: SettingBoxKey.enableCreateDynAntifraud,
-  ),
-  SwitchModel(
-    title: '屏蔽带货动态',
-    leading: const Icon(CustomIcons.shopping_bag_not_interested),
-    setKey: SettingBoxKey.antiGoodsDyn,
-    onChanged: (value) => DynamicsDataModel.antiGoodsDyn = value,
-  ),
   SwitchModel(
     title: '侧滑关闭二级页面',
     leading: const Icon(CustomIcons.touch_app_rotate_270),
@@ -439,11 +350,6 @@ List<SettingsModel> get extraSettings => [
     subtitle: '双指缩放时可旋转画面，松手自动吸附到直角',
     leading: Icon(Icons.rotate_90_degrees_ccw),
     setKey: SettingBoxKey.enablePinchRotate,
-  ),
-  const SwitchModel(
-    title: '动态/专栏详情页展示底部操作栏',
-    leading: Icon(Icons.more_horiz),
-    setKey: SettingBoxKey.showDynActionBar,
   ),
   const SwitchModel(
     title: '启用拖拽字幕调整底部边距',
@@ -507,13 +413,6 @@ List<SettingsModel> get extraSettings => [
       } catch (_) {}
     },
   ),
-  SwitchModel(
-    title: '评论区搜索关键词',
-    subtitle: '展示评论区搜索关键词',
-    leading: const Icon(Icons.search_outlined),
-    setKey: SettingBoxKey.enableWordRe,
-    onChanged: (value) => ReplyItemGrpc.enableWordRe = value,
-  ),
   const SwitchModel(
     title: '启用AI总结',
     subtitle: '视频详情页开启AI总结',
@@ -525,12 +424,6 @@ List<SettingsModel> get extraSettings => [
     subtitle: '禁止打开入口，降低网络社交依赖',
     leading: Icon(Icons.beach_access_outlined),
     setKey: SettingBoxKey.disableLikeMsg,
-  ),
-  const SwitchModel(
-    title: '默认展示评论区',
-    subtitle: '在视频详情页默认切换至评论区页（仅Tab型布局）',
-    leading: Icon(Icons.mode_comment_outlined),
-    setKey: SettingBoxKey.defaultShowComment,
   ),
   const SwitchModel(
     title: '启用HTTP/2',
@@ -549,37 +442,6 @@ List<SettingsModel> get extraSettings => [
     subtitle: '实际间隔 = 间隔 * 第x次重试',
     leading: Icon(Icons.more_time_outlined),
     onTap: _showReplyDelayDialog,
-  ),
-  PopupModel(
-    title: '评论展示',
-    leading: const Icon(Icons.whatshot_outlined),
-    value: () => Pref.replySortType,
-    items: ReplySortType.values.take(2),
-    onSelected: (value, setState) => GStorage.setting
-        .put(SettingBoxKey.replySortType, value.index)
-        .whenComplete(setState),
-  ),
-  PopupModel(
-    title: '楼中楼评论展示',
-    leading: const Icon(Icons.forum_outlined),
-    value: () => Pref.replyReplySortType,
-    items: ReplySortType.values.take(2),
-    onSelected: (value, setState) => GStorage.setting
-        .put(SettingBoxKey.replyReplySortType, value.index)
-        .whenComplete(setState),
-  ),
-  NormalModel(
-    title: '动态展示',
-    leading: const Icon(Icons.dynamic_feed_rounded),
-    getSubtitle: () => '当前优先展示「${Pref.defaultDynamicType.label}」',
-    onTap: _showDefDynDialog,
-  ),
-  SwitchModel(
-    title: '显示动态互动内容',
-    subtitle: '开启后则在动态卡片底部显示互动内容（如关注的人点赞、热评等）',
-    leading: const Icon(Icons.quickreply_outlined),
-    setKey: SettingBoxKey.showDynInteraction,
-    onChanged: (val) => ItemModulesModel.showDynInteraction = val,
   ),
   NormalModel(
     title: '用户页默认展示TAB',
@@ -775,87 +637,6 @@ Future<void> _showDownloadTaskCountDialog(
     setState();
     SmartDialog.showToast('重启生效');
   }
-}
-
-void _showDynDialog(BuildContext context) {
-  String dynamicPeriod = Pref.dynamicPeriod.toString();
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('检查周期'),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: dynamicPeriod,
-        keyboardType: TextInputType.number,
-        onChanged: (value) => dynamicPeriod = value,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(suffixText: 'min'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () {
-            try {
-              final val = int.parse(dynamicPeriod);
-              Get.back();
-              GStorage.setting.put(SettingBoxKey.dynamicPeriod, val);
-              Get.find<MainController>().dynamicPeriod = val * 60 * 1000;
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('确定'),
-        ),
-      ],
-    ),
-  );
-}
-
-void _showReplyLengthDialog(BuildContext context, VoidCallback setState) {
-  String replyLengthLimit = ReplyItemGrpc.replyLengthLimit.toString();
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('评论折叠行数'),
-      content: TextFormField(
-        autofocus: true,
-        initialValue: replyLengthLimit,
-        keyboardType: TextInputType.number,
-        onChanged: (value) => replyLengthLimit = value,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(suffixText: '行'),
-      ),
-      actions: [
-        TextButton(
-          onPressed: Get.back,
-          child: Text(
-            '取消',
-            style: TextStyle(color: ColorScheme.of(context).outline),
-          ),
-        ),
-        TextButton(
-          onPressed: () async {
-            try {
-              final val = int.parse(replyLengthLimit);
-              Get.back();
-              ReplyItemGrpc.replyLengthLimit = val == 0 ? null : val;
-              await GStorage.setting.put(SettingBoxKey.replyLengthLimit, val);
-              setState();
-            } catch (e) {
-              SmartDialog.showToast(e.toString());
-            }
-          },
-          child: const Text('确定'),
-        ),
-      ],
-    ),
-  );
 }
 
 void _showDmHeightDialog(BuildContext context, VoidCallback setState) {
@@ -1078,24 +859,6 @@ Future<void> _showReplyDelayDialog(
     await GStorage.setting.put(SettingBoxKey.retryDelay, res.toInt());
     setState();
     SmartDialog.showToast('重启生效');
-  }
-}
-
-Future<void> _showDefDynDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<DynamicsTabType>(
-    context: context,
-    builder: (context) => SelectDialog<DynamicsTabType>(
-      title: '动态展示',
-      value: Pref.defaultDynamicType,
-      values: DynamicsTabType.values.take(4).map((e) => (e, e.label)).toList(),
-    ),
-  );
-  if (res != null) {
-    await GStorage.setting.put(SettingBoxKey.defaultDynamicType, res.index);
-    setState();
   }
 }
 

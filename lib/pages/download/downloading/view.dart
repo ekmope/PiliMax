@@ -99,6 +99,10 @@ class _DownloadingPageState extends State<DownloadingPage>
                             downloadNext: isCurr,
                           ),
                           controller: this,
+                          customOnLongPress: () {
+                            this.enableMultiSelect.value = true;
+                            onSelect(entry);
+                          },
                         );
                       },
                     );

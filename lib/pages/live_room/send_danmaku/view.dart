@@ -185,25 +185,22 @@ class _ReplyPageState extends CommonRichTextPubPageState<LiveSendDmPanel> {
   List<Widget> buildInputView() => [
     Padding(
       padding: const EdgeInsets.only(top: 12, right: 15, left: 15, bottom: 10),
-      child: Obx(
-        () => RichTextField(
-          key: key,
-          controller: editController,
-          minLines: 1,
-          maxLines: 2,
-          autofocus: false,
-          readOnly: readOnly.value,
-          textInputAction: TextInputAction.send,
-          onChanged: onChanged,
-          onSubmitted: onSubmitted,
-          focusNode: focusNode,
-          decoration: const InputDecoration(
-            hintText: '输入弹幕内容',
-            border: InputBorder.none,
-            hintStyle: TextStyle(fontSize: 14),
-          ),
-          style: theme.textTheme.bodyLarge,
+      child: RichTextField(
+        key: key,
+        controller: editController,
+        minLines: 1,
+        maxLines: 2,
+        autofocus: false,
+        textInputAction: TextInputAction.send,
+        onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        focusNode: focusNode,
+        decoration: const InputDecoration(
+          hintText: '输入弹幕内容',
+          border: InputBorder.none,
+          hintStyle: TextStyle(fontSize: 14),
         ),
+        style: theme.textTheme.bodyLarge,
       ),
     ),
     Divider(height: 1, color: theme.dividerColor.withValues(alpha: 0.1)),

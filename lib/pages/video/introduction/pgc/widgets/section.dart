@@ -8,7 +8,7 @@ import 'package:PiliMax/models_new/pgc/pgc_info_model/section.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
-import 'package:PiliMax/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';

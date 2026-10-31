@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/pilimax/common/widgets/flutter/page/page_view.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
@@ -11,7 +12,7 @@ import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_to_box_adapter.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/models/dynamics/article_content_model.dart' show Pic;
-import 'package:PiliMax/models/dynamics/result.dart' show DynamicStat;
+import 'package:PiliMax/models/dynamics/result.dart' show DynamicStat, Tribee;
 import 'package:PiliMax/pages/article/controller.dart';
 import 'package:PiliMax/pages/article/widgets/article_ops.dart';
 import 'package:PiliMax/pages/article/widgets/html_render.dart';
@@ -20,6 +21,7 @@ import 'package:PiliMax/pages/article/widgets/sliver_list_ext.dart';
 import 'package:PiliMax/pages/article/widgets/sliver_to_box_adapter.dart';
 import 'package:PiliMax/pages/common/dyn/common_dyn_page.dart';
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
+import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -257,6 +259,10 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage>
                 ),
               ),
             SliverToBoxAdapter(child: _buildAuthor()),
+            if (controller.type != 'read')
+              ...?controller.opusData?.modules.moduleTribee?.items?.map(
+                _buildTribee,
+              ),
             if (controller.type != 'read' &&
                 controller.opusData?.modules.moduleCollection != null)
               SliverToBoxAdapter(
@@ -275,6 +281,58 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage>
       return const SliverToBoxAdapter();
     }),
   );
+
+  Widget _buildTribee(Tribee tribee) {
+    final colorScheme = theme.colorScheme;
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const .only(bottom: 8),
+        child: Material(
+          borderRadius: Style.borderRadius6,
+          color: colorScheme.onInverseSurface,
+          child: InkWell(
+            borderRadius: Style.borderRadius6,
+            onTap: tribee.jumpUrl == null || tribee.jumpUrl!.isEmpty
+                ? null
+                : () => PiliScheme.routePushFromUrl(tribee.jumpUrl!),
+            child: Padding(
+              padding: const .symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  NetworkImgLayer(
+                    src: tribee.faceUrl,
+                    width: 30,
+                    height: 30,
+                    borderRadius: Style.borderRadius6,
+                  ),
+                  const SizedBox(width: 10),
+                  Text('${tribee.name ?? ''}${tribee.suffix ?? ''}'),
+                  SizedBox(
+                    height: 20,
+                    child: VerticalDivider(
+                      width: 20,
+                      color: colorScheme.outline.withValues(alpha: .4),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '${tribee.dynCountText ?? ''} · ${tribee.latestTimeText ?? ''}',
+                      maxLines: 1,
+                      overflow: .ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   PreferredSizeWidget _buildAppBar() => AppBar(
     title: Obx(() {

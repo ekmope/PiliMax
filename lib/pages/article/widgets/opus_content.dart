@@ -21,6 +21,7 @@ import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/image_utils.dart';
+import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:collection/collection.dart';
@@ -101,6 +102,33 @@ class OpusContent extends StatelessWidget {
                             'https://www.bilibili.com/h5/lottery/result?business_id=$opusId',
                       },
                     ),
+                ),
+              ],
+            );
+          case 'RICH_TEXT_NODE_TYPE_VOTE':
+            final rid = int.tryParse(rich.rid ?? '');
+            return TextSpan(
+              children: [
+                WidgetSpan(
+                  alignment: .middle,
+                  child: Icon(
+                    Icons.bar_chart_rounded,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                TextSpan(
+                  text: ' ${rich.origText} ',
+                  style: TextStyle(color: colorScheme.primary),
+                  recognizer: rid == null
+                      ? null
+                      : (NoDeadlineTapGestureRecognizer()
+                          ..onTap = () {
+                            final context = Get.context;
+                            if (context != null) {
+                              showVoteDialog(context, rid);
+                            }
+                          }),
                 ),
               ],
             );
@@ -785,6 +813,144 @@ class OpusContent extends StatelessWidget {
                       ],
                     ),
                   );
+                case 'LINK_CARD_TYPE_EVA3_USER':
+                  final info = element.linkCard?.card?.eva3User?.info;
+                  final user = info?.user;
+                  if (info == null || user == null) {
+                    throw StateError('missing EVA3 user card');
+                  }
+                  child = Row(
+                    spacing: 10,
+                    children: [
+                      NetworkImgLayer(
+                        width: 48,
+                        height: 48,
+                        type: .avatar,
+                        src: user.face,
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: .start,
+                          children: [
+                            Text(
+                              user.name ?? '',
+                              maxLines: 1,
+                              overflow: .ellipsis,
+                            ),
+                            Text(
+                              '${info.follower ?? ''}   ${info.like ?? ''}',
+                              maxLines: 1,
+                              overflow: .ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.outline,
+                              ),
+                            ),
+                            if (info.desc?.isNotEmpty == true)
+                              Text(
+                                info.desc!,
+                                maxLines: 1,
+                                overflow: .ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: colorScheme.outline,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                case 'LINK_CARD_TYPE_EVA3_TOY':
+                  final info = element.linkCard?.card?.eva3Toy?.info;
+                  final user = info?.up;
+                  if (info == null || user == null) {
+                    throw StateError('missing EVA3 toy card');
+                  }
+                  child = Row(
+                    spacing: 10,
+                    children: [
+                      NetworkImgLayer(
+                        width: 65,
+                        height: 65,
+                        src: info.poster,
+                        borderRadius: const .all(.circular(6)),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: .start,
+                          children: [
+                            Text(
+                              info.title ?? '',
+                              maxLines: 1,
+                              overflow: .ellipsis,
+                            ),
+                            Text(
+                              '${user.name ?? ''}   ${info.statText ?? ''}',
+                              maxLines: 1,
+                              overflow: .ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.outline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                case 'LINK_CARD_TYPE_EVA3_VOTE':
+                  final info = element.linkCard?.card?.eva3Vote?.info;
+                  if (info == null) {
+                    throw StateError('missing EVA3 vote card');
+                  }
+                  child = Row(
+                    spacing: 10,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          borderRadius: const .all(.circular(8)),
+                        ),
+                        width: 60,
+                        height: 42,
+                        child: Icon(
+                          Icons.bar_chart_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: .start,
+                          children: [
+                            Text(
+                              info.title ?? '',
+                              maxLines: 1,
+                              overflow: .ellipsis,
+                            ),
+                            Text(
+                              '${NumUtils.numFormat(info.joinNum)}人参与',
+                              maxLines: 1,
+                              overflow: .ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: colorScheme.outline,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                case 'LINK_CARD_TYPE_EVA3_COMMENT':
+                  final info = element.linkCard?.card?.eva3Comment?.info;
+                  final source = info?.source;
+                  if (info == null || source == null) {
+                    throw StateError('missing EVA3 comment card');
+                  }
+                  child = Text(
+                    '${info.linkShowText ?? ''}:\n${source.desc ?? ''}',
+                  );
                 default:
                   throw UnimplementedError(
                     '\nparaType: ${element.paraType},\ncard type: $type',
@@ -806,6 +972,21 @@ class OpusContent extends StatelessWidget {
                                 context,
                                 card.vote?.voteId ?? int.parse(card.oid!),
                               );
+                              return;
+                            }
+                            if (type == 'LINK_CARD_TYPE_EVA3_VOTE') {
+                              final voteId = card.eva3Vote?.info?.voteId;
+                              final id = int.tryParse(voteId ?? '');
+                              if (id != null) {
+                                showVoteDialog(context, id);
+                              }
+                              return;
+                            }
+                            if (type == 'LINK_CARD_TYPE_EVA3_USER') {
+                              final mid = card.eva3User?.info?.user?.mid;
+                              if (mid != null && mid.isNotEmpty) {
+                                Get.toNamed('/member?mid=$mid');
+                              }
                               return;
                             }
                             if (type == 'LINK_CARD_TYPE_ITEM_NULL') {
@@ -849,6 +1030,10 @@ class OpusContent extends StatelessWidget {
                                 card.eva3Video!.info!.jumpUrl,
                               'LINK_CARD_TYPE_EVA3_OPUS' =>
                                 card.eva3Opus!.info!.jumpUrl,
+                              'LINK_CARD_TYPE_EVA3_TOY' =>
+                                card.eva3Toy!.info!.jumpUri,
+                              'LINK_CARD_TYPE_EVA3_COMMENT' =>
+                                card.eva3Comment!.resourceUrl,
                               _ => null,
                             };
                             if (url != null && url.isNotEmpty) {

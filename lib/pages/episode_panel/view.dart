@@ -100,6 +100,7 @@ class _EpisodePanelState extends State<EpisodePanel>
 
   late int _lastTabIndex;
   late int _lastItemIndex;
+  late int _lastPgcSeasonIndex;
   late final int Function() _tabIndex;
   late final int Function() _itemIndex;
   late List<ugc.BaseEpisodeItem> _episodes;
@@ -134,28 +135,39 @@ class _EpisodePanelState extends State<EpisodePanel>
 
   void _refresh([_]) {
     if (!mounted) return;
-    _updateEpisodes();
+    final tabIndexChanged = _syncTab(_tabIndex());
     setState(() {});
-    WidgetsBinding.instance.addPostFrameCallback(_jumpToCurrIfNeeded);
+    _jumpToCurrIfNeeded(tabIndexChanged);
   }
 
-  bool _syncTab(int tabIndex) {
-    if (_type != EpisodeType.season ||
-        tabIndex < 0 ||
-        tabIndex >= _sections.length) {
-      return false;
+  bool _syncTab(int tabIndex, {bool syncEpisodes = true}) {
+    var tabIndexChanged = _lastTabIndex != tabIndex;
+    if (syncEpisodes) {
+      switch (_type) {
+        case EpisodeType.part:
+          _episodes = _videoDetail.pages ?? const [];
+        case EpisodeType.season:
+          if (tabIndex >= 0 && tabIndex < _sections.length) {
+            _episodes = _sections[tabIndex].episodes ?? const [];
+          } else {
+            _episodes = const [];
+          }
+        case EpisodeType.pgc:
+          final seasonChanged =
+              _lastPgcSeasonIndex != _pgcController.seasonIndex;
+          tabIndexChanged = tabIndexChanged || seasonChanged;
+          _episodes = _pgcItem.episodes ?? const [];
+          _lastPgcSeasonIndex = _pgcController.seasonIndex;
+      }
     }
-    final tabIndexChanged = _lastTabIndex != tabIndex;
-    if (tabIndexChanged) {
-      _episodes = _sections[tabIndex].episodes ?? const [];
-      _lastTabIndex = tabIndex;
-    }
+    _lastTabIndex = tabIndex;
     return tabIndexChanged;
   }
 
-  void _jumpToCurrIfNeeded([_]) {
+  void _jumpToCurrIfNeeded([Object? arg]) {
     final itemIndex = _itemIndex();
-    if (_syncTab(_tabIndex()) || _lastItemIndex != itemIndex) {
+    final tabIndexChanged = arg is bool ? arg : _syncTab(_tabIndex());
+    if (tabIndexChanged || _lastItemIndex != itemIndex) {
       _jumpToCurrent();
       _lastItemIndex = itemIndex;
     }
@@ -267,6 +279,7 @@ class _EpisodePanelState extends State<EpisodePanel>
         _tabIndex = () => 0;
         _itemIndex = () => _pgcController.episodeIndex;
         _episodes = _pgcItem.episodes ?? const [];
+        _lastPgcSeasonIndex = _pgcController.seasonIndex;
         _addPgcListener();
     }
 
@@ -364,6 +377,16 @@ class _EpisodePanelState extends State<EpisodePanel>
     }
   }
 
+  /// Close a modal episode panel before executing an action. Side panels are
+  /// owned by the video page and must stay mounted while the shared controller
+  /// updates, so only the modal instance is popped here.
+  bool _popIfNeeded() {
+    if (_isSidePanel) return false;
+    _removeListener();
+    Get.back();
+    return true;
+  }
+
   @override
   Widget buildPage(ThemeData theme) {
     final child = Column(
@@ -437,7 +460,7 @@ class _EpisodePanelState extends State<EpisodePanel>
                   bvid: episode.bvid ?? IdUtils.av2bv(episode.aid!),
                   heroTag: _ugcController.heroTag,
                   ugcIntroController: _ugcController,
-                  onBack: _isSidePanel ? null : Get.back,
+                  onBack: _isSidePanel ? null : _popIfNeeded,
                 ),
               ),
             ],
@@ -483,11 +506,8 @@ class _EpisodePanelState extends State<EpisodePanel>
     ugc.BaseEpisodeItem episode,
     String title,
   ) async {
-    if (!_isSidePanel) {
-      _removeListener();
-      Get.back();
-    } else {
-      _syncTab(tabIndex);
+    if (!_popIfNeeded()) {
+      _syncTab(tabIndex, syncEpisodes: false);
       _lastItemIndex = index;
     }
 
@@ -779,7 +799,10 @@ class _EpisodePanelState extends State<EpisodePanel>
         ListOrder.desc => const Icon(MdiIcons.sortDescending),
         ListOrder.shuffle => const Icon(Icons.shuffle),
       },
-      onPressed: () => widget.onReverse?.call(),
+      onPressed: () {
+        _popIfNeeded();
+        widget.onReverse?.call();
+      },
     );
   });
 

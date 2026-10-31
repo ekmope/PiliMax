@@ -679,9 +679,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           widget.showEpisodes?.call(
             type: isSeason
                 ? EpisodeType.season
-                : isPart
-                ? EpisodeType.part
-                : EpisodeType.pgc,
+                : isPgc
+                ? EpisodeType.pgc
+                : EpisodeType.part,
           );
         },
       ),

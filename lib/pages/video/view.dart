@@ -4498,10 +4498,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         isSidePanel: false,
         introController: introController,
         enableSlide: enableSlide,
-        onReverse: () {
-          Get.back();
-          onReversePlay(isSeason: type == EpisodeType.season);
-        },
+        onReverse: () => onReversePlay(isSeason: type == EpisodeType.season),
       );
     }
 
@@ -4596,7 +4593,9 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
         }
       }
     }
-    ugcIntroController.updateIndex(force: true);
+    // Pass the mutated detail explicitly so the controller derives the
+    // seasonIndex from the same ordering that the panel just displayed.
+    ugcIntroController.updateIndex(data: videoDetail, force: true);
   }
 
   void _applyListOrder<T>({

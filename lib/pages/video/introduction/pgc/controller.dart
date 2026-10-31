@@ -46,6 +46,10 @@ typedef ShowEpisodes = Function;
 class PgcIntroController extends CommonIntroController {
   PgcEpisodeType episodeType = PgcEpisodeType.episode;
   int sectionIndex = 0;
+  // Keeps the selected season in sync with episode-panel refreshes.  PGC
+  // pages use a separate controller from UGC seasons, so the panel cannot
+  // reuse VideoController.seasonIndex here.
+  int seasonIndex = 0;
 
   int get pvIndex {
     final sections = pgcItem.sections;
@@ -114,6 +118,12 @@ class PgcIntroController extends CommonIntroController {
     epId = args['epId'];
     isPgc = args['videoType'] == VideoType.pgc;
     pgcItem = args['pgcItem'];
+    final initialSeasonIndex = pgcItem.seasons?.indexWhere(
+      (season) => season.seasonId == seasonId,
+    );
+    if (initialSeasonIndex != null && initialSeasonIndex >= 0) {
+      seasonIndex = initialSeasonIndex;
+    }
     final initialSection = pgcItem.sections?.indexWhere(
       (section) =>
           section.episodes?.any((episode) => episode.epId == epId) ?? false,
@@ -164,6 +174,12 @@ class PgcIntroController extends CommonIntroController {
         }
         pgcItem = response;
         seasonId = nextSeasonId;
+        final nextSeasonIndex = response.seasons?.indexWhere(
+          (season) => season.seasonId == nextSeasonId,
+        );
+        if (nextSeasonIndex != null && nextSeasonIndex >= 0) {
+          seasonIndex = nextSeasonIndex;
+        }
         final sectionIndex = response.sections?.indexWhere(
           (section) =>
               section.episodes?.any((item) => item.epId == episode.epId) ??

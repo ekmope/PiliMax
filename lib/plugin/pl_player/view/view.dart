@@ -30,6 +30,8 @@ import 'package:PiliMax/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliMax/models/common/super_resolution_type.dart';
 import 'package:PiliMax/models/common/video/base_quality.dart';
 import 'package:PiliMax/models/video/play/url.dart';
+import 'package:PiliMax/models_new/video/video_detail/episode.dart'
+    show ShowEpisodes;
 import 'package:PiliMax/pages/common/common_intro_controller.dart';
 import 'package:PiliMax/pages/danmaku/danmaku_model.dart';
 import 'package:PiliMax/pages/live_room/widgets/bottom_control.dart'
@@ -114,7 +116,7 @@ class PLVideoPlayer extends StatefulWidget {
   final Widget headerControl;
   final Widget? bottomControl;
   final Widget? danmuWidget;
-  final void Function({EpisodeType? type})? showEpisodes;
+  final ShowEpisodes? showEpisodes;
   final VoidCallback? showViewPoints;
   final bool isPipMode;
 
@@ -205,6 +207,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   StreamSubscription? _controlsListener;
   void _onControlChanged(bool val) {
     final visible = val && !plPlayerController.controlsLock.value;
+    if (!visible) plPlayerController.clearHoverPreview();
 
     if ((widget.headerControl.key as GlobalKey<TimeBatteryMixin>).currentState
         case final state?) {
@@ -357,6 +360,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      plPlayerController.clearHoverPreview(restartControls: true);
+    }
     // The native iOS PiP controller owns playback while its window is active.
     if (Platform.isIOS && IOSPipHelper.isActive) return;
     if (plPlayerController.continuePlayInBackground.value &&
@@ -410,6 +416,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
 
   @override
   void dispose() {
+    plPlayerController.clearHoverPreview();
     removeObserverMobile(this);
     _brightnessTimer?.cancel();
     _danmakuListener?.cancel();
@@ -1047,6 +1054,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   @override
   void didUpdateWidget(covariant PLVideoPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.isPipMode != widget.isPipMode ||
+        oldWidget.isInAppPip != widget.isInAppPip ||
+        oldWidget.maxWidth != widget.maxWidth ||
+        oldWidget.maxHeight != widget.maxHeight) {
+      plPlayerController.clearHoverPreview(restartControls: true);
+    }
     if (Platform.isAndroid && AndroidHelper.isPipMode) {
       plPlayerController.controls = false;
     }
@@ -1660,7 +1673,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                       child: Obx(
                         () => AnimatedOpacity(
                           curve: Curves.easeInOut,
-                          opacity: plPlayerController.isSeeking.value
+                          opacity:
+                              plPlayerController.isSeeking.value &&
+                                  plPlayerController.hoverDx == null
                               ? 1.0
                               : 0.0,
                           duration: const Duration(milliseconds: 150),
@@ -1842,9 +1857,11 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                           child:
                               widget.bottomControl ??
                               BottomControl(
+                                playerKey: _playerKey,
                                 maxWidth: maxWidth,
                                 isFullScreen: isFullScreen,
                                 isPipMode: widget.isPipMode,
+                                animCtr: _animationController,
                                 controller: plPlayerController,
                                 videoDetailController: videoDetailController,
                                 buildBottomControl: () => buildBottomControl(

@@ -3,8 +3,8 @@ import 'dart:io' show Cookie, Platform;
 
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
-import 'package:PiliMax/plugin/linux_webview.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+import 'package:webview_all_linux/webview_all_linux.dart';
 
 abstract final class LinuxCookieManager {
   static bool isBiliDomain(String url) {
@@ -22,11 +22,25 @@ abstract final class LinuxCookieManager {
   static Future<void> deleteAllCookies() async {
     if (!Platform.isLinux) return;
     try {
-      await LinuxWebviewPlugin.clearAllCookies();
+      await LinuxWebViewCookieManager(
+        const LinuxWebViewCookieManagerCreationParams(),
+      ).clearCookies();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('LinuxCookieManager: deleteAllCookies failed: $e');
       }
+    }
+  }
+
+  /// Matches the original Linux cache action, which cleared all website data.
+  static Future<void> clearAllWebsiteData() async {
+    if (!Platform.isLinux) return;
+    final result = await LinuxWebViewDataManager(
+      const LinuxWebViewDataManagerCreationParams(),
+    ).clearAllWebsiteData();
+    if (!result.isComplete) {
+      final errors = result.failures.values.toSet().join('; ');
+      throw StateError(errors.isEmpty ? '未能清理全部网站数据' : errors);
     }
   }
 

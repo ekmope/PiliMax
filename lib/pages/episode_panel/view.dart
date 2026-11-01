@@ -16,6 +16,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
+import 'package:PiliMax/models/common/pgc_episode_type.dart';
 import 'package:PiliMax/pilimax/models/common/list_order.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart' as pgc;
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
@@ -35,6 +36,7 @@ import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/scroll_offset_helper.dart';
 import 'package:collection/collection.dart';
 import 'package:easy_debounce/easy_debounce.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
@@ -48,6 +50,7 @@ class EpisodePanel extends CommonSlidePage {
     super.key,
     super.enableSlide,
     this.onReverse,
+    this.episodeType,
     required this.type,
     required this.isSidePanel,
     required this.introController,
@@ -56,6 +59,7 @@ class EpisodePanel extends CommonSlidePage {
   final EpisodeType type;
   final bool isSidePanel;
   final VoidCallback? onReverse;
+  final PgcEpisodeType? episodeType;
   final CommonIntroController introController;
 
   @override
@@ -80,6 +84,16 @@ class _EpisodePanelState extends State<EpisodePanel>
   // pgc
   late final _pgcController = _introController as PgcIntroController;
   PgcInfoModel get _pgcItem => _pgcController.pgcItem;
+  PgcEpisodeType get _pgcEpisodeType => _isSidePanel
+      ? PgcEpisodeType.episode
+      : widget.episodeType ?? _pgcController.episodeType;
+  List<ugc.BaseEpisodeItem> get _pgcEpisodes =>
+      _isSidePanel || _pgcEpisodeType == PgcEpisodeType.episode
+      ? _pgcItem.episodes ?? const []
+      : _pgcItem.sections
+                ?.elementAtOrNull(_pgcController.sectionIndex)
+                ?.episodes ??
+            const [];
 
   // fav
   late final int _seasonId;
@@ -129,7 +143,7 @@ class _EpisodePanelState extends State<EpisodePanel>
         final section = _sections.elementAtOrNull(_tabIndex());
         _episodes = section?.episodes ?? const [];
       case EpisodeType.pgc:
-        _episodes = _pgcItem.episodes ?? const [];
+        _episodes = _pgcEpisodes;
     }
   }
 
@@ -155,8 +169,12 @@ class _EpisodePanelState extends State<EpisodePanel>
         case EpisodeType.pgc:
           final seasonChanged =
               _lastPgcSeasonIndex != _pgcController.seasonIndex;
-          tabIndexChanged = tabIndexChanged || seasonChanged;
-          _episodes = _pgcItem.episodes ?? const [];
+          final episodes = _pgcEpisodes;
+          tabIndexChanged =
+              tabIndexChanged ||
+              seasonChanged ||
+              !identical(_episodes, episodes);
+          _episodes = episodes;
           _lastPgcSeasonIndex = _pgcController.seasonIndex;
       }
     }
@@ -165,6 +183,7 @@ class _EpisodePanelState extends State<EpisodePanel>
   }
 
   void _jumpToCurrIfNeeded([Object? arg]) {
+    if (!mounted) return;
     final itemIndex = _itemIndex();
     final tabIndexChanged = arg is bool ? arg : _syncTab(_tabIndex());
     if (tabIndexChanged || _lastItemIndex != itemIndex) {
@@ -277,8 +296,10 @@ class _EpisodePanelState extends State<EpisodePanel>
         _isUgc = false;
         _isReversed = [false];
         _tabIndex = () => 0;
-        _itemIndex = () => _pgcController.episodeIndex;
-        _episodes = _pgcItem.episodes ?? const [];
+        _itemIndex = () => _pgcEpisodeType == PgcEpisodeType.episode
+            ? _pgcController.episodeIndex
+            : _pgcController.pvIndex;
+        _episodes = _pgcEpisodes;
         _lastPgcSeasonIndex = _pgcController.seasonIndex;
         _addPgcListener();
     }
@@ -287,7 +308,9 @@ class _EpisodePanelState extends State<EpisodePanel>
     _lastItemIndex = _itemIndex();
     if (_lastItemIndex > 0) {
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _jumpToPos(offset: _calcItemOffset(_lastItemIndex)),
+        (_) {
+          if (mounted) _jumpToCurrent();
+        },
       );
     }
   }
@@ -297,6 +320,7 @@ class _EpisodePanelState extends State<EpisodePanel>
   void _jumpToBottom() => _jumpToPos(top: false);
 
   Future<void> _jumpToCurrent() async {
+    if (!mounted) return;
     final tabIndex = _tabIndex();
     if (_tabController != null) {
       if (tabIndex < 0 || tabIndex >= _sections.length) return;
@@ -309,8 +333,39 @@ class _EpisodePanelState extends State<EpisodePanel>
     }
     final episodes = _episodes;
     if (episodes.isEmpty) return;
-    final index = _itemIndex().clamp(0, episodes.length - 1);
-    _jumpToPos(offset: _calcItemOffset(index));
+    final index = _itemIndex();
+    if (index < 0 || index >= episodes.length) return;
+    final position = _positionForCurrentTab();
+    if (position == null) return;
+    final (extent, offset, remain) = calcItemOffset(
+      index: index,
+      episodes: episodes,
+      isReversed: _isReversed[_tabController?.index ?? 0],
+      topPadding: 7,
+      bottomPadding: MediaQuery.viewPaddingOf(context).bottom + 100,
+    );
+    _jumpToPos(
+      offset: adjustScrollOffset(
+        extent: extent,
+        offset: offset,
+        remain: remain,
+        viewportDimension: position.viewportDimension,
+        isReversed: _isReversed[_tabController?.index ?? 0],
+      ),
+    );
+  }
+
+  ScrollPosition? _positionForCurrentTab() {
+    final scrollController = _scrollController;
+    if (scrollController == null || !scrollController.hasClients) return null;
+    final posIndex = _posMap[_tabController?.index ?? 0];
+    if (posIndex == null) return null;
+    if (scrollController is ExtendedNestedScrollController) {
+      if (posIndex >= scrollController.nestedPositions.length) return null;
+      return scrollController.nestedPositions.elementAt(posIndex);
+    }
+    if (posIndex >= scrollController.positions.length) return null;
+    return scrollController.positions.elementAt(posIndex);
   }
 
   void _jumpToPos({double? offset, bool? top}) {
@@ -341,21 +396,6 @@ class _EpisodePanelState extends State<EpisodePanel>
         ),
       );
     }
-  }
-
-  double _calcItemHeight(ugc.BaseEpisodeItem episode) {
-    if (episode is ugc.EpisodeItem && episode.pages!.length > 1) {
-      return 167; // 110 + 2 + 10 + 45
-    }
-    return 112;
-  }
-
-  double _calcItemOffset(int index) {
-    double offset = 0;
-    for (var i = 0; i < index; i++) {
-      offset += _calcItemHeight(_episodes[i]);
-    }
-    return offset + 7;
   }
 
   @override
@@ -445,7 +485,7 @@ class _EpisodePanelState extends State<EpisodePanel>
           length: episodes.length,
           isCurrItem: isCurrItem,
         );
-        if (episode is ugc.EpisodeItem && episode.pages!.length > 1) {
+        if (episode is ugc.EpisodeItem && (episode.pages?.length ?? 0) > 1) {
           return Column(
             mainAxisSize: .min,
             crossAxisAlignment: .start,
@@ -468,7 +508,7 @@ class _EpisodePanelState extends State<EpisodePanel>
         }
         return episodeItem;
       },
-      itemExtentBuilder: (index, _) => _calcItemHeight(episodes[index]),
+      itemExtentBuilder: (index, _) => calcItemHeight(episodes[index]),
     );
 
     child = CustomScrollView(
@@ -523,6 +563,7 @@ class _EpisodePanelState extends State<EpisodePanel>
       EpisodeType.pgc => await _pgcController.onChangeEpisode(
         episode,
         manual: true,
+        episodeType: _pgcEpisodeType,
       ),
     };
     if (changed && _type == EpisodeType.season && episode.cid != null) {

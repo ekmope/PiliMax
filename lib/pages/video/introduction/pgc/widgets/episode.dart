@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
+import 'package:PiliMax/models/common/pgc_episode_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/new_ep.dart';
 import 'package:PiliMax/models_new/video/video_detail/episode.dart'
     hide EpisodeItem;
@@ -11,6 +12,7 @@ import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/scroll_offset_helper.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -30,9 +32,13 @@ class PgcPanel extends StatefulWidget {
 
   final List<EpisodeItem> pages;
   final int? cid;
-  final Future<bool> Function(BaseEpisodeItem episode, {bool manual})
+  final Future<bool> Function(
+    BaseEpisodeItem episode, {
+    PgcEpisodeType? episodeType,
+    bool manual,
+  })
   onChangeEpisode;
-  final Function showEpisodes;
+  final ShowEpisodes showEpisodes;
   final String heroTag;
   final NewEp? newEp;
 
@@ -52,15 +58,13 @@ class _PgcPanelState extends State<PgcPanel> {
   @override
   void initState() {
     super.initState();
-    cid = widget.cid!;
+    videoDetailCtr = Get.find<VideoDetailController>(tag: widget.heroTag);
+    cid = widget.cid ?? videoDetailCtr.cid.value;
     currentIndex = widget.pages.indexWhere((e) => e.cid == cid);
-    listViewScrollCtr = ScrollController(
-      initialScrollOffset: currentIndex * 150.0,
-    );
+    listViewScrollCtr = ScrollController(keepScrollOffset: false);
+    if (currentIndex > 0) scrollToIndex(animate: false);
 
     vipStatus = Pref.userInfoCache?.vipStatus != 1;
-
-    videoDetailCtr = Get.find<VideoDetailController>(tag: widget.heroTag);
 
     _listener = videoDetailCtr.cid.listen((int p0) {
       cid = p0;
@@ -72,30 +76,56 @@ class _PgcPanelState extends State<PgcPanel> {
   }
 
   @override
+  void didUpdateWidget(PgcPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.pages != oldWidget.pages || widget.cid != oldWidget.cid) {
+      cid = widget.cid ?? videoDetailCtr.cid.value;
+      currentIndex = widget.pages.indexWhere((e) => e.cid == cid);
+      scrollToIndex(animate: false);
+    }
+  }
+
+  @override
   void dispose() {
     _listener.cancel();
     listViewScrollCtr.dispose();
     super.dispose();
   }
 
-  void scrollToIndex() {
+  void scrollToIndex({bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      listViewScrollCtr.animateTo(
-        (currentIndex * 150.0).clamp(
-          listViewScrollCtr.position.minScrollExtent,
-          listViewScrollCtr.position.maxScrollExtent,
-        ),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
+      if (!mounted ||
+          !listViewScrollCtr.hasClients ||
+          currentIndex < 0 ||
+          currentIndex >= widget.pages.length) {
+        return;
+      }
+      final position = listViewScrollCtr.position;
+      final offset = calcPageItemOffset(
+        index: currentIndex,
+        itemCount: widget.pages.length,
+        viewportDimension: position.viewportDimension,
+      ).clamp(position.minScrollExtent, position.maxScrollExtent);
+      if (animate) {
+        position.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      } else {
+        position.jumpTo(offset);
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context).colorScheme;
-    final currEpisode = widget.pages[currentIndex];
-    final isPugv = currEpisode.from == 'pugv';
+    if (widget.pages.isEmpty) return const SizedBox.shrink();
+    final currEpisode = currentIndex >= 0 && currentIndex < widget.pages.length
+        ? widget.pages[currentIndex]
+        : null;
+    final isPugv = (currEpisode ?? widget.pages.first).from == 'pugv';
     return Column(
       children: [
         Padding(
@@ -104,13 +134,14 @@ class _PgcPanelState extends State<PgcPanel> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('合集 '),
-              Expanded(
-                child: Text(
-                  ' 正在播放：${currEpisode.longTitle ?? currEpisode.title}',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: theme.outline),
+              if (currEpisode != null)
+                Expanded(
+                  child: Text(
+                    ' 正在播放：${currEpisode.longTitle ?? currEpisode.title}',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: theme.outline),
+                  ),
                 ),
-              ),
               const SizedBox(width: 10),
               SizedBox(
                 height: 34,
@@ -118,7 +149,10 @@ class _PgcPanelState extends State<PgcPanel> {
                   style: const ButtonStyle(
                     padding: WidgetStatePropertyAll(EdgeInsets.zero),
                   ),
-                  onPressed: () => widget.showEpisodes(type: EpisodeType.pgc),
+                  onPressed: () => widget.showEpisodes(
+                    type: EpisodeType.pgc,
+                    episodeType: PgcEpisodeType.episode,
+                  ),
                   child: Text(
                     widget.newEp?.desc?.contains('连载') == true
                         ? '连载中，更新至${Utils.isStringNumeric(widget.newEp!.title!) ? '第${widget.newEp!.title}话' : '${widget.newEp!.title}'}'
@@ -166,7 +200,11 @@ class _PgcPanelState extends State<PgcPanel> {
             if (item.badge == '会员' && Accounts.mainEqVideo && vipStatus) {
               SmartDialog.showToast('需要大会员');
             }
-            widget.onChangeEpisode(item, manual: true);
+            widget.onChangeEpisode(
+              item,
+              episodeType: PgcEpisodeType.episode,
+              manual: true,
+            );
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),

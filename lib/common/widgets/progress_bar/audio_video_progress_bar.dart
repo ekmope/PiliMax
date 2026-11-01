@@ -1,14 +1,25 @@
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
-import 'package:material_ui/material_ui.dart';
-import 'package:flutter/rendering.dart';
+import 'package:flutter/foundation.dart'
+    show
+        ObjectFlagProperty,
+        objectRuntimeType,
+        DiagnosticPropertiesBuilder,
+        StringProperty,
+        DoubleProperty,
+        FlagProperty;
+import 'package:flutter/gestures.dart'
+    show HorizontalDragGestureRecognizer, PointerHoverEvent, PointerExitEvent;
+import 'package:flutter/rendering.dart'
+    show BoxHitTestEntry, SemanticsConfiguration, PipelineOwner;
 import 'package:flutter/services.dart'
     show
         MouseTrackerAnnotation,
         PointerEnterEventListener,
         PointerExitEventListener;
+import 'package:material_ui/material_ui.dart';
+
+typedef PointerEventListener = void Function(double dx, int seconds);
 
 /// https://github.com/suragch/audio_video_progress_bar
 
@@ -43,6 +54,8 @@ class ProgressBar extends LeafRenderObjectWidget {
     required this.thumbGlowColor,
     this.thumbGlowRadius = 30.0,
     this.thumbCanPaintOutsideBar = true,
+    this.onHover,
+    this.onExit,
   });
 
   /// The elapsed playing time of the media.
@@ -173,6 +186,10 @@ class ProgressBar extends LeafRenderObjectWidget {
   /// is happening during this time, though.
   final bool thumbCanPaintOutsideBar;
 
+  final PointerEventListener? onHover;
+
+  final VoidCallback? onExit;
+
   @override
   RenderObject createRenderObject(BuildContext context) {
     return RenderProgressBar(
@@ -192,6 +209,8 @@ class ProgressBar extends LeafRenderObjectWidget {
       thumbGlowColor: thumbGlowColor,
       thumbGlowRadius: thumbGlowRadius,
       thumbCanPaintOutsideBar: thumbCanPaintOutsideBar,
+      onHover: onHover,
+      onExit: onExit,
     );
   }
 
@@ -216,7 +235,9 @@ class ProgressBar extends LeafRenderObjectWidget {
       ..thumbColor = thumbColor
       ..thumbGlowColor = thumbGlowColor
       ..thumbGlowRadius = thumbGlowRadius
-      ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar;
+      ..thumbCanPaintOutsideBar = thumbCanPaintOutsideBar
+      .._onHover = onHover
+      .._onExit = onExit;
   }
 
   @override
@@ -316,7 +337,7 @@ class _EagerHorizontalDragGestureRecognizer
   @override
   void addAllowedPointer(PointerDownEvent event) {
     super.addAllowedPointer(event);
-    resolve(GestureDisposition.accepted);
+    resolve(.accepted);
   }
 
   @override
@@ -341,13 +362,15 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     required this._thumbGlowColor,
     double thumbGlowRadius = 30.0,
     this._thumbCanPaintOutsideBar = true,
+    PointerEventListener? onHover,
+    VoidCallback? onExit,
   }) : _onDragStartUserCallback = onDragStart,
        _onDragUpdateUserCallback = onDragUpdate,
        _onDragEndUserCallback = onDragEnd,
        _thumbRadius = thumbRadius,
        _thumbGlowRadius = thumbGlowRadius,
        _paintThumbGlow = thumbGlowRadius > thumbRadius,
-       _hitTestSelf = onDragStart != null {
+       _hitTestSelf = onDragStart != null || onHover != null {
     if (onDragStart != null) {
       _drag = _EagerHorizontalDragGestureRecognizer()
         ..onStart = _onDragStart
@@ -358,6 +381,8 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     if (!_userIsDraggingThumb) {
       _thumbValue = _proportionOfTotal(_progress);
     }
+    _onHover = onHover;
+    _onExit = onExit;
   }
 
   @override
@@ -638,6 +663,11 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
     assert(debugHandleEvent(event, entry));
     if (event is PointerDownEvent) {
       _drag?.addPointer(event);
+      return;
+    }
+    if (event is PointerHoverEvent && __onHover != null) {
+      _handleOnHover(event);
+      return;
     }
   }
 
@@ -808,9 +838,63 @@ class RenderProgressBar extends RenderBox implements MouseTrackerAnnotation {
   @override
   PointerEnterEventListener? onEnter;
 
+  int _offsetToPosition(double dx) {
+    if (!dx.isFinite || !size.width.isFinite || size.width <= 0 || total <= 0) {
+      return 0;
+    }
+    return (dx.clamp(0.0, size.width) / size.width * total).round();
+  }
+
+  void _handleOnHover(PointerEvent event) {
+    if (_userIsDraggingThumb || !size.width.isFinite || size.width <= 0) return;
+    final localDx = event.localPosition.dx;
+    if (!localDx.isFinite) return;
+    final dx = localDx.clamp(0.0, size.width).toDouble();
+    __onHover?.call(dx, _offsetToPosition(dx));
+  }
+
+  PointerEventListener? __onHover;
+  set _onHover(PointerEventListener? value) {
+    if (__onHover == value) return;
+    __onHover = value;
+    if (__onHover != null) {
+      onEnter = _handleOnHover;
+    } else {
+      onEnter = null;
+    }
+  }
+
   @override
   PointerExitEventListener? onExit;
 
+  void _handleOnExit(PointerExitEvent event) {
+    __onExit?.call();
+  }
+
+  VoidCallback? __onExit;
+  set _onExit(VoidCallback? value) {
+    if (__onExit == value) return;
+    __onExit = value;
+    if (__onExit != null) {
+      onExit = _handleOnExit;
+    } else {
+      onExit = null;
+    }
+  }
+
   @override
-  bool get validForMouseTracker => false;
+  bool get validForMouseTracker => _validForMouseTracker;
+  bool _validForMouseTracker = true;
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _validForMouseTracker = true;
+  }
+
+  @override
+  void detach() {
+    _validForMouseTracker = false;
+    super.detach();
+  }
 }

@@ -11,6 +11,8 @@ import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/stat.dart';
+import 'package:PiliMax/models_new/video/video_detail/episode.dart'
+    show ShowEpisodes;
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/widgets/episode.dart';
@@ -28,7 +30,7 @@ import 'package:get/get.dart';
 class PgcIntroPage extends StatefulWidget {
   final int? cid;
   final String heroTag;
-  final Function showEpisodes;
+  final ShowEpisodes showEpisodes;
   final Function showIntroDetail;
   final double maxWidth;
   final bool isLandscape;

@@ -1,4 +1,5 @@
 import 'package:PiliMax/http/api.dart';
+import 'package:PiliMax/http/browser_ua.dart';
 import 'package:PiliMax/pilimax/forks/http/init.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/search/search_type.dart';
@@ -84,6 +85,7 @@ abstract final class SearchHttp {
         headers: {
           if (gaiaVtoken != null) 'cookie': 'x-bili-gaia-vtoken=$gaiaVtoken',
           'origin': 'https://search.bilibili.com',
+          'user-agent': BrowserUa.pc,
           'referer':
               'https://search.bilibili.com/${searchType.name}?keyword=${Uri.encodeFull(keyword)}',
         },

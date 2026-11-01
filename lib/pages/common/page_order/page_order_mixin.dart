@@ -12,7 +12,7 @@ mixin PageOrderMixin<R, T> on CommonListController<R, T> {
   set page(int value) {
     if (pageDesc) {
       if (value == 1) {
-        super.page = (count / ps).ceil();
+        super.page = count > 0 && ps > 0 ? (count / ps).ceil() : 1;
       } else {
         super.page--;
       }
@@ -22,8 +22,14 @@ mixin PageOrderMixin<R, T> on CommonListController<R, T> {
   }
 
   void updatePageOrder(bool value) {
-    if (count == 0) return;
-    _pageDesc = value;
+    if (updatePageOrderOnly(value)) return;
     onReload();
+  }
+
+  bool updatePageOrderOnly(bool value) {
+    // Do not change pagination under a request that still uses the old order.
+    if (isLoading || count <= 0 || value == _pageDesc) return true;
+    _pageDesc = value;
+    return false;
   }
 }

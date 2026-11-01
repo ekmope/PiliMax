@@ -133,7 +133,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   final RxInt position = RxInt(0);
   final RxInt seekPosition = RxInt(0);
-  int get progress => isSeeking.value ? seekPosition.value : position.value;
+  int get progress =>
+      isSeeking.value && hoverDx == null ? seekPosition.value : position.value;
 
   int get positionInMilliseconds =>
       videoPlayerController?.state.position.inMilliseconds ?? 0;
@@ -462,6 +463,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   void exitDesktopPip() {
+    clearHoverPreview(restartControls: true);
     final window = WindowController.instance.window;
     if (window == null) return;
 
@@ -475,6 +477,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   void enterDesktopPip() {
+    clearHoverPreview();
     if (isFullScreen.value) return;
     final window = WindowController.instance.window;
     if (window == null) return;
@@ -547,6 +550,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   void enterPip({bool autoEnter = false}) {
+    clearHoverPreview();
     if (videoPlayerController case NativePlayer(:final state)) {
       if (Platform.isIOS) {
         if (videoController?.id.value case final textureId?) {
@@ -971,6 +975,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         if (call.method == 'onPipChanged') {
           final bool isInPip = call.arguments as bool;
           isNativePip.value = isInPip;
+          clearHoverPreview(restartControls: !isInPip);
           PipOverlayService.isNativePip = isInPip;
           LivePipOverlayService.isNativePip = isInPip;
         }
@@ -1909,6 +1914,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _dismissSourceScopedScreenshot();
     seekToPos = null;
     isSeeking.value = false;
+    clearHoverPreview();
+    _previewSeconds = null;
     seekPosition.value = position.value;
   }
 
@@ -3100,7 +3107,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _sourceCoordinator.releaseSourceTimer(_timer, cancel: true);
     late final Timer timer;
     timer = Timer(showControlDuration, () {
-      if (!isSeeking.value && !tripling) {
+      if (!isSeeking.value && !tripling && hoverDx == null) {
         controls = false;
       }
       _sourceCoordinator.releaseSourceTimer(timer);
@@ -3112,11 +3119,14 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   void onSeekStart(int seekFrom) {
+    clearHoverPreview();
     seekPosition.value = seekFrom;
     isSeeking.value = true;
   }
 
   void onSeekEnd() {
+    clearHoverPreview();
+    _previewSeconds = null;
     if (seekToPos != null) {
       feedBack();
     }
@@ -3318,6 +3328,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   set controls(bool visible) {
+    if (!visible) clearHoverPreview();
     showControls.value = visible;
     _sourceCoordinator.releaseSourceTimer(_timer, cancel: true);
     _timer = null;
@@ -3837,6 +3848,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   late final Map<String, ui.Image?> previewCache = {};
   final PreviewRequestEpoch _previewRequestEpoch = PreviewRequestEpoch();
   LoadingState<VideoShotData>? videoShot;
+  final Rxn<Offset> _hoverPosition = Rxn<Offset>();
+  double? get hoverDx => _hoverPosition.value?.dx;
+  double? get hoverDy => _hoverPosition.value?.dy;
+  int? _previewSeconds;
   late final RxBool showPreview = false.obs;
   late final showSeekPreview = Pref.showSeekPreview;
   late final previewIndex = RxnInt();
@@ -3847,23 +3862,66 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   bool isPreviewRequestCurrent(PreviewRequestToken token) =>
       _previewRequestEpoch.isCurrent(token);
 
+  void updateHoverPreview(Offset offset, int seconds) {
+    if (!offset.dx.isFinite || !offset.dy.isFinite || isSeeking.value) return;
+    final boundedSeconds = seconds.clamp(0, max(0, duration.value)).toInt();
+    if (_hoverPosition.value == offset && _previewSeconds == boundedSeconds) {
+      return;
+    }
+    _hoverPosition.value = offset;
+    seekPosition.value = boundedSeconds;
+    updatePreviewIndex(boundedSeconds);
+  }
+
+  /// PointerExit is not guaranteed when the progress bar is hidden or removed.
+  void clearHoverPreview({bool restartControls = false}) {
+    if (_hoverPosition.value == null) return;
+    _hoverPosition.value = null;
+    if (!isSeeking.value) {
+      _previewSeconds = null;
+      showPreview.value = false;
+    }
+    if (restartControls && showControls.value) hideTaskControls();
+  }
+
   void updatePreviewIndex(int seconds) {
+    _previewSeconds = seconds;
     if (videoShot == null) {
       videoShot = LoadingState.loading();
-      getVideoShot();
+      unawaited(getVideoShot());
       return;
     }
     if (videoShot case Success(:final response)) {
-      showPreview.value = true;
-      previewIndex.value = max(
+      if (response.image.isEmpty ||
+          response.index.isEmpty ||
+          response.imgXLen <= 0 ||
+          response.imgYLen <= 0) {
+        showPreview.value = false;
+        return;
+      }
+      // The sprite index is stable while moving within the same second. The
+      // reactive hover position moves the card without rebuilding its index.
+      if (showPreview.value && _lastPreviewSecond == seconds) return;
+      _lastPreviewSecond = seconds;
+      final index = max(
         0,
-        (response.index.where((item) => item <= seconds).length - 2),
+        response.index.where((item) => item <= seconds).length - 2,
       );
+      previewIndex.value = min(
+        index,
+        response.image.length * response.totalPerImage - 1,
+      );
+      showPreview.value = true;
     }
   }
 
+  int? _lastPreviewSecond;
+
   void _clearPreview() {
     _previewRequestEpoch.invalidate();
+    _hoverPosition.value = null;
+    _previewSeconds = null;
+    _lastPreviewSecond = null;
     showPreview.value = false;
     previewIndex.value = null;
     videoShot = null;
@@ -3890,6 +3948,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         _bvid == sourceBvid &&
         cid == sourceCid) {
       videoShot = result;
+      final seconds = _previewSeconds;
+      if (seconds != null && (hoverDx != null || isSeeking.value)) {
+        updatePreviewIndex(seconds);
+      }
     }
   }
 

@@ -4,9 +4,12 @@ import 'dart:math';
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/models_new/video/video_detail/page.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
+import 'package:PiliMax/models_new/video/video_detail/episode.dart'
+    show ShowEpisodes;
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
+import 'package:PiliMax/utils/scroll_offset_helper.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
@@ -31,7 +34,7 @@ class PagesPanel extends StatefulWidget {
 
   final String bvid;
   final String heroTag;
-  final Function? showEpisodes;
+  final ShowEpisodes? showEpisodes;
   final VoidCallback? onBack;
   final UgcIntroController ugcIntroController;
 
@@ -50,10 +53,30 @@ class _PagesPanelState extends State<PagesPanel> {
   StreamSubscription? _listener;
 
   List<Part> get pages =>
-      widget.list ?? widget.ugcIntroController.videoDetail.value.pages!;
+      widget.list ??
+      widget.ugcIntroController.videoDetail.value.pages ??
+      const [];
 
   void _updatePageIndex() {
     pageIndex = max(0, pages.indexWhere((e) => e.cid == cid));
+  }
+
+  void _syncSource() {
+    _listener?.cancel();
+    _listener = null;
+    if (widget.list != null) {
+      pageIndex = -1;
+      return;
+    }
+    cid = widget.ugcIntroController.cid.value;
+    _updatePageIndex();
+    _listener = _videoDetailController.cid.listen((cid) {
+      this.cid = cid;
+      _updatePageIndex();
+      if (!mounted) return;
+      setState(() {});
+      jumpToCurr();
+    });
   }
 
   @override
@@ -62,40 +85,47 @@ class _PagesPanelState extends State<PagesPanel> {
     _videoDetailController = Get.find<VideoDetailController>(
       tag: widget.heroTag,
     );
-    double offset = 0;
-    if (widget.list == null) {
-      cid = widget.ugcIntroController.cid.value;
-      _updatePageIndex();
-      offset = targetOffset;
-      _listener = _videoDetailController.cid.listen((cid) {
-        this.cid = cid;
-        _updatePageIndex();
-        if (!mounted) return;
-        setState(() {});
-        jumpToCurr();
-      });
-    }
-    _scrollController = ScrollController(initialScrollOffset: offset);
+    _syncSource();
+    _scrollController = ScrollController(keepScrollOffset: false);
+    if (widget.list == null && pageIndex > 0) jumpToCurr(animate: false);
   }
 
-  double get targetOffset {
-    const double itemWidth = 150;
-    return max(0, pageIndex * itemWidth - itemWidth / 2);
+  @override
+  void didUpdateWidget(PagesPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.list != oldWidget.list || widget.bvid != oldWidget.bvid) {
+      _syncSource();
+      if (widget.list == null) {
+        jumpToCurr(animate: false);
+      }
+    }
   }
 
-  void jumpToCurr() {
-    if (!_scrollController.hasClients || pages.isEmpty) {
-      return;
-    }
-    final double targetOffset = this.targetOffset.clamp(
-      _scrollController.position.minScrollExtent,
-      _scrollController.position.maxScrollExtent,
-    );
-    _scrollController.animateTo(
-      targetOffset,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+  void jumpToCurr({bool animate = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_scrollController.hasClients ||
+          pages.isEmpty ||
+          pageIndex < 0 ||
+          pageIndex >= pages.length) {
+        return;
+      }
+      final position = _scrollController.position;
+      final offset = calcPageItemOffset(
+        index: pageIndex,
+        itemCount: pages.length,
+        viewportDimension: position.viewportDimension,
+      ).clamp(position.minScrollExtent, position.maxScrollExtent);
+      if (animate) {
+        position.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      } else {
+        position.jumpTo(offset);
+      }
+    });
   }
 
   @override
@@ -107,10 +137,13 @@ class _PagesPanelState extends State<PagesPanel> {
 
   @override
   Widget build(BuildContext context) {
+    if (pages.isEmpty) return const SizedBox.shrink();
     final colorScheme = ColorScheme.of(context);
     return Column(
       children: [
-        if (widget.showEpisodes != null)
+        if (widget.showEpisodes != null &&
+            pageIndex >= 0 &&
+            pageIndex < pages.length)
           Padding(
             padding: const .only(top: 8, bottom: 2),
             child: Row(

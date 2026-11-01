@@ -1,5 +1,12 @@
+import 'package:PiliMax/models/common/episode_panel_type.dart';
+import 'package:PiliMax/models/common/pgc_episode_type.dart';
 import 'package:PiliMax/models_new/video/video_detail/arc.dart';
 import 'package:PiliMax/models_new/video/video_detail/page.dart';
+
+typedef ShowEpisodes = void Function({
+  EpisodeType? type,
+  PgcEpisodeType? episodeType,
+});
 
 class BaseEpisodeItem {
   int? id;

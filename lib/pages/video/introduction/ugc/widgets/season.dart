@@ -21,7 +21,7 @@ class SeasonPanel extends StatefulWidget {
     required this.ugcIntroController,
   });
   final String heroTag;
-  final Function showEpisodes;
+  final ShowEpisodes showEpisodes;
   final bool canTap;
   final UgcIntroController ugcIntroController;
 

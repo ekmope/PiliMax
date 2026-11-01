@@ -16,6 +16,8 @@ import 'package:PiliMax/common/widgets/translucent_column.dart';
 import 'package:PiliMax/http/sponsor_block.dart';
 import 'package:PiliMax/models_new/video/video_ai_conclusion/model_result.dart';
 import 'package:PiliMax/models_new/video/video_detail/data.dart';
+import 'package:PiliMax/models_new/video/video_detail/episode.dart'
+    show ShowEpisodes;
 import 'package:PiliMax/models_new/video/video_detail/desc_v2.dart';
 import 'package:PiliMax/models_new/video/video_detail/staff.dart';
 import 'package:PiliMax/models_new/video/video_detail/stat.dart';
@@ -67,7 +69,7 @@ class UgcIntroPanel extends StatefulWidget {
   final String heroTag;
   final Function showAiBottomSheet;
   final VoidCallback showAiChatBottomSheet;
-  final Function showEpisodes;
+  final ShowEpisodes showEpisodes;
   final ValueChanged<int?> onShowMemberPage;
   final bool isPortrait;
   final bool isHorizontal;

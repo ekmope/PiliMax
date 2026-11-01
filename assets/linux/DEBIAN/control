@@ -11,4 +11,5 @@ Description: third-party Bilibili client developed in Flutter
 Homepage: https://github.com/ekmope/PiliMax
 Depends: libgtk-3-0t64,
          libmpv2,
-         libsecret-1-0
+         libsecret-1-0,
+         libwebkit2gtk-4.1-0

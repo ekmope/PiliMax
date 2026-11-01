@@ -4,7 +4,9 @@ import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_cover_hero.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models_new/sub/sub/list.dart';
+import 'package:PiliMax/models_new/sub/sub_detail/data.dart';
 import 'package:PiliMax/models_new/sub/sub_detail/media.dart';
+import 'package:PiliMax/pages/common/page_order/page_order_btn_mixin.dart';
 import 'package:PiliMax/pages/subscription_detail/controller.dart';
 import 'package:PiliMax/pages/subscription_detail/widget/sub_video_card.dart';
 import 'package:PiliMax/utils/grid.dart';
@@ -35,8 +37,13 @@ class SubDetailPage extends StatefulWidget {
   }
 }
 
-class _SubDetailPageState extends State<SubDetailPage> with GridMixin {
+class _SubDetailPageState extends State<SubDetailPage>
+    with
+        GridMixin,
+        PageOrderBtnMixin<SubDetailPage, SubDetailData, SubDetailItemModel> {
   late final SubDetailController _subDetailController;
+  @override
+  SubDetailController get controller => _subDetailController;
 
   @override
   void initState() {
@@ -139,6 +146,7 @@ class _SubDetailPageState extends State<SubDetailPage> with GridMixin {
       );
     }
     return SliverAppBar.medium(
+      actions: [pageOrderBtn, const SizedBox(width: 10)],
       expandedHeight: kToolbarHeight + 132,
       pinned: true,
       title: Column(

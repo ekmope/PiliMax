@@ -74,4 +74,15 @@ class MemberOpusController
         next: next,
         filterType: type.value.meta,
       );
+
+  void onCollapseCollection() {
+    if (!Get.isRegistered<MemberController>(tag: heroTag)) return;
+    final outerController = Get.find<MemberController>(tag: heroTag)
+        .scrollKey
+        .currentState
+        ?.outerController;
+    if (outerController == null || !outerController.hasClients) return;
+    // Reset the active inner list while preserving the outer header offset.
+    outerController.jumpTo(outerController.offset);
+  }
 }

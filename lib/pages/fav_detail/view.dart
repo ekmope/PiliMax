@@ -8,10 +8,12 @@ import 'package:PiliMax/pilimax/common/widgets/video_card/video_cover_hero.dart'
 import 'package:PiliMax/http/fav.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/fav_order_type.dart';
+import 'package:PiliMax/models_new/fav/fav_detail/data.dart';
 import 'package:PiliMax/models_new/fav/fav_detail/media.dart';
 import 'package:PiliMax/models_new/fav/fav_folder/list.dart';
 import 'package:PiliMax/pages/common/fab_mixin.dart'
     show NoRightMarginFabLocation;
+import 'package:PiliMax/pages/common/page_order/page_order_btn_mixin.dart';
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
 import 'package:PiliMax/pages/fav_detail/controller.dart';
 import 'package:PiliMax/pages/fav_detail/widget/fav_video_card.dart';
@@ -23,7 +25,6 @@ import 'package:PiliMax/utils/utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 class FavDetailPage extends StatefulWidget {
   const FavDetailPage({super.key});
@@ -32,8 +33,13 @@ class FavDetailPage extends StatefulWidget {
   State<FavDetailPage> createState() => _FavDetailPageState();
 }
 
-class _FavDetailPageState extends State<FavDetailPage> with GridMixin {
+class _FavDetailPageState extends State<FavDetailPage>
+    with
+        GridMixin,
+        PageOrderBtnMixin<FavDetailPage, FavDetailData, FavDetailItemModel> {
   late final FavDetailController _favDetailController;
+  @override
+  FavDetailController get controller => _favDetailController;
   late String mediaId;
 
   @override
@@ -214,23 +220,7 @@ class _FavDetailPageState extends State<FavDetailPage> with GridMixin {
               .toList(),
         );
       }),
-      Builder(
-        builder: (context) => PopupMenuButton<bool>(
-          icon: _favDetailController.pageDesc
-              ? const Icon(MdiIcons.sortNumericDescending)
-              : const Icon(MdiIcons.sortNumericAscending),
-          initialValue: _favDetailController.pageDesc,
-          tooltip: '页码顺序',
-          onSelected: (value) {
-            _favDetailController.updatePageOrder(value);
-            (context as Element).markNeedsBuild();
-          },
-          itemBuilder: (context) => const [
-            PopupMenuItem(value: false, child: Text('正序')),
-            PopupMenuItem(value: true, child: Text('倒序')),
-          ],
-        ),
-      ),
+      pageOrderBtn,
       if (_favDetailController.account.isLogin)
         PopupMenuButton(
           icon: const Icon(Icons.more_vert),

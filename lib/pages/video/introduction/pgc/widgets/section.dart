@@ -6,6 +6,8 @@ import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/section.dart';
 import 'package:PiliMax/models/common/badge_type.dart';
+import 'package:PiliMax/models_new/video/video_detail/episode.dart'
+    show ShowEpisodes;
 import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
@@ -13,12 +15,12 @@ import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
+import 'package:PiliMax/utils/scroll_offset_helper.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 const double _itemExtent = 140;
-const double _itemWidth = _itemExtent + 10;
 
 class SectionPanel extends StatefulWidget {
   const SectionPanel({
@@ -40,10 +42,9 @@ class _SectionPanelState extends State<SectionPanel> {
   int? _seasonId;
   int get _index => _pgcController.pvIndex;
   bool get _isSection => _pgcController.episodeType == .section;
-  double get _scrollOffset =>
-      _index <= 0 ? 0 : _index * _itemWidth - _itemWidth / 2;
-  late List<Section> _sections;
-  late List<EpisodeItem> _episodes;
+  List<Section> _sections = const [];
+  List<EpisodeItem> _episodes = const [];
+  int? _lastSectionIndex;
 
   late final _pgcController = widget.pgcController;
   late final _videoDetailCtr = _pgcController.videoDetailCtr;
@@ -83,29 +84,38 @@ class _SectionPanelState extends State<SectionPanel> {
     _initIfNeeded();
     _isVip = Accounts.mainEqVideo && Pref.userInfoCache?.vipStatus == 1;
 
-    _scrollController = ScrollController(
-      keepScrollOffset: false,
-      initialScrollOffset: _scrollOffset,
-    );
+    _scrollController = ScrollController(keepScrollOffset: false);
     _listener = _videoDetailCtr.cid.listen(_onCidChanged);
     _sectionScrollController = ScrollController(keepScrollOffset: false);
     _sectionListController = ListController();
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _sectionListController.jumpToItem(
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_sectionScrollController.hasClients ||
+          _sectionIndex < 0 ||
+          _sectionIndex >= _sections.length) {
+        return;
+      }
+      _sectionListController.jumpToItem(
         alignment: 0.25,
         index: _sectionIndex,
         scrollController: _sectionScrollController,
-      ),
-    );
+      );
+    });
+    if (_index > 0) _scrollToCurrent();
   }
 
   (bool seasonChanged, bool dispose) _initIfNeeded() {
-    if (_seasonId == _pgcController.seasonId) return const (false, false);
+    if (_seasonId == _pgcController.seasonId &&
+        _lastSectionIndex == _sectionIndex &&
+        _sections.isNotEmpty) {
+      return const (false, false);
+    }
     final item = _pgcController.pgcItem;
     if (!item.hasSections) return const (true, true);
     _seasonId = _pgcController.seasonId;
     _sections = item.sections!;
-    _episodes = _sections[_sectionIndex].episodes!;
+    _lastSectionIndex = _sectionIndex;
+    _episodes = _sections.getOrNull(_sectionIndex)?.episodes ?? const [];
     return const (true, false);
   }
 
@@ -114,27 +124,54 @@ class _SectionPanelState extends State<SectionPanel> {
     if (dispose || !mounted) return;
     setState(() {});
     if (seasonChanged) {
-      _scrollController.jumpTo(_scrollOffset);
+      _scrollToCurrent();
     } else if (_isSection) {
-      _scrollController.animateTo(
-        _scrollOffset,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
+      _scrollToCurrent(animate: true);
     }
   }
 
+  void _scrollToCurrent({bool animate = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients || _episodes.isEmpty) {
+        return;
+      }
+      final position = _scrollController.position;
+      final offset = calcPageItemOffsetSeparated(
+        index: _index,
+        itemCount: _episodes.length,
+        extent: _itemExtent,
+        separator: 10,
+        viewportDimension: position.viewportDimension,
+      ).clamp(position.minScrollExtent, position.maxScrollExtent);
+      if (animate) {
+        position.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      } else {
+        position.jumpTo(offset);
+      }
+    });
+  }
+
   void _updateSection(int sectionIndex) {
-    if (_sectionIndex == sectionIndex) return;
+    if (_sectionIndex == sectionIndex ||
+        sectionIndex < 0 ||
+        sectionIndex >= _sections.length) {
+      return;
+    }
     _pgcController.sectionIndex = sectionIndex;
-    _episodes = _sections[sectionIndex].episodes!;
+    _lastSectionIndex = sectionIndex;
+    _episodes = _sections[sectionIndex].episodes ?? const [];
     setState(() {});
     final episode = _episodes.getOrNull(_index);
     if (episode?.cid == _pgcController.cid.rawValue) {
-      _scrollController.jumpTo(_scrollOffset);
+      _scrollToCurrent();
     } else {
       _scrollController.jumpToTop();
     }
+    if (!_sectionScrollController.hasClients) return;
     _sectionListController.animateToItem(
       alignment: 0.25,
       index: () => _sectionIndex,
@@ -225,7 +262,7 @@ class _SectionPanelState extends State<SectionPanel> {
         if (item.badge == '会员' && !_isVip) {
           SmartDialog.showToast('需要大会员');
         }
-        widget.onChangeEpisode(item, episodeType: .section);
+        widget.onChangeEpisode(item, episodeType: .section, manual: true);
       },
       child: Column(
         spacing: 4,

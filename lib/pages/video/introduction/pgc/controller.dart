@@ -39,9 +39,8 @@ import 'package:get/get.dart';
 typedef OnChangePgcEpisode = Future<bool> Function(
   BaseEpisodeItem episode, {
   PgcEpisodeType? episodeType,
+  bool manual,
 });
-
-typedef ShowEpisodes = Function;
 
 class PgcIntroController extends CommonIntroController {
   PgcEpisodeType episodeType = PgcEpisodeType.episode;

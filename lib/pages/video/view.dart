@@ -19,6 +19,7 @@ import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/video_header.dart';
 import 'package:PiliMax/common/widgets/svg/play_icon.dart';
 import 'package:PiliMax/models/common/episode_panel_type.dart';
+import 'package:PiliMax/models/common/pgc_episode_type.dart';
 import 'package:PiliMax/pilimax/models/common/list_order.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliMax/models_new/video/video_tag/data.dart';
@@ -4486,7 +4487,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     );
   }
 
-  void showEpisodes({EpisodeType? type}) {
+  void showEpisodes({EpisodeType? type, PgcEpisodeType? episodeType}) {
     final isFullScreen = this.isFullScreen;
     if (type == null) {
       videoDetailController.showMediaListPanel(context);
@@ -4495,6 +4496,7 @@ class _VideoDetailPageVState extends PopScopeState<VideoDetailPageV>
     Widget listSheetContent({bool enableSlide = true}) {
       return EpisodePanel(
         type: type,
+        episodeType: episodeType,
         isSidePanel: false,
         introController: introController,
         enableSlide: enableSlide,

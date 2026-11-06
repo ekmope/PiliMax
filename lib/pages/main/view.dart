@@ -587,6 +587,9 @@ class _MainAppState extends PopScopeState<MainApp>
               : Obx(
                   () => NavigationRail(
                     groupAlignment: 0.5,
+                    backgroundColor: Pref.enableGradientBg
+                        ? Colors.transparent
+                        : null,
                     selectedIndex: _mainController.selectedIndex.value,
                     onDestinationSelected: _mainController.selectNavigation,
                     labelType:

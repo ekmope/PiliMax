@@ -172,14 +172,14 @@ class AudioController extends GetxController
       _lastVolume = null;
     }
     desktopVolume.value = volume;
-    player?.setVolume(volume * 100);
+    setVolumeCapped(player, volume);
   }
 
   void syncVolume([_]) {
     final volume = desktopVolume.value;
     PlPlayerController.instance
       ?..volume.value = volume
-      ..videoPlayerController?.setVolume(volume * 100);
+      ..setVolumeCapped(player, volume);
     GStorage.setting.put(SettingBoxKey.desktopVolume, volume.toPrecision(3));
   }
 
@@ -234,6 +234,7 @@ class AudioController extends GetxController
       ..onSkipToPrevious = () async {
         playPrev();
       }
+      ..isPlaying = isPlaying
       ..hasEpisodes = () {
         if (audioItem.value case DetailItem(:final parts)
             when parts.length > 1) {

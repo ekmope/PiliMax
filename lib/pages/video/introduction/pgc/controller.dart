@@ -117,12 +117,12 @@ class PgcIntroController extends CommonIntroController {
     epId = args['epId'];
     isPgc = args['videoType'] == VideoType.pgc;
     pgcItem = args['pgcItem'];
-    final initialSeasonIndex = pgcItem.seasons?.indexWhere(
-      (season) => season.seasonId == seasonId,
-    );
-    if (initialSeasonIndex != null && initialSeasonIndex >= 0) {
-      seasonIndex = initialSeasonIndex;
-    }
+    final initialSeasonIndex =
+        pgcItem.seasons?.indexWhere(
+          (season) => season.seasonId == seasonId,
+        ) ??
+        0;
+    if (initialSeasonIndex >= 0) seasonIndex = initialSeasonIndex;
     final initialSection = pgcItem.sections?.indexWhere(
       (section) =>
           section.episodes?.any((episode) => episode.epId == epId) ?? false,

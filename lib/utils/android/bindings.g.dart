@@ -252,6 +252,35 @@ extension type AndroidHelper._(jni$_.JObject _$this) implements jni$_.JObject {
     return _sdkInt(_$$classRef.pointer, _id_sdkInt.pointer).integer;
   }
 
+  static final _id_manufacturer = _class.staticMethodId(
+    r'manufacturer',
+    r'()Ljava/lang/String;',
+  );
+
+  static final _manufacturer =
+      jni$_.ProtectedJniExtensions.lookup<
+            jni$_.NativeFunction<
+              jni$_.JniResult Function(
+                jni$_.Pointer<jni$_.Void>,
+                jni$_.JMethodIDPtr,
+              )
+            >
+          >('globalEnv_CallStaticObjectMethod')
+          .asFunction<
+            jni$_.JniResult Function(
+              jni$_.Pointer<jni$_.Void>,
+              jni$_.JMethodIDPtr,
+            )
+          >();
+
+  static jni$_.JString? manufacturer() {
+    final _$$classRef = _class.reference;
+    return _manufacturer(
+      _$$classRef.pointer,
+      _id_manufacturer.pointer,
+    ).object<jni$_.JString?>();
+  }
+
   static final _id_back = _class.staticMethodId(
     r'back',
     r'()V',
@@ -695,7 +724,7 @@ extension type AndroidHelper._(jni$_.JObject _$this) implements jni$_.JObject {
     return _fontFamilies(
       _$$classRef.pointer,
       _id_fontFamilies.pointer,
-      ).object<jni$_.JArray<jni$_.JString?>?>();
+    ).object<jni$_.JArray<jni$_.JString?>?>();
   }
 
   static final _id_isDomainVerified = _class.staticMethodId(
@@ -762,6 +791,36 @@ extension type AndroidHelper._(jni$_.JObject _$this) implements jni$_.JObject {
       _id_openUrl.pointer,
       urlRef.pointer,
     ).object<jni$_.JString?>();
+  }
+
+  static final _id_get$isChromeOS = _class.staticMethodId(
+    r'isChromeOS',
+    r'()Z',
+  );
+
+  static final _get$isChromeOS =
+      jni$_.ProtectedJniExtensions.lookup<
+            jni$_.NativeFunction<
+              jni$_.JniResult Function(
+                jni$_.Pointer<jni$_.Void>,
+                jni$_.JMethodIDPtr,
+              )
+            >
+          >('globalEnv_CallStaticBooleanMethod')
+          .asFunction<
+            jni$_.JniResult Function(
+              jni$_.Pointer<jni$_.Void>,
+              jni$_.JMethodIDPtr,
+            )
+          >();
+
+  /// from: `static public boolean isChromeOS()`
+  static core$_.bool get isChromeOS {
+    final _$$classRef = _class.reference;
+    return _get$isChromeOS(
+      _$$classRef.pointer,
+      _id_get$isChromeOS.pointer,
+    ).boolean;
   }
 }
 

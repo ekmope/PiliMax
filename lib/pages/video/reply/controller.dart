@@ -99,8 +99,7 @@ class VideoReplyController extends ReplyController<MainListReply>
     rpid: rootRpId ?? targetRpid,
     type: videoType.replyType,
     mode: mode,
-    cursorNext: cursorNext,
-    offset: paginationReply?.nextOffset,
+    offset: nextOffset,
   );
 
   @override

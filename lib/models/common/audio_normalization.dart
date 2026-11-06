@@ -1,7 +1,9 @@
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:PiliMax/models/video/play/url.dart' show Volume;
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:media_kit/media_kit.dart' show Player;
 
 enum AudioNormalization {
   disable('禁用'),
@@ -63,6 +65,34 @@ mixin AudioNormalizationMixin {
   );
 
   static const _kNormalizationKey = 'lavfi-complex';
+
+  String? _alimiter;
+
+  /// Applies mpv's cubic volume curve without allowing boosted PCM to clip.
+  Future<void>? setVolumeCapped(Player? player, double volume) {
+    assert(volume >= 0);
+    if (player == null) return null;
+    final boost = _boostAf(volume);
+    if (boost == null) {
+      if (_alimiter != null) {
+        player.setProperty('af', '');
+        _alimiter = null;
+      }
+      return player.setVolume(volume * 100);
+    }
+    if (_alimiter != boost) {
+      player.setProperty('af', boost);
+      _alimiter = boost;
+    }
+    return player.setVolume(100);
+  }
+
+  static String? _boostAf(double volume) {
+    if (volume <= 1.0) return null;
+    final db = (60 * math.log(volume) / math.ln10 * 2).round() / 2;
+    final gain = math.pow(10, db / 20).toDouble();
+    return 'alimiter=level_in=${gain.toStringAsFixed(3)}:limit=1:level=0';
+  }
 
   Map<String, String>? audioFilterExtras(
     Volume? volume, {

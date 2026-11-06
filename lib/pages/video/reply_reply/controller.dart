@@ -63,10 +63,10 @@ class VideoReplyReplyController extends ReplyController
   bool customHandleResponse(bool isRefresh, Success response) {
     final data = response.response;
 
-    subjectControl = data.subjectControl;
-    upMid ??= data.subjectControl.upMid;
-    paginationReply = data.paginationReply;
-    isEnd = data.cursor.isEnd;
+    if (isRefresh) {
+      subjectControl = data.subjectControl;
+      upMid = data.subjectControl.upMid;
+    }
 
     // reply2Reply // isDialogue.not
     if (data is DetailListReply) {
@@ -79,6 +79,9 @@ class VideoReplyReplyController extends ReplyController
         id = null;
       }
     }
+
+    nextOffset = data.paginationReply.nextOffset;
+    isEnd = data.cursor.isEnd || nextOffset!.isEmpty;
 
     return false;
   }
@@ -122,7 +125,7 @@ class VideoReplyReplyController extends ReplyController
           oid: oid,
           root: rpid,
           dialog: dialog!,
-          offset: paginationReply?.nextOffset,
+          offset: nextOffset,
         )
       : ReplyGrpc.detailList(
           type: replyType,
@@ -130,7 +133,7 @@ class VideoReplyReplyController extends ReplyController
           root: rpid,
           rpid: id ?? 0,
           mode: mode,
-          offset: paginationReply?.nextOffset,
+          offset: nextOffset,
         );
 
   @override

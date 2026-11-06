@@ -72,9 +72,12 @@ abstract final class PiliScheme {
   }
 
   static int? _videoProgress(Map<String, String> queryParameters) {
-    if ((queryParameters['start_progress'] ?? queryParameters['dm_progress'])
-        case final p?) {
+    if (queryParameters['start_progress'] case final p?) {
       return ExternalUriParser.nonNegativeInt(p);
+    } else if (queryParameters['dm_progress'] case final p?) {
+      final progress = ExternalUriParser.nonNegativeInt(p);
+      if (progress == null) return null;
+      return progress > 3000 ? progress - 3000 : 0;
     } else if (queryParameters['t'] case final t0?) {
       return ExternalUriParser.nonNegativeSecondsToMilliseconds(t0);
     }

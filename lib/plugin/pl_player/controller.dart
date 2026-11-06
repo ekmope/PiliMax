@@ -3179,12 +3179,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       this.volume.value = volume;
       try {
         if (PlatformUtils.isDesktop) {
-          await _videoPlayerController!.setVolume(volume * 100);
+          await setVolumeCapped(_videoPlayerController, volume);
         } else {
           // 移动平台：根据设置选择音量控制方式
           if (Pref.enableAppVolume) {
             // 应用内音量模式：使用 media_kit 控制应用内音量
-            _videoPlayerController?.setVolume(volume * 100);
+            setVolumeCapped(_videoPlayerController, volume);
           } else {
             // 默认模式：控制系统音量
             FlutterVolumeController.updateShowSystemUI(false);
@@ -3237,7 +3237,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       volumeBoostUnlocked = false;
 
       // 关闭上游固定增益，避免和应用内音量叠加
-      _videoPlayerController?.setVolume(appVolume * 100);
+      setVolumeCapped(_videoPlayerController, appVolume);
 
       // 显示提示
       SmartDialog.showToast('已切换到应用内音量模式');
@@ -3274,11 +3274,11 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         _isDucked = true;
         _preDuckVolume = volume.value;
         volume.value = volume.value * 0.5;
-        _videoPlayerController?.setVolume(volume.value * 100);
+        setVolumeCapped(_videoPlayerController, volume.value);
       } else {
         _isDucked = false;
         volume.value = _preDuckVolume;
-        _videoPlayerController?.setVolume(volume.value * 100);
+        setVolumeCapped(_videoPlayerController, volume.value);
       }
     }
     // 同步模式：使用原有逻辑，直接调用 setVolume 即可

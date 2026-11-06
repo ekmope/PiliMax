@@ -40,6 +40,8 @@ import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/storage.dart';
+import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
 import 'package:PiliMax/utils/utils.dart';
@@ -1523,6 +1525,14 @@ class LiveRoomController extends GetxController {
       return true;
     } finally {
       fansMedalActing.value = false;
+    }
+  }
+
+  void toggleDanmaku() {
+    final newValue = !plPlayerController.enableShowLiveDanmaku.value;
+    plPlayerController.enableShowLiveDanmaku.value = newValue;
+    if (!plPlayerController.tempPlayerConf) {
+      GStorage.setting.put(SettingBoxKey.enableShowLiveDanmaku, newValue);
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:PiliMax/pages/video/introduction/ugc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/pgc/controller.dart';
 import 'package:PiliMax/pages/video/introduction/local/controller.dart';
 import 'package:PiliMax/pages/audio/controller.dart';
+import 'package:PiliMax/pages/live_room/controller.dart';
 
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pb.dart' show DetailItem;
@@ -22,16 +23,19 @@ import 'package:PiliMax/utils/android/bindings.g.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
+import 'package:PiliMax/utils/device_utils.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_service_mpris/audio_service_mpris.dart';
 import 'package:collection/collection.dart';
+import 'package:jni/jni.dart' show JStringExtension;
 import 'package:path/path.dart' as path;
 
 Future<VideoPlayerServiceHandler> initAudioService() {
   if (Platform.isLinux) {
     AudioServiceMpris.init(
       dBusName: 'com.PiliMax.audio',
-      identity: 'Audio Service ${Constants.appName}',
+      identity: Constants.appName,
+      desktopEntry: 'com.PiliMax.android',
       canGoNext: true,
       canGoPrevious: true,
       canPlay: true,
@@ -56,8 +60,26 @@ Future<VideoPlayerServiceHandler> initAudioService() {
 
 class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   static final List<MediaItem> _item = [];
+
+  VideoPlayerServiceHandler() {
+    if (Platform.isAndroid && DeviceUtils.sdkInt >= 36) {
+      final manufacturer = AndroidHelper.manufacturer();
+      if (manufacturer != null &&
+          manufacturer.toDartString(releaseOriginal: true).toLowerCase() ==
+              'vivo') {
+        androidPlaybackInfo.add(
+          RemoteAndroidPlaybackInfo(
+            volumeControlType: .fixed,
+            maxVolume: 100,
+            volume: 50,
+          ),
+        );
+      }
+    }
+  }
   bool enableBackgroundPlay = Pref.enableBackgroundPlay;
 
+  bool Function()? isPlaying;
   Future<void>? Function()? onPlay;
   Future<void>? Function()? onPause;
   Future<void>? Function(Duration position)? onSeek;
@@ -73,6 +95,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   }
 
   void _clearCallbacks() {
+    isPlaying = null;
     onPlay = null;
     onPause = null;
     onSeek = null;
@@ -173,6 +196,26 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   }
 
   @override
+  Future<dynamic> customAction(
+    String name, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    try {
+      final tag = PlPlayerController.playOwner?.tag;
+      if (tag == null) return null;
+      final controller = Get.find<LiveRoomController>(tag: tag);
+      switch (name) {
+        case 'ACTION_DM':
+          controller.toggleDanmaku();
+        case 'ACTION_REFRESH':
+          await controller.queryLiveUrl();
+        default:
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  @override
   Future<void> pause() {
     return onPause?.call() ?? PlPlayerController.pauseIfExists();
     // player.pause();
@@ -245,16 +288,22 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
 
     final controls = <MediaControl>[
       if (!isLive && hasEpisodes) MediaControl.skipToPrevious,
-      MediaControl.rewind.copyWith(
-        androidIcon: 'drawable/ic_player_rewind_10s',
-      ),
+      if (isLive)
+        _refresh
+      else
+        MediaControl.rewind.copyWith(
+          androidIcon: 'drawable/ic_player_rewind_10s',
+        ),
       if (playing)
         MediaControl.pause.copyWith(androidIcon: 'drawable/ic_player_pause')
       else
         MediaControl.play.copyWith(androidIcon: 'drawable/ic_player_play'),
-      MediaControl.fastForward.copyWith(
-        androidIcon: 'drawable/ic_player_fast_forward_10s',
-      ),
+      if (isLive)
+        _danmaku
+      else
+        MediaControl.fastForward.copyWith(
+          androidIcon: 'drawable/ic_player_fast_forward_10s',
+        ),
       if (!isLive && hasEpisodes) MediaControl.skipToNext,
     ];
 
@@ -506,3 +555,17 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     playbackState.add(playbackState.value.copyWith(updatePosition: position));
   }
 }
+
+const _refresh = MediaControl(
+  androidIcon: 'drawable/ic_player_refresh',
+  label: 'Refresh',
+  action: MediaAction.custom,
+  customAction: CustomMediaAction(name: 'ACTION_REFRESH'),
+);
+
+const _danmaku = MediaControl(
+  androidIcon: 'drawable/ic_state_danmaku',
+  label: 'Danmaku',
+  action: MediaAction.custom,
+  customAction: CustomMediaAction(name: 'ACTION_DM'),
+);

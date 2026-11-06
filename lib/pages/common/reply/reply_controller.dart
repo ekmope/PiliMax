@@ -108,12 +108,16 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
 
   Int64? upMid;
   Int64? cursorNext;
+  String? nextOffset;
   SubjectControl? subjectControl;
   FeedPaginationReply? paginationReply;
   late bool hasUpTop = false;
 
   @override
   bool? get hasFooter => true;
+
+  @override
+  bool get endIfNullOrEmpty => false;
 
   // comment antifraud
   late final _enableCommAntifraud = Pref.enableCommAntifraud;
@@ -163,6 +167,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     final data = response.response as MainListReply;
     cursorNext = data.cursor.next;
     paginationReply = data.paginationReply;
+    nextOffset = data.paginationReply.nextOffset;
     count.value = data.subjectControl.count.toInt();
     if (isRefresh) {
       subjectControl = data.subjectControl;
@@ -174,7 +179,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
         sortType.value = .select;
       }
     }
-    isEnd = data.cursor.isEnd;
+    isEnd = data.cursor.isEnd || nextOffset!.isEmpty;
 
     _removeIntro(data);
 
@@ -186,6 +191,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     cursorNext = null;
     subjectControl = null;
     paginationReply = null;
+    nextOffset = null;
     return super.onRefresh();
   }
 

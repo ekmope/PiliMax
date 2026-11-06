@@ -156,7 +156,7 @@ abstract final class ReplyGrpc {
     Int64? rpid,
     required Mode mode,
     required String? offset,
-    required Int64? cursorNext,
+    Int64? cursorNext,
   }) async {
     final res = await GrpcReq.request(
       GrpcUrl.mainList,
@@ -176,12 +176,15 @@ abstract final class ReplyGrpc {
     if (res case Success(:final response)) {
       final upMid = response.subjectControl.upMid;
       // keyword filter
-      if (response.hasUpTop() &&
-          needRemoveGrpc(
-            response.upTop,
-            upMid: upMid,
-          )) {
-        response.clearUpTop();
+      if (response.hasUpTop()) {
+        final topReply = response.upTop;
+        if (needRemoveGrpc(topReply, upMid: upMid)) {
+          response.clearUpTop();
+        } else {
+          topReply.replies.removeWhere(
+            (item) => needRemoveGrpc(item, upMid: upMid),
+          );
+        }
       }
 
       if (response.replies.isNotEmpty) {

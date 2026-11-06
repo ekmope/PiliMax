@@ -3,6 +3,7 @@ import 'package:PiliMax/pages/common/common_controller.dart';
 import 'package:get/get.dart';
 
 abstract class CommonListController<R, T> extends CommonController<R, T> {
+  bool get endIfNullOrEmpty => true;
   int page = 1;
   bool isEnd = false;
   bool? hasFooter;
@@ -29,7 +30,7 @@ abstract class CommonListController<R, T> extends CommonController<R, T> {
         if (!customHandleResponse(isRefresh, res)) {
           final dataList = getDataList(response);
           if (dataList == null || dataList.isEmpty) {
-            isEnd = true;
+            if (endIfNullOrEmpty) isEnd = true;
             if (isRefresh) {
               loadingState.value = Success(dataList);
             } else if (hasFooter == true) {

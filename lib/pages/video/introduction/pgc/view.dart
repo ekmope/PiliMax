@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
+import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
@@ -469,6 +470,13 @@ class _PgcIntroPageState extends State<PgcIntroPage> {
             selectStatus: false,
             semanticsLabel: '转发',
             text: NumUtils.numFormat(stat.share),
+          ),
+          ActionItem(
+            icon: const Icon(CustomIcons.download),
+            onTap: () => videoDetailCtr.onDownload(context),
+            selectStatus: false,
+            semanticsLabel: '缓存',
+            text: '缓存',
           ),
         ],
       ),

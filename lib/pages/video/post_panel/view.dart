@@ -520,7 +520,7 @@ class _PostPanelState extends State<PostPanel>
                 if (start <= 0) {
                   unawaited(seekTo());
                   if (!player.state.playing) {
-                    await player.play();
+                    await plPlayerController.play();
                   }
                   return;
                 }
@@ -530,7 +530,7 @@ class _PostPanelState extends State<PostPanel>
                   isSeek: false,
                 );
                 if (!player.state.playing) {
-                  await player.play();
+                  await plPlayerController.play();
                 }
                 if (start > seek) {
                   final posSub = player.stream.position.listen(

@@ -171,7 +171,11 @@ TextSpan? richNode(
                       final dynId = dynIdStr != null
                           ? int.tryParse(dynIdStr)
                           : null;
-                      showVoteDialog(context, int.parse(i.rid!), dynId);
+                      showVoteDialog(
+                        context,
+                        int.parse(i.rid!),
+                        dynamicId: dynId,
+                      );
                     },
                 ),
               );

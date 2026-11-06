@@ -40,7 +40,6 @@ class SelectTopicPanel extends StatefulWidget {
         minChildSize: 0,
         maxChildSize: 1,
         initialChildSize: offset == 0 ? 0.65 : 1,
-        initialScrollOffset: offset,
         snapSizes: const [0.65],
         builder: (context, scrollController) => SelectTopicPanel(
           scrollController: scrollController,

@@ -1,3 +1,4 @@
+import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/stat/stat.dart';
 import 'package:PiliMax/models/common/image_type.dart';
@@ -38,6 +39,9 @@ class SpaceOpusItem extends StatelessWidget {
                       src: item.cover!.url,
                       type: ImageType.emote,
                       quality: 60,
+                      alignment: item.cover!.ratio >= Style.imgMaxRatio
+                          ? Alignment.topCenter
+                          : Alignment.center,
                     ),
                   ),
                   Positioned(

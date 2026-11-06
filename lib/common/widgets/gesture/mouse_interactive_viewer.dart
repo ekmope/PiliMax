@@ -656,26 +656,12 @@ class _MouseInteractiveViewerState extends State<MouseInteractiveViewer>
 
   void _handlePointerScroll(PointerSignalEvent event) {
     final Offset local = event.localPosition;
-    final Offset global = event.position;
     final double scaleChange;
     if (event is PointerScrollEvent) {
       if (event.kind == PointerDeviceKind.trackpad) {
-        final Offset localDelta = PointerEvent.transformDeltaViaPositions(
-          untransformedEndPosition: global + event.scrollDelta,
-          untransformedDelta: event.scrollDelta,
-          transform: event.transform,
-        );
-
-        final Offset focalPointScene = _transformer.toScene(local);
-        final Offset newFocalPointScene = _transformer.toScene(
-          local - localDelta,
-        );
-
-        _transformer.value = _matrixTranslate(
-          _transformer.value,
-          newFocalPointScene - focalPointScene,
-        );
-
+        // Keep raw trackpad scroll on the player signal path. Translating the
+        // matrix here makes two-finger scrolling pan the video surface.
+        _handlePointerScrollEvent(event);
         return;
       }
       _handlePointerScrollEvent(event);

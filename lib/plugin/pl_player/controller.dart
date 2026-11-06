@@ -1618,7 +1618,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     Volume? volume,
     bool autoFullScreenFlag = false,
     int? rotate,
-  }) {
+  }) async {
     final nextContextKey = _buildSourceContextKey(
       isLive: isLive,
       videoType: videoType,
@@ -1628,6 +1628,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       seasonId: seasonId,
       roomId: roomId,
     );
+    await _releaseLongPressForSourceSwitch();
     return _runAfterPipSourceCapture(
       () => _sourceCoordinator.openSource(
         owner: sourceOwner,
@@ -3374,6 +3375,51 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     } else {
       longPressStatus.value = val;
       await setPlaybackSpeed(lastPlaybackSpeed);
+    }
+  }
+
+  /// Stop the temporary long-press speed before opening another source.
+  ///
+  /// This must run before the PiP handoff snapshot and before the source
+  /// coordinator advances its generation. Restoring through the active lease
+  /// keeps a superseded source from receiving the old speed asynchronously.
+  Future<void> _releaseLongPressForSourceSwitch() async {
+    if (isLive || !longPressStatus.value) {
+      return;
+    }
+
+    final restoreSpeed = lastPlaybackSpeed;
+    longPressStatus.value = false;
+    cancelLongPressTimer();
+
+    final generation = _activeSourceGeneration;
+    final player = _videoPlayerController;
+    if (generation == null || player == null) {
+      return;
+    }
+
+    try {
+      await _sourceCoordinator.runActive(
+        generation: generation,
+        operation: (lease) async {
+          if (!lease.isCurrent(_videoPlayerController, requireActive: true)) {
+            return false;
+          }
+          if (lease.player.state.rate != restoreSpeed) {
+            await lease.player.setRate(restoreSpeed);
+          }
+          if (!lease.isCurrent(_videoPlayerController, requireActive: true)) {
+            return false;
+          }
+          _publishPlaybackSpeed(
+            speed: restoreSpeed,
+            previousSpeed: _playbackSpeed.value,
+          );
+          return true;
+        },
+      );
+    } catch (_) {
+      // A source handoff must continue even when the old player is closing.
     }
   }
 

@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libx11-dev libxi-dev libwebkit2gtk-4.1-dev libasound2-dev libmpv-dev libsecret-1-dev
+          sudo apt-get install -y libgtk-3-dev libx11-dev libxi-dev libwebkit2gtk-4.1-dev libasound2-dev libmpv-dev libsecret-1-dev rpm
         shell: bash
 
       - name: Setup flutter

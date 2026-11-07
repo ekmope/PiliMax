@@ -93,34 +93,38 @@ jobs:
 
       - name: Packege rpm
         run: |
+          set -euo pipefail
           printf "建立 RPM 构建目录...\n"
           RPM_BUILD_ROOT="$PWD/rpm_build"
           mkdir -p "$RPM_BUILD_ROOT/BUILD" "$RPM_BUILD_ROOT/RPMS" "$RPM_BUILD_ROOT/SOURCES" "$RPM_BUILD_ROOT/SPECS" "$RPM_BUILD_ROOT/SRPMS"
 
           printf "准备源码归档（仅包含运行时与元数据）...\n"
-          DATE="$(date '+%a %b %d %Y')"
-          SRC_DIR="$PWD/pilimax-${{ env.version }}"
+          DATE="$(LC_ALL=C date '+%a %b %d %Y')"
+          # Flutter uses '+build' versions; normalize that separator for RPM.
+          RPM_VERSION="${{ env.version }}"
+          RPM_VERSION="${RPM_VERSION//+/.}"
+          SRC_DIR="$PWD/pilimax-${RPM_VERSION}"
           mkdir -p "$SRC_DIR/bundle" "$SRC_DIR/assets"
           cp -r build/linux/x64/release/bundle/* "$SRC_DIR/bundle/"
           cp assets/linux/com.PiliMax.android.desktop "$SRC_DIR/assets/com.PiliMax.android.desktop"
           cp assets/images/logo/logo.png "$SRC_DIR/assets/pilimax.png"
-          tar -zcvf "$RPM_BUILD_ROOT/SOURCES/pilimax-${{ env.version }}.tar.gz" -C "$PWD" "pilimax-${{ env.version }}"
+          tar -zcvf "$RPM_BUILD_ROOT/SOURCES/pilimax-${RPM_VERSION}.tar.gz" -C "$PWD" "pilimax-${RPM_VERSION}"
 
           printf "生成 spec 文件...\n"
           cat > "$RPM_BUILD_ROOT/SPECS/pilimax.spec" <<EOF
           Name:           pilimax
-          Version:        ${{ env.version }}
+          Version:        ${RPM_VERSION}
           Release:        1%{?dist}
           Summary:        PiliMax Linux Version
           License:        GPL-3.0
-          Source0:        pilimax-${{ env.version }}.tar.gz
+          Source0:        pilimax-${RPM_VERSION}.tar.gz
           Requires:       desktop-file-utils, hicolor-icon-theme, libsecret
 
           %description
           使用 Flutter 开发的 BiliBili 第三方客户端
 
           %prep
-          %setup -q -n pilimax-${{ env.version }}
+          %setup -q -n pilimax-${RPM_VERSION}
 
           %build
 
@@ -155,7 +159,7 @@ jobs:
           /usr/share/icons/hicolor/512x512/apps/pilimax.png
 
           %changelog
-          * DATE - ${{ env.version }}-1
+          * ${DATE} PiliMax <noreply@pilimax.invalid> - ${RPM_VERSION}-1
           - Initial RPM release
           EOF
 

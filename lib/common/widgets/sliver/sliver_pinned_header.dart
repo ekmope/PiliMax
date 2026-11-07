@@ -28,32 +28,62 @@ class SliverPinnedHeader extends SingleChildRenderObjectWidget {
     super.key,
     required Widget super.child,
     this.backgroundColor,
+    this.backgroundGradient,
+    this.gradientBoundsSize,
   });
 
   final Color? backgroundColor;
+  final Gradient? backgroundGradient;
+  final Size? gradientBoundsSize;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      RenderSliverPinnedHeader(backgroundColor: backgroundColor);
+      RenderSliverPinnedHeader(
+        backgroundColor: backgroundColor,
+        backgroundGradient: backgroundGradient,
+        gradientBoundsSize: gradientBoundsSize,
+      );
 
   @override
   void updateRenderObject(
     BuildContext context,
     RenderSliverPinnedHeader renderObject,
   ) {
-    renderObject.backgroundColor = backgroundColor;
+    renderObject
+      ..backgroundColor = backgroundColor
+      ..backgroundGradient = backgroundGradient
+      ..gradientBoundsSize = gradientBoundsSize;
   }
 }
 
 class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
   RenderSliverPinnedHeader({
     required this._backgroundColor,
+    this._backgroundGradient,
+    this._gradientBoundsSize,
   });
 
   Color? _backgroundColor;
   set backgroundColor(Color? value) {
     if (_backgroundColor == value) return;
     _backgroundColor = value;
+    if (_isPinned) markNeedsPaint();
+  }
+
+  Gradient? _backgroundGradient;
+  set backgroundGradient(Gradient? value) {
+    if (_backgroundGradient == value) return;
+    _backgroundGradient = value;
+    _backgroundShader = null;
+    if (_isPinned) markNeedsPaint();
+  }
+
+  Size? _gradientBoundsSize;
+  Shader? _backgroundShader;
+  set gradientBoundsSize(Size? value) {
+    if (_gradientBoundsSize == value) return;
+    _gradientBoundsSize = value;
+    _backgroundShader = null;
     if (_isPinned) markNeedsPaint();
   }
 
@@ -93,14 +123,37 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
     if (child != null && geometry!.visible) {
       if (_isPinned && _backgroundColor != null) {
         final size = child!.size;
+        final rect = Rect.fromLTWH(
+          offset.dx,
+          offset.dy - 2,
+          size.width,
+          size.height + 2,
+        );
+        context.canvas.drawRect(rect, Paint()..color = _backgroundColor!);
+      } else if (_isPinned &&
+          _backgroundGradient != null &&
+          _gradientBoundsSize != null) {
+        final backgroundGradient = _backgroundGradient!;
+        final boundsSize = _gradientBoundsSize!;
+        final size = child!.size;
+        final rect = Rect.fromLTWH(
+          offset.dx,
+          offset.dy - 2,
+          size.width,
+          size.height + 2,
+        );
+        final shaderBounds = Rect.fromLTWH(
+          0,
+          0,
+          boundsSize.width,
+          boundsSize.height,
+        );
         context.canvas.drawRect(
-          Rect.fromLTWH(
-            offset.dx,
-            offset.dy - 2,
-            size.width,
-            size.height + 2,
-          ),
-          Paint()..color = _backgroundColor!,
+          rect,
+          Paint()
+            ..shader = _backgroundShader ??= backgroundGradient.createShader(
+              shaderBounds,
+            ),
         );
       }
       context.paintChild(child!, offset);

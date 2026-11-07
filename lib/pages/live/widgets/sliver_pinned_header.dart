@@ -8,6 +8,8 @@ class LiveSliverPinnedHeader extends SliverPinnedHeader {
     super.key,
     required super.child,
     super.backgroundColor,
+    super.backgroundGradient,
+    super.gradientBoundsSize,
     required this.areaHeight,
     required this.callback,
   });
@@ -19,6 +21,8 @@ class LiveSliverPinnedHeader extends SliverPinnedHeader {
   RenderObject createRenderObject(BuildContext context) =>
       RenderLiveSliverPinnedHeader(
         backgroundColor: backgroundColor,
+        backgroundGradient: backgroundGradient,
+        gradientBoundsSize: gradientBoundsSize,
         areaHeight: areaHeight,
         callback: callback,
       );
@@ -38,6 +42,8 @@ class LiveSliverPinnedHeader extends SliverPinnedHeader {
 class RenderLiveSliverPinnedHeader extends RenderSliverPinnedHeader {
   RenderLiveSliverPinnedHeader({
     required super.backgroundColor,
+    super.backgroundGradient,
+    super.gradientBoundsSize,
     required this._areaHeight,
     required this.callback,
   });

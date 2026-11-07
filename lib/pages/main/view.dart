@@ -2,6 +2,7 @@ import 'dart:async' show Completer, unawaited;
 import 'dart:io';
 
 import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/main_background_gradient.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
@@ -733,23 +734,11 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Widget _gradientBg() {
-    final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-
     // Keep the gradient as one compositing pass. The previous outer Opacity
     // multiplied the alpha of the first two stops and washed out light mode.
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            colorScheme.primary.withValues(alpha: isDark ? .30 : .36),
-            colorScheme.primaryContainer.withValues(alpha: isDark ? .40 : .36),
-            colorScheme.surface.withValues(alpha: .60),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          stops: const [.1, .4, .7],
-        ),
+        gradient: mainBackgroundGradient(theme.colorScheme),
       ),
     );
   }

@@ -6,6 +6,7 @@ import 'package:PiliMax/common/widgets/button/more_btn.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliMax/common/widgets/main_background_gradient.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliMax/http/loading_state.dart';
@@ -22,6 +23,7 @@ import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/theme_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -79,12 +81,22 @@ class _LivePageState extends State<LivePage>
 
     final areaHeight = 10.0 + textScaler.scale(14);
     final area = _buildLiveArea(list, areaHeight);
+    final gradientEnabled = Pref.enableGradientBg;
+    final backgroundColor = gradientEnabled ? null : colorScheme.surface;
+    final backgroundGradient = gradientEnabled
+        ? mainBackgroundGradient(colorScheme)
+        : null;
+    final gradientBoundsSize = gradientEnabled
+        ? MediaQuery.sizeOf(context)
+        : null;
 
     final follow = data.first;
     if (follow != null) {
       return LiveSliverPinnedHeader(
         areaHeight: areaHeight + 16 /* padding */,
-        backgroundColor: colorScheme.surface,
+        backgroundColor: backgroundColor,
+        backgroundGradient: backgroundGradient,
+        gradientBoundsSize: gradientBoundsSize,
         callback: controller.onTopHeightChanged,
         child: Column(children: [..._buildFollowList(follow), area]),
       );
@@ -92,7 +104,9 @@ class _LivePageState extends State<LivePage>
 
     controller.onTopHeightChanged(0.0);
     return SliverPinnedHeader(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: backgroundColor,
+      backgroundGradient: backgroundGradient,
+      gradientBoundsSize: gradientBoundsSize,
       child: area,
     );
   }
@@ -189,6 +203,14 @@ class _LivePageState extends State<LivePage>
   );
 
   Widget _buildBody(LoadingState<List?> loadingState) {
+    final gradientEnabled = Pref.enableGradientBg;
+    final backgroundColor = gradientEnabled ? null : colorScheme.surface;
+    final backgroundGradient = gradientEnabled
+        ? mainBackgroundGradient(colorScheme)
+        : null;
+    final gradientBoundsSize = gradientEnabled
+        ? MediaQuery.sizeOf(context)
+        : null;
     return switch (loadingState) {
       Loading() => SliverPadding(
         padding: const .only(top: Style.cardSpace),
@@ -204,7 +226,9 @@ class _LivePageState extends State<LivePage>
         slivers: [
           if (controller.newTags case final newTags? when newTags.isNotEmpty)
             SliverPinnedHeader(
-              backgroundColor: colorScheme.surface,
+              backgroundColor: backgroundColor,
+              backgroundGradient: backgroundGradient,
+              gradientBoundsSize: gradientBoundsSize,
               child: SizedBox(
                 // 8+10+13*textScaler
                 height: 18.0 + textScaler.scale(13),

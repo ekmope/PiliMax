@@ -307,6 +307,162 @@ function Apply-MediaKitMacOSDownloadRetry {
     )
 }
 
+function Apply-MediaKitLinuxMimallocDownloadRetry {
+    param([Parameter(Mandatory = $true)][string]$PackageRoot)
+
+    $packagePubspecPath = Join-Path $PackageRoot "pubspec.yaml"
+    if (-not (Test-Path $packagePubspecPath)) {
+        throw "media_kit_libs_linux pubspec.yaml does not exist: $packagePubspecPath"
+    }
+    $packagePubspec = [System.IO.File]::ReadAllText($packagePubspecPath)
+    $versionMatch = [regex]::Match($packagePubspec, '(?m)^version:\s*"?([0-9]+\.[0-9]+\.[0-9]+)"?\s*$')
+    if (-not $versionMatch.Success -or $versionMatch.Groups[1].Value -ne "1.2.1") {
+        $actualVersion = if ($versionMatch.Success) { $versionMatch.Groups[1].Value } else { "unknown" }
+        throw "unsupported media_kit_libs_linux version '$actualVersion'; expected 1.2.1 before applying the mimalloc retry patch"
+    }
+
+    $cmakePath = Join-Path $PackageRoot "linux/CMakeLists.txt"
+    if (-not (Test-Path $cmakePath)) {
+        throw "media_kit Linux CMakeLists.txt does not exist: $cmakePath"
+    }
+
+    $content = [System.IO.File]::ReadAllText($cmakePath)
+    $expectedSourceMarkers = @(
+        'set(MIMALLOC_URL "https://github.com/microsoft/mimalloc/archive/refs/tags/v2.1.2.tar.gz")',
+        'set(MIMALLOC_MD5 "5179c8f5cf1237d2300e2d8559a7bc55")'
+    )
+    foreach ($marker in $expectedSourceMarkers) {
+        if (-not $content.Contains($marker)) {
+            throw "media_kit_libs_linux 1.2.1 CMakeLists.txt no longer matches the audited mimalloc source/hash: $marker"
+        }
+    }
+
+    $patchMarker = "set(_pilimax_max_download_attempts 3)"
+    $retryMarkers = @(
+        'file(DOWNLOAD "${url}" "${_pilimax_temporary_archive}"',
+        'STATUS _pilimax_download_status',
+        'file(MD5 "${_pilimax_temporary_archive}" _pilimax_actual_md5)',
+        'file(RENAME "${_pilimax_temporary_archive}" "${locationForArchive}")',
+        'set(_pilimax_last_download_status "MD5 mismatch:',
+        'message(FATAL_ERROR "Unable to download a verified mimalloc archive'
+    )
+    if ($content.Contains($patchMarker)) {
+        foreach ($marker in $retryMarkers) {
+            if (-not $content.Contains($marker)) {
+                throw "media_kit Linux CMakeLists.txt contains an incomplete mimalloc retry patch; missing $marker"
+            }
+        }
+        return
+    }
+
+    $lineEnding = if ($content.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $functionStart = "  function(download_and_verify url md5 locationForArchive)"
+    $startIndex = $content.IndexOf($functionStart, [System.StringComparison]::Ordinal)
+    if ($startIndex -lt 0 -or $startIndex -ne $content.LastIndexOf($functionStart, [System.StringComparison]::Ordinal)) {
+        throw "media_kit Linux CMakeLists.txt must contain exactly one audited download verification function"
+    }
+    $functionEnd = "  endfunction()"
+    $endIndex = $content.IndexOf($functionEnd, $startIndex, [System.StringComparison]::Ordinal)
+    if ($endIndex -lt 0) {
+        throw "media_kit Linux CMakeLists.txt download verification function is incomplete"
+    }
+    $endIndex += $functionEnd.Length
+
+    $replacement = @'
+  function(download_and_verify url md5 locationForArchive)
+    if(EXISTS "${locationForArchive}")
+      file(MD5 "${locationForArchive}" ARCHIVE_MD5)
+
+      if(NOT md5 STREQUAL ARCHIVE_MD5)
+        file(REMOVE "${locationForArchive}")
+        message(STATUS "MD5 mismatch. File deleted.")
+      endif()
+    endif()
+
+    if(NOT EXISTS "${locationForArchive}")
+      set(_pilimax_max_download_attempts 3)
+      set(_pilimax_download_attempt 1)
+      set(_pilimax_attempts_used 0)
+      set(_pilimax_integrity_mismatch_count 0)
+      set(_pilimax_download_verified FALSE)
+      set(_pilimax_last_download_status "not attempted")
+
+      while(_pilimax_download_attempt LESS_EQUAL _pilimax_max_download_attempts AND
+            NOT _pilimax_download_verified AND
+            _pilimax_integrity_mismatch_count LESS 3)
+        math(EXPR _pilimax_attempts_used "${_pilimax_attempts_used} + 1")
+        set(_pilimax_temporary_archive "${locationForArchive}.part")
+        file(REMOVE "${_pilimax_temporary_archive}")
+        message(STATUS "Downloading archive (attempt ${_pilimax_download_attempt}/${_pilimax_max_download_attempts}) from ${url}...")
+        file(DOWNLOAD "${url}" "${_pilimax_temporary_archive}"
+          STATUS _pilimax_download_status
+          TIMEOUT 90
+          TLS_VERIFY ON
+        )
+        list(GET _pilimax_download_status 0 _pilimax_download_status_code)
+        list(GET _pilimax_download_status 1 _pilimax_download_status_message)
+        set(_pilimax_last_download_status "${_pilimax_download_status_code}: ${_pilimax_download_status_message}")
+
+        if(_pilimax_download_status_code EQUAL 0)
+          if(EXISTS "${_pilimax_temporary_archive}")
+            file(MD5 "${_pilimax_temporary_archive}" _pilimax_actual_md5)
+            if(md5 STREQUAL _pilimax_actual_md5)
+              file(RENAME "${_pilimax_temporary_archive}" "${locationForArchive}")
+              set(_pilimax_download_verified TRUE)
+              message(STATUS "${locationForArchive} Verification successful.")
+            else()
+              math(EXPR _pilimax_integrity_mismatch_count "${_pilimax_integrity_mismatch_count} + 1")
+              set(_pilimax_last_download_status "MD5 mismatch: expected ${md5}, got ${_pilimax_actual_md5}")
+              message(STATUS "MD5 mismatch on attempt ${_pilimax_download_attempt}: expected ${md5}, got ${_pilimax_actual_md5}.")
+            endif()
+          else()
+            set(_pilimax_last_download_status "download reported success without creating an archive")
+            message(STATUS "Download attempt ${_pilimax_download_attempt} failed: ${_pilimax_last_download_status}")
+          endif()
+        else()
+          message(STATUS "Download attempt ${_pilimax_download_attempt} failed: ${_pilimax_last_download_status}")
+        endif()
+
+        if(NOT _pilimax_download_verified)
+          file(REMOVE "${_pilimax_temporary_archive}")
+          if(_pilimax_download_attempt LESS _pilimax_max_download_attempts AND
+             _pilimax_integrity_mismatch_count LESS 3)
+            math(EXPR _pilimax_retry_delay "${_pilimax_download_attempt} * 10")
+            message(STATUS "Retrying mimalloc download in ${_pilimax_retry_delay} seconds.")
+            execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep "${_pilimax_retry_delay}")
+          endif()
+        endif()
+
+        math(EXPR _pilimax_download_attempt "${_pilimax_download_attempt} + 1")
+      endwhile()
+
+      if(NOT _pilimax_download_verified)
+        file(REMOVE "${locationForArchive}" "${locationForArchive}.part")
+        message(FATAL_ERROR "Unable to download a verified mimalloc archive after ${_pilimax_attempts_used} attempts. Last download status: ${_pilimax_last_download_status}")
+      endif()
+    endif()
+  endfunction()
+'@
+    $replacement = $replacement -replace "`r?`n", $lineEnding
+    $updated = $content.Substring(0, $startIndex) +
+        $replacement +
+        $content.Substring($endIndex)
+    if (-not $updated.Contains($patchMarker)) {
+        throw "failed to patch media_kit Linux mimalloc download logic"
+    }
+    foreach ($marker in $retryMarkers) {
+        if (-not $updated.Contains($marker)) {
+            throw "Linux mimalloc retry patch is incomplete after replacement; missing $marker"
+        }
+    }
+
+    [System.IO.File]::WriteAllText(
+        $cmakePath,
+        $updated,
+        [System.Text.UTF8Encoding]::new($false)
+    )
+}
+
 if ($platform.ToLower() -eq "ios") {
     Set-Location $Workspace
     git apply $BottomSheetIOSPiliMaxPatch
@@ -357,6 +513,9 @@ try {
         Select-Object -First 1
     $MediaKitMacosVideoPackage = $PackageConfig.packages |
         Where-Object { $_.name -eq "media_kit_libs_macos_video" } |
+        Select-Object -First 1
+    $MediaKitLinuxPackage = $PackageConfig.packages |
+        Where-Object { $_.name -eq "media_kit_libs_linux" } |
         Select-Object -First 1
     if ($null -eq $MaterialPackage) {
         throw "material_ui is missing from package_config.json"
@@ -416,6 +575,16 @@ try {
         $MediaKitMacosVideoRoot = ([System.Uri]$MediaKitMacosVideoPackage.rootUri).LocalPath
         if (-not (Test-Path $MediaKitMacosVideoRoot)) {
             throw "media_kit_libs_macos_video directory does not exist: $MediaKitMacosVideoRoot"
+        }
+    }
+    $MediaKitLinuxRoot = $null
+    if ($platform.ToLower() -eq "linux") {
+        if ($null -eq $MediaKitLinuxPackage) {
+            throw "media_kit_libs_linux is missing from package_config.json"
+        }
+        $MediaKitLinuxRoot = ([System.Uri]$MediaKitLinuxPackage.rootUri).LocalPath
+        if (-not (Test-Path $MediaKitLinuxRoot)) {
+            throw "media_kit_libs_linux directory does not exist: $MediaKitLinuxRoot"
         }
     }
 } catch {
@@ -564,6 +733,15 @@ if ($platform.ToLower() -eq "android") {
         Apply-MediaKitAndroidDownloadRetry -PackageRoot $MediaKitAndroidVideoRoot
     } catch {
         Write-Error "failed to add media-kit Android download retries: $($_.Exception.Message)"
+        exit 1
+    }
+}
+
+if ($platform.ToLower() -eq "linux") {
+    try {
+        Apply-MediaKitLinuxMimallocDownloadRetry -PackageRoot $MediaKitLinuxRoot
+    } catch {
+        Write-Error "failed to add media-kit Linux mimalloc download retries: $($_.Exception.Message)"
         exit 1
     }
 }

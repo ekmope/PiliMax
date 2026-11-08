@@ -34,6 +34,26 @@ jobs:
         shell: pwsh
         run: lib/scripts/patch.ps1 macOS
 
+      - name: Prepare media-kit macOS framework
+        shell: bash
+        run: |
+          set -e
+          PACKAGE_ROOT="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from urllib.parse import urlparse
+          from urllib.request import url2pathname
+
+          packages = json.loads(Path('.dart_tool/package_config.json').read_text())['packages']
+          package = next(item for item in packages if item['name'] == 'media_kit_libs_macos_video')
+          print(url2pathname(urlparse(package['rootUri']).path))
+          PY
+          )"
+          test -n "$PACKAGE_ROOT"
+          make -C "$PACKAGE_ROOT/macos"
+          test -d "$PACKAGE_ROOT/macos/Frameworks/Mpv.xcframework"
+          test -e "$PACKAGE_ROOT/macos/Frameworks/.symlinks/mpv/macos"
+
       - name: Build Mac
         run: flutter build macos --release --dart-define-from-file=pili_release.json --no-pub
 

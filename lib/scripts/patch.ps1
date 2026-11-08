@@ -158,6 +158,34 @@ function Test-MediaKitSecondarySubtitlePatchApplied {
     return $true
 }
 
+function Apply-MediaKitMacOSDownloadRetry {
+    param([Parameter(Mandatory = $true)][string]$PackageRoot)
+
+    $makefilePath = Join-Path $PackageRoot "macos/Makefile"
+    if (-not (Test-Path $makefilePath)) {
+        throw "media_kit macOS Makefile does not exist: $makefilePath"
+    }
+    $content = [System.IO.File]::ReadAllText($makefilePath)
+    if ($content.Contains('--retry 4')) {
+        return
+    }
+    $lineEnding = if ($content.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $old = 'curl -L \' + $lineEnding
+    if (-not $content.Contains($old)) {
+        throw "media_kit macOS Makefile has an unexpected curl command"
+    }
+    $replacement = 'curl --fail --location --retry 4 --retry-all-errors --retry-delay 2 \' +
+        $lineEnding + "`t`t" +
+        '--retry-max-time 180 --connect-timeout 20 --max-time 120 \' +
+        $lineEnding
+    $updated = $content.Replace($old, $replacement)
+    [System.IO.File]::WriteAllText(
+        $makefilePath,
+        $updated,
+        [System.Text.UTF8Encoding]::new($false)
+    )
+}
+
 if ($platform.ToLower() -eq "ios") {
     Set-Location $Workspace
     git apply $BottomSheetIOSPiliMaxPatch
@@ -203,6 +231,9 @@ try {
     $MediaKitVideoPackage = $PackageConfig.packages |
         Where-Object { $_.name -eq "media_kit_video" } |
         Select-Object -First 1
+    $MediaKitMacosVideoPackage = $PackageConfig.packages |
+        Where-Object { $_.name -eq "media_kit_libs_macos_video" } |
+        Select-Object -First 1
     if ($null -eq $MaterialPackage) {
         throw "material_ui is missing from package_config.json"
     }
@@ -241,6 +272,17 @@ try {
     }
     if (-not [string]::Equals($MediaKitRepoRoot, $MediaKitVideoRepoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "media_kit and media_kit_video are not from the same git repository"
+    }
+
+    $MediaKitMacosVideoRoot = $null
+    if ($platform.ToLower() -eq "macos") {
+        if ($null -eq $MediaKitMacosVideoPackage) {
+            throw "media_kit_libs_macos_video is missing from package_config.json"
+        }
+        $MediaKitMacosVideoRoot = ([System.Uri]$MediaKitMacosVideoPackage.rootUri).LocalPath
+        if (-not (Test-Path $MediaKitMacosVideoRoot)) {
+            throw "media_kit_libs_macos_video directory does not exist: $MediaKitMacosVideoRoot"
+        }
     }
 } catch {
     Write-Error "failed to locate required dependency package: $($_.Exception.Message)"
@@ -372,6 +414,15 @@ if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $GetxPredictive
 Set-Location $MediaKitRepoRoot
 if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $MediaKitSecondarySubtitlePatch) -Description "$MediaKitSecondarySubtitlePatch to media-kit packages")) {
     exit 1
+}
+
+if ($platform.ToLower() -eq "macos") {
+    try {
+        Apply-MediaKitMacOSDownloadRetry -PackageRoot $MediaKitMacosVideoRoot
+    } catch {
+        Write-Error "failed to add media-kit macOS download retries: $($_.Exception.Message)"
+        exit 1
+    }
 }
 
 Set-Location $Workspace

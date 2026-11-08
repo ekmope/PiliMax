@@ -36,9 +36,31 @@ jobs:
 
       - name: Build iOS
         run: |
-          set +e
-          flutter build ios --release --no-codesign --dart-define-from-file=pili_release.json --no-pub -v
-          build_status=$?
+          max_attempts=3
+          build_status=1
+          for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+            log_file="$(mktemp)"
+            set +e
+            flutter build ios --release --no-codesign --dart-define-from-file=pili_release.json --no-pub -v 2>&1 | tee "$log_file"
+            build_status=${PIPESTATUS[0]}
+            set -e
+
+            if [ "$build_status" -eq 0 ]; then
+              rm -f "$log_file"
+              break
+            fi
+
+            if grep -Eiq 'badResponseStatusCode\((502|503|504)\)|HTTP[[:space:]]+(502|503|504)|Bad Gateway|Service Unavailable|Gateway Timeout|timed out|Connection reset by peer|Could not resolve host' "$log_file" && [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Transient Swift package download failure; retrying iOS build ($attempt/$max_attempts)."
+              rm -f "$log_file"
+              rm -rf build/ios/iphoneos/Runner.app
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            rm -f "$log_file"
+            break
+          done
           set -e
           if [ "$build_status" -ne 0 ] && [ ! -d build/ios/iphoneos/Runner.app ]; then
             exit "$build_status"

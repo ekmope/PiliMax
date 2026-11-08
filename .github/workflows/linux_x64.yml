@@ -177,8 +177,19 @@ jobs:
       - name: Package AppImage
         run: |
           printf "下载 appimagetool...\n"
-          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          curl --fail --location --retry 4 --retry-all-errors --retry-delay 2 \
+            --retry-max-time 180 --connect-timeout 20 --max-time 120 \
+            -o appimagetool-x86_64.AppImage \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
+
+          printf "下载 AppImage type-2 runtime...\n"
+          curl --fail --location --retry 4 --retry-all-errors --retry-delay 2 \
+            --retry-max-time 180 --connect-timeout 20 --max-time 120 \
+            -o runtime-x86_64 \
+            https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64
+          test -s runtime-x86_64
+          chmod +x runtime-x86_64
 
           printf "建立 AppDir 目录结构...\n"
           APPDIR="PiliMax.AppDir"
@@ -212,7 +223,7 @@ jobs:
           sed -i 's|Icon=pilimax|Icon=pilimax|g' "$APPDIR/com.PiliMax.android.desktop"
 
           printf "打包 AppImage...\n"
-          ARCH=x86_64 ./appimagetool-x86_64.AppImage "$APPDIR" "PiliMax_linux_${{ env.version }}_amd64.AppImage"
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage --runtime-file runtime-x86_64 "$APPDIR" "PiliMax_linux_${{ env.version }}_amd64.AppImage"
 
           printf "完成: PiliMax_linux_%s_amd64.AppImage\n" "${{ env.version }}"
         shell: bash

@@ -121,7 +121,7 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
   @override
   void paint(PaintingContext context, Offset offset) {
     if (child != null && geometry!.visible) {
-      if (_isPinned && _backgroundColor != null) {
+      if (_isPinned) {
         final size = child!.size;
         final rect = Rect.fromLTWH(
           offset.dx,
@@ -129,32 +129,29 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
           size.width,
           size.height + 2,
         );
-        context.canvas.drawRect(rect, Paint()..color = _backgroundColor!);
-      } else if (_isPinned &&
-          _backgroundGradient != null &&
-          _gradientBoundsSize != null) {
-        final backgroundGradient = _backgroundGradient!;
-        final boundsSize = _gradientBoundsSize!;
-        final size = child!.size;
-        final rect = Rect.fromLTWH(
-          offset.dx,
-          offset.dy - 2,
-          size.width,
-          size.height + 2,
-        );
-        final shaderBounds = Rect.fromLTWH(
-          0,
-          0,
-          boundsSize.width,
-          boundsSize.height,
-        );
-        context.canvas.drawRect(
-          rect,
-          Paint()
-            ..shader = _backgroundShader ??= backgroundGradient.createShader(
-              shaderBounds,
-            ),
-        );
+
+        // The pinned header is painted over the scrolling sliver. Establish
+        // an opaque base before applying the translucent page gradient so
+        // cards underneath cannot bleed through as a tinted overlay.
+        if (_backgroundColor case final backgroundColor?) {
+          context.canvas.drawRect(rect, Paint()..color = backgroundColor);
+        }
+
+        if (_backgroundGradient != null && _gradientBoundsSize != null) {
+          final boundsSize = _gradientBoundsSize!;
+          final shaderBounds = Rect.fromLTWH(
+            0,
+            0,
+            boundsSize.width,
+            boundsSize.height,
+          );
+          context.canvas.drawRect(
+            rect,
+            Paint()
+              ..shader = _backgroundShader ??= _backgroundGradient!
+                  .createShader(shaderBounds),
+          );
+        }
       }
       context.paintChild(child!, offset);
     }

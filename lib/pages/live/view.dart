@@ -82,7 +82,7 @@ class _LivePageState extends State<LivePage>
     final areaHeight = 10.0 + textScaler.scale(14);
     final area = _buildLiveArea(list, areaHeight);
     final gradientEnabled = Pref.enableGradientBg;
-    final backgroundColor = gradientEnabled ? null : colorScheme.surface;
+    final backgroundColor = colorScheme.surface;
     final backgroundGradient = gradientEnabled
         ? mainBackgroundGradient(colorScheme)
         : null;
@@ -204,7 +204,7 @@ class _LivePageState extends State<LivePage>
 
   Widget _buildBody(LoadingState<List?> loadingState) {
     final gradientEnabled = Pref.enableGradientBg;
-    final backgroundColor = gradientEnabled ? null : colorScheme.surface;
+    final backgroundColor = colorScheme.surface;
     final backgroundGradient = gradientEnabled
         ? mainBackgroundGradient(colorScheme)
         : null;

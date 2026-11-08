@@ -36,7 +36,7 @@ jobs:
 
       - name: Build iOS
         run: |
-          max_attempts=3
+          max_attempts=6
           build_status=1
           for ((attempt = 1; attempt <= max_attempts; attempt++)); do
             log_file="$(mktemp)"
@@ -50,11 +50,11 @@ jobs:
               break
             fi
 
-            if grep -Eiq 'badResponseStatusCode\((502|503|504)\)|HTTP[[:space:]]+(502|503|504)|Bad Gateway|Service Unavailable|Gateway Timeout|timed out|Connection reset by peer|Could not resolve host' "$log_file" && [ "$attempt" -lt "$max_attempts" ]; then
+            if grep -Eiq 'badResponseStatusCode[^0-9]*(502|503|504)|HTTP[^[:digit:]]*(502|503|504)|(^|[^0-9])(502|503|504)([^0-9]|$)|Bad Gateway|Service Unavailable|Gateway Timeout|timed out|Connection reset by peer|Could not resolve host|network connection was lost|temporary failure in name resolution|NSURLErrorDomain Code=(-1001|-1003|-1005|-1009)' "$log_file" && [ "$attempt" -lt "$max_attempts" ]; then
               echo "Transient Swift package download failure; retrying iOS build ($attempt/$max_attempts)."
               rm -f "$log_file"
               rm -rf build/ios/iphoneos/Runner.app
-              sleep $((attempt * 5))
+              sleep $((attempt * 10))
               continue
             fi
 
@@ -62,7 +62,7 @@ jobs:
             break
           done
           set -e
-          if [ "$build_status" -ne 0 ] && [ ! -d build/ios/iphoneos/Runner.app ]; then
+          if [ "$build_status" -ne 0 ]; then
             exit "$build_status"
           fi
           ln -sf ./build/ios/iphoneos Payload

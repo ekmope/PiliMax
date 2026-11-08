@@ -158,6 +158,120 @@ function Test-MediaKitSecondarySubtitlePatchApplied {
     return $true
 }
 
+function Apply-MediaKitAndroidDownloadRetry {
+    param([Parameter(Mandatory = $true)][string]$PackageRoot)
+
+    $gradlePath = Join-Path $PackageRoot "android/build.gradle"
+    if (-not (Test-Path $gradlePath)) {
+        throw "media_kit Android build.gradle does not exist: $gradlePath"
+    }
+
+    $content = [System.IO.File]::ReadAllText($gradlePath)
+    if ($content.Contains("def downloadWithRetry = { String url, File destination ->")) {
+        if (-not $content.Contains("downloadWithRetry(fileInfo.url, destFile)")) {
+            throw "media_kit Android build.gradle contains a partial download retry patch"
+        }
+        return
+    }
+
+    $lineEnding = if ($content.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $loopAnchor = "        filesToDownload.each { fileInfo ->"
+    if (-not $content.Contains($loopAnchor)) {
+        throw "media_kit Android build.gradle has an unexpected dependency loop"
+    }
+    $downloadBlock =
+        "                destFile.withOutputStream { os ->" + $lineEnding +
+        "                    os << new URL(fileInfo.url).openStream()" + $lineEnding +
+        "                }"
+    if (-not $content.Contains($downloadBlock)) {
+        throw "media_kit Android build.gradle has an unexpected download command"
+    }
+
+    $helper = @'
+        def downloadWithRetry = { String url, File destination ->
+            int maxAttempts = 6
+            Exception lastException = null
+            for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                File partFile = new File(destination.parentFile, "${destination.name}.part")
+                try {
+                    partFile.delete()
+                    def connection = new URL(url).openConnection()
+                    connection.setConnectTimeout(20000)
+                    connection.setReadTimeout(120000)
+                    connection.setUseCaches(false)
+                    if (connection instanceof java.net.HttpURLConnection) {
+                        int status = connection.responseCode
+                        if (status >= 400 && status < 500 && status != 429) {
+                            throw new GradleException("HTTP ${status} while downloading ${url}")
+                        }
+                        if (status == 429 || status >= 500) {
+                            throw new java.io.IOException("HTTP ${status} while downloading ${url}")
+                        }
+                    }
+                    def input = connection.inputStream
+                    try {
+                        partFile.withOutputStream { output -> output << input }
+                    } finally {
+                        input.close()
+                    }
+                    if (!partFile.renameTo(destination)) {
+                        throw new java.io.IOException("Unable to move ${partFile} to ${destination}")
+                    }
+                    return
+                } catch (GradleException exception) {
+                    partFile.delete()
+                    throw exception
+                } catch (java.io.IOException exception) {
+                    lastException = exception
+                    partFile.delete()
+                    if (attempt < maxAttempts) {
+                        println "Transient download failure for ${url} (attempt ${attempt}/${maxAttempts}); retrying"
+                        sleep(attempt * 10000L)
+                    }
+                }
+            }
+            throw new GradleException("Failed to download ${url} after ${maxAttempts} attempts", lastException)
+        }
+'@
+    $helper = $helper -replace "`r?`n", $lineEnding
+    $updated = $content.Replace($loopAnchor, $helper + $lineEnding + $loopAnchor)
+    $updated = $updated.Replace(
+        $downloadBlock,
+        "                downloadWithRetry(fileInfo.url, destFile)"
+    )
+    if (-not $updated.Contains("downloadWithRetry(fileInfo.url, destFile)")) {
+        throw "failed to replace media_kit Android download command"
+    }
+    [System.IO.File]::WriteAllText(
+        $gradlePath,
+        $updated,
+        [System.Text.UTF8Encoding]::new($false)
+    )
+}
+
+function Invoke-FlutterPubGetWithRetry {
+    param([int]$MaxAttempts = 3)
+
+    $retryPattern = '(?i)(502|503|504|bad gateway|service unavailable|gateway timeout|timed out|connection reset|could not resolve host|failed host lookup|unexpected end of file)'
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $pubGetOutput = @(& flutter pub get 2>&1)
+        $pubGetExitCode = $LASTEXITCODE
+        $pubGetOutput | ForEach-Object { Write-Host $_ }
+        if ($pubGetExitCode -eq 0) {
+            return 0
+        }
+
+        $pubGetText = $pubGetOutput -join "`n"
+        if ($attempt -lt $MaxAttempts -and $pubGetText -match $retryPattern) {
+            Write-Warning "flutter pub get failed with a transient network error; retrying ($attempt/$MaxAttempts)."
+            Start-Sleep -Seconds ($attempt * 10)
+            continue
+        }
+        return $pubGetExitCode
+    }
+    return 1
+}
+
 function Apply-MediaKitMacOSDownloadRetry {
     param([Parameter(Mandatory = $true)][string]$PackageRoot)
 
@@ -166,19 +280,26 @@ function Apply-MediaKitMacOSDownloadRetry {
         throw "media_kit macOS Makefile does not exist: $makefilePath"
     }
     $content = [System.IO.File]::ReadAllText($makefilePath)
-    if ($content.Contains('--retry 4')) {
+    $lineEnding = if ($content.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $retryOptions = 'curl --fail --location --retry 8 --retry-all-errors --retry-delay 10 \' +
+        $lineEnding + "`t`t" +
+        '--retry-max-time 600 --connect-timeout 30 --max-time 300 \' +
+        $lineEnding
+    if ($content.Contains($retryOptions)) {
         return
     }
-    $lineEnding = if ($content.Contains("`r`n")) { "`r`n" } else { "`n" }
     $old = 'curl -L \' + $lineEnding
-    if (-not $content.Contains($old)) {
-        throw "media_kit macOS Makefile has an unexpected curl command"
-    }
-    $replacement = 'curl --fail --location --retry 4 --retry-all-errors --retry-delay 2 \' +
+    $oldRetryOptions = 'curl --fail --location --retry 4 --retry-all-errors --retry-delay 2 \' +
         $lineEnding + "`t`t" +
         '--retry-max-time 180 --connect-timeout 20 --max-time 120 \' +
         $lineEnding
-    $updated = $content.Replace($old, $replacement)
+    if ($content.Contains($old)) {
+        $updated = $content.Replace($old, $retryOptions)
+    } elseif ($content.Contains($oldRetryOptions)) {
+        $updated = $content.Replace($oldRetryOptions, $retryOptions)
+    } else {
+        throw "media_kit macOS Makefile has an unexpected curl command"
+    }
     [System.IO.File]::WriteAllText(
         $makefilePath,
         $updated,
@@ -205,9 +326,9 @@ if ($platform.ToLower() -eq "ios") {
 }
 
 Set-Location $Workspace
-flutter pub get
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "flutter pub get failed (exit $LASTEXITCODE)"
+$pubGetStatus = Invoke-FlutterPubGetWithRetry
+if ($pubGetStatus -ne 0) {
+    Write-Error "flutter pub get failed (exit $pubGetStatus)"
     exit 1
 }
 
@@ -230,6 +351,9 @@ try {
         Select-Object -First 1
     $MediaKitVideoPackage = $PackageConfig.packages |
         Where-Object { $_.name -eq "media_kit_video" } |
+        Select-Object -First 1
+    $MediaKitAndroidVideoPackage = $PackageConfig.packages |
+        Where-Object { $_.name -eq "media_kit_libs_android_video" } |
         Select-Object -First 1
     $MediaKitMacosVideoPackage = $PackageConfig.packages |
         Where-Object { $_.name -eq "media_kit_libs_macos_video" } |
@@ -275,6 +399,16 @@ try {
     }
 
     $MediaKitMacosVideoRoot = $null
+    $MediaKitAndroidVideoRoot = $null
+    if ($platform.ToLower() -eq "android") {
+        if ($null -eq $MediaKitAndroidVideoPackage) {
+            throw "media_kit_libs_android_video is missing from package_config.json"
+        }
+        $MediaKitAndroidVideoRoot = ([System.Uri]$MediaKitAndroidVideoPackage.rootUri).LocalPath
+        if (-not (Test-Path $MediaKitAndroidVideoRoot)) {
+            throw "media_kit_libs_android_video directory does not exist: $MediaKitAndroidVideoRoot"
+        }
+    }
     if ($platform.ToLower() -eq "macos") {
         if ($null -eq $MediaKitMacosVideoPackage) {
             throw "media_kit_libs_macos_video is missing from package_config.json"
@@ -421,6 +555,15 @@ if ($platform.ToLower() -eq "macos") {
         Apply-MediaKitMacOSDownloadRetry -PackageRoot $MediaKitMacosVideoRoot
     } catch {
         Write-Error "failed to add media-kit macOS download retries: $($_.Exception.Message)"
+        exit 1
+    }
+}
+
+if ($platform.ToLower() -eq "android") {
+    try {
+        Apply-MediaKitAndroidDownloadRetry -PackageRoot $MediaKitAndroidVideoRoot
+    } catch {
+        Write-Error "failed to add media-kit Android download retries: $($_.Exception.Message)"
         exit 1
     }
 }

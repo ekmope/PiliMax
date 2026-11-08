@@ -7,9 +7,12 @@ import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/main_background_gradient.dart';
+import 'package:PiliMax/common/widgets/main_background_gradient_scope.dart';
 import 'package:PiliMax/common/widgets/pair.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_header.dart';
 import 'package:PiliMax/http/loading_state.dart';
+import 'package:PiliMax/models/common/home_tab_type.dart';
+import 'package:PiliMax/models/common/nav_bar_config.dart';
 import 'package:PiliMax/models_new/live/live_feed_index/card_data_list_item.dart';
 import 'package:PiliMax/models_new/live/live_feed_index/card_list.dart';
 import 'package:PiliMax/pages/live/controller.dart';
@@ -18,6 +21,7 @@ import 'package:PiliMax/pages/live/widgets/live_item_app.dart';
 import 'package:PiliMax/pages/live/widgets/sliver_pinned_header.dart';
 import 'package:PiliMax/pages/live_area/view.dart';
 import 'package:PiliMax/pages/live_follow/view.dart';
+import 'package:PiliMax/pages/main/controller.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
@@ -39,11 +43,58 @@ class LivePage extends StatefulWidget {
 class _LivePageState extends State<LivePage>
     with AutomaticKeepAliveClientMixin {
   final LiveController controller = Get.put(LiveController());
+  late final MainController _mainController = Get.find<MainController>();
+  late final Worker _mainNavigationWorker;
+  bool _wasLivePageActive = false;
+  int _gradientRevision = 0;
   late TextScaler textScaler;
   late ColorScheme colorScheme;
 
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _wasLivePageActive = _isLivePageActive;
+    _mainController.homeController.tabController.addListener(
+      _onNavigationChanged,
+    );
+    _mainNavigationWorker = ever<int>(
+      _mainController.selectedIndex,
+      (_) => _onNavigationChanged(),
+    );
+  }
+
+  bool get _isLivePageActive {
+    final mainIndex = _mainController.navigationBars.indexOf(
+      NavigationBarType.home,
+    );
+    final liveIndex = _mainController.homeController.tabs.indexOf(
+      HomeTabType.live,
+    );
+    return mainIndex >= 0 &&
+        liveIndex >= 0 &&
+        _mainController.selectedIndex.value == mainIndex &&
+        _mainController.homeController.tabController.index == liveIndex;
+  }
+
+  void _onNavigationChanged() {
+    final isActive = _isLivePageActive;
+    if (isActive && !_wasLivePageActive && mounted) {
+      setState(() => _gradientRevision++);
+    }
+    _wasLivePageActive = isActive;
+  }
+
+  @override
+  void dispose() {
+    _mainController.homeController.tabController.removeListener(
+      _onNavigationChanged,
+    );
+    _mainNavigationWorker.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -89,6 +140,9 @@ class _LivePageState extends State<LivePage>
     final gradientBoundsSize = gradientEnabled
         ? MediaQuery.sizeOf(context)
         : null;
+    final gradientBoundsKey = gradientEnabled
+        ? MainBackgroundGradientScope.maybeOf(context)?.boundsKey
+        : null;
 
     final follow = data.first;
     if (follow != null) {
@@ -97,6 +151,8 @@ class _LivePageState extends State<LivePage>
         backgroundColor: backgroundColor,
         backgroundGradient: backgroundGradient,
         gradientBoundsSize: gradientBoundsSize,
+        gradientBoundsKey: gradientBoundsKey,
+        gradientRevision: _gradientRevision,
         callback: controller.onTopHeightChanged,
         child: Column(children: [..._buildFollowList(follow), area]),
       );
@@ -107,6 +163,8 @@ class _LivePageState extends State<LivePage>
       backgroundColor: backgroundColor,
       backgroundGradient: backgroundGradient,
       gradientBoundsSize: gradientBoundsSize,
+      gradientBoundsKey: gradientBoundsKey,
+      gradientRevision: _gradientRevision,
       child: area,
     );
   }
@@ -211,6 +269,9 @@ class _LivePageState extends State<LivePage>
     final gradientBoundsSize = gradientEnabled
         ? MediaQuery.sizeOf(context)
         : null;
+    final gradientBoundsKey = gradientEnabled
+        ? MainBackgroundGradientScope.maybeOf(context)?.boundsKey
+        : null;
     return switch (loadingState) {
       Loading() => SliverPadding(
         padding: const .only(top: Style.cardSpace),
@@ -229,6 +290,8 @@ class _LivePageState extends State<LivePage>
               backgroundColor: backgroundColor,
               backgroundGradient: backgroundGradient,
               gradientBoundsSize: gradientBoundsSize,
+              gradientBoundsKey: gradientBoundsKey,
+              gradientRevision: _gradientRevision,
               child: SizedBox(
                 // 8+10+13*textScaler
                 height: 18.0 + textScaler.scale(13),

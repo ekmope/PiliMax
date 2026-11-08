@@ -10,6 +10,8 @@ class LiveSliverPinnedHeader extends SliverPinnedHeader {
     super.backgroundColor,
     super.backgroundGradient,
     super.gradientBoundsSize,
+    super.gradientBoundsKey,
+    super.gradientRevision,
     required this.areaHeight,
     required this.callback,
   });
@@ -23,6 +25,8 @@ class LiveSliverPinnedHeader extends SliverPinnedHeader {
         backgroundColor: backgroundColor,
         backgroundGradient: backgroundGradient,
         gradientBoundsSize: gradientBoundsSize,
+        gradientBoundsKey: gradientBoundsKey,
+        gradientRevision: gradientRevision,
         areaHeight: areaHeight,
         callback: callback,
       );
@@ -44,6 +48,8 @@ class RenderLiveSliverPinnedHeader extends RenderSliverPinnedHeader {
     required super.backgroundColor,
     super.backgroundGradient,
     super.gradientBoundsSize,
+    super.gradientBoundsKey,
+    required super.gradientRevision,
     required this._areaHeight,
     required this.callback,
   });

@@ -34,11 +34,15 @@ class SliverPinnedHeader extends SingleChildRenderObjectWidget {
     this.backgroundColor,
     this.backgroundGradient,
     this.gradientBoundsSize,
+    this.gradientBoundsKey,
+    this.gradientRevision = 0,
   });
 
   final Color? backgroundColor;
   final Gradient? backgroundGradient;
   final Size? gradientBoundsSize;
+  final GlobalKey? gradientBoundsKey;
+  final int gradientRevision;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
@@ -46,6 +50,8 @@ class SliverPinnedHeader extends SingleChildRenderObjectWidget {
         backgroundColor: backgroundColor,
         backgroundGradient: backgroundGradient,
         gradientBoundsSize: gradientBoundsSize,
+        gradientBoundsKey: gradientBoundsKey,
+        gradientRevision: gradientRevision,
       );
 
   @override
@@ -56,7 +62,9 @@ class SliverPinnedHeader extends SingleChildRenderObjectWidget {
     renderObject
       ..backgroundColor = backgroundColor
       ..backgroundGradient = backgroundGradient
-      ..gradientBoundsSize = gradientBoundsSize;
+      ..gradientBoundsSize = gradientBoundsSize
+      ..gradientBoundsKey = gradientBoundsKey
+      ..gradientRevision = gradientRevision;
   }
 }
 
@@ -65,6 +73,8 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
     required this._backgroundColor,
     this._backgroundGradient,
     this._gradientBoundsSize,
+    this._gradientBoundsKey,
+    required this._gradientRevision,
   });
 
   Color? _backgroundColor;
@@ -78,17 +88,39 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
   set backgroundGradient(Gradient? value) {
     if (_backgroundGradient == value) return;
     _backgroundGradient = value;
-    _backgroundShader = null;
+    _invalidateBackgroundShader();
     if (_isPinned) markNeedsPaint();
   }
 
   Size? _gradientBoundsSize;
+  GlobalKey? _gradientBoundsKey;
+  int _gradientRevision;
   Shader? _backgroundShader;
-  Offset? _backgroundShaderOrigin;
+  Rect? _backgroundShaderBounds;
+
+  void _invalidateBackgroundShader() {
+    _backgroundShader = null;
+    _backgroundShaderBounds = null;
+  }
+
   set gradientBoundsSize(Size? value) {
     if (_gradientBoundsSize == value) return;
     _gradientBoundsSize = value;
-    _backgroundShader = null;
+    _invalidateBackgroundShader();
+    if (_isPinned) markNeedsPaint();
+  }
+
+  set gradientBoundsKey(GlobalKey? value) {
+    if (identical(_gradientBoundsKey, value)) return;
+    _gradientBoundsKey = value;
+    _invalidateBackgroundShader();
+    if (_isPinned) markNeedsPaint();
+  }
+
+  set gradientRevision(int value) {
+    if (_gradientRevision == value) return;
+    _gradientRevision = value;
+    _invalidateBackgroundShader();
     if (_isPinned) markNeedsPaint();
   }
 
@@ -108,7 +140,12 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
       0.0,
       effectiveRemainingPaintExtent,
     );
-    _isPinned = constraints.overlap > 0.0 || constraints.scrollOffset > 0.0;
+    final isPinned =
+        constraints.overlap > 0.0 || constraints.scrollOffset > 0.0;
+    if (_isPinned != isPinned) {
+      _isPinned = isPinned;
+      _invalidateBackgroundShader();
+    }
     geometry = SliverGeometry(
       scrollExtent: childExtent,
       paintOrigin: constraints.overlap,
@@ -136,25 +173,33 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
         );
 
         if (_backgroundGradient != null && _gradientBoundsSize != null) {
-          final boundsSize = _gradientBoundsSize!;
           // A viewport is a repaint boundary, so its canvas starts at the
-          // viewport's origin rather than the app's background origin. Shift
-          // the shader bounds into viewport coordinates to sample the same
-          // part of the screen-wide gradient as the main background.
+          // viewport's origin rather than the app's background origin. Resolve
+          // both actual bounds so a kept-alive page samples the same part of
+          // the screen-wide gradient after it becomes visible again.
           final viewport = RenderAbstractViewport.maybeOf(this);
           final viewportOrigin = viewport is RenderBox
               ? (viewport as RenderBox).localToGlobal(Offset.zero)
               : Offset.zero;
-          if (_backgroundShaderOrigin != viewportOrigin) {
-            _backgroundShader = null;
-            _backgroundShaderOrigin = viewportOrigin;
-          }
+          final gradientRenderObject = _gradientBoundsKey?.currentContext
+              ?.findRenderObject();
+          final gradientBox =
+              gradientRenderObject is RenderBox && gradientRenderObject.hasSize
+              ? gradientRenderObject
+              : null;
+          final gradientOrigin =
+              gradientBox?.localToGlobal(Offset.zero) ?? Offset.zero;
+          final boundsSize = gradientBox?.size ?? _gradientBoundsSize!;
           final shaderBounds = Rect.fromLTWH(
-            -viewportOrigin.dx,
-            -viewportOrigin.dy,
+            gradientOrigin.dx - viewportOrigin.dx,
+            gradientOrigin.dy - viewportOrigin.dy,
             boundsSize.width,
             boundsSize.height,
           );
+          if (_backgroundShaderBounds != shaderBounds) {
+            _backgroundShader = null;
+            _backgroundShaderBounds = shaderBounds;
+          }
           context.canvas.drawRect(
             rect,
             Paint()

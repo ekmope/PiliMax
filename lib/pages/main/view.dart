@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/main_background_gradient.dart';
+import 'package:PiliMax/common/widgets/main_background_gradient_scope.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
@@ -51,6 +52,9 @@ class _MainAppState extends PopScopeState<MainApp>
     with RouteAware, RouteAwareMixin, WidgetsBindingObserver {
   final _mainController = Get.put(MainController());
   final _navigationKey = GlobalKey();
+  final _gradientBackgroundKey = GlobalKey(
+    debugLabel: 'mainBackgroundGradient',
+  );
   late final List<Worker> _backPopWorkers;
   late EdgeInsets _padding;
   late ThemeData theme;
@@ -689,10 +693,16 @@ class _MainAppState extends PopScopeState<MainApp>
         color: theme.colorScheme.surface,
         child: Stack(
           children: [
-            Positioned.fill(child: _gradientBg()),
+            Positioned.fill(
+              child: _gradientBg(key: _gradientBackgroundKey),
+            ),
             child,
           ],
         ),
+      );
+      child = MainBackgroundGradientScope(
+        boundsKey: _gradientBackgroundKey,
+        child: child,
       );
     }
 
@@ -733,11 +743,12 @@ class _MainAppState extends PopScopeState<MainApp>
     return child;
   }
 
-  Widget _gradientBg() {
+  Widget _gradientBg({Key? key}) {
     // Use the same opaque, surface-composited gradient as pinned headers so
     // their backgrounds remain pixel-consistent when they cover scrolling
     // content.
     return DecoratedBox(
+      key: key,
       decoration: BoxDecoration(
         gradient: mainBackgroundGradient(theme.colorScheme, opaque: true),
       ),

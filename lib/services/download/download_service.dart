@@ -27,6 +27,7 @@ import 'package:PiliMax/utils/extension/file_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/pilimax/utils/log_redactor.dart';
+import 'package:PiliMax/utils/accounts.dart';
 import 'package:PiliMax/utils/path_utils.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
@@ -772,11 +773,18 @@ class DownloadService extends GetxService {
         seasonId: entry.seasonId,
         epId: entry.ep?.episodeId,
       );
-      final List<Subtitle>? subtitleList;
+      List<Subtitle>? subtitleList;
       if (res case Success(:final response)) {
         subtitleList = response.subtitle?.subtitles;
       } else {
         return;
+      }
+      if ((subtitleList == null || subtitleList.isEmpty) &&
+          !Accounts.heartbeat.isLogin) {
+        final dmRes = await DmGrpc.dmView(entry.avid, cid);
+        if (dmRes case Success(:final response)) {
+          subtitleList = DmGrpc.dmViewToSubtitle(response);
+        }
       }
       if (subtitleList == null || subtitleList.isEmpty) return;
 
@@ -812,19 +820,18 @@ class DownloadService extends GetxService {
       }
       if (successfulSubs.isEmpty) return;
 
-      final indexJson = successfulSubs
-          .map(
-            (sub) => {
-              'lan': sub.lan,
-              'lan_doc': sub.isAi
-                  ? sub.lanDoc!.substring(0, sub.lanDoc!.length - '（AI）'.length)
-                  : sub.lanDoc ?? '',
-              'subtitle_url': sub.subtitleUrl ?? '',
-              'subtitle_url_v2': sub.subtitleUrlV2,
-              'type': sub.isAi ? 1 : 0,
-            },
-          )
-          .toList();
+      final indexJson = successfulSubs.map((sub) {
+        final lanDoc = sub.lanDoc ?? '';
+        return {
+          'lan': sub.lan,
+          'lan_doc': sub.isAi && lanDoc.endsWith('（AI）')
+              ? lanDoc.substring(0, lanDoc.length - '（AI）'.length)
+              : lanDoc,
+          'subtitle_url': sub.subtitleUrl ?? '',
+          'subtitle_url_v2': sub.subtitleUrlV2,
+          'type': sub.type ?? (sub.isAi ? 1 : 0),
+        };
+      }).toList();
       await File(
         path.join(subsDir.path, PathUtils.subtitleIndexName),
       ).writeAsString(jsonEncode(indexJson));

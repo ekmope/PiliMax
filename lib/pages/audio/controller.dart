@@ -940,7 +940,11 @@ class AudioController extends GetxController
     );
     await currentPlayer.open(
       Media(url, start: start, extras: audioFilterExtras(volume)),
+      play: false,
     );
+    // Start playback through the controller callback after opening. This keeps
+    // the audio-service play path in sync with media replacement.
+    await onPlay();
     _consumedCompletedIdentity = null;
     final stateDuration = _rawAudioDuration(currentPlayer);
     if (stateDuration > Duration.zero) {

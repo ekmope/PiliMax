@@ -5,6 +5,7 @@ import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/common/widgets/view_sliver_safe_area.dart';
 import 'package:PiliMax/utils/device_utils.dart';
+import 'package:PiliMax/utils/dlna_utils.dart';
 import 'package:PiliMax/utils/permission_handler.dart';
 import 'package:dlna_dart/dlna.dart';
 import 'package:material_ui/material_ui.dart';
@@ -144,6 +145,7 @@ class _DLNAPageState extends State<DLNAPage> {
             subtitle: Text(key),
             onTap: () async {
               if (isCurr) return;
+              normalizeLegacyDlnaControlUrls(device);
               _lastDevice?.pause();
               _lastDevice = device;
               _lastDeviceKey = key;

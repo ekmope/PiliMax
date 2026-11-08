@@ -157,7 +157,12 @@ abstract final class ReplyGrpc {
     required Mode mode,
     required String? offset,
     Int64? cursorNext,
+    int emptyPageHops = 0,
+    Set<String>? seenOffsets,
   }) async {
+    final visitedOffsets = seenOffsets ?? <String>{};
+    if (offset != null) visitedOffsets.add(offset);
+
     final res = await GrpcReq.request(
       GrpcUrl.mainList,
       MainListReq(
@@ -201,6 +206,29 @@ abstract final class ReplyGrpc {
           return hasMatch;
         });
       }
+
+      // A page can become empty after local filters remove every reply. Keep
+      // loading while the server provides a new cursor, but bound the chain so
+      // a stale/repeated offset cannot cause an unending request loop.
+      final nextOffset = response.paginationReply.nextOffset;
+      if (response.replies.isEmpty &&
+          !response.hasUpTop() &&
+          !response.cursor.isEnd &&
+          nextOffset.isNotEmpty &&
+          nextOffset != offset &&
+          emptyPageHops < 10 &&
+          visitedOffsets.add(nextOffset)) {
+        return mainList(
+          type: type,
+          oid: oid,
+          rpid: rpid,
+          mode: mode,
+          offset: nextOffset,
+          cursorNext: cursorNext,
+          emptyPageHops: emptyPageHops + 1,
+          seenOffsets: visitedOffsets,
+        );
+      }
     }
     return res;
   }
@@ -212,6 +240,7 @@ abstract final class ReplyGrpc {
     required int rpid,
     required Mode mode,
     required String? offset,
+    Map<Int64, ReplyInfo>? removed,
   }) async {
     final res = await GrpcReq.request(
       GrpcUrl.detailList,
@@ -229,7 +258,11 @@ abstract final class ReplyGrpc {
     if (res case Success(:final response)) {
       final upMid = response.subjectControl.upMid;
       response.root.replies.removeWhere((item) {
-        return needRemoveGrpc(item, upMid: upMid);
+        final shouldRemove = needRemoveGrpc(item, upMid: upMid);
+        if (shouldRemove && removed != null) {
+          removed[item.id] = item;
+        }
+        return shouldRemove;
       });
     }
     return res;
@@ -272,9 +305,9 @@ abstract final class ReplyGrpc {
     );
     if (res case Success(:final response)) {
       final upMid = response.subjectControl.upMid;
-      response.replies.removeWhere((item) {
-        return needRemoveGrpc(item, upMid: upMid);
-      });
+      response.replies.removeWhere(
+        (item) => needRemoveGrpc(item, upMid: upMid),
+      );
     }
     return res;
   }

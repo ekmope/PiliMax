@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
@@ -14,6 +16,7 @@ import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
 import 'package:PiliMax/pilimax/models/common/list_order.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/scroll_offset_helper.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -51,17 +54,37 @@ class MediaListPanel extends CommonSlidePage {
 }
 
 class _MediaListPanelState extends State<MediaListPanel>
-    with SingleTickerProviderStateMixin, CommonSlideMixin {
-  late final ScrollController _controller;
+    with SingleTickerProviderStateMixin, CommonSlideMixin, ScrollOffsetMixin {
+  @override
+  final scrollController = ScrollController();
+
+  @override
+  late final int itemIndex;
+
+  @override
+  int get itemCount => widget.mediaList.length;
+
+  @override
+  double get scrollBottomPadding =>
+      MediaQuery.viewPaddingOf(context).bottom + 100;
 
   @override
   void initState() {
     super.initState();
     final bvid = widget.bvid;
-    final bvIndex = widget.mediaList.indexWhere((item) => item.bvid == bvid);
-    _controller = ScrollController(
-      initialScrollOffset: bvIndex <= 0 ? 0 : bvIndex * 112.0 + 7,
+    itemIndex = max(
+      0,
+      widget.mediaList.indexWhere((item) => item.bvid == bvid),
     );
+    if (itemIndex > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => jumpToCurrent());
+    }
+  }
+
+  @override
+  void dispose() {
+    scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -124,7 +147,7 @@ class _MediaListPanelState extends State<MediaListPanel>
   Widget _buildList(ThemeData theme) {
     final showDelBtn = widget.onDelete != null && widget.mediaList.length > 1;
     return CustomScrollView(
-      controller: _controller,
+      controller: scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(

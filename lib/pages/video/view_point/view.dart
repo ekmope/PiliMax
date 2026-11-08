@@ -6,10 +6,10 @@ import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
+import 'package:PiliMax/utils/scroll_offset_helper.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
-import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
-    hide ExtendedVisibilityDetector;
+import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
@@ -35,7 +35,71 @@ class _ViewPointsPageState extends State<ViewPointsPage>
       widget.videoDetailController;
   PlPlayerController? get plPlayerController => widget.plPlayerController;
 
-  int currentIndex = -1;
+  late final int currentIndex;
+  late Key _key;
+  late bool _isNested;
+
+  @override
+  void initState() {
+    super.initState();
+    final positionSeconds =
+        videoDetailController.plPlayerController.position.value;
+    currentIndex = videoDetailController.viewPointList.indexWhere((segment) {
+      final from = segment.from;
+      final to = segment.to;
+      return from != null &&
+          to != null &&
+          positionSeconds >= from &&
+          positionSeconds < to;
+    });
+    if (currentIndex > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToCurrent());
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = PrimaryScrollController.of(context);
+    _isNested = controller is ExtendedNestedScrollController;
+    _key = ValueKey(controller.hashCode);
+  }
+
+  void _jumpToCurrent() {
+    final itemCount = videoDetailController.viewPointList.length;
+    if (!mounted || currentIndex <= 0 || currentIndex >= itemCount) return;
+
+    final controller = PrimaryScrollController.of(context);
+    if (!controller.hasClients) return;
+    final (offset, remain) = calcFixedItemOffset(
+      index: currentIndex,
+      itemCount: itemCount,
+      topPadding: 7,
+      bottomPadding: MediaQuery.viewPaddingOf(context).bottom + 100,
+    );
+
+    if (_isNested && controller is ExtendedNestedScrollController) {
+      final positions = controller.nestedPositions;
+      if (positions.isEmpty) return;
+      final position = positions.first;
+      final target = adjustScrollOffset(
+        offset: offset,
+        remain: remain,
+        viewportDimension: position.viewportDimension,
+      ).clamp(position.minScrollExtent, position.maxScrollExtent).toDouble();
+      position.localJumpTo(target);
+    } else {
+      final positions = controller.positions;
+      if (positions.length != 1) return;
+      final position = positions.single;
+      final target = adjustScrollOffset(
+        offset: offset,
+        remain: remain,
+        viewportDimension: position.viewportDimension,
+      ).clamp(position.minScrollExtent, position.maxScrollExtent).toDouble();
+      position.jumpTo(target);
+    }
+  }
 
   @override
   Widget buildPage(ThemeData theme) {
@@ -89,21 +153,11 @@ class _ViewPointsPageState extends State<ViewPointsPage>
     );
   }
 
-  late Key _key;
-  late bool _isNested;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final controller = PrimaryScrollController.of(context);
-    _isNested = controller is ExtendedNestedScrollController;
-    _key = ValueKey(controller.hashCode);
-  }
-
   @override
   Widget buildList(ThemeData theme) {
     final child = ListView.builder(
       key: _key,
+      itemExtent: 112,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(
         top: 7,
@@ -112,14 +166,6 @@ class _ViewPointsPageState extends State<ViewPointsPage>
       itemCount: videoDetailController.viewPointList.length,
       itemBuilder: (context, index) {
         final segment = videoDetailController.viewPointList[index];
-        if (currentIndex == -1 && segment.from != null && segment.to != null) {
-          final positionSeconds =
-              videoDetailController.plPlayerController.position.value;
-          if (positionSeconds >= segment.from! &&
-              positionSeconds < segment.to!) {
-            currentIndex = index;
-          }
-        }
         final isCurr = currentIndex == index;
         return _buildItem(theme.colorScheme, segment, isCurr);
       },

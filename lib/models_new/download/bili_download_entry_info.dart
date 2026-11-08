@@ -297,7 +297,9 @@ class BiliDownloadEntryInfo with MultiSelectData {
         pageData: json['page_data'] != null
             ? PageInfo.fromJson(json['page_data'] as Map<String, dynamic>)
             : null,
-        seasonId: json['season_id'] as String?,
+        seasonId: json['season_id'] is int
+            ? json['season_id'].toString()
+            : json['season_id'] as String?,
         source: json['source'] != null
             ? SourceInfo.fromJson(json['source'] as Map<String, dynamic>)
             : null,

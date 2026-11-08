@@ -29,6 +29,8 @@ import 'package:PiliMax/pages/save_panel/view.dart';
 import 'package:PiliMax/pages/audio/controller.dart';
 import 'package:PiliMax/pages/video/controller.dart';
 import 'package:PiliMax/pages/video/reply/widgets/zan_grpc.dart';
+import 'package:PiliMax/pages/video/reply/widgets/reply_threaded_indent_box.dart';
+import 'package:PiliMax/pages/video/reply_reply/tree.dart' show ReasonType;
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/pilimax/utils/reply_emote_resolver.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
@@ -61,6 +63,26 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:protobuf/protobuf.dart';
 
+final _threadedColorsLight = [
+  Colors.redAccent,
+  Colors.orangeAccent,
+  Colors.yellowAccent.shade400,
+  Colors.greenAccent,
+  Colors.cyanAccent,
+  Colors.blueAccent,
+  Colors.purpleAccent,
+];
+
+final _threadedColorsDark = [
+  Colors.red.shade900,
+  Colors.orange.shade900,
+  Colors.yellow.shade800,
+  Colors.green.shade900,
+  Colors.cyan.shade900,
+  Colors.blue.shade900,
+  Colors.deepPurple.shade900,
+];
+
 /// 翻译结果只带文本，会丢掉表情/话题/@/链接映射。
 /// 展示翻译时沿用原文的映射，避免 [微笑] 之类内容退化成纯文字。
 Content _effectiveReplyContent(ReplyInfo replyItem, ReplyControl replyControl) {
@@ -91,10 +113,17 @@ class ReplyItemGrpc extends StatelessWidget {
     this.upMid,
     this.showDialogue,
     this.getTag,
+    this.getReplyChain,
     this.onViewImage,
     this.onCheckReply,
     this.onToggleTop,
     this.jumpToDialogue,
+    this.depth = -1,
+    this.reason,
+    this.collapsed = 0,
+    this.toggleCollapse,
+    this.onScrollLeft,
+    this.dialogueCallback,
   });
   final ReplyInfo replyItem;
   final int replyLevel;
@@ -105,10 +134,17 @@ class ReplyItemGrpc extends StatelessWidget {
   final Int64? upMid;
   final VoidCallback? showDialogue;
   final Function? getTag;
+  final ValueGetter<Iterable<ReplyInfo>>? getReplyChain;
   final VoidCallback? onViewImage;
   final ValueChanged<ReplyInfo>? onCheckReply;
   final ValueChanged<ReplyInfo>? onToggleTop;
   final VoidCallback? jumpToDialogue;
+  final int depth;
+  final ReasonType? reason;
+  final int collapsed;
+  final VoidCallback? toggleCollapse;
+  final VoidCallback? onScrollLeft;
+  final ValueChanged<ReplyInfo>? dialogueCallback;
 
   static final _voteRegExp = RegExp(r"^\{vote:\d+?\}$");
   static final _timeRegExp = RegExp(r'^(?:\d+[:：])?\d+[:：]\d+$');
@@ -136,10 +172,34 @@ class ReplyItemGrpc extends StatelessWidget {
       },
     );
 
-    Widget child = Padding(
-      padding: const .fromLTRB(12, 14, 8, 5),
-      child: _buildContent(context, colorScheme),
-    );
+    Widget child = reason == null
+        ? Padding(
+            padding: const .fromLTRB(12, 14, 8, 5),
+            child: _buildContent(context, colorScheme),
+          )
+        : Padding(
+            padding: const .fromLTRB(12, 14, 8, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    reason!.desc,
+                    style: TextStyle(
+                      color: colorScheme.error,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                if (toggleCollapse != null)
+                  TextButton(
+                    onPressed: toggleCollapse,
+                    child: Text(
+                      collapsed == 0 ? '折叠' : '展开 $collapsed 条评论',
+                    ),
+                  ),
+              ],
+            ),
+          );
     if (needDivider) {
       child = Column(
         mainAxisSize: .min,
@@ -154,12 +214,26 @@ class ReplyItemGrpc extends StatelessWidget {
         ],
       );
     }
+    if (depth >= 0) {
+      child = ReplyThreadedIndentBox(
+        depth: depth,
+        colors: colorScheme.isLight
+            ? _threadedColorsLight
+            : _threadedColorsDark,
+        divColor: colorScheme.outline.withValues(alpha: 0.08),
+        onTapLine: toggleCollapse,
+        onScrollLeft: onScrollLeft,
+        child: child,
+      );
+    }
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        onTap: () => replyReply?.call(replyItem, null),
-        onLongPress: showMore,
-        onSecondaryTap: PlatformUtils.isMobile ? null : showMore,
+        onTap: reason != null ? null : () => replyReply?.call(replyItem, null),
+        onLongPress: reason != null ? null : showMore,
+        onSecondaryTap: reason != null || PlatformUtils.isMobile
+            ? null
+            : showMore,
         child: child,
       ),
     );
@@ -507,11 +581,31 @@ class ReplyItemGrpc extends StatelessWidget {
     );
 
     Widget? dialogBtn;
-    if (replyLevel == 2 && needDivider && replyItem.id != replyItem.dialog) {
+    if (toggleCollapse != null) {
       dialogBtn = SizedBox(
         height: 32,
         child: TextButton(
-          onPressed: showDialogue,
+          onPressed: toggleCollapse,
+          style: buttonStyle,
+          child: Text(
+            collapsed == 0 ? '折叠' : '展开 $collapsed 条评论',
+            style: textStyle,
+          ),
+        ),
+      );
+    } else if (replyLevel == 2 &&
+        needDivider &&
+        replyItem.id != replyItem.dialog) {
+      dialogBtn = SizedBox(
+        height: 32,
+        child: TextButton(
+          onPressed: () {
+            if (dialogueCallback case final callback?) {
+              callback(replyItem);
+            } else {
+              showDialogue?.call();
+            }
+          },
           style: buttonStyle,
           child: Text('查看对话', style: textStyle),
         ),
@@ -520,7 +614,13 @@ class ReplyItemGrpc extends StatelessWidget {
       dialogBtn = SizedBox(
         height: 32,
         child: TextButton(
-          onPressed: jumpToDialogue,
+          onPressed: () {
+            if (dialogueCallback case final callback?) {
+              callback(replyItem);
+            } else {
+              jumpToDialogue?.call();
+            }
+          },
           style: buttonStyle,
           child: Text('跳转回复', style: textStyle),
         ),
@@ -1326,7 +1426,10 @@ class ReplyItemGrpc extends StatelessWidget {
           ListTile(
             onTap: () {
               Get.back();
-              SavePanel.toSavePanel(upMid: upMid, item: item);
+              SavePanel.toSavePanel(
+                upMid: upMid,
+                item: getReplyChain?.call() ?? item,
+              );
             },
             minLeadingWidth: 0,
             leading: const Icon(Icons.save_alt, size: 19),

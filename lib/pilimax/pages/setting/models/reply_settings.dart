@@ -8,6 +8,7 @@ import 'package:material_design_icons_flutter/material_design_icons_flutter.dart
 import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/grpc/reply.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
+import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -36,6 +37,12 @@ List<SettingsModel> get replySettings => [
       style: theme.textTheme.titleSmall,
     ),
     onTap: _showReplyLengthDialog,
+  ),
+  NormalModel(
+    title: '线程式评论折叠阈值',
+    getSubtitle: () => '当前：「${Pref.foldDepth}」，0为不折叠',
+    leading: const Icon(Icons.account_tree_outlined),
+    onTap: _showReplyDepthDialog,
   ),
   const SwitchModel(
     title: '评论点赞/点踩按钮交换位置',
@@ -244,6 +251,27 @@ void _showReplyLengthDialog(BuildContext context, VoidCallback setState) {
       ],
     ),
   );
+}
+
+Future<void> _showReplyDepthDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<double>(
+    context: context,
+    builder: (context) => SliderDialog(
+      title: const Text('线程式评论折叠阈值'),
+      min: 0,
+      max: 18,
+      divisions: 18,
+      precise: 0,
+      value: Pref.foldDepth.toDouble(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.foldDepth, res.toInt());
+    setState();
+  }
 }
 
 String _replyAtCountSubtitle() {

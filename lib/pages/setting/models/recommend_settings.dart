@@ -227,6 +227,13 @@ Future<void> _showRcmdModeDialog(
       title: '首页推荐模式',
       value: Pref.rcmdMode,
       values: RcmdMode.values.map((e) => (e, e.label)).toList(),
+      subtitleBuilder: (context, index) => Text(
+        switch (RcmdMode.values[index]) {
+          RcmdMode.app => '使用 App 端推荐接口获取首页内容。',
+          RcmdMode.web => '使用公开的 Web 端推荐接口获取首页内容。',
+          RcmdMode.merged => '合并 App 与 Web 推荐结果，增加首页内容来源。',
+        },
+      ),
     ),
   );
   if (res != null) {

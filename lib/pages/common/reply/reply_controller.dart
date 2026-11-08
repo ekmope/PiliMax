@@ -1,7 +1,7 @@
 import 'package:PiliMax/common/widgets/flutter/text_field/controller.dart';
 import 'package:PiliMax/common/widgets/colored_box_transition.dart';
 import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show MainListReply, ReplyInfo, SubjectControl, Mode;
+    show MainListReply, ReplyInfo, SubjectControl, Mode, CursorReply;
 import 'package:PiliMax/grpc/bilibili/pagination.pb.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/reply.dart';
@@ -165,13 +165,12 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   @override
   bool customHandleResponse(bool isRefresh, Success<R> response) {
     final data = response.response as MainListReply;
+    final previousOffset = nextOffset;
     cursorNext = data.cursor.next;
     paginationReply = data.paginationReply;
-    nextOffset = data.paginationReply.nextOffset;
     count.value = data.subjectControl.count.toInt();
     if (isRefresh) {
-      subjectControl = data.subjectControl;
-      upMid = data.subjectControl.upMid;
+      handleSubjectControl(data.subjectControl);
       if (hasUpTop = data.hasUpTop()) {
         data.replies.insert(0, data.upTop);
       }
@@ -179,11 +178,29 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
         sortType.value = .select;
       }
     }
-    isEnd = data.cursor.isEnd || nextOffset!.isEmpty;
+    handlePagination(
+      cursor: data.cursor,
+      offset: data.paginationReply.nextOffset,
+      previousOffset: previousOffset,
+    );
 
     _removeIntro(data);
 
     return false;
+  }
+
+  void handlePagination({
+    required CursorReply cursor,
+    required String offset,
+    String? previousOffset,
+  }) {
+    isEnd = cursor.isEnd || offset.isEmpty || previousOffset == offset;
+    nextOffset = offset;
+  }
+
+  void handleSubjectControl(SubjectControl control) {
+    subjectControl = control;
+    upMid = control.upMid;
   }
 
   @override

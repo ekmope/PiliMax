@@ -360,6 +360,7 @@ abstract final class SettingBoxKey {
       liveCdnUrl = 'liveCdnUrl',
       saveReply = 'saveReply',
       swapReplyLikeDislike = 'swapReplyLikeDislike',
+      foldDepth = 'foldDepth',
       appFont = 'appFont';
 }
 

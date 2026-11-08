@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:PiliMax/common/skeleton/video_reply.dart';
 import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
+import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_pinned_header.dart';
@@ -13,6 +14,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/pages/common/slide/common_slide_page.dart';
 import 'package:PiliMax/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliMax/pages/video/reply_reply/controller.dart';
+import 'package:PiliMax/pages/video/reply_reply/tree.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/widget_ext.dart';
 import 'package:PiliMax/utils/num_utils.dart';
@@ -389,16 +391,63 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
                     : const SizedBox.shrink();
               },
             ),
-            TextButton.icon(
-              style: Style.buttonStyle,
-              onPressed: _controller.queryBySort,
-              icon: Icon(Icons.sort, size: 16, color: colorScheme.secondary),
-              label: Obx(
-                () => Text(
-                  _controller.sortType.value.label,
-                  style: TextStyle(fontSize: 13, color: colorScheme.secondary),
+            Row(
+              mainAxisSize: .min,
+              children: [
+                Obx(() {
+                  if (_controller.replyTree.value != null) {
+                    return const SizedBox.shrink();
+                  }
+                  return IconButton(
+                    visualDensity: .compact,
+                    tooltip: '线程化展示',
+                    onPressed: () {
+                      if (_controller.isEnd && _controller.foldCard == null) {
+                        _controller.buildTree();
+                      } else if (_controller.isFetchingReplies.value) {
+                        SmartDialog.showToast('正在拉取评论，请稍后');
+                      } else {
+                        showConfirmDialog(
+                          context: context,
+                          title: const Text('是否加载全部评论以显示线程化评论？'),
+                          content: const Text('这将消耗一定流量，且可能导致 IP 或账号风控'),
+                          onConfirm: _controller.nextReplyRound,
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.view_comfortable_outlined, size: 21),
+                  );
+                }),
+                Obx(
+                  () => _controller.isFetchingReplies.value
+                      ? SizedBox(
+                          width: 42,
+                          child: LinearProgressIndicator(
+                            value: _controller.progress.value,
+                            borderRadius: const .all(.circular(4)),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
-              ),
+                TextButton.icon(
+                  style: Style.buttonStyle,
+                  onPressed: _controller.queryBySort,
+                  icon: Icon(
+                    Icons.sort,
+                    size: 16,
+                    color: colorScheme.secondary,
+                  ),
+                  label: Obx(
+                    () => Text(
+                      _controller.sortType.value.label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.secondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -421,9 +470,12 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       ),
       Success(:final response!) => SuperSliverList.builder(
         listController: _controller.listController,
+        itemCount: (_controller.replyTree.value?.length ?? response.length) + 1,
         itemBuilder: (context, index) {
-          if (index == response.length) {
-            _controller.onLoadMore();
+          final tree = _controller.replyTree.value;
+          final itemCount = tree?.length ?? response.length;
+          if (index == itemCount) {
+            if (tree == null) _controller.onLoadMore();
             return Container(
               height: 125,
               alignment: Alignment.center,
@@ -438,13 +490,20 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
               ),
             );
           }
+          if (tree != null) {
+            final node = tree[index];
+            final child = _replyItem(context, node.reply, index, node: node);
+            if (jumpIndex == index) {
+              return _controller.colorAnimWrapper(colorScheme, child);
+            }
+            return child;
+          }
           final child = _replyItem(context, response[index], index);
           if (jumpIndex == index) {
             return _controller.colorAnimWrapper(colorScheme, child);
           }
           return child;
         },
-        itemCount: response.length + 1,
       ),
       Error(:final errMsg) => HttpError(
         errMsg: errMsg,
@@ -453,13 +512,39 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
     };
   }
 
-  Widget _replyItem(BuildContext context, ReplyInfo replyItem, int index) {
+  Widget _replyItem(
+    BuildContext context,
+    ReplyInfo replyItem,
+    int index, {
+    ReplyTreeNode? node,
+  }) {
     return ReplyItemGrpc(
       replyItem: replyItem,
-      replyLevel: isDialogue ? 3 : 2,
-      onReply: (replyItem) => _controller.onReply(replyItem, index: index),
-      onDelete: (item, subIndex) => _controller.onRemove(index, item, null),
-      upMid: _controller.upMid,
+      replyLevel: node != null ? 2 : (isDialogue ? 3 : 2),
+      needDivider: node == null,
+      onReply: node == null
+          ? (replyItem) => _controller.onReply(replyItem, index: index)
+          : node.reason == null
+          ? (replyItem) => _controller.onReplyByTreeNode(index, replyItem)
+          : null,
+      onDelete: node == null
+          ? (item, subIndex) => _controller.onRemove(index, item, null)
+          : node.reason == null
+          ? (item, _) => _controller.onRemoveByTreeNode(index, item)
+          : null,
+      upMid: widget.upMid ?? _controller.upMid,
+      depth: node?.depth ?? -1,
+      reason: node?.reason,
+      collapsed: node?.collapsed ?? 0,
+      toggleCollapse: node == null || node.isLeaf
+          ? null
+          : () => _controller.toggleCollapseTree(index),
+      onScrollLeft: node != null && node.depth > 0
+          ? () => _controller.setIndexByTreeNode(index, node.parent)
+          : null,
+      getReplyChain: node == null
+          ? null
+          : () => _controller.getTreeParentChain(node, firstFloor),
       showDialogue: () => Scaffold.of(context).showBottomSheet(
         backgroundColor: Colors.transparent,
         constraints: const BoxConstraints(),

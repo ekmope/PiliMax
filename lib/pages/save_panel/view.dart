@@ -25,6 +25,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
+import 'package:fixnum/fixnum.dart' show Int64;
 import 'package:get/get.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:pretty_qr_code/pretty_qr_code.dart';
@@ -86,7 +87,12 @@ class _SavePanelState extends State<SavePanel> {
   @override
   void initState() {
     super.initState();
-    if (_item case final ReplyInfo reply) {
+    final reply = switch (_item) {
+      ReplyInfo reply => reply,
+      Iterable<ReplyInfo> replies when replies.isNotEmpty => replies.first,
+      _ => null,
+    };
+    if (reply != null) {
       itemType = '评论';
       final currentRoute = Get.currentRoute;
       late final hasRoot = reply.hasRoot();
@@ -383,6 +389,29 @@ class _SavePanelState extends State<SavePanel> {
                               needDivider: false,
                               upMid: widget.upMid,
                             ),
+                          ),
+                          Iterable<ReplyInfo> replies => Column(
+                            mainAxisSize: .min,
+                            children: [
+                              for (final (index, reply) in replies.indexed) ...[
+                                if (index == 1 && reply.parent == Int64.ZERO)
+                                  Divider(
+                                    height: 20,
+                                    color: theme.dividerColor.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    thickness: 3.5,
+                                  ),
+                                IgnorePointer(
+                                  child: ReplyItemGrpc(
+                                    replyItem: reply,
+                                    replyLevel: 0,
+                                    needDivider: false,
+                                    upMid: widget.upMid,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           DynamicItemModel dyn => IgnorePointer(
                             child: DynamicPanel(

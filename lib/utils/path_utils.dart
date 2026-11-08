@@ -24,6 +24,9 @@ abstract final class PathUtils {
   static const subtitlesDirName = 'subtitles';
   static const subtitleIndexName = 'index.json';
   static String subtitleVttName(String lan) => '$lan.vtt';
+  // Compatibility names used by the Subtitle model's cache-path helpers.
+  static const subtitleDir = subtitlesDirName;
+  static const subtitleExt = '.subtitle';
 
   static String buildShadersAbsolutePath(
     String baseDirectory,

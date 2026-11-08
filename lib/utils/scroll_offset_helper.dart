@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:PiliMax/models_new/video/video_detail/episode.dart' as ugc;
+import 'package:flutter/widgets.dart';
 
 const double _kTopPadding = 7;
 const double _kBottomPadding = 100;
@@ -128,4 +129,38 @@ double calcPageItemOffsetSeparated({
     return math.max(0.0, offset - viewportDimension + total);
   }
   return offset;
+}
+
+mixin ScrollOffsetMixin<T extends StatefulWidget> on State<T> {
+  int get itemIndex;
+  int get itemCount;
+  ScrollController get scrollController;
+
+  double get scrollTopPadding => _kTopPadding;
+  double get scrollBottomPadding => _kBottomPadding;
+
+  void jumpToCurrent() {
+    if (!mounted ||
+        itemCount <= 0 ||
+        itemIndex < 0 ||
+        itemIndex >= itemCount ||
+        !scrollController.hasClients ||
+        scrollController.positions.length != 1) {
+      return;
+    }
+
+    final position = scrollController.positions.single;
+    final (double offset, double remain) = calcFixedItemOffset(
+      index: itemIndex,
+      itemCount: itemCount,
+      topPadding: scrollTopPadding,
+      bottomPadding: scrollBottomPadding,
+    );
+    final adjustOffset = adjustScrollOffset(
+      offset: offset,
+      remain: remain,
+      viewportDimension: position.viewportDimension,
+    ).clamp(position.minScrollExtent, position.maxScrollExtent).toDouble();
+    position.jumpTo(adjustOffset);
+  }
 }

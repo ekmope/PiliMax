@@ -19,7 +19,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show clampDouble;
 import 'package:flutter/rendering.dart'
-    show RenderSliverSingleBoxAdapter, SliverGeometry;
+    show
+        RenderAbstractViewport,
+        RenderBox,
+        RenderSliverSingleBoxAdapter,
+        SliverGeometry;
 import 'package:flutter/widgets.dart';
 
 /// ref [SliverPersistentHeader]
@@ -80,6 +84,7 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
 
   Size? _gradientBoundsSize;
   Shader? _backgroundShader;
+  Offset? _backgroundShaderOrigin;
   set gradientBoundsSize(Size? value) {
     if (_gradientBoundsSize == value) return;
     _gradientBoundsSize = value;
@@ -130,18 +135,23 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
           size.height + 2,
         );
 
-        // The pinned header is painted over the scrolling sliver. Establish
-        // an opaque base before applying the translucent page gradient so
-        // cards underneath cannot bleed through as a tinted overlay.
-        if (_backgroundColor case final backgroundColor?) {
-          context.canvas.drawRect(rect, Paint()..color = backgroundColor);
-        }
-
         if (_backgroundGradient != null && _gradientBoundsSize != null) {
           final boundsSize = _gradientBoundsSize!;
+          // A viewport is a repaint boundary, so its canvas starts at the
+          // viewport's origin rather than the app's background origin. Shift
+          // the shader bounds into viewport coordinates to sample the same
+          // part of the screen-wide gradient as the main background.
+          final viewport = RenderAbstractViewport.maybeOf(this);
+          final viewportOrigin = viewport is RenderBox
+              ? (viewport as RenderBox).localToGlobal(Offset.zero)
+              : Offset.zero;
+          if (_backgroundShaderOrigin != viewportOrigin) {
+            _backgroundShader = null;
+            _backgroundShaderOrigin = viewportOrigin;
+          }
           final shaderBounds = Rect.fromLTWH(
-            0,
-            0,
+            -viewportOrigin.dx,
+            -viewportOrigin.dy,
             boundsSize.width,
             boundsSize.height,
           );
@@ -149,8 +159,14 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
             rect,
             Paint()
               ..shader = _backgroundShader ??= _backgroundGradient!
-                  .createShader(shaderBounds),
+                  .createShader(
+                    shaderBounds,
+                  ),
           );
+        } else if (_backgroundColor case final backgroundColor?) {
+          // Keep pinned content opaque when no gradient is active so scrolled
+          // cards do not show through the fixed header.
+          context.canvas.drawRect(rect, Paint()..color = backgroundColor);
         }
       }
       context.paintChild(child!, offset);

@@ -48,6 +48,7 @@ class _LivePageState extends State<LivePage>
   late final TabController _homeTabController =
       _mainController.homeController.tabController;
   TabController? _mainTabController;
+  late final Listenable? _gradientMotion;
   bool _wasLivePageActive = false;
   bool _gradientNeedsSettledRefresh = false;
   int _settledRefreshEpoch = 0;
@@ -68,6 +69,14 @@ class _LivePageState extends State<LivePage>
       _mainTabController = mainNavigationController
         ..addListener(_onNavigationChanged);
     }
+    final gradientAnimations = <Listenable>[];
+    final homeAnimation = _homeTabController.animation;
+    if (homeAnimation != null) gradientAnimations.add(homeAnimation);
+    final mainAnimation = _mainTabController?.animation;
+    if (mainAnimation != null) gradientAnimations.add(mainAnimation);
+    _gradientMotion = gradientAnimations.isEmpty
+        ? null
+        : Listenable.merge(gradientAnimations);
     _mainNavigationWorker = ever<int>(
       _mainController.selectedIndex,
       (_) => _onNavigationChanged(),
@@ -190,6 +199,7 @@ class _LivePageState extends State<LivePage>
         backgroundGradient: backgroundGradient,
         gradientBoundsSize: gradientBoundsSize,
         gradientBoundsKey: gradientBoundsKey,
+        gradientMotion: _gradientMotion,
         gradientRevision: _gradientRevision,
         callback: controller.onTopHeightChanged,
         child: Column(children: [..._buildFollowList(follow), area]),
@@ -202,6 +212,7 @@ class _LivePageState extends State<LivePage>
       backgroundGradient: backgroundGradient,
       gradientBoundsSize: gradientBoundsSize,
       gradientBoundsKey: gradientBoundsKey,
+      gradientMotion: _gradientMotion,
       gradientRevision: _gradientRevision,
       child: area,
     );
@@ -329,6 +340,7 @@ class _LivePageState extends State<LivePage>
               backgroundGradient: backgroundGradient,
               gradientBoundsSize: gradientBoundsSize,
               gradientBoundsKey: gradientBoundsKey,
+              gradientMotion: _gradientMotion,
               gradientRevision: _gradientRevision,
               child: SizedBox(
                 // 8+10+13*textScaler

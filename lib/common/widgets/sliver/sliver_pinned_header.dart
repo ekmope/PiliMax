@@ -17,7 +17,7 @@
 
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show clampDouble;
+import 'package:flutter/foundation.dart' show Listenable, clampDouble;
 import 'package:flutter/rendering.dart'
     show
         RenderAbstractViewport,
@@ -35,6 +35,7 @@ class SliverPinnedHeader extends SingleChildRenderObjectWidget {
     this.backgroundGradient,
     this.gradientBoundsSize,
     this.gradientBoundsKey,
+    this.gradientMotion,
     this.gradientRevision = 0,
   });
 
@@ -42,6 +43,7 @@ class SliverPinnedHeader extends SingleChildRenderObjectWidget {
   final Gradient? backgroundGradient;
   final Size? gradientBoundsSize;
   final GlobalKey? gradientBoundsKey;
+  final Listenable? gradientMotion;
   final int gradientRevision;
 
   @override
@@ -51,6 +53,7 @@ class SliverPinnedHeader extends SingleChildRenderObjectWidget {
         backgroundGradient: backgroundGradient,
         gradientBoundsSize: gradientBoundsSize,
         gradientBoundsKey: gradientBoundsKey,
+        gradientMotion: gradientMotion,
         gradientRevision: gradientRevision,
       );
 
@@ -64,6 +67,7 @@ class SliverPinnedHeader extends SingleChildRenderObjectWidget {
       ..backgroundGradient = backgroundGradient
       ..gradientBoundsSize = gradientBoundsSize
       ..gradientBoundsKey = gradientBoundsKey
+      ..gradientMotion = gradientMotion
       ..gradientRevision = gradientRevision;
   }
 }
@@ -74,8 +78,11 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
     this._backgroundGradient,
     this._gradientBoundsSize,
     this._gradientBoundsKey,
+    Listenable? gradientMotion,
     required this._gradientRevision,
-  });
+  }) {
+    _setGradientMotion(gradientMotion);
+  }
 
   Color? _backgroundColor;
   set backgroundColor(Color? value) {
@@ -94,6 +101,7 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
 
   Size? _gradientBoundsSize;
   GlobalKey? _gradientBoundsKey;
+  Listenable? _gradientMotion;
   int _gradientRevision;
   Shader? _backgroundShader;
   Rect? _backgroundShaderBounds;
@@ -101,6 +109,12 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
   void _invalidateBackgroundShader() {
     _backgroundShader = null;
     _backgroundShaderBounds = null;
+  }
+
+  @override
+  void dispose() {
+    _gradientMotion?.removeListener(_handleGradientMotionChanged);
+    super.dispose();
   }
 
   set gradientBoundsSize(Size? value) {
@@ -114,6 +128,23 @@ class RenderSliverPinnedHeader extends RenderSliverSingleBoxAdapter {
     if (identical(_gradientBoundsKey, value)) return;
     _gradientBoundsKey = value;
     _invalidateBackgroundShader();
+    if (_isPinned) markNeedsPaint();
+  }
+
+  set gradientMotion(Listenable? value) {
+    _setGradientMotion(value);
+  }
+
+  void _setGradientMotion(Listenable? value) {
+    if (identical(_gradientMotion, value)) return;
+    _gradientMotion?.removeListener(_handleGradientMotionChanged);
+    _gradientMotion = value;
+    _gradientMotion?.addListener(_handleGradientMotionChanged);
+    _invalidateBackgroundShader();
+    if (_isPinned) markNeedsPaint();
+  }
+
+  void _handleGradientMotionChanged() {
     if (_isPinned) markNeedsPaint();
   }
 

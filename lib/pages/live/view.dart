@@ -84,7 +84,7 @@ class _LivePageState extends State<LivePage>
     final gradientEnabled = Pref.enableGradientBg;
     final backgroundColor = colorScheme.surface;
     final backgroundGradient = gradientEnabled
-        ? mainBackgroundGradient(colorScheme)
+        ? mainBackgroundGradient(colorScheme, opaque: true)
         : null;
     final gradientBoundsSize = gradientEnabled
         ? MediaQuery.sizeOf(context)
@@ -206,7 +206,7 @@ class _LivePageState extends State<LivePage>
     final gradientEnabled = Pref.enableGradientBg;
     final backgroundColor = colorScheme.surface;
     final backgroundGradient = gradientEnabled
-        ? mainBackgroundGradient(colorScheme)
+        ? mainBackgroundGradient(colorScheme, opaque: true)
         : null;
     final gradientBoundsSize = gradientEnabled
         ? MediaQuery.sizeOf(context)

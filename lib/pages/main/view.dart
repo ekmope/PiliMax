@@ -734,11 +734,12 @@ class _MainAppState extends PopScopeState<MainApp>
   }
 
   Widget _gradientBg() {
-    // Keep the gradient as one compositing pass. The previous outer Opacity
-    // multiplied the alpha of the first two stops and washed out light mode.
+    // Use the same opaque, surface-composited gradient as pinned headers so
+    // their backgrounds remain pixel-consistent when they cover scrolling
+    // content.
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: mainBackgroundGradient(theme.colorScheme),
+        gradient: mainBackgroundGradient(theme.colorScheme, opaque: true),
       ),
     );
   }

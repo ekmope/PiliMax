@@ -45,7 +45,12 @@ class _LivePageState extends State<LivePage>
   final LiveController controller = Get.put(LiveController());
   late final MainController _mainController = Get.find<MainController>();
   late final Worker _mainNavigationWorker;
+  late final TabController _homeTabController =
+      _mainController.homeController.tabController;
+  TabController? _mainTabController;
   bool _wasLivePageActive = false;
+  bool _gradientNeedsSettledRefresh = false;
+  int _settledRefreshEpoch = 0;
   int _gradientRevision = 0;
   late TextScaler textScaler;
   late ColorScheme colorScheme;
@@ -57,9 +62,12 @@ class _LivePageState extends State<LivePage>
   void initState() {
     super.initState();
     _wasLivePageActive = _isLivePageActive;
-    _mainController.homeController.tabController.addListener(
-      _onNavigationChanged,
-    );
+    _homeTabController.addListener(_onNavigationChanged);
+    final mainNavigationController = _mainController.controller;
+    if (mainNavigationController is TabController) {
+      _mainTabController = mainNavigationController
+        ..addListener(_onNavigationChanged);
+    }
     _mainNavigationWorker = ever<int>(
       _mainController.selectedIndex,
       (_) => _onNavigationChanged(),
@@ -79,19 +87,49 @@ class _LivePageState extends State<LivePage>
         _mainController.homeController.tabController.index == liveIndex;
   }
 
+  bool get _navigationIsSettled =>
+      !_homeTabController.indexIsChanging &&
+      !(_mainTabController?.indexIsChanging ?? false);
+
   void _onNavigationChanged() {
     final isActive = _isLivePageActive;
-    if (isActive && !_wasLivePageActive && mounted) {
-      setState(() => _gradientRevision++);
+    if (!isActive) {
+      _gradientNeedsSettledRefresh = false;
+      _settledRefreshEpoch++;
+    } else if (!_wasLivePageActive) {
+      _gradientNeedsSettledRefresh = !_navigationIsSettled;
+      if (_gradientNeedsSettledRefresh) _settledRefreshEpoch++;
+      // Refresh the first visible frame, then refresh again after any motion.
+      if (mounted) setState(() => _gradientRevision++);
+    } else if (!_navigationIsSettled) {
+      // Activation may precede the end of the enclosing TabBarView motion.
+      _gradientNeedsSettledRefresh = true;
+      _settledRefreshEpoch++;
+    } else if (_gradientNeedsSettledRefresh) {
+      _gradientNeedsSettledRefresh = false;
+      _scheduleSettledGradientRefresh();
     }
     _wasLivePageActive = isActive;
   }
 
+  void _scheduleSettledGradientRefresh() {
+    final epoch = ++_settledRefreshEpoch;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || epoch != _settledRefreshEpoch || !_isLivePageActive) {
+        return;
+      }
+      if (!_navigationIsSettled) {
+        _gradientNeedsSettledRefresh = true;
+        return;
+      }
+      setState(() => _gradientRevision++);
+    });
+  }
+
   @override
   void dispose() {
-    _mainController.homeController.tabController.removeListener(
-      _onNavigationChanged,
-    );
+    _homeTabController.removeListener(_onNavigationChanged);
+    _mainTabController?.removeListener(_onNavigationChanged);
     _mainNavigationWorker.dispose();
     super.dispose();
   }

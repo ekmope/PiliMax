@@ -42,6 +42,9 @@ class LiveCardVApp extends StatelessWidget {
     return Stack(
       children: [
         Card(
+          shape: const RoundedRectangleBorder(
+            borderRadius: Style.mdRadius,
+          ),
           clipBehavior: Clip.hardEdge,
           child: InkWell(
             onTap: () => PageUtils.toLiveRoom(item.roomid),

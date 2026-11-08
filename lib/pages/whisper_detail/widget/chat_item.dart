@@ -721,7 +721,7 @@ class ChatItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         activeHeroTag == null
-            ? cover
+            ? ClipRRect(borderRadius: Style.mdRadius, child: cover)
             : VideoDetailHero.source(
                 clipStaticChild: true,
                 flightChild: flightCover,

@@ -126,7 +126,7 @@ class _VideoSeasonWidgetState extends State<_VideoSeasonWidget> {
       List<VideoDetailHeroFlightOverlay> flightOverlays =
           const <VideoDetailHeroFlightOverlay>[],
     }) => heroTag == null
-        ? child
+        ? ClipRRect(borderRadius: Style.mdRadius, child: child)
         : VideoDetailHero.source(
             clipStaticChild: true,
             flightChild: flightChild,

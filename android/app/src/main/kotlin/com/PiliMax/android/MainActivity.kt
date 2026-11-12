@@ -34,6 +34,10 @@ class MainActivity : AudioServiceActivity() {
             when (call.method) {
                 "getRestoreDecision" ->
                     result.success(RouteRestoreLifecycle.getRestoreDecision())
+                "awaitRestoreDecision" ->
+                    RouteRestoreLifecycle.awaitRestoreDecision(result::success)
+                "getRestoreDiagnostics" ->
+                    result.success(RouteRestoreLifecycle.getRestoreDiagnostics())
                 "markTaskRemoved" -> {
                     RouteRestoreLifecycle.markTaskRemoved(this)
                     result.success(null)
@@ -130,7 +134,6 @@ class MainActivity : AudioServiceActivity() {
             isFinishing,
             isChangingConfigurations,
         )
-        stopService(Intent(this, com.ryanheise.audioservice.AudioService::class.java))
         super.onDestroy()
     }
 

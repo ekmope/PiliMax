@@ -4,6 +4,37 @@ import 'package:PiliMax/pilimax/services/crash/crash_context.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('repeated system exits cannot fill the crash history', () {
+    var archive = const CrashReportArchive.empty();
+    for (var i = 0; i < 16; i++) {
+      archive = archive.add(
+        _report(i * 3000, severity: CrashSeverity.fatal),
+        makePending: false,
+      );
+    }
+    for (var i = 100; i < 140; i++) {
+      archive = archive.add(
+        CrashReport.fromNative({
+          'recordId': 'exit-$i',
+          'timestamp': i * 3000,
+          'source': 'android_exit_info',
+          'severity': 'diagnostic',
+          'reason': 'low_memory',
+        }, systemInfo: 'test'),
+        makePending: false,
+      );
+    }
+    expect(archive.pendingReport, isNull);
+    expect(archive.reports.where((r) => r.isFatalCandidate), hasLength(16));
+    expect(
+      archive.reports.where((r) => r.severity == CrashSeverity.diagnostic),
+      hasLength(CrashReportArchive.maxProcessExitDiagnostics),
+    );
+    final restored = CrashReportArchive.fromJson(archive.toJson());
+    expect(restored.reports, hasLength(20));
+    expect(restored.pendingReport, isNull);
+  });
+
   group('CrashReportArchive', () {
     test('migrates a legacy single report and keeps it pending', () {
       final report = _report(1);

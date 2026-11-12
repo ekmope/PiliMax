@@ -3305,7 +3305,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   void setBackgroundPlay(bool val) {
     videoPlayerServiceHandler?.enableBackgroundPlay = val;
     if (!val) {
-      videoPlayerServiceHandler?.forceClear();
+      videoPlayerServiceHandler?.forceClear(reason: 'service_disabled');
     }
     if (!tempPlayerConf) {
       setting.put(SettingBoxKey.enableBackgroundPlay, val);
@@ -3869,7 +3869,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       syncBackgroundMediaSession();
       unawaited(audioSessionHandler?.setActive(hasPlaybackIntent));
     } else {
-      videoPlayerServiceHandler?.forceClear();
+      videoPlayerServiceHandler?.forceClear(reason: 'background_disabled');
       unawaited(audioSessionHandler?.setActive(hasPlaybackIntent));
     }
   }

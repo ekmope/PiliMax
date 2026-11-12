@@ -26,6 +26,7 @@ import 'package:PiliMax/pages/common/publish/publish_route.dart';
 import 'package:PiliMax/pages/danmaku/danmaku_model.dart';
 import 'package:PiliMax/pages/live_room/send_danmaku/view.dart';
 import 'package:PiliMax/pages/video/widgets/header_control.dart';
+import 'package:PiliMax/pilimax/live/live_message_buffer.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/data_source.dart';
 import 'package:PiliMax/plugin/pl_player/utils/danmaku_options.dart';
@@ -52,9 +53,6 @@ import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-
-const int _kMaxDmCount = 500;
-const int _kDmTrimThreshold = _kMaxDmCount + 50;
 
 class LiveRoomController extends GetxController {
   LiveRoomController(this.heroTag, {this.fromPip = false});
@@ -127,9 +125,23 @@ class LiveRoomController extends GetxController {
   // dm
   LiveDmInfoData? dmInfo;
   List<RichTextItem>? savedDanmaku;
-  int builtLength = 0;
-  final messages = <dynamic>[].obs;
-  bool get shouldRefresh => builtLength != messages.length;
+  final _messages = LiveMessageBuffer<dynamic>();
+  final _messageRevision = 0.obs;
+  int _builtMessageRevision = -1;
+  List<dynamic> _renderedMessages = const [];
+  bool get shouldRefresh => _builtMessageRevision != _messages.revision;
+
+  List<dynamic> get messageSnapshot {
+    // Register the Obx dependency, but keep each sliver's indices stable until
+    // its next rebuild, including while background ingestion trims the buffer.
+    _messageRevision.value;
+    if (_canRenderMessages && autoScroll && !disableAutoScroll.value) {
+      _renderedMessages = _messages.snapshot;
+      _builtMessageRevision = _messages.revision;
+    }
+    return _renderedMessages;
+  }
+
   late final RxList<SuperChatItem> superChatMsg = <SuperChatItem>[].obs;
   final disableAutoScroll = false.obs;
   bool autoScroll = true;
@@ -204,42 +216,23 @@ class LiveRoomController extends GetxController {
     return const SizedBox.shrink();
   });
 
-  bool _dmTrimScheduled = false;
+  bool _messageRefreshScheduled = false;
 
-  void _scheduleDmTrim() {
-    if (_dmTrimScheduled || messages.length <= _kDmTrimThreshold) return;
-    _dmTrimScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _dmTrimScheduled = false;
-      if (isClosed || messages.length <= _kMaxDmCount) return;
+  bool get _canRenderMessages {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    return !isClosed &&
+        (lifecycle == null || lifecycle == AppLifecycleState.resumed) &&
+        !isInPipMode.value &&
+        !plPlayerController.isPipMode &&
+        !plPlayerController.isDesktopPip;
+  }
 
-      final controller = scrollController;
-      final hasClients = controller.hasClients;
-      final oldPixels = hasClients ? controller.position.pixels : null;
-      final oldMaxScrollExtent = hasClients
-          ? controller.position.maxScrollExtent
-          : null;
-      final dropCount = messages.length - _kMaxDmCount;
-      // Access the backing list to avoid one notification per removed item.
-      // ignore: invalid_use_of_protected_member
-      final list = messages.value;
-      if (dropCount <= 0 || dropCount > list.length) return;
-
-      // Mutate the backing list once so RxList emits only one refresh.
-      list.removeRange(0, dropCount);
-      messages.refresh();
-
-      if (oldPixels == null || oldMaxScrollExtent == null) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!controller.hasClients) return;
-        final removedExtent =
-            oldMaxScrollExtent - controller.position.maxScrollExtent;
-        final target = (oldPixels - removedExtent)
-            .clamp(0.0, controller.position.maxScrollExtent)
-            .toDouble();
-        controller.jumpTo(target);
-      });
-    });
+  void _publishMessages() {
+    if (_canRenderMessages) {
+      _renderedMessages = _messages.snapshot;
+      _builtMessageRevision = _messages.revision;
+      _messageRevision.value = _messages.revision;
+    }
   }
 
   StreamSubscription? _sizeSub;
@@ -328,15 +321,20 @@ class LiveRoomController extends GetxController {
     // 纭繚鎾斁鍣ㄥ浜庣洿鎾ā寮?
     plPlayerController.isLive = true;
 
-    return plPlayerController.setDataSource(
-      NetworkSource(videoSource: videoUrl!, audioSource: null),
-      sourceOwner: this,
-      isLive: true,
-      autoplay: autoplay,
-      isVertical: isPortrait.value,
-      autoFullScreenFlag: autoFullScreenFlag,
-      roomId: roomId,
-    );
+    return plPlayerController
+        .setDataSource(
+          NetworkSource(videoSource: videoUrl!, audioSource: null),
+          sourceOwner: this,
+          isLive: true,
+          autoplay: autoplay,
+          isVertical: isPortrait.value,
+          autoFullScreenFlag: autoFullScreenFlag,
+          roomId: roomId,
+        )
+        .then((initialized) {
+          if (initialized) _syncAudioServiceState();
+          return initialized;
+        });
   }
 
   Future<void> toggleOnlyPlayAudio() {
@@ -355,7 +353,14 @@ class LiveRoomController extends GetxController {
   }
 
   void toggleBackgroundPlay() {
-    plPlayerController.setContinuePlayInBackground();
+    if (isClosed ||
+        !identical(plPlayerController, PlPlayerController.instance) ||
+        PlPlayerController.playOwner?.tag != heroTag) {
+      return;
+    }
+    plPlayerController.setContinuePlayInBackground(
+      onEnable: _syncAudioServiceState,
+    );
     unawaited(_syncBackgroundAudioMixMode());
   }
 
@@ -402,7 +407,13 @@ class LiveRoomController extends GetxController {
     });
   }
 
+  bool get _ownsPlayback =>
+      !isClosed &&
+      identical(plPlayerController, PlPlayerController.instance) &&
+      plPlayerController.isSourceOwnerActive(this);
+
   void _syncAudioServiceState() {
+    if (!_ownsPlayback) return;
     if (roomInfoH5.value case final roomInfo?) {
       videoPlayerServiceHandler?.onVideoDetailChange(
         roomInfo,
@@ -733,11 +744,12 @@ class LiveRoomController extends GetxController {
 
   Future<void> queryLiveInfoH5() async {
     final res = await LiveHttp.liveRoomInfoH5(roomId: roomId);
+    if (isClosed) return;
     if (res case Success(:final response)) {
       roomInfoH5.value = response;
       title.value = response.roomInfo?.title ?? '';
       watchedShow.value = response.watchedShow?.textLarge;
-      videoPlayerServiceHandler?.onVideoDetailChange(response, roomId, heroTag);
+      _syncAudioServiceState();
     } else {
       res.toast();
     }
@@ -790,7 +802,10 @@ class LiveRoomController extends GetxController {
   }
 
   void scrollToBottom([_]) {
-    if (!scrollController.hasClients) return;
+    if (!_canRenderMessages || !scrollController.hasClients) return;
+    if (autoScroll && !disableAutoScroll.value && shouldRefresh) {
+      _publishMessages();
+    }
     EasyThrottle.throttle(
       'liveDm',
       const Duration(milliseconds: 500),
@@ -801,7 +816,10 @@ class LiveRoomController extends GetxController {
   }
 
   void _scrollToBottom([_]) {
-    if (scrollController.hasClients) {
+    if (_canRenderMessages &&
+        autoScroll &&
+        !disableAutoScroll.value &&
+        scrollController.hasClients) {
       scrollController.animateTo(
         scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 500),
@@ -811,9 +829,10 @@ class LiveRoomController extends GetxController {
   }
 
   void handleJumpToBottom() {
+    if (!_canRenderMessages) return;
     disableAutoScroll.value = false;
     if (shouldRefresh) {
-      messages.refresh();
+      _publishMessages();
       WidgetsBinding.instance.addPostFrameCallback(_jumpToBottom);
     } else {
       _jumpToBottom();
@@ -821,7 +840,7 @@ class LiveRoomController extends GetxController {
   }
 
   void _jumpToBottom([_]) {
-    if (scrollController.hasClients) {
+    if (_canRenderMessages && scrollController.hasClients) {
       scrollController.jumpTo(scrollController.position.maxScrollExtent);
     }
   }
@@ -837,12 +856,13 @@ class LiveRoomController extends GetxController {
   @pragma('vm:notify-debugger-on-exception')
   Future<void> prefetch() async {
     final res = await LiveHttp.liveRoomDmPrefetch(roomId: roomId);
+    if (isClosed) return;
     if (res case Success(:final response)) {
       if (response != null && response.isNotEmpty) {
-        messages.addAll(
+        _messages.addAll(
           response.where((item) => !isBlocked(item.text, item.extra.mid)),
         );
-        _scheduleDmTrim();
+        _publishMessages();
         scrollToBottom();
       }
     } else {
@@ -861,9 +881,10 @@ class LiveRoomController extends GetxController {
           response?.keywordList ?? const [],
           (response?.shieldUserList ?? const []).map((item) => item.uid),
         );
-        messages.removeWhere(
+        _messages.removeWhere(
           (item) => item is DanmakuMsg && isBlocked(item.text, item.extra.mid),
         );
+        _publishMessages();
         return true;
       }
     } catch (e, s) {
@@ -894,10 +915,11 @@ class LiveRoomController extends GetxController {
     final normalizedUid = _normalizeUid(uid);
     if (normalizedUid == null) return;
     shieldUids = {...shieldUids, normalizedUid};
-    messages.removeWhere(
+    _messages.removeWhere(
       (item) =>
           item is DanmakuMsg && item.extra.mid.toString() == normalizedUid,
     );
+    _publishMessages();
   }
 
   String? _normalizeUid(Object? uid) {
@@ -914,6 +936,7 @@ class LiveRoomController extends GetxController {
 
   Future<void> getSuperChatMsg() async {
     final res = await LiveHttp.superChatMsg(roomId);
+    if (isClosed) return;
     if (res.dataOrNull?.list case final list? when list.isNotEmpty) {
       superChatMsg.addAll(list);
     }
@@ -937,7 +960,7 @@ class LiveRoomController extends GetxController {
         }),
       );
     }
-    if (messages.isEmpty) {
+    if (_messages.isEmpty) {
       prefetch();
       if (showSuperChat) {
         getSuperChatMsg();
@@ -995,10 +1018,21 @@ class LiveRoomController extends GetxController {
   }
 
   void refreshMsgIfNeeded() {
-    if (shouldRefresh) {
+    if (_canRenderMessages &&
+        autoScroll &&
+        !disableAutoScroll.value &&
+        shouldRefresh &&
+        !_messageRefreshScheduled) {
+      _messageRefreshScheduled = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        messages.refresh();
+        _messageRefreshScheduled = false;
+        if (!_canRenderMessages || !autoScroll || disableAutoScroll.value) {
+          return;
+        }
+        _publishMessages();
+        WidgetsBinding.instance.addPostFrameCallback(_scrollToBottom);
       });
+      WidgetsBinding.instance.ensureVisualUpdate();
     }
   }
 
@@ -1016,7 +1050,7 @@ class LiveRoomController extends GetxController {
       unawaited(audioSessionHandler?.setForceMixWithOthers(false));
       savedDanmaku?.clear();
       savedDanmaku = null;
-      messages.clear();
+      _messages.clear();
       if (showSuperChat) {
         superChatMsg.clear();
         if (enableFSSC) {
@@ -1071,24 +1105,27 @@ class LiveRoomController extends GetxController {
   }
 
   void addDm(dynamic msg, [DanmakuContentItem<DanmakuExtra>? item]) {
+    if (isClosed) return;
+    // Data retention must run now: paused Flutter views may never schedule a
+    // frame. Do not tie this limit to UI rendering or scroll callbacks.
+    _messages.add(msg);
     if (plPlayerController.showDanmaku) {
       if (item != null && plPlayerController.enableShowLiveDanmaku.value) {
         danmakuController?.addDanmaku(item);
       }
-      if (autoScroll && !disableAutoScroll.value) {
-        messages.add(msg);
-        _scheduleDmTrim();
+      if (_canRenderMessages && autoScroll && !disableAutoScroll.value) {
+        _publishMessages();
         scrollToBottom();
         return;
       }
     }
 
-    messages.addOnly(msg);
-    _scheduleDmTrim();
+    // Preserve the rendered snapshot while a reader scrolls or opens a menu.
   }
 
   @pragma('vm:notify-debugger-on-exception')
   void _danmakuListener(dynamic obj) {
+    if (isClosed) return;
     try {
       // logger.i(' 鍘熷寮瑰箷娑堟伅 ======> ${jsonEncode(obj)}');
       switch (obj['cmd']) {

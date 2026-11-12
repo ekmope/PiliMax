@@ -10,7 +10,8 @@ import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
-import 'package:flutter/services.dart' show MethodChannel;
+import 'package:flutter/services.dart'
+    show MethodChannel, MissingPluginException;
 import 'package:get/get.dart';
 
 abstract final class RouteRestoreService {
@@ -210,7 +211,9 @@ abstract final class RouteRestoreService {
         case RouteRestoreNativeDecision.restore:
           break;
         case RouteRestoreNativeDecision.reject:
-          return _rejectRestoreState();
+          return await _rejectRestoreState();
+        case RouteRestoreNativeDecision.pending:
+        case RouteRestoreNativeDecision.unknown:
         case RouteRestoreNativeDecision.unavailable:
           _phase = _RouteRestorePhase.ready;
           return false;
@@ -224,18 +227,18 @@ abstract final class RouteRestoreService {
       final state = startupDecision.state;
       final savedAt = startupDecision.savedAt;
       if (state == null || savedAt == null) {
-        return _rejectRestoreState();
+        return await _rejectRestoreState();
       }
       if (DateTime.now().millisecondsSinceEpoch - savedAt >
           _validDuration.inMilliseconds) {
-        return _rejectRestoreState();
+        return await _rejectRestoreState();
       }
 
       final route = state['route'];
       final params = state['parameters'];
       final args = state['arguments'];
       if (route is! String || !_restorableRoutes.contains(route)) {
-        return _rejectRestoreState();
+        return await _rejectRestoreState();
       }
 
       final arguments = _restoreArguments(route, args);
@@ -249,7 +252,7 @@ abstract final class RouteRestoreService {
         mainState: _parseMainState(state['mainNavigation'], state['homeTab']),
       );
       if (!_isValid(restorable)) {
-        return _rejectRestoreState();
+        return await _rejectRestoreState();
       }
 
       if (restorable.mainState case final mainState?) {
@@ -298,18 +301,32 @@ abstract final class RouteRestoreService {
   _queryNativeRestoreDecision() async {
     if (!Platform.isAndroid) return RouteRestoreNativeDecision.reject;
     try {
-      final decision = await _lifecycleChannel.invokeMethod<String>(
-        'getRestoreDecision',
+      final result = await _lifecycleChannel.invokeMapMethod<String, dynamic>(
+        'awaitRestoreDecision',
       );
-      return switch (decision) {
-        'restore' => RouteRestoreNativeDecision.restore,
-        'reject' => RouteRestoreNativeDecision.reject,
-        _ => RouteRestoreNativeDecision.unavailable,
-      };
+      return _parseNativeDecision(result?['decision']);
+    } on MissingPluginException {
+      // Keep compatibility with an existing Android engine during hot restart.
+      try {
+        return _parseNativeDecision(
+          await _lifecycleChannel.invokeMethod<String>('getRestoreDecision'),
+        );
+      } catch (_) {
+        return RouteRestoreNativeDecision.unavailable;
+      }
     } catch (_) {
       return RouteRestoreNativeDecision.unavailable;
     }
   }
+
+  static RouteRestoreNativeDecision _parseNativeDecision(Object? decision) =>
+      switch (decision) {
+        'pending' => RouteRestoreNativeDecision.pending,
+        'restore' => RouteRestoreNativeDecision.restore,
+        'reject' => RouteRestoreNativeDecision.reject,
+        'unknown' => RouteRestoreNativeDecision.unknown,
+        _ => RouteRestoreNativeDecision.unavailable,
+      };
 
   static Future<bool> _rejectRestoreState() async {
     _phase = _RouteRestorePhase.ready;

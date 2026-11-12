@@ -141,6 +141,37 @@ void main() {
       expect(report.isFatalCandidate, isTrue);
     });
 
+    test(
+      'system reclaim diagnostics preserve evidence without a crash alert',
+      () {
+        final report = CrashReport.fromNative({
+          'timestamp': 2000,
+          'source': 'android_exit_info',
+          'severity': 'diagnostic',
+          'module': 'android_process',
+          'reason': 'signaled',
+          'exitReasonCode': 2,
+          'status': 9,
+          'importance': 100,
+          'pss': 12345,
+          'rss': 23456,
+          'playbackSnapshot':
+              '{"playback":{"playing":true,"mediaKind":"live"}}',
+        }, systemInfo: 'current system');
+
+        expect(report.severity, CrashSeverity.diagnostic);
+        expect(report.isFatalCandidate, isFalse);
+        expect(report.systemInfo, contains('Exit reason code: 2'));
+        expect(report.systemInfo, contains('Exit status: 9'));
+        expect(report.systemInfo, contains('Exit PSS (KiB): 12345'));
+        expect(report.systemInfo, contains('Exit RSS (KiB): 23456'));
+        expect(report.systemInfo, contains('"mediaKind":"live"'));
+        final exported = CrashReport.fromJson(report.toJson());
+        expect(exported.isFatalCandidate, isFalse);
+        expect(exported.systemInfo, report.systemInfo);
+      },
+    );
+
     test('bounds a legacy Android ANR trace before archiving it', () {
       final trace = List<String>.filled(128 * 1024, 'x').join();
 

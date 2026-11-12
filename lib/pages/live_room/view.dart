@@ -240,6 +240,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
         ..danmakuController = _liveRoomController.danmakuController;
       _liveRoomController
         ..danmakuController?.resume()
+        ..refreshMsgIfNeeded()
         ..startLiveTimer()
         ..startLiveMsg();
     } else {

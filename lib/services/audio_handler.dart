@@ -17,6 +17,7 @@ import 'package:PiliMax/models_new/video/video_detail/data.dart';
 import 'package:PiliMax/models_new/video/video_detail/page.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
+import 'package:PiliMax/pilimax/services/crash/native_crash_bridge.dart';
 import 'package:PiliMax/pilimax/services/route_restore_service.dart';
 import 'package:PiliMax/utils/cache_manager.dart';
 import 'package:PiliMax/utils/android/bindings.g.dart';
@@ -76,8 +77,41 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
         );
       }
     }
+    _recordSessionDiagnostics();
   }
-  bool enableBackgroundPlay = Pref.enableBackgroundPlay;
+  bool _enableBackgroundPlay = Pref.enableBackgroundPlay;
+  String _mediaKind = 'none';
+  String _lastClearReason = 'none';
+  Map<String, Object?>? _lastDiagnosticState;
+
+  bool get enableBackgroundPlay => _enableBackgroundPlay;
+
+  set enableBackgroundPlay(bool value) {
+    if (_enableBackgroundPlay == value) return;
+    _enableBackgroundPlay = value;
+    _recordSessionDiagnostics();
+  }
+
+  void _recordSessionDiagnostics() {
+    final state = playbackState.value;
+    final snapshot = <String, Object?>{
+      'enabled': enableBackgroundPlay,
+      'playing': state.playing,
+      'buffering': state.processingState == AudioProcessingState.buffering,
+      'hasMediaItem': mediaItem.value != null,
+      'hasOwner': currentHeroTag != null,
+      'status': state.processingState.name,
+      'clearReason': _lastClearReason,
+      'mediaKind': _mediaKind,
+    };
+    final previous = _lastDiagnosticState;
+    if (previous != null &&
+        snapshot.entries.every((entry) => previous[entry.key] == entry.value)) {
+      return;
+    }
+    _lastDiagnosticState = snapshot;
+    NativeCrashBridge.recordPlaybackState(snapshot);
+  }
 
   bool Function()? isPlaying;
   Future<void>? Function()? onPlay;
@@ -118,7 +152,10 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     );
   }
 
-  void _clearCurrentSession({bool clearItems = true}) {
+  void _clearCurrentSession({
+    bool clearItems = true,
+    String reason = 'clear',
+  }) {
     if (!mediaItem.isClosed) {
       mediaItem.add(null);
     }
@@ -126,8 +163,11 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       _item.clear();
     }
     currentHeroTag = null;
+    _mediaKind = 'none';
+    _lastClearReason = reason;
     _clearCallbacks();
     _emitIdleState();
+    _recordSessionDiagnostics();
   }
 
   @override
@@ -229,7 +269,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     // await player.seekTo(position);
   }
 
-  void setMediaItem(MediaItem newMediaItem) {
+  void setMediaItem(MediaItem newMediaItem, {String mediaKind = 'video'}) {
     if (!enableBackgroundPlay) return;
     // if (kDebugMode) {
     //   debugPrint("此时调用栈为：");
@@ -237,7 +277,12 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     //   debugPrint(newMediaItem.title);
     //   debugPrint(StackTrace.current.toString());
     // }
-    if (!mediaItem.isClosed) mediaItem.add(newMediaItem);
+    if (!mediaItem.isClosed) {
+      mediaItem.add(newMediaItem);
+      _mediaKind = mediaKind;
+      _lastClearReason = 'none';
+      _recordSessionDiagnostics();
+    }
   }
 
   bool _hasEpisodes() {
@@ -342,6 +387,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
         },
       ),
     );
+    _recordSessionDiagnostics();
     if (Platform.isAndroid &&
         (AndroidHelper.isPipMode ||
             PlPlayerController.instance?.isAutoEnterPip == true)) {
@@ -379,7 +425,6 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     String? cover,
   }) {
     if (!enableBackgroundPlay) return;
-    currentHeroTag = herotag;
     // if (kDebugMode) {
     //   debugPrint('当前调用栈为：');
     //   debugPrint(StackTrace.current);
@@ -465,10 +510,18 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       default:
         return;
     }
+    currentHeroTag = herotag;
     _item
       ..removeWhere((item) => item.id == id || item.id.endsWith(herotag))
       ..add(mediaItem);
-    setMediaItem(mediaItem);
+    setMediaItem(
+      mediaItem,
+      mediaKind: data is RoomInfoH5Data
+          ? 'live'
+          : data is DetailItem
+          ? 'audio'
+          : 'video',
+    );
   }
 
   Future<void> onAudioDetailChangeInBackground(
@@ -479,10 +532,9 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   }) async {
     if (!enableBackgroundPlay) return;
     if (isCurrent?.call() == false) return;
-    currentHeroTag = herotag;
 
     final artUri = await _cachedArtworkUri(data.arc.cover);
-    if (isCurrent?.call() == false) return;
+    if (!enableBackgroundPlay || isCurrent?.call() == false) return;
 
     final id = '$cid$herotag';
     final item = MediaItem(
@@ -495,10 +547,11 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
           ? <String, dynamic>{'artCacheFile': artUri!.toFilePath()}
           : null,
     );
+    currentHeroTag = herotag;
     _item
       ..removeWhere((item) => item.id == id || item.id.endsWith(herotag))
       ..add(item);
-    setMediaItem(item);
+    setMediaItem(item, mediaKind: 'audio');
     _refreshPlaybackState();
   }
 
@@ -532,12 +585,12 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     if (currentHeroTag != herotag) {
       return;
     }
-    _clearCurrentSession(clearItems: false);
+    _clearCurrentSession(clearItems: false, reason: 'owner_disposed');
   }
 
   void clearIfNeeded() {
     if (!enableBackgroundPlay) return;
-    if (_item.isEmpty) clear();
+    if (_item.isEmpty) _clearCurrentSession(reason: 'no_items');
   }
 
   void clear() {
@@ -545,7 +598,8 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     _clearCurrentSession();
   }
 
-  void forceClear() => _clearCurrentSession();
+  void forceClear({String reason = 'forced'}) =>
+      _clearCurrentSession(reason: reason);
 
   void onPositionChange(Duration position) {
     if (!enableBackgroundPlay || _item.isEmpty) {

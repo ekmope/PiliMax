@@ -60,6 +60,16 @@ class PiliMaxApplication : Application() {
             }
         }
 
+        fun updateExitSnapshot(operation: () -> Unit) {
+            executeCrashIo {
+                try {
+                    operation()
+                } catch (_: Exception) {
+                    // Diagnostics must never interrupt playback or restoration.
+                }
+            }
+        }
+
         private fun executeCrashIo(operation: () -> Unit) {
             crashIoExecutor.execute {
                 try {

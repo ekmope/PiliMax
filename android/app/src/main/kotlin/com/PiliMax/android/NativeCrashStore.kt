@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicLong
 internal object NativeCrashStore {
     private const val DIRECTORY_NAME = "native_crashes"
     private const val MAX_REPORTS = 12
+    private const val MAX_DIAGNOSTIC_REPORTS = 4
     private const val MAX_MESSAGE_LENGTH = 4096
     private const val MAX_STACK_LENGTH = 32 * 1024
     private const val MAX_BRIDGE_STACK_LENGTH = 32 * 1024
@@ -35,6 +36,8 @@ internal object NativeCrashStore {
                 sanitizeAndTruncate(thread.name, MAX_THREAD_NAME_LENGTH),
             )
             put("threadId", thread.id)
+            val snapshot = PlaybackExitSnapshot.forExit(context, Process.myPid(), timestamp)
+            if (snapshot.isNotEmpty()) put("playbackSnapshot", snapshot)
             put(
                 "stackTrace",
                 sanitizeAndTruncate(Log.getStackTraceString(error), MAX_STACK_LENGTH),
@@ -55,12 +58,16 @@ internal object NativeCrashStore {
         rss: Long,
         processName: String,
         trace: String,
+        pid: Int,
+        exitReasonCode: Int,
+        fatal: Boolean,
+        playbackSnapshot: String,
     ) {
         if (reason == "java_crash" &&
             hasNearbyUncaught(context, timestamp, processName)
         ) return
         val record = baseRecord(context, timestamp, "android_exit_info").apply {
-            put("severity", "fatal")
+            put("severity", if (fatal) "fatal" else "diagnostic")
             put("module", "android_process")
             put("reason", reason)
             put("exceptionType", "ApplicationExitInfo")
@@ -70,10 +77,15 @@ internal object NativeCrashStore {
             )
             put("threadName", "unknown")
             put("processName", processName)
+            put("pid", pid)
+            put("exitReasonCode", exitReasonCode)
             put("status", status)
             put("importance", importance)
             put("pss", pss)
             put("rss", rss)
+            if (playbackSnapshot.isNotEmpty()) {
+                put("playbackSnapshot", sanitizeAndTruncate(playbackSnapshot, 2048))
+            }
             put("stackTrace", sanitizeAndTruncate(trace, MAX_STACK_LENGTH))
         }
         writeRecord(context, record, recordId)
@@ -153,10 +165,23 @@ internal object NativeCrashStore {
             temporary.copyTo(target, overwrite = true)
             temporary.delete()
         }
-        directory.listFiles { file -> file.extension == "json" }
-            ?.sortedByDescending(File::lastModified)
-            ?.drop(MAX_REPORTS)
-            ?.forEach(File::delete)
+        val files = directory.listFiles { file -> file.extension == "json" }
+            ?.sortedByDescending(File::lastModified) ?: return
+        val (diagnostics, failures) = files.partition { file ->
+            try {
+                JSONObject(file.readText()).optString("severity") == "diagnostic"
+            } catch (_: Exception) {
+                false
+            }
+        }
+        // Routine system exits must not evict unimported crash reports.
+        failures.drop(MAX_REPORTS).forEach(File::delete)
+        val diagnosticLimit = minOf(
+            MAX_DIAGNOSTIC_REPORTS,
+            (MAX_REPORTS - failures.size).coerceAtLeast(0),
+        )
+        diagnostics.drop(diagnosticLimit)
+            .forEach(File::delete)
     }
 
     private fun reportDirectory(context: Context) =

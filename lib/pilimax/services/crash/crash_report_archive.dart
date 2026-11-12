@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:PiliMax/pilimax/services/crash/crash_report.dart';
+import 'package:PiliMax/pilimax/services/crash/crash_context.dart';
 
 class CrashReportArchive {
   static const maxReports = 20;
+  static const maxProcessExitDiagnostics = 4;
   static const maxSerializedBytes = 1024 * 1024;
   static const currentVersion = 2;
 
@@ -185,15 +187,23 @@ class CrashReportArchive {
     final pending = _findById(ordered, pendingReportId);
     final retained = <CrashReport>[];
     if (pending != null) retained.add(pending);
+    var exitDiagnostics = 0;
     for (final report in ordered) {
       if (identical(report, pending)) continue;
       if (retained.length >= maxReports) break;
+      final isExitDiagnostic =
+          report.source == CrashSource.androidExitInfo &&
+          report.severity == CrashSeverity.diagnostic;
+      if (isExitDiagnostic && exitDiagnostics >= maxProcessExitDiagnostics) {
+        continue;
+      }
       final candidate = [...retained, report];
       if (_serializedBytes(candidate, pendingReportId) > maxSerializedBytes) {
         // Keep looking: a later, smaller report may still fit the byte cap.
         continue;
       }
       retained.add(report);
+      if (isExitDiagnostic) exitDiagnostics++;
     }
     retained.sort((a, b) => b.crashedAtMillis.compareTo(a.crashedAtMillis));
     return retained.toList(growable: false);

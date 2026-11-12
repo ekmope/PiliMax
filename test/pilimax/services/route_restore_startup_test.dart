@@ -41,6 +41,82 @@ void main() {
   });
 
   group('RouteRestoreDecisionResolver', () {
+    test('waits for a native query beyond the former 600 ms limit', () async {
+      var queries = 0;
+      final decision = await const RouteRestoreDecisionResolver().resolve(
+        () async {
+          queries++;
+          await Future<void>.delayed(const Duration(milliseconds: 700));
+          return RouteRestoreNativeDecision.restore;
+        },
+      );
+
+      expect(decision, RouteRestoreNativeDecision.restore);
+      expect(queries, 1);
+    });
+
+    test('retries pending but treats unknown as a terminal decision', () async {
+      const resolver = RouteRestoreDecisionResolver(
+        deadline: Duration(seconds: 1),
+        retryDelays: [Duration.zero, Duration.zero],
+      );
+      var queries = 0;
+      final decision = await resolver.resolve(() async {
+        queries++;
+        return queries == 1
+            ? RouteRestoreNativeDecision.pending
+            : RouteRestoreNativeDecision.unknown;
+      });
+
+      expect(decision, RouteRestoreNativeDecision.unknown);
+      expect(queries, 2);
+    });
+
+    test('late native completion cannot change a timed out startup', () async {
+      const resolver = RouteRestoreDecisionResolver(
+        deadline: Duration(milliseconds: 20),
+        retryDelays: [],
+      );
+      final coordinator =
+          RouteRestoreStartupCoordinator<RouteRestoreNativeDecision>();
+      final pending = Completer<RouteRestoreNativeDecision>();
+      var starts = 0;
+      final startup = coordinator.start(() {
+        starts++;
+        return resolver.resolve(() => pending.future);
+      });
+      expect(await startup, RouteRestoreNativeDecision.unavailable);
+
+      pending.complete(RouteRestoreNativeDecision.restore);
+      expect(await coordinator.future, RouteRestoreNativeDecision.unavailable);
+      expect(
+        await coordinator.start(() async {
+          starts++;
+          return RouteRestoreNativeDecision.restore;
+        }),
+        RouteRestoreNativeDecision.unavailable,
+      );
+      expect(starts, 1);
+    });
+
+    test(
+      'a user action during a native lookup prevents applying restore',
+      () async {
+        final intent = RouteRestoreIntentGate();
+        final generation = intent.generation;
+        final pending = Completer<RouteRestoreNativeDecision>();
+        final startup = const RouteRestoreDecisionResolver().resolve(
+          () => pending.future,
+        );
+
+        intent.recordUserNavigation();
+        pending.complete(RouteRestoreNativeDecision.restore);
+
+        expect(await startup, RouteRestoreNativeDecision.restore);
+        expect(intent.isUnchangedSince(generation), isFalse);
+      },
+    );
+
     test('retries unavailable and preserves a later decision', () async {
       const resolver = RouteRestoreDecisionResolver(
         deadline: Duration(seconds: 1),

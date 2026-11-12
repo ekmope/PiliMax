@@ -51,17 +51,17 @@ class LiveRoomChatPanel extends StatelessWidget {
         : colorScheme.inversePrimary;
     return Stack(
       children: [
-        Obx(
-          () => LiveListView.separated(
+        Obx(() {
+          final messages = liveRoomController.messageSnapshot;
+          return LiveListView.separated(
             key: const PageStorageKey(LiveRoomChatPanel),
             padding: const .symmetric(horizontal: 12),
             controller: liveRoomController.scrollController,
             separatorBuilder: (_, _) => const SizedBox(height: 8),
-            itemCount: liveRoomController.builtLength =
-                liveRoomController.messages.length,
+            itemCount: messages.length,
             physics: platformClampingPhysics,
             itemBuilder: (_, index) {
-              final item = liveRoomController.messages[index];
+              final item = messages[index];
               if (item is DanmakuMsg) {
                 WidgetSpan? medal;
                 if (item.medalInfo case final medalInfo?) {
@@ -171,8 +171,8 @@ class LiveRoomChatPanel extends StatelessWidget {
               // Keep an unexpected message from aborting the sliver builder.
               return const SizedBox.shrink();
             },
-          ),
-        ),
+          );
+        }),
         if (kDebugMode && liveRoomController.showSuperChat) ...[
           Positioned(
             top: 50,

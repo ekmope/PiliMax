@@ -51,7 +51,7 @@ internal object ProcessExitCollector {
                     it.timestamp > lastTimestamp ||
                         (it.timestamp == lastTimestamp && exitKey(it) !in lastKeys)
                 }
-                .filter(::isReportable)
+                .filter { isFatal(it) || it.processName == context.packageName }
                 .sortedBy { it.timestamp }
                 .forEach { info -> writeExit(context, info) }
             val latestKeys = exits.asSequence()
@@ -76,7 +76,7 @@ internal object ProcessExitCollector {
         }
     }
 
-    private fun isReportable(info: ApplicationExitInfo): Boolean {
+    private fun isFatal(info: ApplicationExitInfo): Boolean {
         return when (info.reason) {
             ApplicationExitInfo.REASON_CRASH,
             ApplicationExitInfo.REASON_CRASH_NATIVE,
@@ -88,7 +88,10 @@ internal object ProcessExitCollector {
     }
 
     private fun writeExit(context: Context, info: ApplicationExitInfo) {
-        val trace = if (info.reason == ApplicationExitInfo.REASON_CRASH_NATIVE) {
+        val fatal = isFatal(info)
+        val trace = if (!fatal) {
+            ""
+        } else if (info.reason == ApplicationExitInfo.REASON_CRASH_NATIVE) {
             // Native crash traces are tombstone protobufs, not UTF-8 text.
             // Keep them out of the local text report instead of emitting
             // binary noise which cannot be safely redacted or shared.
@@ -112,6 +115,10 @@ internal object ProcessExitCollector {
             rss = info.rss,
             processName = info.processName,
             trace = trace,
+            pid = info.pid,
+            exitReasonCode = info.reason,
+            fatal = fatal,
+            playbackSnapshot = PlaybackExitSnapshot.forExit(context, info.pid, info.timestamp),
         )
     }
 
@@ -142,6 +149,21 @@ internal object ProcessExitCollector {
         ApplicationExitInfo.REASON_CRASH_NATIVE -> "native_crash"
         ApplicationExitInfo.REASON_ANR -> "anr"
         ApplicationExitInfo.REASON_INITIALIZATION_FAILURE -> "initialization_failure"
+        ApplicationExitInfo.REASON_LOW_MEMORY -> "low_memory"
+        ApplicationExitInfo.REASON_SIGNALED -> "signaled"
+        ApplicationExitInfo.REASON_EXIT_SELF -> "exit_self"
+        ApplicationExitInfo.REASON_USER_REQUESTED -> "user_requested"
+        ApplicationExitInfo.REASON_USER_STOPPED -> "user_stopped"
+        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "excessive_resource_usage"
+        ApplicationExitInfo.REASON_DEPENDENCY_DIED -> "dependency_died"
+        ApplicationExitInfo.REASON_PERMISSION_CHANGE -> "permission_change"
+        ApplicationExitInfo.REASON_OTHER -> "other"
+        14 -> "freezer"
+        15 -> "package_state_change"
+        16 -> "package_updated"
+        // Android 37.2 reasons: keep compatible with older compile/runtime SDKs.
+        17 -> "memory_limiter"
+        18 -> "anomaly"
         else -> "reason_$reason"
     }
 

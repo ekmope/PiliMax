@@ -1,7 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
-enum RouteRestoreNativeDecision { restore, reject, unavailable }
+enum RouteRestoreNativeDecision {
+  pending,
+  restore,
+  reject,
+  unknown,
+  unavailable,
+}
 
 final class RouteRestoreIntentGate {
   int _generation = 0;
@@ -33,7 +39,7 @@ final class RouteRestoreStartupCoordinator<T> {
 
 final class RouteRestoreDecisionResolver {
   const RouteRestoreDecisionResolver({
-    this.deadline = const Duration(milliseconds: 600),
+    this.deadline = const Duration(milliseconds: 2500),
     this.retryDelays = const [
       Duration(milliseconds: 80),
       Duration(milliseconds: 160),
@@ -58,7 +64,8 @@ final class RouteRestoreDecisionResolver {
             remaining,
             onTimeout: () => RouteRestoreNativeDecision.unavailable,
           );
-      if (decision != RouteRestoreNativeDecision.unavailable ||
+      if ((decision != RouteRestoreNativeDecision.unavailable &&
+              decision != RouteRestoreNativeDecision.pending) ||
           attempt == retryDelays.length) {
         return decision;
       }

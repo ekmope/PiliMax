@@ -18,6 +18,11 @@ internal class NativeCrashChannel(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         try {
             when (call.method) {
+                "recordPlaybackState" -> {
+                    val state = call.arguments as? Map<*, *> ?: emptyMap<Any, Any>()
+                    PlaybackExitSnapshot.recordPlayback(context.applicationContext, state)
+                    result.success(null)
+                }
                 "getPendingReports" -> {
                     val limit = call.argument<Int>("limit")
                     PiliMaxApplication.loadPendingReports(

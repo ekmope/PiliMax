@@ -296,10 +296,15 @@ class CrashReport {
         'Captured device: ${_text(json['manufacturer'], 'unknown')} '
             '${_text(json['model'], 'unknown')}',
         if (json['status'] != null) 'Exit status: ${json['status']}',
+        if (json['exitReasonCode'] != null)
+          'Exit reason code: ${json['exitReasonCode']}',
         if (json['importance'] != null)
           'Exit importance: ${json['importance']}',
-        if (json['pss'] != null) 'Exit PSS: ${json['pss']}',
-        if (json['rss'] != null) 'Exit RSS: ${json['rss']}',
+        if (json['pss'] != null) 'Exit PSS (KiB): ${json['pss']}',
+        if (json['rss'] != null) 'Exit RSS (KiB): ${json['rss']}',
+        if (json['playbackSnapshot'] != null)
+          'Previous playback/restore state: '
+              '${_context(json['playbackSnapshot'], '', maxLength: 2048)}',
       ].join('\n'),
     );
     DateTime crashedAt;

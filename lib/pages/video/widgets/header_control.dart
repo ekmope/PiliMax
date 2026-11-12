@@ -854,8 +854,10 @@ class HeaderControlState extends State<HeaderControl>
                         Obx(
                           () => ActionRowLineItem(
                             iconData: Icons.play_circle_outline,
-                            onTap:
-                                plPlayerController.setContinuePlayInBackground,
+                            onTap: () =>
+                                plPlayerController.setContinuePlayInBackground(
+                                  onEnable: _syncCurrentMediaSessionOnResume,
+                                ),
                             text: " 后台播放 ",
                             selectStatus: plPlayerController
                                 .continuePlayInBackground

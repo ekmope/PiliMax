@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:PiliMax/build_config.dart';
 import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
+import 'package:PiliMax/pilimax/services/route_restore_diagnostics.dart';
 import 'package:PiliMax/pilimax/services/route_restore_startup.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
@@ -49,6 +51,7 @@ abstract final class RouteRestoreService {
   static Future<void> _storageQueue = Future<void>.value();
   static final RouteRestoreStartupCoordinator<bool> _startupRestore =
       RouteRestoreStartupCoordinator<bool>();
+  static final _startupDiagnostics = RouteRestoreDiagnostics();
 
   static bool get _enabled =>
       Platform.isAndroid && Pref.enableAndroidRouteRestore;
@@ -182,14 +185,46 @@ abstract final class RouteRestoreService {
     await _startupRestore.future;
   }
 
+  /// Reads this process's startup attempt without retrying restoration or
+  /// creating a crash report. A failed native read must not block log export.
+  static Future<String> exportStartupDiagnostics() async {
+    if (!Platform.isAndroid) return '';
+    Map<Object?, Object?>? nativeAtExport;
+    var nativeReadStatus = 'available';
+    try {
+      nativeAtExport = await _lifecycleChannel
+          .invokeMapMethod<String, dynamic>('getRestoreDiagnostics')
+          .timeout(const Duration(milliseconds: 500));
+      if (nativeAtExport == null) nativeReadStatus = 'unavailable';
+    } on TimeoutException {
+      nativeReadStatus = 'timeout';
+    } catch (_) {
+      nativeReadStatus = 'unavailable';
+    }
+    return _startupDiagnostics.toExportText(
+      versionName: BuildConfig.versionName,
+      versionCode: BuildConfig.versionCode,
+      commitHash: BuildConfig.commitHash,
+      processId: pid,
+      enabled: _enabled,
+      nativeAtExport: nativeAtExport,
+      nativeReadStatus: nativeReadStatus,
+    );
+  }
+
   static Future<bool> _restoreIfNeeded({
     required void Function(MainRestoreState state) restoreMainState,
     required Future<void> navigationReady,
     required bool Function() canApplyRestore,
   }) async {
     _phase = _RouteRestorePhase.checking;
+    _startupDiagnostics.start();
     if (!_enabled) {
       _phase = _RouteRestorePhase.ready;
+      _startupDiagnostics.finish(
+        RouteRestoreAttemptOutcome.skipped,
+        'disabled',
+      );
       return true;
     }
 
@@ -205,40 +240,58 @@ abstract final class RouteRestoreService {
       );
       if (startupDecision == null) {
         _phase = _RouteRestorePhase.ready;
+        _startupDiagnostics.finish(
+          RouteRestoreAttemptOutcome.skipped,
+          'no_saved_state',
+        );
         return true;
       }
       switch (startupDecision.decision) {
         case RouteRestoreNativeDecision.restore:
           break;
         case RouteRestoreNativeDecision.reject:
-          return await _rejectRestoreState();
+          return await _rejectRestoreState(
+            startupDecision.state == null
+                ? 'invalid_or_expired_saved_state'
+                : 'native_rejected',
+          );
         case RouteRestoreNativeDecision.pending:
         case RouteRestoreNativeDecision.unknown:
         case RouteRestoreNativeDecision.unavailable:
           _phase = _RouteRestorePhase.ready;
+          _startupDiagnostics.finish(
+            RouteRestoreAttemptOutcome.deferred,
+            'native_${startupDecision.decision.name}',
+          );
           return false;
       }
       await navigationReady;
       if (Get.currentRoute != '/' || !canApplyRestore()) {
         _phase = _RouteRestorePhase.ready;
+        _startupDiagnostics.finish(
+          RouteRestoreAttemptOutcome.skipped,
+          Get.currentRoute != '/'
+              ? 'destination_already_changed'
+              : 'navigation_guard_rejected',
+        );
         return true;
       }
 
       final state = startupDecision.state;
       final savedAt = startupDecision.savedAt;
       if (state == null || savedAt == null) {
-        return await _rejectRestoreState();
+        return await _rejectRestoreState('invalid_saved_state');
       }
       if (DateTime.now().millisecondsSinceEpoch - savedAt >
           _validDuration.inMilliseconds) {
-        return await _rejectRestoreState();
+        return await _rejectRestoreState('saved_state_expired');
       }
 
       final route = state['route'];
       final params = state['parameters'];
       final args = state['arguments'];
       if (route is! String || !_restorableRoutes.contains(route)) {
-        return await _rejectRestoreState();
+        return await _rejectRestoreState('unsupported_saved_route');
       }
 
       final arguments = _restoreArguments(route, args);
@@ -252,7 +305,7 @@ abstract final class RouteRestoreService {
         mainState: _parseMainState(state['mainNavigation'], state['homeTab']),
       );
       if (!_isValid(restorable)) {
-        return await _rejectRestoreState();
+        return await _rejectRestoreState('invalid_saved_arguments');
       }
 
       if (restorable.mainState case final mainState?) {
@@ -270,6 +323,10 @@ abstract final class RouteRestoreService {
       if (route == '/') {
         _phase = _RouteRestorePhase.ready;
         await _ignoreStorageErrors(_save(storedRoute));
+        _startupDiagnostics.finish(
+          RouteRestoreAttemptOutcome.applied,
+          'main_state_applied',
+        );
         return true;
       }
 
@@ -286,13 +343,25 @@ abstract final class RouteRestoreService {
         _phase = _RouteRestorePhase.ready;
       }
       if (navigation == null) {
+        _startupDiagnostics.finish(
+          RouteRestoreAttemptOutcome.failed,
+          'navigation_unavailable',
+        );
         return false;
       }
       unawaited(navigation);
       await _ignoreStorageErrors(_save(storedRoute));
+      _startupDiagnostics.finish(
+        RouteRestoreAttemptOutcome.applied,
+        'navigation_requested',
+      );
       return true;
     } catch (_) {
       _phase = _RouteRestorePhase.ready;
+      _startupDiagnostics.finish(
+        RouteRestoreAttemptOutcome.failed,
+        'restore_exception',
+      );
       return false;
     }
   }
@@ -304,13 +373,16 @@ abstract final class RouteRestoreService {
       final result = await _lifecycleChannel.invokeMapMethod<String, dynamic>(
         'awaitRestoreDecision',
       );
+      _startupDiagnostics.recordNativeDecision(result);
       return _parseNativeDecision(result?['decision']);
     } on MissingPluginException {
       // Keep compatibility with an existing Android engine during hot restart.
       try {
-        return _parseNativeDecision(
-          await _lifecycleChannel.invokeMethod<String>('getRestoreDecision'),
+        final decision = await _lifecycleChannel.invokeMethod<String>(
+          'getRestoreDecision',
         );
+        _startupDiagnostics.recordNativeDecision({'decision': decision});
+        return _parseNativeDecision(decision);
       } catch (_) {
         return RouteRestoreNativeDecision.unavailable;
       }
@@ -328,9 +400,10 @@ abstract final class RouteRestoreService {
         _ => RouteRestoreNativeDecision.unavailable,
       };
 
-  static Future<bool> _rejectRestoreState() async {
+  static Future<bool> _rejectRestoreState(String reason) async {
     _phase = _RouteRestorePhase.ready;
     await _ignoreStorageErrors(clear());
+    _startupDiagnostics.finish(RouteRestoreAttemptOutcome.skipped, reason);
     return true;
   }
 

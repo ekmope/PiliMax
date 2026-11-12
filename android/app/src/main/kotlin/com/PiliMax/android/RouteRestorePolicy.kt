@@ -34,7 +34,10 @@ internal object RouteRestorePolicy {
             explicitNewLaunch -> reject("explicit_launch")
             !hasPreviousSession -> reject("no_previous_session")
             invalidated -> reject("previous_session_invalidated")
-            !wasBackground -> reject("previous_session_not_background")
+            // Installing an update can stop a visible process without onStop.
+            // A verified package change only permits the exit-history lookup;
+            // explicit exits and unsafe exit reasons still reject restoration.
+            !wasBackground && !packageUpdated -> reject("previous_session_not_background")
             else -> RouteRestoreOutcome(RouteRestoreDecision.PENDING, "exit_lookup_pending")
         }
     }

@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:PiliMax/pilimax/pages/setting/pages/crash_report.dart';
 import 'package:PiliMax/pilimax/services/crash/crash_report.dart';
 import 'package:PiliMax/pilimax/services/crash/crash_report_store.dart';
 import 'package:PiliMax/pilimax/services/crash/crash_reporter.dart';
+import 'package:PiliMax/pilimax/services/route_restore_service.dart';
 import 'package:PiliMax/pilimax/utils/log_file_export.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -33,7 +36,7 @@ class _CrashReportHistoryPageState extends State<CrashReportHistoryPage> {
       appBar: AppBar(
         title: const Text('异常报告历史'),
         actions: [
-          if (_reports.isNotEmpty)
+          if (_reports.isNotEmpty || Platform.isAndroid)
             IconButton(
               tooltip: '导出异常报告历史',
               onPressed: _exportAll,
@@ -87,7 +90,7 @@ class _CrashReportHistoryPageState extends State<CrashReportHistoryPage> {
   }
 
   Future<void> _exportAll() async {
-    final content = _reports
+    final history = _reports
         .asMap()
         .entries
         .map(
@@ -96,6 +99,12 @@ class _CrashReportHistoryPageState extends State<CrashReportHistoryPage> {
         )
         .join('\n\n');
     try {
+      final startupDiagnostics =
+          await RouteRestoreService.exportStartupDiagnostics();
+      final content = [
+        if (startupDiagnostics.isNotEmpty) startupDiagnostics,
+        if (history.isNotEmpty) history,
+      ].join('\n\n');
       final shared = await LogFileExport.share(
         content: content,
         filePrefix: 'pilimax_crash_report_history',

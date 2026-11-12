@@ -100,10 +100,14 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // audio_service clears a history launch's Intent while super attaches
+        // plugins. Preserve its original facts for restoration, without replaying
+        // an old deep link to Flutter or replacing the plugin's sanitized Intent.
+        val restoreLaunchIntent = intent?.let { Intent(it) }
         super.onCreate(savedInstanceState)
         RouteRestoreLifecycle.onActivityCreated(
             this,
-            intent,
+            restoreLaunchIntent,
             isRecreation = savedInstanceState != null,
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

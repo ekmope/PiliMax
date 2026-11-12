@@ -48,7 +48,8 @@ internal object RouteRestoreLifecycle {
 
     fun onActivityCreated(activity: Activity, intent: Intent?, isRecreation: Boolean) {
         val appContext = activity.applicationContext
-        val explicitLaunch = !isLauncherIntent(intent)
+        val launchEvidence = launchEvidence(intent)
+        val explicitLaunch = RouteRestoreLaunchPolicy.isExplicitActivityCreation(launchEvidence)
         val processStartedAt = System.currentTimeMillis()
         var pendingLookup: PendingLookup? = null
         var immediateOutcome: RouteRestoreOutcome? = null
@@ -80,8 +81,8 @@ internal object RouteRestoreLifecycle {
                 hasPreviousSession = previousSession != null,
                 wasBackground = previousSession?.visibility == VISIBILITY_BACKGROUND,
                 invalidated = previousSession?.invalidated != false,
-                // An external destination always wins, including when Android
-                // also supplies saved activity state for the retained task.
+                // A fresh external destination wins even with saved activity
+                // state. History launches carry an old task's Intent instead.
                 explicitNewLaunch = explicitLaunch,
                 hasTaskEvidence = taskMatches || isRecreation,
                 packageUpdated = previousSession != null &&
@@ -98,6 +99,8 @@ internal object RouteRestoreLifecycle {
                 "savedActivityState" to isRecreation,
                 "explicitNewLaunch" to evidence.explicitNewLaunch,
                 "packageUpdated" to evidence.packageUpdated,
+                "capturedFromHistory" to launchEvidence.launchedFromHistory,
+                "capturedLauncherCategory" to launchEvidence.hasLauncherCategory,
             )
 
             // Capture the old process and task before replacing its lifecycle record.
@@ -151,7 +154,7 @@ internal object RouteRestoreLifecycle {
     }
 
     fun onNewIntent(context: Context, intent: Intent?) {
-        val explicitLaunch = !isLauncherIntent(intent)
+        val explicitLaunch = RouteRestoreLaunchPolicy.isExplicitNewIntent(launchEvidence(intent))
         if (explicitLaunch) rejectPendingRestore(context, "explicit_new_intent")
         preferences(context.applicationContext).edit()
             .putBoolean(KEY_EXPLICIT_LAUNCH, explicitLaunch)
@@ -317,9 +320,14 @@ internal object RouteRestoreLifecycle {
             (session.versionCode != currentVersion.versionCode ||
                 session.lastUpdateTime != currentVersion.lastUpdateTime)
 
-    private fun isLauncherIntent(intent: Intent?): Boolean =
-        intent?.action == Intent.ACTION_MAIN && intent.data == null &&
-            intent.categories?.contains(Intent.CATEGORY_LAUNCHER) == true
+    private fun launchEvidence(intent: Intent?): RouteRestoreLaunchEvidence =
+        RouteRestoreLaunchEvidence(
+            isMainAction = intent?.action == Intent.ACTION_MAIN,
+            hasData = intent?.data != null,
+            hasLauncherCategory = intent?.categories?.contains(Intent.CATEGORY_LAUNCHER) == true,
+            launchedFromHistory = ((intent?.flags ?: 0) and
+                Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0,
+        )
 
     private fun preferences(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

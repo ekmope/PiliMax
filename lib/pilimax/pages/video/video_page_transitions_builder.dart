@@ -395,14 +395,54 @@ class _VideoPredictiveBackDriverState extends State<_VideoPredictiveBackDriver>
 
   @override
   bool handleStartBackGesture(PredictiveBackEvent backEvent) {
+    final navigator = widget.route.navigator;
     if (!widget.enablePredictiveBack ||
         backEvent.isButtonEvent ||
-        !_isEnabled) {
+        !_isEnabled ||
+        _phase != VideoDetailBackPhase.idle ||
+        navigator == null ||
+        navigator.userGestureInProgress) {
       return false;
     }
     _discardPendingPredictiveBackProgress();
     _phase = VideoDetailBackPhase.predicting;
-    widget.route.handleStartBackGesture(progress: 1 - backEvent.progress);
+    try {
+      widget.route.handleStartBackGesture(progress: 1 - backEvent.progress);
+    } catch (_) {
+      // Flutter increments the Navigator gesture count before notifying Hero
+      // observers. A throwing observer leaves no binding observer registered
+      // to receive cancel/commit, so undo this start before reporting its error.
+      _phase = VideoDetailBackPhase.idle;
+      try {
+        widget.route.handleUpdateBackGestureProgress(progress: 1);
+      } catch (error, stack) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'PiliMax video navigation',
+            context: ErrorDescription('while resetting a failed back gesture'),
+          ),
+        );
+      }
+      try {
+        // Entry rejected any pre-existing gesture. Only stop the one that
+        // this synchronous start added; a failure before it added one is safe.
+        if (navigator.userGestureInProgress) {
+          navigator.didStopUserGesture();
+        }
+      } catch (error, stack) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'PiliMax video navigation',
+            context: ErrorDescription('while ending a failed back gesture'),
+          ),
+        );
+      }
+      rethrow;
+    }
     _setProgress(backEvent.progress);
     _retryReturnTargetAfterLayout();
     return true;

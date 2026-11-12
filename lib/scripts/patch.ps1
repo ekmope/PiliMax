@@ -68,6 +68,9 @@ $GetxPredictiveBackPatch = "lib/scripts/getx_predictive_back.patch"
 # does not include the secondary subtitle API used by the app.
 $MediaKitSecondarySubtitlePatch = "lib/scripts/media_kit_secondary_subtitle.patch"
 
+# Keep notification custom-action PendingIntents stable across position updates.
+$AudioServicePendingIntentPatch = "lib/scripts/audio_service_pending_intent.patch"
+
 $RefreshIndicatorPatch = "lib/scripts/refresh_indicator.patch"
 
 # TODO: remove
@@ -559,7 +562,18 @@ try {
 
     $MediaKitMacosVideoRoot = $null
     $MediaKitAndroidVideoRoot = $null
+    $AudioServiceRoot = $null
     if ($platform.ToLower() -eq "android") {
+        $AudioServicePackage = $PackageConfig.packages |
+            Where-Object { $_.name -eq "audio_service" } |
+            Select-Object -First 1
+        if ($null -eq $AudioServicePackage) {
+            throw "audio_service is missing from package_config.json"
+        }
+        $AudioServiceRoot = ([System.Uri]$AudioServicePackage.rootUri).LocalPath
+        if (-not (Test-Path $AudioServiceRoot)) {
+            throw "audio_service directory does not exist: $AudioServiceRoot"
+        }
         if ($null -eq $MediaKitAndroidVideoPackage) {
             throw "media_kit_libs_android_video is missing from package_config.json"
         }
@@ -729,6 +743,10 @@ if ($platform.ToLower() -eq "macos") {
 }
 
 if ($platform.ToLower() -eq "android") {
+    Set-Location $AudioServiceRoot
+    if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $AudioServicePendingIntentPatch) -Description "$AudioServicePendingIntentPatch to audio_service")) {
+        exit 1
+    }
     try {
         Apply-MediaKitAndroidDownloadRetry -PackageRoot $MediaKitAndroidVideoRoot
     } catch {

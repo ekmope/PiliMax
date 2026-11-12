@@ -12,8 +12,12 @@ class SliverSingleChildDelegate extends SliverChildDelegate {
 
   @override
   Widget? build(BuildContext context, int index) {
+    // A child may rebuild its render-object root independently (for example,
+    // a skeleton switching its shimmer off when the route's TickerMode changes).
+    // Keep the same stable repaint boundary used by the standard delegates so
+    // this cannot detach the sliver's direct child outside its rebuild pass.
     if (index < 0 || index >= estimatedChildCount) return null;
-    return child;
+    return RepaintBoundary(child: child);
   }
 
   @override

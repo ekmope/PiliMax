@@ -1,0 +1,88 @@
+diff --git a/android/src/main/java/com/ryanheise/audioservice/AudioService.java b/android/src/main/java/com/ryanheise/audioservice/AudioService.java
+--- a/android/src/main/java/com/ryanheise/audioservice/AudioService.java
++++ b/android/src/main/java/com/ryanheise/audioservice/AudioService.java
+@@ -422,13 +422,11 @@ public class AudioService extends MediaBrowserServiceCompat {
+         return getResources().getIdentifier(resourceName, resourceType, getApplicationContext().getPackageName());
+     }
+
+-    private int customKeyCode = 0;
+-
+     NotificationCompat.Action createAction(String resource, String label, long actionCode, String customAction) {
+         int iconId = getResourceId(resource);
+         PendingIntent intent;
+         if (customAction != null) {
+-            intent = buildCustomActionPendingIntent(++customKeyCode, customAction);
++            intent = buildCustomActionPendingIntent(customAction);
+         } else {
+             intent = buildMediaButtonPendingIntent(actionCode);
+         }
+@@ -486,15 +484,24 @@ public class AudioService extends MediaBrowserServiceCompat {
+         return null;
+     }
+
+-    PendingIntent buildCustomActionPendingIntent(int code, String customAction) {
++    PendingIntent buildCustomActionPendingIntent(String customAction) {
+         Intent intent = new Intent(this, MediaButtonReceiver.class);
+         intent.setAction(NOTIFICATION_CUSTOM_ACTION);
++        // Intent extras do not participate in PendingIntent identity. Give each
++        // action a stable, collision-free identity instead of allocating a new
++        // request code on every playback-position update.
++        intent.setData(new Uri.Builder()
++                .scheme("audioservice")
++                .authority(getPackageName())
++                .appendPath("notification-action")
++                .appendPath(customAction)
++                .build());
+         intent.putExtra(NOTIFICATION_CUSTOM_ACTION_NAME, customAction);
+-        int flags = 0;
++        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+         if (Build.VERSION.SDK_INT >= 23) {
+             flags |= PendingIntent.FLAG_IMMUTABLE;
+         }
+-        return PendingIntent.getBroadcast(this, code, intent, flags);
++        return PendingIntent.getBroadcast(this, 0, intent, flags);
+     }
+
+     PendingIntent buildMediaButtonPendingIntent(long action) {
+@@ -526,23 +533,25 @@ public class AudioService extends MediaBrowserServiceCompat {
+         if (!Arrays.equals(compactActionIndices, this.compactActionIndices)) {
+             notificationChanged = true;
+         }
+-        if (!controls.equals(this.controls)) {
++        final boolean controlsChanged = !controls.equals(this.controls);
++        if (controlsChanged) {
+             notificationChanged = true;
+-        }
+-        this.controls = controls;
+-        this.nativeActions.clear();
+-        this.customActions.clear();
+-        for (MediaControl control : controls) {
+-            final PlaybackStateCompat.CustomAction customAction = createCustomAction(control);
+-            if (customAction != null) {
+-                customActions.add(customAction);
+-            }
+-            // -- another type of pending intent is created also for custom actions
+-            // -- some OEMs like OxygenOS 15 won't show custom actions without this.
+-            if (control.customAction != null) {
+-                nativeActions.add(createAction(control.icon, control.label, control.actionCode, control.customAction.name));
+-            } else {
+-                nativeActions.add(createAction(control.icon, control.label, control.actionCode, null));
++            // Position/buffering updates still reach MediaSession below, but
++            // must not rebuild notification actions or allocate PendingIntents.
++            this.controls = new ArrayList<>(controls);
++            this.nativeActions.clear();
++            this.customActions.clear();
++            for (MediaControl control : controls) {
++                final PlaybackStateCompat.CustomAction customAction = createCustomAction(control);
++                if (customAction != null) {
++                    customActions.add(customAction);
++                }
++                // Some OEMs require notification intents for custom actions too.
++                if (control.customAction != null) {
++                    nativeActions.add(createAction(control.icon, control.label, control.actionCode, control.customAction.name));
++                } else {
++                    nativeActions.add(createAction(control.icon, control.label, control.actionCode, null));
++                }
+             }
+         }
+         this.compactActionIndices = compactActionIndices;

@@ -1,4 +1,5 @@
 import 'package:PiliMax/build_config.dart';
+import 'package:PiliMax/common/widgets/custom_icon.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/models/common/setting_type.dart';
 import 'package:PiliMax/pages/setting/models/extra_settings.dart';
@@ -81,7 +82,7 @@ final List<SettingSection> settingSections = List.unmodifiable([
   const SettingSection(
     type: SettingType.dynamicsSetting,
     subtitle: '动态展示、未读检查、发布反诈、过滤与屏蔽',
-    icon: Icons.auto_awesome_motion_outlined,
+    icon: CustomIcons.motion_photos_on_outlined,
     routeName: '/dynamicsSetting',
     settingsFactory: _dynamicsSettings,
     keywordFilterKey: SettingBoxKey.banWordForDyn,

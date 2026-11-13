@@ -411,6 +411,7 @@ class Request {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    bool propagateCancellation = false,
   }) async {
     try {
       return await dio.get<T>(
@@ -420,6 +421,8 @@ class Request {
         cancelToken: cancelToken,
       );
     } on DioException catch (e, s) {
+      // 显式可取消的调用自行结束生命周期，正常停止不进入错误记录。
+      if (propagateCancellation && CancelToken.isCancel(e)) rethrow;
       return _handleDioException(
         e,
         s,

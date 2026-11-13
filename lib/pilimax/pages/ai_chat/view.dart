@@ -76,7 +76,7 @@ class _AiChatPageState extends State<AiChatPage>
       }
       if (!HardwareKeyboard.instance.isShiftPressed) {
         final state = node.context?.findAncestorStateOfType<_AiChatPageState>();
-        if (state != null && !state.chatCtl.isAnalyzing.value) {
+        if (state != null && !state.chatCtl.isRequesting.value) {
           state._sendCustomPrompt();
         }
         return KeyEventResult.handled;
@@ -96,6 +96,7 @@ class _AiChatPageState extends State<AiChatPage>
 
   @override
   void dispose() {
+    // 请求由视频页持有的 controller 管理，关闭面板后继续接收结果。
     _inputCtl.dispose();
     _focusNode
       ..removeListener(_onFocusChanged)
@@ -294,6 +295,7 @@ class _AiChatPageState extends State<AiChatPage>
   }
 
   void _sendCustomPrompt() {
+    if (chatCtl.isRequesting.value) return;
     final text = _inputCtl.text.trim();
     if (text.isEmpty) return;
     _inputCtl.clear();
@@ -415,9 +417,12 @@ class _AiChatPageState extends State<AiChatPage>
             ),
 
             // Input bar
-            _collapsibleBar(
-              slideUp: false,
-              child: _buildInputBar(theme),
+            Obx(
+              () => _collapsibleBar(
+                slideUp: false,
+                keepVisible: chatCtl.isRequesting.value,
+                child: _buildInputBar(theme),
+              ),
             ),
           ],
         ),
@@ -435,12 +440,16 @@ class _AiChatPageState extends State<AiChatPage>
   ///
   /// 用 [SizeTransition] 而非 CustomHeightWidget：这里需要裁剪溢出内容，
   /// 提示词栏上方还有标题栏，不裁剪会画到标题栏上。
-  Widget _collapsibleBar({required bool slideUp, required Widget child}) {
+  Widget _collapsibleBar({
+    required bool slideUp,
+    required Widget child,
+    bool keepVisible = false,
+  }) {
     return ValueListenableBuilder<double>(
       valueListenable: _barCollapse,
       child: child,
       builder: (context, progress, child) => SizeTransition(
-        sizeFactor: AlwaysStoppedAnimation(1 - progress),
+        sizeFactor: AlwaysStoppedAnimation(keepVisible ? 1.0 : 1 - progress),
         alignment: slideUp ? Alignment.bottomLeft : Alignment.topLeft,
         child: child,
       ),
@@ -507,7 +516,7 @@ class _AiChatPageState extends State<AiChatPage>
           ),
           const SizedBox(width: 12),
           Obx(() {
-            final analyzing = chatCtl.isAnalyzing.value;
+            final requesting = chatCtl.isRequesting.value;
             final hasContext = chatCtl.hasVideoContext.value;
             final hasSubs = chatCtl.hasSubtitles;
             return Row(
@@ -517,7 +526,7 @@ class _AiChatPageState extends State<AiChatPage>
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: IconButton(
-                      onPressed: (analyzing || hasContext)
+                      onPressed: (requesting || hasContext)
                           ? null
                           : () => chatCtl.loadVideoContext(),
                       icon: Icon(Icons.post_add, size: _isCompact ? 18 : 22),
@@ -525,18 +534,13 @@ class _AiChatPageState extends State<AiChatPage>
                     ),
                   ),
                 FilledButton.icon(
-                  onPressed: analyzing ? null : _sendSelectedPrompt,
+                  onPressed: requesting ? null : _sendSelectedPrompt,
                   style: _isCompact
                       ? FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
                         )
                       : null,
-                  icon: analyzing
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.play_arrow, size: 20),
+                  icon: const Icon(Icons.play_arrow, size: 20),
                   label: const Text('分析'),
                 ),
               ],
@@ -967,12 +971,30 @@ class _AiChatPageState extends State<AiChatPage>
             ),
           ),
           const SizedBox(width: 8),
-          Obx(
-            () => IconButton.filled(
-              onPressed: chatCtl.isAnalyzing.value ? null : _sendCustomPrompt,
-              icon: const Icon(Icons.send),
-            ),
-          ),
+          Obx(() {
+            final requesting = chatCtl.isRequesting.value;
+            return IconButton.filled(
+              onPressed: requesting ? chatCtl.cancelRequest : _sendCustomPrompt,
+              tooltip: requesting ? '停止生成' : '发送',
+              icon: requesting
+                  ? SizedBox.square(
+                      dimension: 24,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Positioned.fill(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.onPrimary,
+                            ),
+                          ),
+                          const Icon(Icons.stop_rounded, size: 16),
+                        ],
+                      ),
+                    )
+                  : const Icon(Icons.send),
+            );
+          }),
         ],
       ),
     );

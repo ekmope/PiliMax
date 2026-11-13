@@ -248,8 +248,9 @@ class AiChatService {
 
   static Future<AiApiException> _requestError(
     String fallbackUrl,
-    DioException error,
-  ) async {
+    DioException error, {
+    CancelToken? cancelToken,
+  }) async {
     final requestUrl = error.requestOptions.uri.toString();
     final url = requestUrl.isEmpty ? fallbackUrl : requestUrl;
     String detail;
@@ -266,6 +267,8 @@ class AiChatService {
         _ => '无法连接（${error.message ?? error.error ?? error.type.name}）',
       };
     }
+    final cancellation = cancelToken?.cancelError;
+    if (cancellation != null) throw cancellation;
     return _responseError(
       url: url,
       statusCode: error.response?.statusCode,
@@ -310,6 +313,7 @@ class AiChatService {
   /// Returns structured content/reasoning deltas.
   static Stream<AiStreamDelta> streamChat({
     required List<Map<String, String>> messages,
+    required CancelToken cancelToken,
     String? model,
     String? reasoningEffort,
   }) async* {
@@ -321,9 +325,9 @@ class AiChatService {
     final url = _endpointUrl('chat/completions');
     final opts = _options(receiveTimeout: const Duration(minutes: 10))
       ..responseType = ResponseType.stream;
-    final Response<ResponseBody> response;
+    final dio = Dio();
     try {
-      response = await Dio().post<ResponseBody>(
+      final response = await dio.post<ResponseBody>(
         url,
         data: jsonEncode({
           'model': useModel,
@@ -336,11 +340,23 @@ class AiChatService {
             'reasoning_effort': reasoningEffort,
         }),
         options: opts,
+        cancelToken: cancelToken,
       );
+      yield* _parseResponse(response, url, cancelToken);
     } on DioException catch (error) {
-      throw await _requestError(url, error);
+      if (CancelToken.isCancel(error) || cancelToken.isCancelled) rethrow;
+      throw await _requestError(url, error, cancelToken: cancelToken);
+    } finally {
+      dio.close(force: true);
     }
+  }
 
+  static Stream<AiStreamDelta> _parseResponse(
+    Response<ResponseBody> response,
+    String url,
+    CancelToken cancelToken,
+  ) async* {
+    if (cancelToken.isCancelled) return;
     final body = response.data;
     if (body == null) {
       throw _responseError(
@@ -372,6 +388,7 @@ class AiChatService {
               .cast<List<int>>()
               .transform(utf8.decoder)
               .transform(const LineSplitter())) {
+        if (cancelToken.isCancelled) return;
         final trimmed = line.trim();
         if (trimmed.isEmpty) continue;
         if (!trimmed.startsWith('data:')) {
@@ -447,6 +464,7 @@ class AiChatService {
         } on AiApiException {
           rethrow;
         } catch (error, stackTrace) {
+          if (cancelToken.isCancelled) return;
           if (kDebugMode) {
             debugPrint('SSE parse error: ${error.runtimeType}');
           }
@@ -461,6 +479,8 @@ class AiChatService {
     } on AiApiException {
       rethrow;
     } catch (error, stackTrace) {
+      if (cancelToken.isCancelled) return;
+      if (error is DioException && CancelToken.isCancel(error)) rethrow;
       throw _responseError(
         url: url,
         statusCode: response.statusCode,
@@ -469,7 +489,8 @@ class AiChatService {
       );
     }
 
-    // Flush a parser buffer when a server closes the stream without [DONE].
+    if (cancelToken.isCancelled) return;
+    // 正常断流冲刷解析器；主动停止时不补出残留的部分标签。
     final split = parser.flush();
     final reasoning = acceptReasoning(
       split.reasoning,

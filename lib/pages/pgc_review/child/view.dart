@@ -1,3 +1,4 @@
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/skeleton/video_reply.dart';
 import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/style.dart';
@@ -183,12 +184,9 @@ class _PgcReviewChildPageState extends State<PgcReviewChildPage>
       type: MaterialType.transparency,
       child: InkWell(
         onTap: isLongReview
-            ? () => Get.toNamed(
-                '/articlePage',
-                parameters: {
-                  'id': item.articleId!.toString(),
-                  'type': 'read',
-                },
+            ? () => ArticlePage.toArticlePage(
+                id: item.articleId!.toString(),
+                type: .read,
               )
             : null,
         onLongPress: !isLongReview ? showMore : null,

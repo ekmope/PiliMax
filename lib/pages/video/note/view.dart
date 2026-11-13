@@ -1,3 +1,4 @@
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/skeleton/video_reply.dart';
 import 'package:PiliMax/common/sliver_single_child_delegate.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
@@ -207,12 +208,9 @@ class _NoteListPageState extends State<NoteListPage>
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        onTap: () => Get.toNamed(
-          '/articlePage',
-          parameters: {
-            'id': item.cvid!.toString(),
-            'type': 'read',
-          },
+        onTap: () => ArticlePage.toArticlePage(
+          id: item.cvid!.toString(),
+          type: .read,
         ),
         child: Padding(
           padding: const EdgeInsets.all(12),

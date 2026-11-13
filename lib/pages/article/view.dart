@@ -10,6 +10,7 @@ import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliMax/common/widgets/scroll_physics.dart';
 import 'package:PiliMax/common/widgets/sliver/sliver_to_box_adapter.dart';
+import 'package:PiliMax/models/common/dynamic/article_type.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/models/dynamics/article_content_model.dart' show Pic;
 import 'package:PiliMax/models/dynamics/result.dart' show DynamicStat, Tribee;
@@ -17,11 +18,12 @@ import 'package:PiliMax/pages/article/controller.dart';
 import 'package:PiliMax/pages/article/widgets/article_ops.dart';
 import 'package:PiliMax/pages/article/widgets/html_render.dart';
 import 'package:PiliMax/pages/article/widgets/opus_content.dart';
-import 'package:PiliMax/pages/article/widgets/sliver_list_ext.dart';
+import 'package:PiliMax/common/widgets/sliver/sliver_reverse.dart';
 import 'package:PiliMax/pages/article/widgets/sliver_to_box_adapter.dart';
 import 'package:PiliMax/pages/common/dyn/common_dyn_page.dart';
 import 'package:PiliMax/pages/dynamics_repost/view.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
+import 'package:PiliMax/utils/article_route_data.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -43,6 +45,30 @@ import 'package:html/parser.dart' as parser;
 class ArticlePage extends StatefulWidget {
   const ArticlePage({super.key});
 
+  static Future<void>? toArticlePage({
+    required String id,
+    required ArticleType type,
+    int? rpid,
+    int? rootRpId,
+    int? secondRpId,
+    bool viewComment = false,
+    bool off = false,
+  }) => Get.offOrToNamed(
+    '/articlePage',
+    arguments: {
+      'id': id,
+      'type': type,
+      ...replyRouteArguments(
+        rpid: rpid,
+        rootRpId: rootRpId,
+        secondRpId: secondRpId,
+      ),
+      if (viewComment) 'viewComment': true,
+    },
+    off: off,
+    preventDuplicates: false,
+  );
+
   @override
   State<ArticlePage> createState() => _ArticlePageState();
 }
@@ -53,17 +79,22 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage>
 
   bool get reverse => _centerKey != null;
 
+  late final _route = ArticleRouteData.from(
+    arguments: Get.arguments,
+    parameters: Get.parameters,
+  );
+
   @override
   late final ArticleController controller = Get.putOrFind(
     ArticleController.new,
-    tag: Get.parameters['type']! + Get.parameters['id']!,
+    tag: _route.tag,
   );
   @override
   bool get isArticle => true;
 
   @override
   void initState() {
-    if (Get.parameters.containsKey('viewComment') ||
+    if (_route.viewComment ||
         Get.arguments?['rpid'] != null ||
         Get.arguments?[rootRpIdKey] != null) {
       _centerKey = UniqueKey();
@@ -227,7 +258,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage>
               ),
             );
           } else {
-            content = SliverListExt.separated(
+            content = SliverListReverse.separated(
               reverse: reverse,
               itemCount: res.body!.children.length,
               itemBuilder: (context, index) {
@@ -246,7 +277,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage>
 
         return SliverMainAxisGroup(
           slivers: [
-            if (controller.type != 'read')
+            if (controller.type != .read)
               if (controller.opusData?.modules.moduleTop?.display?.album?.pics
                   case final pics? when pics.isNotEmpty)
                 SliverToBoxAdapter(child: _buildImageGallery(pics)),
@@ -259,11 +290,11 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage>
                 ),
               ),
             SliverToBoxAdapter(child: _buildAuthor()),
-            if (controller.type != 'read')
+            if (controller.type != .read)
               ...?controller.opusData?.modules.moduleTribee?.items?.map(
                 _buildTribee,
               ),
-            if (controller.type != 'read' &&
+            if (controller.type != .read &&
                 controller.opusData?.modules.moduleCollection != null)
               SliverToBoxAdapter(
                 child: SelectionContainer.disabled(

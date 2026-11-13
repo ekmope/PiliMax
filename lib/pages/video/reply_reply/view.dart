@@ -395,17 +395,22 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
               mainAxisSize: .min,
               children: [
                 Obx(() {
-                  if (_controller.replyTree.value != null) {
-                    return const SizedBox.shrink();
-                  }
+                  final hasTree = _controller.replyTree.value != null;
                   return IconButton(
                     visualDensity: .compact,
-                    tooltip: '线程化展示',
+                    tooltip: hasTree && _controller.showReplyTree
+                        ? '平铺展示'
+                        : '线程化展示',
+                    isSelected: _controller.showReplyTree,
                     onPressed: () {
-                      if (_controller.isEnd && _controller.foldCard == null) {
-                        _controller.buildTree();
-                      } else if (_controller.isFetchingReplies.value) {
+                      if (_controller.isLoading ||
+                          _controller.isFetchingReplies.value) {
                         SmartDialog.showToast('正在拉取评论，请稍后');
+                      } else if (hasTree) {
+                        _controller.toggleReplyTree();
+                      } else if (_controller.isEnd &&
+                          _controller.foldCard == null) {
+                        _controller.buildTree();
                       } else {
                         showConfirmDialog(
                           context: context,
@@ -470,9 +475,10 @@ class _VideoReplyReplyPanelState extends State<VideoReplyReplyPanel>
       ),
       Success(:final response!) => SuperSliverList.builder(
         listController: _controller.listController,
-        itemCount: (_controller.replyTree.value?.length ?? response.length) + 1,
+        itemCount:
+            (_controller.displayedReplyTree?.length ?? response.length) + 1,
         itemBuilder: (context, index) {
-          final tree = _controller.replyTree.value;
+          final tree = _controller.displayedReplyTree;
           final itemCount = tree?.length ?? response.length;
           if (index == itemCount) {
             if (tree == null) _controller.onLoadMore();

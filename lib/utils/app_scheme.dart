@@ -2,6 +2,7 @@
 
 import 'dart:async' show Completer, StreamSubscription, unawaited;
 
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/grpc/bilibili/app/listener/v1.pbenum.dart'
     show PlaylistSource;
@@ -378,9 +379,10 @@ abstract final class PiliScheme {
             // bilibili://article/40679479?jump_opus=1&jump_opus_type=1&opus_type=article&h5awaken=random
             String? id = uriDigitRegExp.firstMatch(path)?.group(1);
             if (id != null) {
-              PageUtils.toDupNamed(
-                '/articlePage',
-                parameters: {'id': id, 'type': 'read'},
+              ArticlePage.toArticlePage(
+                id: id,
+                type: .read,
+
                 off: off,
               );
               return true;
@@ -463,9 +465,10 @@ abstract final class PiliScheme {
               caseSensitive: false,
             ).matchAsPrefix(path)?.group(1);
             if (cvid != null) {
-              PageUtils.toDupNamed(
-                '/articlePage',
-                parameters: {'id': cvid, 'type': 'read'},
+              ArticlePage.toArticlePage(
+                id: cvid,
+                type: .read,
+
                 off: off,
               );
               return true;
@@ -796,9 +799,10 @@ abstract final class PiliScheme {
       case 'note' || 'note-app':
         String? id = uri.queryParameters['cvid'];
         if (id != null) {
-          PageUtils.toDupNamed(
-            '/articlePage',
-            parameters: {'id': id, 'type': 'read'},
+          ArticlePage.toArticlePage(
+            id: id,
+            type: .read,
+
             off: off,
           );
           return true;
@@ -902,9 +906,10 @@ abstract final class PiliScheme {
           caseSensitive: false,
         ).firstMatch(path)?.group(1);
         if (id != null) {
-          PageUtils.toDupNamed(
-            '/articlePage',
-            parameters: {'id': id, 'type': 'read'},
+          ArticlePage.toArticlePage(
+            id: id,
+            type: .read,
+
             off: off,
           );
           return true;

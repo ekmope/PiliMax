@@ -1,3 +1,4 @@
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
 import 'package:PiliMax/pilimax/common/widgets/video_card/video_detail_hero.dart';
@@ -49,14 +50,11 @@ class HistoryCardItem extends StatelessWidget {
   void _onTap() {
     final business = item.history.business;
     if (_isArticle) {
-      PageUtils.toDupNamed(
-        '/articlePage',
-        parameters: {
-          'id': business == 'article-list'
-              ? '${item.history.cid}'
-              : '${item.history.oid}',
-          'type': 'read',
-        },
+      ArticlePage.toArticlePage(
+        id: business == 'article-list'
+            ? '${item.history.cid}'
+            : '${item.history.oid}',
+        type: .read,
       );
     } else if (_isLive) {
       PageUtils.toLiveRoom(item.history.oid);

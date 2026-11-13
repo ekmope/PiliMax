@@ -38,6 +38,7 @@ abstract final class SettingBoxKey {
       superChatTimeType = 'superChatTimeType',
       fullScreenSCWidth = 'fullScreenSCWidth',
       keyboardControl = 'keyboardControl',
+      autoWearMedal = 'autoWearMedal',
       pauseOnMinimize = 'pauseOnMinimize',
       pgcSkipType = 'pgcSkipType',
       audioPlayMode = 'audioPlayMode',

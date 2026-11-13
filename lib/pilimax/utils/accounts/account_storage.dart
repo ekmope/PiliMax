@@ -18,7 +18,11 @@ final class PlatformAccountSecretStore implements AccountSecretStore {
   final FlutterSecureStorage _storage;
 
   const PlatformAccountSecretStore([
-    this._storage = const FlutterSecureStorage(),
+    // Accounts have used v10's default OAEP/GCM ciphers since this store was
+    // introduced. Never erase the Hive key if platform decryption fails.
+    this._storage = const FlutterSecureStorage(
+      aOptions: AndroidOptions(resetOnError: false, migrateWithBackup: true),
+    ),
   ]);
 
   @override

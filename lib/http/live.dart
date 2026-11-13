@@ -20,6 +20,8 @@ import 'package:PiliMax/models_new/live/live_dm_info/data.dart';
 import 'package:PiliMax/models_new/live/live_emote/data.dart';
 import 'package:PiliMax/models_new/live/live_emote/datum.dart';
 import 'package:PiliMax/models_new/live/live_fans_medal/data.dart';
+import 'package:PiliMax/models_new/live/live_fans_medal/config.dart';
+import 'package:PiliMax/models_new/live/live_fans_medal/user_medal.dart';
 import 'package:PiliMax/models_new/live/live_feed_index/data.dart';
 import 'package:PiliMax/models_new/live/live_follow/data.dart';
 import 'package:PiliMax/models_new/live/live_medal_wall/data.dart';
@@ -941,17 +943,19 @@ abstract final class LiveHttp {
   }
 
   static Future<LoadingState<FansMedalPanelData>> fansMedalPanel({
-    required Object roomId,
-    required Object targetId,
+    Object? roomId,
+    Object? targetId,
     int page = 1,
+    Account? account,
   }) async {
+    account ??= Accounts.main;
     final params = <String, dynamic>{
-      'access_key': ?Accounts.main.accessKey,
+      'access_key': ?account.accessKey,
       'actionKey': 'appkey',
       'platform': 'android',
       'statistics': Constants.statisticsApp,
-      'room_id': roomId,
-      'target_id': targetId,
+      'room_id': ?roomId,
+      'target_id': ?targetId,
       'page': page,
       'page_size': 50,
     };
@@ -959,7 +963,7 @@ abstract final class LiveHttp {
     final res = await Request().get(
       Api.liveFansMedalPanel,
       queryParameters: params,
-      options: Options(extra: {'account': Accounts.main}),
+      options: Options(extra: {'account': account}),
     );
     final body = _jsonMap(res.data);
     if (_responseCode(body?['code']) != 0) {
@@ -978,9 +982,11 @@ abstract final class LiveHttp {
     String url, {
     required Object medalId,
     required Object targetId,
+    Account? account,
   }) async {
+    account ??= Accounts.main;
     final params = <String, dynamic>{
-      'access_key': ?Accounts.main.accessKey,
+      'access_key': ?account.accessKey,
       'actionKey': 'appkey',
       'platform': 'android',
       'statistics': Constants.statisticsApp,
@@ -988,6 +994,8 @@ abstract final class LiveHttp {
       'medal_type': 1,
       'source': 1,
       'target_id': targetId,
+      'csrf_token': account.csrf,
+      'csrf': account.csrf,
     };
     AppSign.appSign(params);
     final res = await Request().post(
@@ -995,7 +1003,7 @@ abstract final class LiveHttp {
       data: params,
       options: Options(
         contentType: Headers.formUrlEncodedContentType,
-        extra: {'account': Accounts.main},
+        extra: {'account': account},
       ),
     );
     final body = _jsonMap(res.data);
@@ -1006,20 +1014,91 @@ abstract final class LiveHttp {
   static Future<LoadingState<void>> fansMedalWear({
     required Object medalId,
     required Object targetId,
+    Account? account,
   }) => _fansMedalAction(
     Api.liveFansMedalWear,
     medalId: medalId,
     targetId: targetId,
+    account: account,
   );
 
   static Future<LoadingState<void>> fansMedalTakeOff({
     required Object medalId,
     required Object targetId,
+    Account? account,
   }) => _fansMedalAction(
     Api.liveFansMedalTakeOff,
     medalId: medalId,
     targetId: targetId,
+    account: account,
   );
+
+  static Future<LoadingState<UserMedalInfo>> userMedalInfo({
+    required Object upId,
+    Account? account,
+  }) async {
+    account ??= Accounts.main;
+    final res = await Request().get(
+      Api.liveUserMedalInfo,
+      queryParameters: {'uid': account.mid, 'up_uid': upId},
+      options: Options(extra: {'account': account}),
+    );
+    final body = _jsonMap(res.data);
+    if (_responseCode(body?['code']) != 0) {
+      return Error(body?['message']?.toString() ?? '获取当前粉丝牌失败');
+    }
+    final data = _jsonMap(body?['data']);
+    return data == null
+        ? const Error('当前粉丝牌数据格式错误')
+        : Success(UserMedalInfo.fromJson(data));
+  }
+
+  static Future<LoadingState<FansMedalConfig>> fansMedalConfig({
+    Account? account,
+  }) async {
+    account ??= Accounts.main;
+    final res = await Request().get(
+      Api.liveConfigPlugs,
+      options: Options(extra: {'account': account}),
+    );
+    final body = _jsonMap(res.data);
+    if (_responseCode(body?['code']) != 0) {
+      return Error(body?['message']?.toString() ?? '获取展示设置失败');
+    }
+    final data = _jsonMap(body?['data']);
+    return data == null
+        ? const Error('展示设置数据格式错误')
+        : Success(FansMedalConfig.fromJson(data));
+  }
+
+  static Future<LoadingState<void>> setFansMedalConfig({
+    required String key,
+    required bool enabled,
+    Account? account,
+  }) async {
+    if (key != FansMedalConfig.closeSpaceMedalKey &&
+        key != FansMedalConfig.onlyShowWearingKey) {
+      return const Error('未知展示设置');
+    }
+    account ??= Accounts.main;
+    final res = await Request().post(
+      Api.liveEditPlugs,
+      data: {
+        'key': key,
+        'status': enabled ? 1 : 0,
+        'csrf': account.csrf,
+        'csrf_token': account.csrf,
+      },
+      options: Options(
+        contentType: Headers.formUrlEncodedContentType,
+        extra: {'account': account},
+      ),
+    );
+    final body = _jsonMap(res.data);
+    return _responseCode(body?['code']) == 0
+        ? const Success(null)
+        : Error(body?['message']?.toString() ?? '保存展示设置失败');
+  }
 
   static Future<LoadingState<String?>> liveMedalName(Object uid) async {
     final res = await Request().get(

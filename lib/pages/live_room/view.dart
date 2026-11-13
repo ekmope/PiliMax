@@ -24,6 +24,7 @@ import 'package:PiliMax/pages/danmaku/danmaku_model.dart';
 import 'package:PiliMax/pages/live_room/contribution_rank/controller.dart';
 import 'package:PiliMax/pages/live_room/contribution_rank/view.dart';
 import 'package:PiliMax/pages/live_room/controller.dart';
+import 'package:PiliMax/pages/live_room/fans_medal/button.dart';
 import 'package:PiliMax/pages/live_room/superchat/superchat_card.dart';
 import 'package:PiliMax/pages/live_room/superchat/superchat_panel.dart';
 import 'package:PiliMax/pages/live_room/widgets/bottom_control.dart';
@@ -1250,6 +1251,35 @@ class _LiveRoomPageState extends State<LiveRoomPage>
             final liveUrl =
                 'https://live.bilibili.com/${_liveRoomController.roomId}';
             return <PopupMenuEntry>[
+              if (_liveRoomController.canManageFansMedal &&
+                  _liveRoomController.medalTargetId != null)
+                PopupMenuItem(
+                  onTap: () => Get.toNamed(
+                    '/webview',
+                    parameters: {
+                      'url': Uri.https(
+                        'live.bilibili.com',
+                        '/p/html/live-app-fanspanel/index.html',
+                        {
+                          'roomId': _liveRoomController.roomId.toString(),
+                          'room_id': _liveRoomController.roomId.toString(),
+                          'anchorId': _liveRoomController.medalTargetId
+                              .toString(),
+                          'anchor_id': _liveRoomController.medalTargetId
+                              .toString(),
+                        },
+                      ).toString(),
+                    },
+                  ),
+                  child: const Row(
+                    spacing: 10,
+                    mainAxisSize: .min,
+                    children: [
+                      Icon(Icons.favorite_border, size: 19),
+                      Text('粉丝团'),
+                    ],
+                  ),
+                ),
               PopupMenuItem(
                 onTap: () => Utils.copyText(liveUrl),
                 child: const Row(
@@ -1455,6 +1485,7 @@ class _LiveRoomPageState extends State<LiveRoomPage>
                     );
                   },
                 ),
+                LiveFansMedalButton(controller: _liveRoomController),
                 const Expanded(
                   child: Text(
                     '发送弹幕',

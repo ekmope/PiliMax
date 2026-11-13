@@ -263,6 +263,12 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> seek(Duration position) {
+    if (!enableBackgroundPlay ||
+        mediaItem.value == null ||
+        mediaItem.value!.isLive == true ||
+        _mediaKind == 'live') {
+      return Future<void>.value();
+    }
     playbackState.add(playbackState.value.copyWith(updatePosition: position));
     return (onSeek?.call(position) ??
         PlPlayerController.seekToIfExists(position, isSeek: false));
@@ -379,10 +385,10 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
         androidCompactActionIndices: compactIndices,
         playing: playing,
         systemActions: {
-          MediaAction.seek,
+          if (!isLive) MediaAction.seek,
           if (!isLive && hasEpisodes) MediaAction.skipToPrevious,
-          MediaAction.rewind,
-          MediaAction.fastForward,
+          if (!isLive) MediaAction.rewind,
+          if (!isLive) MediaAction.fastForward,
           if (!isLive && hasEpisodes) MediaAction.skipToNext,
         },
       ),
@@ -601,12 +607,35 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   void forceClear({String reason = 'forced'}) =>
       _clearCurrentSession(reason: reason);
 
-  void onPositionChange(Duration position) {
+  void onSpeedChange(double speed) {
+    if (!enableBackgroundPlay ||
+        _item.isEmpty ||
+        !speed.isFinite ||
+        speed <= 0) {
+      return;
+    }
+    if (playbackState.value.speed == speed) return;
+    playbackState.add(
+      playbackState.value.copyWith(
+        speed: speed,
+        updatePosition: playbackState.value.position,
+      ),
+    );
+  }
+
+  void onPositionChange(Duration position, {double? speed}) {
     if (!enableBackgroundPlay || _item.isEmpty) {
       return;
     }
 
-    playbackState.add(playbackState.value.copyWith(updatePosition: position));
+    playbackState.add(
+      playbackState.value.copyWith(
+        updatePosition: position,
+        speed: speed != null && speed.isFinite && speed > 0
+            ? speed
+            : playbackState.value.speed,
+      ),
+    );
   }
 }
 

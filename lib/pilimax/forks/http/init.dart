@@ -18,6 +18,7 @@ import 'package:PiliMax/utils/accounts/account_manager/account_mgr.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/login_utils.dart';
 import 'package:PiliMax/pilimax/utils/log_redactor.dart';
+import 'package:PiliMax/pilimax/utils/accounts/anonymous_buvid_coordinator.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:archive/archive.dart';
@@ -117,7 +118,7 @@ class Request {
 
   static Future<void> _setCookie() async {
     if (!_accountManagerInstalled) {
-      accountManager = AccountManager();
+      accountManager = AccountManager(prepareAnonymous: _prepareAnonymous);
       dio.interceptors.add(accountManager);
       _accountManagerInstalled = true;
     }
@@ -162,20 +163,60 @@ class Request {
     }
   }
 
-  static Future<void> buvidActive(Account account) =>
-      _accountActivation.activate(
-        key: account,
-        isActivated: () => account.activated,
-        request: () => _activateBuvid(account),
-        setActivated: (value) => account.activated = value,
-        onError: (error, stackTrace) => _reportOperationFailure(
-          'Request.buvidActive',
-          error,
-          stackTrace,
-        ),
-      );
+  static Future<void> _prepareAnonymous(AnonymousAccount account) =>
+      account.prepareWebBuvid(_fetchAnonymousBuvid);
+
+  static Future<AnonymousBuvidCookies?> _fetchAnonymousBuvid() async {
+    final cancelToken = CancelToken();
+    try {
+      final response = await dio
+          .get<dynamic>(
+            '/x/frontend/finger/spi',
+            options: Options(
+              extra: {
+                'account': const NoAccount(),
+                RetryInterceptor.skipTransportRetryExtraKey: true,
+              },
+              sendTimeout: const Duration(seconds: 5),
+              receiveTimeout: const Duration(seconds: 5),
+            ),
+            cancelToken: cancelToken,
+          )
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              cancelToken.cancel('SPI initialization timed out');
+              throw TimeoutException('SPI initialization timed out');
+            },
+          );
+      final status = response.statusCode;
+      if (status == null || status < 200 || status >= 300) return null;
+      return AnonymousBuvidCookies.fromResponse(response.data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> buvidActive(Account account) async {
+    if (account is AnonymousAccount) await _prepareAnonymous(account);
+    await _accountActivation.activate(
+      key: account,
+      isActivated: () => account.activated,
+      request: () => _activateBuvid(account),
+      setActivated: (value) => account.activated = value,
+      onError: (error, stackTrace) => _reportOperationFailure(
+        'Request.buvidActive',
+        error,
+        stackTrace,
+      ),
+      generation: account is AnonymousAccount
+          ? () => account.webBuvidGeneration
+          : null,
+    );
+  }
 
   static Future<void> _activateBuvid(Account account) async {
+    if (account is AnonymousAccount) await _prepareAnonymous(account);
     // final html = await Request().get(Api.dynamicSpmPrefix,
     //     options: Options(extra: {'account': account}));
     // final String spmPrefix = _spmPrefixExp.firstMatch(html.data)!.group(1)!;

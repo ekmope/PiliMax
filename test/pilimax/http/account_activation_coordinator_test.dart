@@ -61,4 +61,56 @@ void main() {
     expect(requests, 2);
     expect(activated, isTrue);
   });
+
+  test('a cleared session cannot mark a late activation successful', () async {
+    final coordinator = AccountActivationCoordinator<String>();
+    final oldResponse = Completer<void>();
+    var generation = 0;
+    var activated = false;
+    var marks = 0;
+    Future<void> activate(Future<void> Function() request) =>
+        coordinator.activate(
+          key: 'anonymous',
+          generation: () => generation,
+          isActivated: () => activated,
+          request: request,
+          setActivated: (value) {
+            activated = value;
+            marks++;
+          },
+          onError: (_, _) {},
+        );
+    final stale = activate(() => oldResponse.future);
+    generation++;
+    await activate(() async {});
+    expect(activated, isTrue);
+    expect(marks, 1);
+    oldResponse.complete();
+    await stale;
+    expect(marks, 1);
+  });
+
+  test('a stale activation failure cannot clear a newer success', () async {
+    final coordinator = AccountActivationCoordinator<String>();
+    final oldResponse = Completer<void>();
+    var generation = 0;
+    var activated = false;
+    var errors = 0;
+    Future<void> activate(Future<void> Function() request) =>
+        coordinator.activate(
+          key: 'anonymous',
+          generation: () => generation,
+          isActivated: () => activated,
+          request: request,
+          setActivated: (value) => activated = value,
+          onError: (_, _) => errors++,
+        );
+    final stale = activate(() => oldResponse.future);
+    generation++;
+    await activate(() async {});
+    oldResponse.completeError(StateError('old request failed'));
+    await stale;
+    expect(activated, isTrue);
+    expect(errors, 0);
+  });
 }

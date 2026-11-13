@@ -5,13 +5,12 @@ import 'dart:typed_data';
 
 import 'package:PiliMax/build_config.dart';
 import 'package:PiliMax/common/constants.dart';
-import 'package:PiliMax/grpc/bilibili/main/community/reply/v1.pb.dart'
-    show ReplyInfo;
 import 'package:PiliMax/pages/search/controller.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/parse_int.dart';
+import 'package:PiliMax/utils/reply_cache_codec.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/pilimax/utils/app_font.dart';
 import 'package:PiliMax/pilimax/utils/custom_font_manager.dart'
@@ -198,7 +197,10 @@ abstract final class ConfigArchive {
     final store = GStorage.replyCacheStore;
     if (!store.isEnabled) return null;
     return jsonEncode(
-      store.values.map((e) => ReplyInfo.fromBuffer(e).toProto3Json()).toList(),
+      store.values
+          .map(ReplyCacheCodec.fromBuffer)
+          .map(ReplyCacheCodec.toJson)
+          .toList(),
     );
   }
 
@@ -379,8 +381,8 @@ abstract final class ConfigArchive {
         for (final entry in item.entries)
           if (entry.key is String) entry.key as String: entry.value,
       };
-      entries[item['id'].toString()] =
-          (ReplyInfo.create()..mergeFromProto3Json(json)).writeToBuffer();
+      entries[item['id'].toString()] = ReplyCacheCodec.fromJson(json)
+          .writeToBuffer();
     }
     await GStorage.replyCacheStore.putAll(entries);
   }

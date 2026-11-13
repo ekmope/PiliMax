@@ -18,6 +18,28 @@ class DownloadPlaybackMeta {
       (sponsorBlock?.items.isEmpty ?? true) &&
       (clipInfo?.items.isEmpty ?? true);
 
+  DownloadPlaybackMeta withSkipSegments({
+    required int fetchedAt,
+    List<SegmentItemModel>? sponsorBlock,
+    List<SegmentItemModel>? clipInfo,
+  }) {
+    DownloadPlaybackSkipSegments snapshot(List<SegmentItemModel> items) =>
+        DownloadPlaybackSkipSegments(
+          fetchedAt: fetchedAt,
+          items: items
+              .map(DownloadPlaybackSkipSegment.fromSegmentItemModel)
+              .toList(),
+        );
+    return DownloadPlaybackMeta(
+      version: version,
+      chapters: chapters,
+      sponsorBlock: sponsorBlock == null
+          ? this.sponsorBlock
+          : snapshot(sponsorBlock),
+      clipInfo: clipInfo == null ? this.clipInfo : snapshot(clipInfo),
+    );
+  }
+
   factory DownloadPlaybackMeta.fromJson(Map<String, dynamic> json) =>
       DownloadPlaybackMeta(
         version: json['version'] as int? ?? 1,

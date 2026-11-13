@@ -480,6 +480,7 @@ class VideoDetailController extends GetxController
 
   void initFileSource(BiliDownloadEntryInfo entry, {bool isInit = true}) {
     this.entry = entry;
+    volume = entry.volume;
     firstVideo = VideoItem(
       quality: VideoQuality.fromCode(entry.preferedVideoQuality),
       width: entry.ep?.width ?? entry.pageData?.width ?? 1,
@@ -2645,6 +2646,7 @@ class VideoDetailController extends GetxController
     }
 
     playedTime = null;
+    volume = null;
     _dmTrendTaskId++;
     _dmFetchTaskId++;
     _dmElemsFuture = null;

@@ -1,3 +1,4 @@
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliMax/common/widgets/keep_alive_wrapper.dart';
@@ -203,12 +204,9 @@ class _BubblePageState extends State<BubblePage>
                   safeArea: false,
                   visualDensity: .standard,
                   // PageUtils.pushDynFromId(id: item.dynId);
-                  onTap: () => Get.toNamed(
-                    '/articlePage',
-                    parameters: {
-                      'id': item.dynId!,
-                      'type': 'opus',
-                    },
+                  onTap: () => ArticlePage.toArticlePage(
+                    id: item.dynId!,
+                    type: .opus,
                   ),
                   title: Text(
                     item.title!,

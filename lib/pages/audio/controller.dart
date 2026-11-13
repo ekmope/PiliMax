@@ -124,10 +124,18 @@ class AudioController extends GetxController
 
   late double speed = 1.0;
 
-  void setSpeed(double value) {
+  Future<void> setSpeed(double value) async {
     if (player case final player?) {
+      if (!value.isFinite || value <= 0) return;
       speed = value;
-      player.setRate(value);
+      try {
+        await player.setRate(value);
+      } catch (error, stackTrace) {
+        Utils.reportError(error, stackTrace, 'AudioController.setSpeed');
+        return;
+      }
+      if (!identical(this.player, player) || isClosed) return;
+      videoPlayerServiceHandler?.onSpeedChange(player.state.rate);
       _updatePlaybackState();
     }
   }
@@ -1014,7 +1022,10 @@ class AudioController extends GetxController
           this.position.value = seconds;
           _recordCurrentAudioProgress(seconds);
           _videoDetailController?.playedTime = position;
-          videoPlayerServiceHandler?.onPositionChange(position);
+          videoPlayerServiceHandler?.onPositionChange(
+            position,
+            speed: player!.state.rate,
+          );
           _unawaitedHeartBeat(_reportPlayingHeartBeat(position));
         }
       }),

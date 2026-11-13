@@ -259,6 +259,8 @@ LoginAccount _account({
   },
   accessKey: accessKey,
   refresh: 'refresh-$mid',
+  // Storage migration fixtures do not bootstrap the global anonymous account.
+  buvid: 'synthetic-storage-buvid-$mid',
   type: <AccountType>{AccountType.main},
 );
 

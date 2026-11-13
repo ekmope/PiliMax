@@ -470,6 +470,39 @@ class Volume {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+    'measured_i': measuredI,
+    'measured_lra': measuredLra,
+    'measured_tp': measuredTp,
+    'measured_threshold': measuredThreshold,
+    'target_offset': targetOffset,
+    'target_i': targetI,
+    'target_tp': targetTp,
+  };
+
+  static Volume? fromCache(dynamic json) {
+    if (json is! Map) return null;
+    try {
+      final values = json.cast<String, dynamic>();
+      for (final key in const [
+        'measured_i',
+        'measured_lra',
+        'measured_tp',
+        'measured_threshold',
+        'target_offset',
+        'target_i',
+        'target_tp',
+      ]) {
+        final value = values[key];
+        if (value != null && (value is! num || !value.isFinite)) return null;
+      }
+      final volume = Volume.fromJson(values);
+      return volume.isNotEmpty ? volume : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   String format(Map<String, num> config) {
     final lra = max(config['lra'] ?? 11, measuredLra);
     num i = config['i'] ?? targetI;

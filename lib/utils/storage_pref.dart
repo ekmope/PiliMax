@@ -162,6 +162,7 @@ abstract final class Pref {
         SettingBoxKey.keepUpReplyReply: () => keepUpReplyReply,
         SettingBoxKey.keepUpTopReply: () => keepUpTopReply,
         SettingBoxKey.keyboardControl: () => keyboardControl,
+        SettingBoxKey.autoWearMedal: () => autoWearMedal,
         SettingBoxKey.mainTabBarView: () => mainTabBarView,
         SettingBoxKey.minimizeOnExit: () => minimizeOnExit,
         SettingBoxKey.mixWithOthers: () => mixWithOthers,
@@ -1765,6 +1766,9 @@ abstract final class Pref {
 
   static bool get keyboardControl =>
       _setting.get(SettingBoxKey.keyboardControl, defaultValue: true);
+
+  static bool get autoWearMedal =>
+      _setting.get(SettingBoxKey.autoWearMedal, defaultValue: false);
 
   static bool get pauseOnMinimize =>
       _setting.get(SettingBoxKey.pauseOnMinimize, defaultValue: false);

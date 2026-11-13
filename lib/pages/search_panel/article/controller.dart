@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/models/common/search/article_search_type.dart';
 import 'package:PiliMax/models/search/result.dart';
@@ -32,12 +33,9 @@ class SearchArticleController
     ).matchAsPrefix(keyword)?.group(2);
     if (cvid != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Get.toNamed(
-          '/articlePage',
-          parameters: {
-            'id': cvid,
-            'type': 'read',
-          },
+        ArticlePage.toArticlePage(
+          id: cvid,
+          type: .read,
         );
       });
     }
@@ -46,7 +44,10 @@ class SearchArticleController
   Rx<ArticleOrderType> articleOrderType = ArticleOrderType.totalrank.obs;
 
   @override
-  bool customHandleResponse(bool isRefresh, Success<SearchArticleData> response) {
+  bool customHandleResponse(
+    bool isRefresh,
+    Success<SearchArticleData> response,
+  ) {
     searchResultController?.count[searchType.index] =
         response.response.numResults ?? 0;
     final list = response.response.list;

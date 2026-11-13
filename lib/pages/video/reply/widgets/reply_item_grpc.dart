@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/widgets/emote_tooltip.dart';
 import 'package:PiliMax/common/assets.dart';
 import 'package:PiliMax/common/constants.dart';
@@ -49,6 +50,7 @@ import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
+import 'package:PiliMax/utils/reply_cache_codec.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -61,7 +63,6 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
-import 'package:protobuf/protobuf.dart';
 
 final _threadedColorsLight = [
   Colors.redAccent,
@@ -901,12 +902,9 @@ class ReplyItemGrpc extends StatelessWidget {
                   String? cvid =
                       match?.group(1) ?? match?.group(2) ?? match?.group(3);
                   if (cvid != null) {
-                    Get.toNamed(
-                      '/articlePage',
-                      parameters: {
-                        'id': cvid,
-                        'type': 'read',
-                      },
+                    ArticlePage.toArticlePage(
+                      id: cvid,
+                      type: .read,
                     );
                     return;
                   }
@@ -1140,12 +1138,9 @@ class ReplyItemGrpc extends StatelessWidget {
         recognizer = NoDeadlineTapGestureRecognizer()
           ..onTap = () => hasClickUrl
               ? PiliScheme.routePushFromUrl(content.richText.note.clickUrl)
-              : Get.toNamed(
-                  '/articlePage',
-                  parameters: {
-                    'id': content.richText.opus.opusId.toString(),
-                    'type': 'opus',
-                  },
+              : ArticlePage.toArticlePage(
+                  id: content.richText.opus.opusId.toString(),
+                  type: .opus,
                 );
       } else {
         color = colorScheme.secondary;
@@ -1206,11 +1201,7 @@ class ReplyItemGrpc extends StatelessWidget {
                 Get.back();
                 GStorage.replyCacheStore.put(
                   item.id.toString(),
-                  (item.deepCopy()
-                        ..unknownFields.clear()
-                        ..replies.clear()
-                        ..clearTrackInfo())
-                      .writeToBuffer(),
+                  ReplyCacheCodec.toCacheBuffer(item, clearReplies: true),
                 );
               },
               title: Text(
@@ -1233,12 +1224,10 @@ class ReplyItemGrpc extends StatelessWidget {
               onTap: () {
                 Get.back();
                 final oid = item.oid.toInt();
-                final data =
-                    (item.deepCopy()
-                          ..unknownFields.clear()
-                          ..replies.clear()
-                          ..clearTrackInfo())
-                        .writeToBuffer();
+                final data = ReplyCacheCodec.toCacheBuffer(
+                  item,
+                  clearReplies: true,
+                );
                 GStorage.replyCacheStore.putAll({
                   for (var i = oid; i < oid + 1000; i++) i.toString(): data,
                 });

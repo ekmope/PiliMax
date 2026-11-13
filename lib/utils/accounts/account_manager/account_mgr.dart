@@ -21,9 +21,12 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 final _setCookieReg = RegExp('(?<=)(,)(?=[^;]+?=)');
 
 class AccountManager extends Interceptor {
-  AccountManager();
+  AccountManager({this.prepareAnonymous});
+
+  final Future<void> Function(AnonymousAccount account)? prepareAnonymous;
 
   static final _toastGate = RequestErrorToastGate();
+  static const _anonymousGenerationKey = 'pilimax.anonymousCookieGeneration';
 
   static String blockServer = Pref.blockServer;
 
@@ -134,6 +137,7 @@ class AccountManager extends Interceptor {
       'hdslb.com',
       'biliimg.com',
       'site/getCoin',
+      'frontend/finger/spi',
     ];
     if (err.type == DioExceptionType.cancel) return;
 
@@ -157,6 +161,11 @@ class AccountManager extends Interceptor {
   }
 
   static Future<void> _saveCookies(Account account, Response response) async {
+    bool isCurrent() =>
+        account is! AnonymousAccount ||
+        response.requestOptions.extra[_anonymousGenerationKey] ==
+            account.webBuvidGeneration;
+    if (!isCurrent()) return;
     final setCookies = response.headers[HttpHeaders.setCookieHeader];
     if (setCookies == null || setCookies.isEmpty) {
       return;
@@ -202,6 +211,7 @@ class AccountManager extends Interceptor {
       final originalUri = response.realUri;
       var didReportRedirectFailure = false;
       for (final location in locations) {
+        if (!isCurrent()) return;
         try {
           await account.cookieJar.saveFromResponse(
             originalUri.resolve(location),
@@ -229,7 +239,21 @@ class AccountManager extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     try {
-      final cookies = await account.cookieJar.loadForRequest(options.uri);
+      late List<Cookie> cookies;
+      while (true) {
+        if (account is AnonymousAccount) await prepareAnonymous?.call(account);
+        final generation = account is AnonymousAccount
+            ? account.webBuvidGeneration
+            : null;
+        cookies = await account.cookieJar.loadForRequest(options.uri);
+        if (account is! AnonymousAccount ||
+            generation == account.webBuvidGeneration) {
+          if (generation != null) {
+            options.extra[_anonymousGenerationKey] = generation;
+          }
+          break;
+        }
+      }
       final previousCookies =
           options.headers[HttpHeaders.cookieHeader] as String?;
       final newCookies = getCookies([

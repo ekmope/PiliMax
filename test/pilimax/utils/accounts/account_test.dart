@@ -171,6 +171,7 @@ void main() {
         ..registerAdapter(LoginAccountAdapter())
         ..registerAdapter(AccountTypeAdapter());
 
+      GStorage.setting = await Hive.openBox<dynamic>('setting');
       GStorage.localCache = await Hive.openBox<dynamic>('localCache');
 
       final box = await Hive.openBox<LoginAccount>('account');

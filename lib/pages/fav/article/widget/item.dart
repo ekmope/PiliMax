@@ -1,3 +1,4 @@
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/button/icon_button.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
@@ -5,7 +6,6 @@ import 'package:PiliMax/common/widgets/stat/stat.dart';
 import 'package:PiliMax/models/common/stat_type.dart';
 import 'package:PiliMax/models_new/fav/fav_article/item.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:get/get.dart';
 
 class FavArticleItem extends StatelessWidget {
   const FavArticleItem({
@@ -26,12 +26,9 @@ class FavArticleItem extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           InkWell(
-            onTap: () => Get.toNamed(
-              '/articlePage',
-              parameters: {
-                'id': item.opusId!.toString(),
-                'type': 'opus',
-              },
+            onTap: () => ArticlePage.toArticlePage(
+              id: item.opusId!.toString(),
+              type: .opus,
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(

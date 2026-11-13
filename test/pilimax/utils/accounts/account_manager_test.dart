@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
+import 'package:PiliMax/pilimax/utils/accounts/anonymous_buvid_coordinator.dart';
 import 'package:PiliMax/utils/accounts/account_manager/account_mgr.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:dio/dio.dart';
@@ -34,6 +35,104 @@ void main() {
 
     setUp(clearAnonymousCookies);
     tearDown(clearAnonymousCookies);
+
+    test('prepares anonymous web cookies before sending the request', () async {
+      await anonymous.delete();
+      final grpcBuvid = anonymous.buvid;
+      final started = Completer<void>();
+      final release = Completer<void>();
+      final adapter = _DeferredResponseAdapter();
+      final dio = Dio()
+        ..httpClientAdapter = adapter
+        ..interceptors.add(
+          AccountManager(
+            prepareAnonymous: (account) {
+              return account.prepareWebBuvid(() async {
+                started.complete();
+                await release.future;
+                return AnonymousBuvidCookies.fromResponse({
+                  'code': 0,
+                  'data': {'b_3': 'server-b3', 'b_4': 'server-b4'},
+                });
+              });
+            },
+          ),
+        );
+      final request = dio.get<String>(
+        'https://api.bilibili.com/test',
+        options: Options(extra: {'account': anonymous}),
+      );
+      await started.future;
+      expect(adapter.options.isCompleted, isFalse);
+      release.complete();
+      final options = await adapter.options.future;
+      expect(
+        options.headers[HttpHeaders.cookieHeader],
+        contains('buvid3=server-b3'),
+      );
+      expect(
+        options.headers[HttpHeaders.cookieHeader],
+        contains('buvid4=server-b4'),
+      );
+      expect(options.headers[HttpHeaders.cookieHeader], contains('b_nut='));
+      expect(anonymous.buvid, grpcBuvid);
+      expect(anonymous.activated, isFalse);
+      adapter.response.complete(ResponseBody.fromString('ok', HttpStatus.ok));
+      await request;
+      dio.close();
+    });
+
+    test(
+      'a response from a cleared anonymous session cannot restore cookies',
+      () async {
+        await anonymous.delete();
+        final adapter = _DeferredResponseAdapter();
+        final dio = Dio()
+          ..httpClientAdapter = adapter
+          ..interceptors.add(AccountManager());
+        final request = dio.get<String>(
+          'https://api.bilibili.com/test',
+          options: Options(extra: {'account': anonymous}),
+        );
+        await adapter.options.future;
+        await anonymous.delete();
+        adapter.response.complete(
+          ResponseBody.fromString(
+            'old response',
+            HttpStatus.ok,
+            headers: {
+              HttpHeaders.setCookieHeader: [
+                'buvid3=stale; Domain=.bilibili.com; Path=/',
+              ],
+            },
+          ),
+        );
+        await request;
+        expect(anonymous.cookieJar.toJson()['buvid3'], isNot('stale'));
+        dio.close();
+      },
+    );
+
+    test('NoAccount requests bypass anonymous preparation', () async {
+      var preparations = 0;
+      final dio = Dio()
+        ..httpClientAdapter = _StaticResponseAdapter(
+          ResponseBody.fromString('ok', HttpStatus.ok),
+        )
+        ..interceptors.add(
+          AccountManager(
+            prepareAnonymous: (_) async {
+              preparations++;
+            },
+          ),
+        );
+      await dio.get<String>(
+        'https://api.bilibili.com/x/frontend/finger/spi',
+        options: Options(extra: {'account': const NoAccount()}),
+      );
+      expect(preparations, 0);
+      dio.close();
+    });
 
     test('isolates malformed cookies and redirect locations', () async {
       final dio = _dioWithResponse(
@@ -143,6 +242,24 @@ final class _StaticResponseAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async => response;
+
+  @override
+  void close({bool force = false}) {}
+}
+
+final class _DeferredResponseAdapter implements HttpClientAdapter {
+  final options = Completer<RequestOptions>();
+  final response = Completer<ResponseBody>();
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) {
+    this.options.complete(options);
+    return response.future;
+  }
 
   @override
   void close({bool force = false}) {}

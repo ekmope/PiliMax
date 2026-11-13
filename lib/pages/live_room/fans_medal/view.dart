@@ -5,7 +5,9 @@ import 'package:PiliMax/common/widgets/loading_widget/loading_widget.dart';
 import 'package:PiliMax/models/common/image_type.dart';
 import 'package:PiliMax/models_new/live/live_fans_medal/item.dart';
 import 'package:PiliMax/pages/live_room/controller.dart';
+import 'package:PiliMax/pages/fans_medal/view.dart';
 import 'package:PiliMax/pages/member/widget/medal_widget.dart';
+import 'package:PiliMax/services/account_service.dart';
 import 'package:PiliMax/utils/num_utils.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
@@ -32,46 +34,54 @@ class _FansMedalPanelState extends State<FansMedalPanel> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      children: [
-        _TitleBar(liveRoomController: widget.liveRoomController),
-        Expanded(
-          child: Obx(() {
-            final data = widget.liveRoomController.fansMedalData.value;
-            final loading = widget.liveRoomController.fansMedalLoading.value;
-            final error = widget.liveRoomController.fansMedalError.value;
+    return Obx(() {
+      if (Get.isRegistered<AccountService>()) {
+        Get.find<AccountService>().isLogin.value;
+      }
+      if (!widget.liveRoomController.canManageFansMedal) {
+        return const Center(child: Text('账号已切换，请重新进入直播间'));
+      }
+      return Column(
+        children: [
+          _TitleBar(liveRoomController: widget.liveRoomController),
+          Expanded(
+            child: Obx(() {
+              final data = widget.liveRoomController.fansMedalData.value;
+              final loading = widget.liveRoomController.fansMedalLoading.value;
+              final error = widget.liveRoomController.fansMedalError.value;
 
-            if (data == null && loading) {
-              return const SizedBox(height: 160, child: m3eLoading);
-            }
-            if (data == null && error != null) {
-              return _ErrorView(
-                error: error,
-                onRetry: () =>
-                    widget.liveRoomController.loadFansMedal(force: true),
-              );
-            }
-            if (data == null) return const SizedBox.shrink();
+              if (data == null && loading) {
+                return const SizedBox(height: 160, child: m3eLoading);
+              }
+              if (data == null && error != null) {
+                return _ErrorView(
+                  error: error,
+                  onRetry: () =>
+                      widget.liveRoomController.loadFansMedal(force: true),
+                );
+              }
+              if (data == null) return const SizedBox.shrink();
 
-            final items = [...?data.specialList, ...?data.list];
-            if (items.isEmpty) {
-              return Center(
-                child: Text(
-                  '还没有粉丝勋章',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+              final items = [...?data.specialList, ...?data.list];
+              if (items.isEmpty) {
+                return Center(
+                  child: Text(
+                    '还没有粉丝勋章',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
+                );
+              }
+              return _FansMedalList(
+                items: items,
+                liveRoomController: widget.liveRoomController,
               );
-            }
-            return _FansMedalList(
-              items: items,
-              liveRoomController: widget.liveRoomController,
-            );
-          }),
-        ),
-      ],
-    );
+            }),
+          ),
+        ],
+      );
+    });
   }
 }
 
@@ -91,6 +101,24 @@ class _TitleBar extends StatelessWidget {
           children: [
             Text('粉丝勋章', style: theme.textTheme.titleMedium),
             const Spacer(),
+            PopupMenuButton<String>(
+              tooltip: '勋章选项',
+              onSelected: (value) async {
+                if (value == 'settings') {
+                  await showFansMedalSettings(context);
+                } else {
+                  await Get.toNamed('/fansMedal');
+                  if (!liveRoomController.isClosed) {
+                    liveRoomController.markFansMedalStale();
+                    await liveRoomController.loadFansMedal(force: true);
+                  }
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'manage', child: Text('勋章管理')),
+                PopupMenuItem(value: 'settings', child: Text('展示设置')),
+              ],
+            ),
             Obx(() {
               final total = liveRoomController.fansMedalData.value?.totalNumber;
               if (total == null) return const SizedBox.shrink();
@@ -226,7 +254,7 @@ class _FansMedalListState extends State<_FansMedalList> {
               return const SizedBox(height: 48, child: m3eLoading);
             }
             final item = widget.items[index];
-            return _FansMedalTile(
+            return FansMedalTile(
               item: item,
               acting: _acting || loading || acting,
               onTap: () => _handleTap(item),
@@ -253,8 +281,9 @@ class _FansMedalListState extends State<_FansMedalList> {
   }
 }
 
-class _FansMedalTile extends StatelessWidget {
-  const _FansMedalTile({
+class FansMedalTile extends StatelessWidget {
+  const FansMedalTile({
+    super.key,
     required this.item,
     required this.acting,
     required this.onTap,

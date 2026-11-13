@@ -2356,8 +2356,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
             // '!delay_open,media_type=audio;'
             '%${utf8.encode(audio).length}%$audio');
       }
-      audioFilterExtras(volume, map: extras);
     }
+    if (!isLive) audioFilterExtras(volume, map: extras);
 
     if (!isCurrent()) return null;
     return (
@@ -2669,7 +2669,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
         // Keep the system media session on the native, sub-second position
         // instead of waiting for a page rebuild or a whole-second tick.
-        videoPlayerServiceHandler?.onPositionChange(position);
+        videoPlayerServiceHandler?.onPositionChange(
+          position,
+          speed: player.state.rate,
+        );
         _updateIOSPip(position);
 
         for (final element in _positionListeners) {
@@ -2985,6 +2988,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     required double speed,
     required double previousSpeed,
   }) {
+    videoPlayerServiceHandler?.onSpeedChange(speed);
     lastPlaybackSpeed = previousSpeed;
     if (!isLive) {
       _playbackSpeed.value = speed;
@@ -3325,7 +3329,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         : Duration(seconds: position.value);
     handler
       ..onStatusChange(playerStatus.value, isBuffering.value, isLive)
-      ..onPositionChange(positionSnapshot);
+      ..onPositionChange(
+        positionSnapshot,
+        speed: videoPlayerController?.state.rate,
+      );
   }
 
   set controls(bool visible) {

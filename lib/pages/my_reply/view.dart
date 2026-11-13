@@ -1,3 +1,4 @@
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/dialog/export_import.dart';
 import 'package:PiliMax/common/widgets/loading_widget/http_error.dart';
@@ -10,7 +11,7 @@ import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
-import 'package:PiliMax/utils/reply_scheme_helper.dart';
+import 'package:PiliMax/utils/reply_cache_codec.dart';
 import 'package:PiliMax/utils/reply_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -39,7 +40,9 @@ class _MyReplyState extends State<MyReply> with DynMixin {
 
   void _initReply() {
     _replies
-      ..assignAll(GStorage.replyCacheStore.values.map(ReplyInfo.fromBuffer))
+      ..assignAll(
+        GStorage.replyCacheStore.values.map(ReplyCacheCodec.fromBuffer),
+      )
       ..sort((a, b) => b.ctime.compareTo(a.ctime)); // rpid not aligned;
   }
 
@@ -126,13 +129,12 @@ class _MyReplyState extends State<MyReply> with DynMixin {
           secondRpId: secondRpId,
         );
       case 12:
-        PageUtils.toDupNamed(
-          '/articlePage',
-          parameters: {'id': replyInfo.oid.toString(), 'type': 'read'},
-          arguments: {
-            rootRpIdKey: rootRpId,
-            secondRpIdKey: ?secondRpId,
-          },
+        ArticlePage.toArticlePage(
+          id: replyInfo.oid.toString(),
+          type: .read,
+
+          rootRpId: rootRpId,
+          secondRpId: secondRpId,
         );
       case _:
         if (BiliUtils.isDynOrArticle(type)) {
@@ -175,7 +177,7 @@ class _MyReplyState extends State<MyReply> with DynMixin {
 
   String _onExport() {
     return Utils.jsonEncoder.convert(
-      _replies.map((e) => e.toProto3Json()).toList(),
+      _replies.map(ReplyCacheCodec.toJson).toList(),
     );
   }
 
@@ -214,8 +216,7 @@ class _MyReplyState extends State<MyReply> with DynMixin {
   Future<void> _onImport(List<dynamic> list) async {
     await GStorage.replyCacheStore.putAll({
       for (var e in list)
-        e['id'].toString(): (ReplyInfo.create()..mergeFromProto3Json(e))
-            .writeToBuffer(),
+        e['id'].toString(): ReplyCacheCodec.fromJson(e).writeToBuffer(),
     });
     if (mounted) {
       _initReply();

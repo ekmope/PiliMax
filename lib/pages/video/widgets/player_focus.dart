@@ -141,6 +141,8 @@ class PlayerFocus extends StatelessWidget {
         if (event is KeyDownEvent) {
           if (hasPlayer) {
             plPlayerController
+              ..clearHoverPreview()
+              ..seekPosition.value = plPlayerController.position.value
               ..longPressTimer?.cancel()
               ..longPressTimer = Timer.periodic(
                 const Duration(milliseconds: 200),

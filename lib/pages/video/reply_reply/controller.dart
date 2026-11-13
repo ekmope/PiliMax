@@ -352,13 +352,37 @@ class VideoReplyReplyController extends ReplyController
   }
 
   final removedReply = HashMap<Int64, ReplyInfo>();
+  bool showReplyTree = false;
   final replyTree = Rxn<ReplyTree>();
 
+  ReplyTree? get displayedReplyTree {
+    final tree = replyTree.value;
+    return showReplyTree ? tree : null;
+  }
+
+  void toggleReplyTree() {
+    if (replyTree.rawValue == null || isLoading || isFetchingReplies.value) {
+      return;
+    }
+    if (!showReplyTree) {
+      // Flat mode can receive new pages, replies and deletions. Rebuild from
+      // that data instead of reviving the snapshot from the previous tree.
+      buildTree();
+      index.value = null;
+      return;
+    }
+    showReplyTree = false;
+    index.value = null;
+    replyTree.refresh();
+  }
+
   void buildTree() {
+    if (isLoading || isFetchingReplies.value) return;
     final data = loadingState.rawValue.dataOrNull;
     if (data == null || data.isEmpty) return;
     final seen = HashSet<Int64>();
     data.retainWhere((reply) => seen.add(reply.id));
+    showReplyTree = true;
     replyTree.value = ReplyTree.build(
       data: data,
       seen: seen,
@@ -375,7 +399,7 @@ class VideoReplyReplyController extends ReplyController
   }
 
   bool setIndexByTreeNode(int end, ReplyTreeNode? node) {
-    final tree = replyTree.rawValue;
+    final tree = displayedReplyTree;
     if (node == null || tree == null) return false;
     final index = tree.reverseIdentityIndexOf(node, end);
     if (index == -1) return false;

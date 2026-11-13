@@ -10,6 +10,8 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/sponsor_block.dart';
 import 'package:PiliMax/http/video.dart';
 import 'package:PiliMax/models/common/video/base_quality.dart';
+import 'package:PiliMax/models/common/video/video_type.dart';
+import 'package:PiliMax/models/video/play/url.dart' show PlayUrlModel, Volume;
 import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/models_new/download/bili_download_media_file_info.dart';
 import 'package:PiliMax/pilimax/models_new/download/playback_meta.dart';
@@ -33,7 +35,7 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart'
-    show kDebugMode, debugPrint, ValueChanged, VoidCallback;
+    show kDebugMode, debugPrint, ValueChanged, VoidCallback, protected;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as path;
@@ -41,12 +43,16 @@ import 'package:synchronized/synchronized.dart';
 
 // ref https://github.com/10miaomiao/bilimiao2/blob/master/bilimiao-download/src/main/java/cn/a10miaomiao/bilimiao/download/DownloadService.kt
 
+enum DownloadMetadataUpdateResult { updated, unavailable, failed, removed }
+
 class DownloadService extends GetxService {
   static const _entryFile = 'entry.json';
   static const _indexFile = 'index.json';
   static const _maxDanmakuConcurrency = 4;
 
   final _lock = Lock();
+  final _metadataUpdateLock = Lock();
+  final _invalidatedMetadataEntries = Expando<bool>();
 
   final flagNotifier = SetNotifier();
   final completedEntryNotifier = <ValueChanged<BiliDownloadEntryInfo>>{};
@@ -296,7 +302,8 @@ class DownloadService extends GetxService {
 
   Future<bool> _restoreInterruptedTaskStatus(
     _ActiveDownloadTask task,
-  ) async {
+  ) => _lock.synchronized(() async {
+    if (_invalidatedMetadataEntries[task.entry] == true) return true;
     final activeTask = _activeTasks[task.entry.cid];
     if (identical(activeTask, task)) {
       return false;
@@ -311,7 +318,7 @@ class DownloadService extends GetxService {
       _refreshDownloadState();
     }
     return true;
-  }
+  });
 
   Future<void> _readDownloadList() async {
     downloadList.clear();
@@ -357,7 +364,6 @@ class DownloadService extends GetxService {
   }
 
   void downloadVideo({
-    required int index,
     required Part page,
     VideoDetailData? videoDetail,
     ugc.EpisodeItem? videoArc,
@@ -560,7 +566,16 @@ class DownloadService extends GetxService {
     await _createDownload(entry);
   }
 
-  Future<void> _createDownload(BiliDownloadEntryInfo entry) async {
+  Future<void> _createDownload(
+    BiliDownloadEntryInfo entry,
+  ) => _lock.synchronized(() async {
+    // A replacement must not recreate a path while its old generation is being
+    // deleted or a completed entry is still committing its metadata.
+    if (downloadList.any((other) => other.cid == entry.cid) ||
+        waitDownloadQueue.any((other) => other.cid == entry.cid) ||
+        _activeTasks.containsKey(entry.cid)) {
+      return;
+    }
     final entryDir = await _getDownloadEntryDir(entry);
     final entryJsonFile = File(path.join(entryDir.path, _entryFile));
     await entryJsonFile.writeAsString(jsonEncode(entry.toJson()));
@@ -570,8 +585,8 @@ class DownloadService extends GetxService {
       ..status = DownloadStatus.wait;
     waitDownloadQueue.add(entry);
     _schedulerPaused = false;
-    await _lock.synchronized(_scheduleDownloadsLocked);
-  }
+    await _scheduleDownloadsLocked();
+  });
 
   Future<Directory> _getDownloadEntryDir(BiliDownloadEntryInfo entry) async {
     late final String dirName;
@@ -713,11 +728,25 @@ class DownloadService extends GetxService {
     required BiliDownloadEntryInfo entry,
     bool isUpdate = false,
     bool Function()? shouldUpdateStatus,
+  }) {
+    Future<bool> update() => _downloadDanmaku(
+      entry: entry,
+      isUpdate: isUpdate,
+      shouldUpdateStatus: shouldUpdateStatus,
+    );
+    if (!isUpdate) return update();
+    return _metadataUpdateLock.synchronized(() {
+      if (!_canUpdateCompletedMetadata(entry)) return false;
+      return update();
+    });
+  }
+
+  Future<bool> _downloadDanmaku({
+    required BiliDownloadEntryInfo entry,
+    required bool isUpdate,
+    bool Function()? shouldUpdateStatus,
   }) async {
-    final cid = entry.pageData?.cid ?? entry.source?.cid;
-    if (cid == null) {
-      return false;
-    }
+    if (entry.pageData?.cid == null && entry.source?.cid == null) return false;
     final danmakuFile = File(
       path.join(entry.entryDirPath, PathUtils.danmakuName),
     );
@@ -726,29 +755,17 @@ class DownloadService extends GetxService {
         if (!isUpdate && (shouldUpdateStatus?.call() ?? true)) {
           _updateEntryStatus(entry, DownloadStatus.getDanmaku);
         }
-        final seg = (entry.totalTimeMilli / DmUtils.segLength).ceil();
-        if (seg <= 0) {
-          throw StateError('Invalid danmaku segment count: $seg');
-        }
-
-        final danmaku = (await DmGrpc.dmSegMobile(
-          cid: cid,
-          segmentIndex: 1,
-        )).data;
-        for (var start = 2; start <= seg; start += _maxDanmakuConcurrency) {
-          final end = start + _maxDanmakuConcurrency - 1;
-          final responses = await Future.wait([
-            for (var index = start; index <= seg && index <= end; index++)
-              DmGrpc.dmSegMobile(cid: cid, segmentIndex: index),
-          ]);
-          for (final response in responses) {
-            danmaku.elems.addAll(response.data.elems);
+        final bytes = await fetchDanmakuBytes(entry);
+        return await _lock.synchronized(() async {
+          if (isUpdate
+              ? !_canUpdateCompletedMetadata(entry)
+              : _invalidatedMetadataEntries[entry] == true ||
+                    !(shouldUpdateStatus?.call() ?? true)) {
+            return false;
           }
-          responses.clear();
-        }
-        await danmakuFile.writeAsBytes(danmaku.writeToBuffer());
-
-        return true;
+          await danmakuFile.writeAsBytes(bytes);
+          return true;
+        });
       } catch (e) {
         if (!isUpdate && (shouldUpdateStatus?.call() ?? true)) {
           _updateEntryStatus(entry, DownloadStatus.failDanmaku);
@@ -758,6 +775,25 @@ class DownloadService extends GetxService {
       }
     }
     return true;
+  }
+
+  @protected
+  Future<List<int>> fetchDanmakuBytes(BiliDownloadEntryInfo entry) async {
+    final cid = entry.pageData?.cid ?? entry.source!.cid;
+    final seg = (entry.totalTimeMilli / DmUtils.segLength).ceil();
+    if (seg <= 0) throw StateError('Invalid danmaku segment count: $seg');
+    final danmaku = (await DmGrpc.dmSegMobile(cid: cid, segmentIndex: 1)).data;
+    for (var start = 2; start <= seg; start += _maxDanmakuConcurrency) {
+      final end = start + _maxDanmakuConcurrency - 1;
+      final responses = await Future.wait([
+        for (var index = start; index <= seg && index <= end; index++)
+          DmGrpc.dmSegMobile(cid: cid, segmentIndex: index),
+      ]);
+      for (final response in responses) {
+        danmaku.elems.addAll(response.data.elems);
+      }
+    }
+    return danmaku.writeToBuffer();
   }
 
   Future<void> _downloadSubtitles({
@@ -945,6 +981,7 @@ class DownloadService extends GetxService {
   Future<void> _writePlaybackMeta({
     required BiliDownloadEntryInfo entry,
     List<SegmentItemModel>? clipInfoList,
+    required bool Function() isCurrent,
   }) async {
     try {
       final fetchedAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
@@ -967,13 +1004,16 @@ class DownloadService extends GetxService {
       final playbackMetaFile = File(
         path.join(entry.entryDirPath, PathUtils.playbackMetaName),
       );
-      if (meta.isEmpty) {
-        if (playbackMetaFile.existsSync()) {
-          await playbackMetaFile.tryDel();
+      await _lock.synchronized(() async {
+        if (!isCurrent() || _invalidatedMetadataEntries[entry] == true) return;
+        if (meta.isEmpty) {
+          if (playbackMetaFile.existsSync()) {
+            await playbackMetaFile.tryDel();
+          }
+          return;
         }
-        return;
-      }
-      await playbackMetaFile.writeAsString(jsonEncode(meta.toJson()));
+        await playbackMetaFile.writeAsString(jsonEncode(meta.toJson()));
+      });
     } catch (e) {
       if (kDebugMode) {
         debugPrint(
@@ -982,6 +1022,185 @@ class DownloadService extends GetxService {
       }
     }
   }
+
+  bool _canUpdateCompletedMetadata(BiliDownloadEntryInfo entry) =>
+      entry.isCompleted &&
+      _invalidatedMetadataEntries[entry] != true &&
+      !_activeTasks.containsKey(entry.cid) &&
+      downloadList.any((item) => identical(item, entry)) &&
+      Directory(entry.entryDirPath).existsSync();
+
+  Future<DownloadMetadataUpdateResult> _updateCompletedMetadata(
+    BiliDownloadEntryInfo entry,
+    Future<DownloadMetadataUpdateResult> Function() update,
+  ) => _metadataUpdateLock.synchronized(() async {
+    if (!_canUpdateCompletedMetadata(entry)) {
+      return DownloadMetadataUpdateResult.removed;
+    }
+    try {
+      return await update();
+    } catch (error, stackTrace) {
+      _reportHandledFailure(
+        'DownloadService.updateMetadata',
+        error,
+        stackTrace,
+      );
+      return DownloadMetadataUpdateResult.failed;
+    }
+  });
+
+  Future<DownloadMetadataUpdateResult> _commitCompletedMetadata(
+    BiliDownloadEntryInfo entry, {
+    Volume? volume,
+    SeasonInfo? seasonInfo,
+    List<SegmentItemModel>? clipInfo,
+    List<SegmentItemModel>? sponsorBlock,
+  }) => _lock.synchronized(() async {
+    if (!_canUpdateCompletedMetadata(entry)) {
+      return DownloadMetadataUpdateResult.removed;
+    }
+    if (volume == null &&
+        seasonInfo == null &&
+        clipInfo == null &&
+        sponsorBlock == null) {
+      return DownloadMetadataUpdateResult.unavailable;
+    }
+
+    // Read before changing anything: a malformed snapshot must not erase the
+    // other metadata sources when only one source is being refreshed.
+    final metaFile = File(
+      path.join(entry.entryDirPath, PathUtils.playbackMetaName),
+    );
+    DownloadPlaybackMeta? meta;
+    if (clipInfo != null || sponsorBlock != null) {
+      meta = metaFile.existsSync()
+          ? DownloadPlaybackMeta.fromJson(
+              (jsonDecode(await metaFile.readAsString()) as Map)
+                  .cast<String, dynamic>(),
+            )
+          : const DownloadPlaybackMeta();
+      meta = meta.withSkipSegments(
+        fetchedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        sponsorBlock: sponsorBlock,
+        clipInfo: clipInfo,
+      );
+    }
+    if (!_canUpdateCompletedMetadata(entry)) {
+      return DownloadMetadataUpdateResult.removed;
+    }
+    final previousVolume = entry.volume;
+    final previousSeasonInfo = entry.seasonInfo;
+    var entryPersisted = false;
+    try {
+      if (volume != null) entry.volume = volume;
+      if (seasonInfo != null) entry.seasonInfo = seasonInfo;
+      if (volume != null || seasonInfo != null) {
+        await _updateBiliDownloadEntryJson(entry);
+        entryPersisted = true;
+      }
+      if (!_canUpdateCompletedMetadata(entry)) {
+        return DownloadMetadataUpdateResult.removed;
+      }
+      if (meta != null) await metaFile.writeAsString(jsonEncode(meta.toJson()));
+      flagNotifier.refresh();
+      return DownloadMetadataUpdateResult.updated;
+    } catch (_) {
+      if (!entryPersisted) {
+        entry
+          ..volume = previousVolume
+          ..seasonInfo = previousSeasonInfo;
+      }
+      rethrow;
+    } finally {
+      if (entryPersisted) flagNotifier.refresh();
+    }
+  });
+
+  Future<DownloadMetadataUpdateResult> updateVolume(
+    BiliDownloadEntryInfo entry,
+  ) => _updateCompletedMetadata(entry, () => _updatePlayUrlMetadata(entry));
+
+  Future<DownloadMetadataUpdateResult> _updatePlayUrlMetadata(
+    BiliDownloadEntryInfo entry,
+  ) async {
+    final res = await fetchPlayUrlMetadata(entry);
+    if (res case Success(:final response)) {
+      return _commitCompletedMetadata(
+        entry,
+        volume: response.volume,
+        // Keep chapters and SponsorBlock separate from official PGC clips.
+        clipInfo: entry.ep == null ? null : response.clipInfoList,
+      );
+    }
+    return DownloadMetadataUpdateResult.failed;
+  }
+
+  @protected
+  Future<LoadingState<PlayUrlModel>> fetchPlayUrlMetadata(
+    BiliDownloadEntryInfo entry,
+  ) {
+    final ep = entry.ep;
+    return VideoHttp.videoUrl(
+      avid: entry.avid,
+      bvid: entry.bvid,
+      cid: entry.cid,
+      seasonId: entry.seasonId,
+      epid: ep?.episodeId,
+      qn: entry.preferedVideoQuality,
+      tryLook: false,
+      videoType: switch (ep?.from) {
+        'pugv' => VideoType.pugv,
+        != null => VideoType.pgc,
+        _ => VideoType.ugc,
+      },
+      voiceBalance: true,
+    );
+  }
+
+  Future<DownloadMetadataUpdateResult> updateSegments(
+    BiliDownloadEntryInfo entry,
+  ) => _updateCompletedMetadata(entry, () async {
+    if (entry.ep != null) return _updatePlayUrlMetadata(entry);
+    final res = await SponsorBlock.getSkipSegmentsCached(
+      bvid: entry.bvid,
+      cid: entry.cid,
+      forceRefresh: true,
+    );
+    if (res case Success(:final response)) {
+      return _commitCompletedMetadata(entry, sponsorBlock: response);
+    }
+    if (res case Error(code: 404)) {
+      return _commitCompletedMetadata(entry, sponsorBlock: const []);
+    }
+    return DownloadMetadataUpdateResult.failed;
+  });
+
+  Future<DownloadMetadataUpdateResult> updateSeasonInfo(
+    BiliDownloadEntryInfo entry,
+  ) => _updateCompletedMetadata(entry, () async {
+    if (entry.ep != null) return DownloadMetadataUpdateResult.unavailable;
+    final res = await VideoHttp.videoIntro(bvid: entry.bvid);
+    if (res case Success(:final response)) {
+      var index = 0;
+      final sections = response.ugcSeason?.sections;
+      if (sections == null) return DownloadMetadataUpdateResult.unavailable;
+      for (final section in sections) {
+        for (final episode in section.episodes ?? const <ugc.EpisodeItem>[]) {
+          if (episode.bvid == entry.bvid) {
+            // This compatibility field deliberately does not alter the
+            // user's folder title, order, associations or autoFolder fields.
+            return _commitCompletedMetadata(
+              entry,
+              seasonInfo: response.seasonInfo(index),
+            );
+          }
+          index++;
+        }
+      }
+      return DownloadMetadataUpdateResult.unavailable;
+    }
+    return DownloadMetadataUpdateResult.failed;
+  });
 
   Future<void> _startDownload(_ActiveDownloadTask task) async {
     final entry = task.entry;
@@ -1000,6 +1219,7 @@ class DownloadService extends GetxService {
 
       _updateEntryStatus(entry, DownloadStatus.getPlayUrl);
 
+      final qaBefore = entry.preferedVideoQuality;
       final downloadResult = await DownloadHttp.getVideoUrl(
         entry: entry,
         ep: entry.ep,
@@ -1009,6 +1229,19 @@ class DownloadService extends GetxService {
       if (await _restoreInterruptedTaskStatus(task)) {
         return;
       }
+      final persisted = await _lock.synchronized(() async {
+        if (!_isCurrentTask(task) ||
+            _invalidatedMetadataEntries[entry] == true) {
+          return false;
+        }
+        entry.volume = downloadResult.volume;
+        // Also persist progressive downloads before slow metadata IO.
+        await _updateBiliDownloadEntryJson(entry);
+        return true;
+      });
+      if (!persisted) return;
+      if (await _restoreInterruptedTaskStatus(task)) return;
+      if (qaBefore != entry.preferedVideoQuality) _refreshDownloadState();
       final mediaFileInfo = downloadResult.mediaFileInfo;
 
       final videoDir = Directory(path.join(entry.entryDirPath, entry.typeTag));
@@ -1023,6 +1256,7 @@ class DownloadService extends GetxService {
         _writePlaybackMeta(
           entry: entry,
           clipInfoList: downloadResult.clipInfoList,
+          isCurrent: () => _isCurrentTask(task),
         ),
       ]);
 
@@ -1077,7 +1311,12 @@ class DownloadService extends GetxService {
           entry.ep
             ?..width = first.width
             ..height = first.height;
-          await _updateBiliDownloadEntryJson(entry);
+          await _lock.synchronized(() async {
+            if (_isCurrentTask(task) &&
+                _invalidatedMetadataEntries[entry] != true) {
+              await _updateBiliDownloadEntryJson(entry);
+            }
+          });
           break;
         default:
           break;
@@ -1140,9 +1379,14 @@ class DownloadService extends GetxService {
     final entry = task.entry;
     if (progress == 0 && total != 0) {
       unawaited(
-        _updateBiliDownloadEntryJson(
-          entry..totalBytes = total,
-        ).catchError((_) {}),
+        _lock
+            .synchronized(() async {
+              if (_isCurrentTask(task) &&
+                  _invalidatedMetadataEntries[entry] != true) {
+                await _updateBiliDownloadEntryJson(entry..totalBytes = total);
+              }
+            })
+            .catchError((_) {}),
       );
     }
     entry
@@ -1249,30 +1493,40 @@ class DownloadService extends GetxService {
     bool refresh = true,
     bool downloadNext = true,
   }) async {
-    if (removeList) {
-      downloadList.remove(entry);
-    }
-    if (removeQueue) {
-      waitDownloadQueue.remove(entry);
-    }
-    if (_activeTasks.containsKey(entry.cid)) {
-      await cancelDownload(
-        entry: entry,
-        isDelete: true,
-        downloadNext: downloadNext,
-      );
-    }
-    final downloadDir = Directory(entry.pageDirPath);
-    if (downloadDir.existsSync()) {
-      if (!await downloadDir.lengthGte(2)) {
-        await downloadDir.tryDel(recursive: true);
-      } else {
-        final entryDir = Directory(entry.entryDirPath);
-        if (entryDir.existsSync()) {
-          await entryDir.tryDel(recursive: true);
+    _invalidatedMetadataEntries[entry] = true;
+    await _lock.synchronized(() async {
+      final known = downloadList.followedBy(waitDownloadQueue);
+      if (known.any(
+        (other) =>
+            !identical(other, entry) &&
+            path.equals(other.entryDirPath, entry.entryDirPath),
+      )) {
+        // An obsolete UI callback cannot delete a replacement at the same path.
+        return;
+      }
+      if (removeList) downloadList.remove(entry);
+      if (removeQueue) waitDownloadQueue.remove(entry);
+      final task = _activeTasks[entry.cid];
+      final deletingTask = task != null && identical(task.entry, entry);
+      if (deletingTask) {
+        await _pauseTaskLocked(task, isDelete: true);
+        waitDownloadQueue.remove(entry);
+      }
+      final downloadDir = Directory(entry.pageDirPath);
+      if (downloadDir.existsSync()) {
+        if (!await downloadDir.lengthGte(2)) {
+          await downloadDir.tryDel(recursive: true);
+        } else {
+          final entryDir = Directory(entry.entryDirPath);
+          if (entryDir.existsSync()) {
+            await entryDir.tryDel(recursive: true);
+          }
         }
       }
-    }
+      // Schedule after directory cleanup so a queued replacement never starts
+      // writing inside a directory that is still being removed.
+      if (deletingTask && downloadNext) await _scheduleDownloadsLocked();
+    });
     if (refresh) {
       flagNotifier.refresh();
     }
@@ -1282,8 +1536,34 @@ class DownloadService extends GetxService {
     required String pageDirPath,
     bool refresh = true,
   }) async {
-    await Directory(pageDirPath).tryDel(recursive: true);
-    downloadList.removeWhere((e) => e.pageDirPath == pageDirPath);
+    final entries = downloadList
+        .followedBy(waitDownloadQueue)
+        .where((entry) => path.equals(entry.pageDirPath, pageDirPath))
+        .toSet();
+    for (final entry in entries) {
+      _invalidatedMetadataEntries[entry] = true;
+    }
+    await _lock.synchronized(() async {
+      if (downloadList
+          .followedBy(waitDownloadQueue)
+          .any(
+            (entry) =>
+                path.equals(entry.pageDirPath, pageDirPath) &&
+                !entries.contains(entry),
+          )) {
+        return;
+      }
+      final tasks = _activeTasks.values
+          .where((task) => entries.contains(task.entry))
+          .toList();
+      for (final task in tasks) {
+        await _pauseTaskLocked(task, isDelete: true);
+      }
+      await Directory(pageDirPath).tryDel(recursive: true);
+      downloadList.removeWhere(entries.contains);
+      waitDownloadQueue.removeWhere(entries.contains);
+      if (tasks.isNotEmpty) await _scheduleDownloadsLocked();
+    });
     if (refresh) {
       flagNotifier.refresh();
     }

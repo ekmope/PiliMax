@@ -550,6 +550,17 @@ class _MemberPageState extends State<MemberPage> {
                 ],
               ),
             ),
+            PopupMenuItem(
+              onTap: () => Get.toNamed('/fansMedal'),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.workspace_premium_outlined, size: 19),
+                  SizedBox(width: 10),
+                  Text('粉丝勋章'),
+                ],
+              ),
+            ),
           ] else ...[
             if (_userController.isFollow)
               PopupMenuItem(

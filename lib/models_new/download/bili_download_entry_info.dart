@@ -2,6 +2,7 @@ import 'dart:io' show Platform, Process;
 
 import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
 import 'package:PiliMax/models/common/video/base_quality.dart';
+import 'package:PiliMax/models/video/play/url.dart' show Volume;
 import 'package:PiliMax/models_new/sponsor_block/segment_item.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart'
@@ -90,7 +91,8 @@ class BiliDownloadEntryInfo with MultiSelectData {
   final String? autoFolderTitle;
   final String? autoFolderSourceKey;
   final int? autoFolderIndex;
-  final SeasonInfo? seasonInfo;
+  SeasonInfo? seasonInfo;
+  Volume? volume;
 
   late String pageDirPath;
   late String entryDirPath;
@@ -265,6 +267,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
     this.autoFolderSourceKey,
     this.autoFolderIndex,
     this.seasonInfo,
+    this.volume,
   });
 
   factory BiliDownloadEntryInfo.fromJson(Map<String, dynamic> json) =>
@@ -313,6 +316,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
         seasonInfo: json['season_info'] != null
             ? SeasonInfo.fromJson(json['season_info'] as Map<String, dynamic>)
             : null,
+        volume: Volume.fromCache(json['volume']),
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -349,6 +353,7 @@ class BiliDownloadEntryInfo with MultiSelectData {
     'auto_folder_source_key': ?autoFolderSourceKey,
     'auto_folder_index': ?autoFolderIndex,
     'season_info': ?seasonInfo?.toJson(),
+    'volume': ?volume?.toJson(),
   };
 
   @override

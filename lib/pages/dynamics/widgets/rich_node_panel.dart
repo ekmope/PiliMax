@@ -10,6 +10,7 @@ import 'package:PiliMax/http/loading_state.dart';
 import 'package:PiliMax/http/search.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart' show SourceModel;
 import 'package:PiliMax/models/dynamics/result.dart';
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/pages/dynamics/widgets/vote.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -31,13 +32,32 @@ TextSpan? richNode(
     List<InlineSpan> spanChildren = [];
 
     final moduleDynamic = item.modules.moduleDynamic;
+    final opus = moduleDynamic?.major?.opus;
+    TextSpan contentSpan({String? text, TextStyle? textStyle}) {
+      return TextSpan(
+        children: [
+          if (text != null) TextSpan(text: text, style: textStyle),
+          ...spanChildren,
+          if (opus?.redirect ?? false)
+            TextSpan(
+              text: '\n${DynamicOpusModel.redirectText}',
+              style: style,
+              recognizer: NoDeadlineTapGestureRecognizer()
+                ..onTap = () =>
+                    ArticlePage.toArticlePage(id: item.idStr, type: .opus),
+            ),
+        ],
+        style: const TextStyle(height: 1.65),
+      );
+    }
+
     List<RichTextNodeItem>? richTextNodes;
     if (moduleDynamic?.desc case final desc?) {
       richTextNodes = desc.richTextNodes;
       if (richTextNodes == null || richTextNodes.isEmpty) {
-        return TextSpan(text: desc.text);
+        return contentSpan(text: desc.text);
       }
-    } else if (moduleDynamic?.major?.opus case DynamicOpusModel(
+    } else if (opus case DynamicOpusModel(
       :final title,
       :final summary,
     )) {
@@ -45,9 +65,9 @@ TextSpan? richNode(
       richTextNodes = summary?.richTextNodes;
       if (title != null && title.isNotEmpty) {
         if (richTextNodes == null || richTextNodes.isEmpty) {
-          return TextSpan(
+          return contentSpan(
             text: title,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            textStyle: const TextStyle(fontWeight: FontWeight.bold),
           );
         } else {
           spanChildren.add(
@@ -61,7 +81,7 @@ TextSpan? richNode(
     }
 
     if (richTextNodes == null || richTextNodes.isEmpty) {
-      return null;
+      return (opus?.redirect ?? false) ? contentSpan() : null;
     } else {
       for (var nodeIndex = 0; nodeIndex < richTextNodes.length; nodeIndex++) {
         final currentNodeIndex = nodeIndex;
@@ -386,10 +406,7 @@ TextSpan? richNode(
             break;
         }
       }
-      return TextSpan(
-        children: spanChildren,
-        style: const TextStyle(height: 1.65),
-      );
+      return contentSpan();
     }
   } catch (err) {
     if (kDebugMode) debugPrint('❌rich_node_panel err: $err');

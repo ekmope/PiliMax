@@ -1212,11 +1212,15 @@ class DynamicOpusModel {
     this.pics,
     this.summary,
     this.title,
+    this.redirect = false,
   });
 
   List<OpusPicModel>? pics;
   SummaryModel? summary;
   String? title;
+  bool redirect = false;
+
+  static const redirectText = '全文';
 
   DynamicOpusModel.fromJson(Map<String, dynamic> json) {
     pics = (json['pics'] as List?)
@@ -1226,6 +1230,9 @@ class DynamicOpusModel {
         ? SummaryModel.fromJson(json['summary'])
         : null;
     title = json['title'];
+    if (json['fold_action'] case [redirectText]) {
+      redirect = true;
+    }
   }
 }
 

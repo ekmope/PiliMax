@@ -1,3 +1,4 @@
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/badge.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/flutter/popup_menu.dart';
@@ -79,14 +80,11 @@ class HistoryItem extends StatelessWidget {
             ? () => ctr.onSelect(item)
             : () {
                 if (business?.contains('article') == true) {
-                  PageUtils.toDupNamed(
-                    '/articlePage',
-                    parameters: {
-                      'id': business == 'article-list'
-                          ? '${item.history.cid}'
-                          : '${item.history.oid}',
-                      'type': 'read',
-                    },
+                  ArticlePage.toArticlePage(
+                    id: business == 'article-list'
+                        ? '${item.history.cid}'
+                        : '${item.history.oid}',
+                    type: .read,
                   );
                 } else if (business == 'live') {
                   PageUtils.toLiveRoom(item.history.oid);
@@ -438,14 +436,11 @@ class HistoryItem extends StatelessWidget {
 Future<void> onPushHistory(HistoryItemModel item) async {
   final business = item.history.business;
   if (business?.contains('article') == true) {
-    PageUtils.toDupNamed(
-      '/articlePage',
-      parameters: {
-        'id': business == 'article-list'
-            ? '${item.history.cid}'
-            : '${item.history.oid}',
-        'type': 'read',
-      },
+    ArticlePage.toArticlePage(
+      id: business == 'article-list'
+          ? '${item.history.cid}'
+          : '${item.history.oid}',
+      type: .read,
     );
   } else if (business == 'live') {
     PageUtils.toLiveRoom(item.history.oid);

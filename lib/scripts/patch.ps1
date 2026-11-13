@@ -71,6 +71,9 @@ $MediaKitSecondarySubtitlePatch = "lib/scripts/media_kit_secondary_subtitle.patc
 # Keep notification custom-action PendingIntents stable across position updates.
 $AudioServicePendingIntentPatch = "lib/scripts/audio_service_pending_intent.patch"
 
+# WebView 1.5 uses std::filesystem; do not raise every plugin's C++ standard.
+$WebviewLinuxCxx17Patch = "lib/scripts/webview_all_linux_cxx17.patch"
+
 $RefreshIndicatorPatch = "lib/scripts/refresh_indicator.patch"
 
 # TODO: remove
@@ -563,6 +566,19 @@ try {
     $MediaKitMacosVideoRoot = $null
     $MediaKitAndroidVideoRoot = $null
     $AudioServiceRoot = $null
+    $WebviewLinuxRoot = $null
+    if ($platform.ToLower() -eq "linux") {
+        $WebviewLinuxPackage = $PackageConfig.packages |
+            Where-Object { $_.name -eq "webview_all_linux" } |
+            Select-Object -First 1
+        if ($null -eq $WebviewLinuxPackage) {
+            throw "webview_all_linux is missing from package_config.json"
+        }
+        $WebviewLinuxRoot = ([System.Uri]$WebviewLinuxPackage.rootUri).LocalPath
+        if (-not (Test-Path $WebviewLinuxRoot)) {
+            throw "webview_all_linux directory does not exist: $WebviewLinuxRoot"
+        }
+    }
     if ($platform.ToLower() -eq "android") {
         $AudioServicePackage = $PackageConfig.packages |
             Where-Object { $_.name -eq "audio_service" } |
@@ -756,6 +772,10 @@ if ($platform.ToLower() -eq "android") {
 }
 
 if ($platform.ToLower() -eq "linux") {
+    Set-Location $WebviewLinuxRoot
+    if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $WebviewLinuxCxx17Patch) -Description "$WebviewLinuxCxx17Patch to webview_all_linux")) {
+        exit 1
+    }
     try {
         Apply-MediaKitLinuxMimallocDownloadRetry -PackageRoot $MediaKitLinuxRoot
     } catch {

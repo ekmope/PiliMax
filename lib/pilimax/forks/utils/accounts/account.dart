@@ -1,6 +1,7 @@
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/models/common/account_type.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
+import 'package:PiliMax/pilimax/utils/accounts/anonymous_buvid_coordinator.dart';
 import 'package:PiliMax/utils/accounts/grpc_headers.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
@@ -492,10 +493,38 @@ class AnonymousAccount extends Account {
   @override
   bool activated = false;
 
+  late final _webBuvid = AnonymousBuvidCoordinator(
+    apply: _applyWebBuvid,
+    resetCookies: () => cookieJar.deleteAll().whenComplete(cookieJar.setBuvid3),
+  );
+
+  int get webBuvidGeneration => _webBuvid.generation;
+
+  Future<void> prepareWebBuvid(AnonymousBuvidFetcher fetch) =>
+      _webBuvid.ensure(fetch);
+
+  void _applyWebBuvid(AnonymousBuvidCookies values) {
+    final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000)
+        .toString();
+    final cookies = {
+      for (final entry in {
+        'buvid3': values.buvid3,
+        'buvid4': values.buvid4,
+        'b_nut': timestamp,
+      }.entries)
+        entry.key: SerializableCookie(
+          Cookie(entry.key, entry.value)..setBiliDomain(),
+        ),
+    };
+    final domain = cookieJar.domainCookies['bilibili.com'] ??= {};
+    (domain['/'] ??= {}).addAll(cookies);
+  }
+
   @override
   Future<void> delete() {
+    activated = false;
     grpcHeaders['x-bili-fawkes-req-bin'] = GrpcHeaders.fawkes;
-    return cookieJar.deleteAll().whenComplete(cookieJar.setBuvid3);
+    return _webBuvid.reset();
   }
 
   static final _instance = AnonymousAccount._();

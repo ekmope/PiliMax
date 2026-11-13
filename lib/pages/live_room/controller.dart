@@ -16,6 +16,7 @@ import 'package:PiliMax/models_new/live/live_danmaku/live_emote.dart';
 import 'package:PiliMax/models_new/live/live_dm_info/data.dart';
 import 'package:PiliMax/models_new/live/live_fans_medal/data.dart';
 import 'package:PiliMax/models_new/live/live_fans_medal/item.dart';
+import 'package:PiliMax/models_new/live/live_fans_medal/user_medal.dart';
 import 'package:PiliMax/models_new/live/live_medal_wall/uinfo_medal.dart';
 import 'package:PiliMax/models_new/live/live_room_info_h5/data.dart';
 import 'package:PiliMax/models_new/live/live_room_play_info/data.dart';
@@ -27,12 +28,14 @@ import 'package:PiliMax/pages/danmaku/danmaku_model.dart';
 import 'package:PiliMax/pages/live_room/send_danmaku/view.dart';
 import 'package:PiliMax/pages/video/widgets/header_control.dart';
 import 'package:PiliMax/pilimax/live/live_message_buffer.dart';
+import 'package:PiliMax/pilimax/live/fans_medal_actions.dart';
 import 'package:PiliMax/plugin/pl_player/controller.dart';
 import 'package:PiliMax/plugin/pl_player/models/data_source.dart';
 import 'package:PiliMax/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliMax/services/service_locator.dart';
 import 'package:PiliMax/pilimax/forks/tcp/live.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
+import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
 import 'package:PiliMax/utils/connectivity_utils.dart';
 import 'package:PiliMax/utils/android/bindings.g.dart';
 import 'package:PiliMax/utils/danmaku_utils.dart';
@@ -179,6 +182,18 @@ class LiveRoomController extends GetxController {
   bool _fansMedalStale = false;
   Future<void>? _fansMedalRequest;
   int _fansMedalPage = 1;
+  Account? _fansMedalAccount;
+  final currentFansMedal = Rxn<UinfoMedal>();
+  final hasRoomFansMedal = false.obs;
+  Future<void>? _currentMedalRequest;
+  int _currentMedalGeneration = 0;
+  bool _autoWearAttempted = false;
+
+  bool get canManageFansMedal =>
+      !isClosed &&
+      _fansMedalAccount != null &&
+      identical(_fansMedalAccount, Accounts.main) &&
+      Accounts.main.isLogin;
 
   Object? get medalTargetId => ruid ?? roomInfoH5.value?.roomInfo?.uid;
 
@@ -277,6 +292,7 @@ class LiveRoomController extends GetxController {
     final account = Accounts.main;
     isLogin = account.isLogin;
     mid = account.mid;
+    _fansMedalAccount = account;
 
     // 鐩存帴閫忎紶鏋勯€犲嚱鏁颁紶鍏ョ殑 fromPip 鏍囧織锛屽洜涓哄畠鍦?view.dart 涓凡缁忕粡杩囦簡鏍￠獙
     isReturningFromPip = fromPip;
@@ -750,6 +766,7 @@ class LiveRoomController extends GetxController {
       title.value = response.roomInfo?.title ?? '';
       watchedShow.value = response.watchedShow?.textLarge;
       _syncAudioServiceState();
+      unawaited(refreshCurrentFansMedal(autoWear: true));
     } else {
       res.toast();
     }
@@ -1038,6 +1055,7 @@ class LiveRoomController extends GetxController {
 
   @override
   void onClose() {
+    _currentMedalGeneration++;
     // 蹇冭烦瀹氭椂鍣ㄦ槸闈欐€佺殑锛屾棤璁烘槸鍚﹀皬绐楅兘瑕佸彇娑?
     _stopSizeSub();
     LiveHttp.cancelLiveHeartbeat();
@@ -1234,6 +1252,14 @@ class LiveRoomController extends GetxController {
         case 'ROOM_CHANGE':
           title.value = obj['data']['title'];
           break;
+        case 'MESSAGEBOX_USER_MEDAL_CHANGE':
+          // The socket belongs to heartbeat, which may be another user. Never
+          // apply its payload as main's medal; query the main account instead.
+          if (canManageFansMedal) {
+            markFansMedalStale();
+            unawaited(refreshCurrentFansMedal(invalidate: true));
+          }
+          break;
       }
     } catch (e, s) {
       if (kDebugMode) {
@@ -1302,6 +1328,7 @@ class LiveRoomController extends GetxController {
       toastNotLogin();
       return;
     }
+    unawaited(refreshCurrentFansMedal());
     Get.key.currentState!.push(
       PublishRoute(
         barrierColor: Colors.transparent,
@@ -1358,8 +1385,90 @@ class LiveRoomController extends GetxController {
     );
   }
 
+  Future<void> refreshCurrentFansMedal({
+    bool invalidate = false,
+    bool autoWear = false,
+  }) {
+    if (!canManageFansMedal) return Future<void>.value();
+    final target = medalTargetId;
+    if (target == null) return Future<void>.value();
+    if (invalidate) _currentMedalGeneration++;
+    final generation = _currentMedalGeneration;
+    if (_currentMedalRequest case final pending?) {
+      if (!invalidate && !autoWear) return pending;
+      return pending.then((_) {
+        if (canManageFansMedal && generation == _currentMedalGeneration) {
+          return refreshCurrentFansMedal(autoWear: autoWear);
+        }
+      });
+    }
+    final request = _fetchCurrentFansMedal(target, generation, autoWear);
+    _currentMedalRequest = request;
+    return request.whenComplete(() {
+      if (identical(_currentMedalRequest, request)) _currentMedalRequest = null;
+    });
+  }
+
+  Future<void> _fetchCurrentFansMedal(
+    Object target,
+    int generation,
+    bool autoWear,
+  ) async {
+    final account = _fansMedalAccount!;
+    final result = await LiveHttp.userMedalInfo(upId: target, account: account);
+    if (!canManageFansMedal || generation != _currentMedalGeneration) return;
+    if (result case Success(:final response)) {
+      currentFansMedal.value = response.current;
+      hasRoomFansMedal.value = response.hasMedal;
+      if (autoWear && !_autoWearAttempted) {
+        _autoWearAttempted = true;
+        await _autoWearRoomMedal(response, account, generation);
+      }
+    }
+  }
+
+  Future<void> _autoWearRoomMedal(
+    UserMedalInfo info,
+    Account account,
+    int generation,
+  ) async {
+    final roomMedal = info.roomMedal;
+    final id = roomMedal?.id;
+    final target = roomMedal?.ruid;
+    if (!Pref.autoWearMedal ||
+        !canManageFansMedal ||
+        generation != _currentMedalGeneration ||
+        FansMedalActions.isBusy ||
+        fansMedalActing.value ||
+        id == null ||
+        id <= 0 ||
+        target == null ||
+        target <= 0 ||
+        roomMedal?.ruid == info.wearing?.ruid) {
+      return;
+    }
+    fansMedalActing.value = true;
+    try {
+      // Query and mutation are explicitly bound to the same main account.
+      final result = await FansMedalActions.run(
+        () => LiveHttp.fansMedalWear(
+          medalId: id,
+          targetId: target,
+          account: account,
+        ),
+      );
+      if (result.isSuccess && canManageFansMedal) {
+        markFansMedalStale();
+        // Queue behind this initialization request, without awaiting itself.
+        unawaited(refreshCurrentFansMedal(invalidate: true));
+      }
+    } finally {
+      if (!isClosed) fansMedalActing.value = false;
+    }
+  }
+
   Future<void> loadFansMedal({bool force = false}) async {
-    if (!isLogin) return;
+    if (!canManageFansMedal) return;
     if (fansMedalActing.value) return;
     if (_fansMedalRequest case final pending?) return pending;
     if (!force && !_fansMedalStale && fansMedalData.value != null) return;
@@ -1374,7 +1483,9 @@ class LiveRoomController extends GetxController {
     final res = await LiveHttp.fansMedalPanel(
       roomId: roomId,
       targetId: targetId,
+      account: _fansMedalAccount!,
     );
+    if (!canManageFansMedal) return;
     if (res case Success(:final response)) {
       fansMedalData.value = response;
       _fansMedalPage = 1;
@@ -1429,6 +1540,7 @@ class LiveRoomController extends GetxController {
   }
 
   Future<void> loadMoreFansMedal() async {
+    if (!canManageFansMedal) return;
     if (fansMedalActing.value) return;
     if (_fansMedalRequest != null) return;
     if (!fansMedalHasMore.value) return;
@@ -1458,7 +1570,9 @@ class LiveRoomController extends GetxController {
       roomId: roomId,
       targetId: targetId,
       page: nextPage,
+      account: _fansMedalAccount!,
     );
+    if (!canManageFansMedal) return;
     if (res case Success(:final response)) {
       final existingIds = <String>{
         for (final item in [...?data.specialList, ...?data.list])
@@ -1510,21 +1624,26 @@ class LiveRoomController extends GetxController {
   Object? _fansMedalActionTarget(FansMedalItem item) {
     // Older panel responses can omit target_id, so the current room owner is
     // retained as a compatibility fallback only.
-    return item.medal?.targetId ?? medalTargetId;
+    return item.medal?.targetId ?? item.uinfoMedal?.ruid ?? medalTargetId;
   }
 
   Future<bool> wearFansMedal(FansMedalItem item) async {
+    if (!canManageFansMedal) return false;
     if (fansMedalActing.value || _fansMedalRequest != null) return false;
-    final medalId = item.medal?.medalId;
+    final medalId = item.medal?.medalId ?? item.uinfoMedal?.id;
     final targetId = _fansMedalActionTarget(item);
-    if (medalId == null || targetId == null) return false;
+    if (medalId == null || medalId <= 0 || targetId == null) return false;
 
     fansMedalActing.value = true;
     try {
-      final res = await LiveHttp.fansMedalWear(
-        medalId: medalId,
-        targetId: targetId,
+      final res = await FansMedalActions.run(
+        () => LiveHttp.fansMedalWear(
+          medalId: medalId,
+          targetId: targetId,
+          account: _fansMedalAccount!,
+        ),
       );
+      if (!canManageFansMedal) return false;
       if (!res.isSuccess) {
         await res.toast();
         return false;
@@ -1532,6 +1651,13 @@ class LiveRoomController extends GetxController {
       _applyFansMedalWearStatus(medalId, 1);
       wearingFansMedal.value = item;
       _fansMedalStale = true;
+      await refreshCurrentFansMedal(invalidate: true);
+      if (!canManageFansMedal) return false;
+      if (currentFansMedal.value?.id case final displayedId?
+          when displayedId != medalId) {
+        SmartDialog.showToast('该直播间不支持展示其他粉丝牌');
+        return true;
+      }
       SmartDialog.showToast('已佩戴 ${item.medal?.medalName ?? ''}');
       return true;
     } finally {
@@ -1540,17 +1666,22 @@ class LiveRoomController extends GetxController {
   }
 
   Future<bool> takeOffFansMedal(FansMedalItem item) async {
+    if (!canManageFansMedal) return false;
     if (fansMedalActing.value || _fansMedalRequest != null) return false;
-    final medalId = item.medal?.medalId;
+    final medalId = item.medal?.medalId ?? item.uinfoMedal?.id;
     final targetId = _fansMedalActionTarget(item);
-    if (medalId == null || targetId == null) return false;
+    if (medalId == null || medalId <= 0 || targetId == null) return false;
 
     fansMedalActing.value = true;
     try {
-      final res = await LiveHttp.fansMedalTakeOff(
-        medalId: medalId,
-        targetId: targetId,
+      final res = await FansMedalActions.run(
+        () => LiveHttp.fansMedalTakeOff(
+          medalId: medalId,
+          targetId: targetId,
+          account: _fansMedalAccount!,
+        ),
       );
+      if (!canManageFansMedal) return false;
       if (!res.isSuccess) {
         await res.toast();
         return false;
@@ -1558,6 +1689,8 @@ class LiveRoomController extends GetxController {
       _applyFansMedalWearStatus(medalId, 0);
       wearingFansMedal.value = null;
       _fansMedalStale = true;
+      await refreshCurrentFansMedal(invalidate: true);
+      if (!canManageFansMedal) return false;
       SmartDialog.showToast('已取消佩戴');
       return true;
     } finally {

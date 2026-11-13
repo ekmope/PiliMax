@@ -11,6 +11,7 @@ import 'package:PiliMax/pilimax/pages/download/folder/controller.dart';
 import 'package:PiliMax/pilimax/pages/download/sort/view.dart';
 import 'package:PiliMax/pilimax/pages/download/utils/cache_delete_confirm.dart';
 import 'package:PiliMax/pilimax/pages/download/utils/cache_export.dart';
+import 'package:PiliMax/pilimax/pages/download/utils/cache_update.dart';
 import 'package:PiliMax/pilimax/pages/download/widgets/folder_dialog.dart';
 import 'package:PiliMax/pilimax/services/download/download_collection_service.dart';
 import 'package:PiliMax/services/download/download_service.dart';
@@ -175,16 +176,10 @@ class _DownloadFolderPageState extends State<DownloadFolderPage> {
                 onPressed: () async {
                   final allChecked = _controller.allChecked.toSet();
                   _controller.handleSelect();
-                  final res = await Future.wait(
-                    allChecked.map(
-                      (entry) => _downloadService.downloadDanmaku(
-                        entry: entry,
-                        isUpdate: true,
-                      ),
-                    ),
-                  );
-                  SmartDialog.showToast(
-                    res.every((item) => item) ? '更新成功' : '更新失败',
+                  await showDownloadUpdateMenu(
+                    context: context,
+                    downloadService: _downloadService,
+                    entries: allChecked,
                   );
                 },
                 child: Text(

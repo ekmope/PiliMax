@@ -15,7 +15,7 @@ import 'package:PiliMax/models/common/image_preview_type.dart';
 import 'package:PiliMax/models/dynamics/article_content_model.dart'
     show ArticleContentModel, Rich, Style, Word, Node;
 import 'package:PiliMax/models/dynamics/result.dart';
-import 'package:PiliMax/pages/article/widgets/sliver_list_ext.dart';
+import 'package:PiliMax/common/widgets/sliver/sliver_reverse.dart';
 import 'package:PiliMax/pages/dynamics/widgets/vote.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
@@ -239,7 +239,7 @@ class OpusContent extends StatelessWidget {
 
     late final highlight = Highlight()..registerLanguages(builtinAllLanguages);
 
-    return SliverListExt.separated(
+    return SliverListReverse.separated(
       reverse: reverse,
       itemCount: opus.length,
       itemBuilder: (context, index) {
@@ -442,12 +442,13 @@ class OpusContent extends StatelessWidget {
                   }).toList(),
                 ),
               );
-            case 6:
-              final type = element.linkCard!.card!.type;
+            case 6 when element.linkCard?.card?.type != null:
+              final card = element.linkCard!.card!;
+              final type = card.type;
               Widget child;
               switch (type) {
                 case 'LINK_CARD_TYPE_UGC':
-                  final ugc = element.linkCard!.card!.ugc!;
+                  final ugc = card.ugc!;
                   child = Row(
                     spacing: 10,
                     children: [
@@ -477,12 +478,12 @@ class OpusContent extends StatelessWidget {
                     ],
                   );
                 case 'LINK_CARD_TYPE_ITEM_NULL':
-                  final itemNull = element.linkCard?.card?.itemNull;
+                  final itemNull = card.itemNull;
                   child = Text(
-                    ' ${itemNull?.text}: ${element.linkCard?.card?.oid}',
+                    ' ${itemNull?.text}: ${card.oid}',
                   );
                 case 'LINK_CARD_TYPE_COMMON':
-                  final common = element.linkCard!.card!.common!;
+                  final common = card.common!;
                   child = Row(
                     spacing: 10,
                     children: [
@@ -521,7 +522,7 @@ class OpusContent extends StatelessWidget {
                     ],
                   );
                 case 'LINK_CARD_TYPE_LIVE':
-                  final live = element.linkCard!.card!.live!;
+                  final live = card.live!;
                   child = Row(
                     spacing: 10,
                     children: [
@@ -560,7 +561,7 @@ class OpusContent extends StatelessWidget {
                     ],
                   );
                 case 'LINK_CARD_TYPE_OPUS':
-                  final opus = element.linkCard!.card!.opus!;
+                  final opus = card.opus!;
                   child = Row(
                     spacing: 10,
                     children: [
@@ -588,7 +589,7 @@ class OpusContent extends StatelessWidget {
                     ],
                   );
                 case 'LINK_CARD_TYPE_VOTE':
-                  final vote = element.linkCard!.card!.vote!;
+                  final vote = card.vote!;
                   child = Row(
                     spacing: 10,
                     children: [
@@ -623,7 +624,7 @@ class OpusContent extends StatelessWidget {
                     ],
                   );
                 case 'LINK_CARD_TYPE_MUSIC':
-                  final music = element.linkCard!.card!.music!;
+                  final music = card.music!;
                   child = Row(
                     spacing: 10,
                     children: [
@@ -654,7 +655,7 @@ class OpusContent extends StatelessWidget {
                     ],
                   );
                 case 'LINK_CARD_TYPE_GOODS':
-                  final goods = element.linkCard!.card!.goods!;
+                  final goods = card.goods!;
                   child = Column(
                     children: goods.items!.map((e) {
                       return GestureDetector(
@@ -702,7 +703,7 @@ class OpusContent extends StatelessWidget {
                     }).toList(),
                   );
                 case 'LINK_CARD_TYPE_EVA3_VIDEO':
-                  final info = element.linkCard?.card?.eva3Video?.info;
+                  final info = card.eva3Video?.info;
                   if (info == null) {
                     throw StateError('missing EVA3 video card');
                   }
@@ -765,7 +766,7 @@ class OpusContent extends StatelessWidget {
                     ),
                   );
                 case 'LINK_CARD_TYPE_EVA3_OPUS':
-                  final info = element.linkCard?.card?.eva3Opus?.info;
+                  final info = card.eva3Opus?.info;
                   if (info == null) {
                     throw StateError('missing EVA3 opus card');
                   }
@@ -814,7 +815,7 @@ class OpusContent extends StatelessWidget {
                     ),
                   );
                 case 'LINK_CARD_TYPE_EVA3_USER':
-                  final info = element.linkCard?.card?.eva3User?.info;
+                  final info = card.eva3User?.info;
                   final user = info?.user;
                   if (info == null || user == null) {
                     throw StateError('missing EVA3 user card');
@@ -862,7 +863,7 @@ class OpusContent extends StatelessWidget {
                     ],
                   );
                 case 'LINK_CARD_TYPE_EVA3_TOY':
-                  final info = element.linkCard?.card?.eva3Toy?.info;
+                  final info = card.eva3Toy?.info;
                   final user = info?.up;
                   if (info == null || user == null) {
                     throw StateError('missing EVA3 toy card');
@@ -900,7 +901,7 @@ class OpusContent extends StatelessWidget {
                     ],
                   );
                 case 'LINK_CARD_TYPE_EVA3_VOTE':
-                  final info = element.linkCard?.card?.eva3Vote?.info;
+                  final info = card.eva3Vote?.info;
                   if (info == null) {
                     throw StateError('missing EVA3 vote card');
                   }
@@ -943,7 +944,7 @@ class OpusContent extends StatelessWidget {
                     ],
                   );
                 case 'LINK_CARD_TYPE_EVA3_COMMENT':
-                  final info = element.linkCard?.card?.eva3Comment?.info;
+                  final info = card.eva3Comment?.info;
                   final source = info?.source;
                   if (info == null || source == null) {
                     throw StateError('missing EVA3 comment card');
@@ -966,7 +967,6 @@ class OpusContent extends StatelessWidget {
                       ? null
                       : () {
                           try {
-                            final card = element.linkCard!.card!;
                             if (type == 'LINK_CARD_TYPE_VOTE') {
                               showVoteDialog(
                                 context,

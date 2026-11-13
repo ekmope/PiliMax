@@ -17,6 +17,7 @@ import 'package:PiliMax/models/dynamics/result.dart';
 import 'package:PiliMax/models_new/pgc/pgc_info_model/episode.dart';
 import 'package:PiliMax/models_new/video/video_detail/dimension.dart';
 import 'package:PiliMax/pages/common/common_intro_controller.dart';
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/pages/common/publish/publish_route.dart';
 import 'package:PiliMax/pages/contact/view.dart';
 import 'package:PiliMax/pages/fav_panel/view.dart';
@@ -164,19 +165,13 @@ abstract final class PageUtils {
     );
     SmartDialog.dismiss();
     if (res case Success(:final response)) {
-      final replyArgs = replyRouteArguments(
-        rpid: rpid,
-        rootRpId: rootRpId,
-        secondRpId: secondRpId,
-      );
       if (response.basic?.commentType == 12) {
-        toDupNamed(
-          '/articlePage',
-          parameters: {
-            'id': id!,
-            'type': 'opus',
-          },
-          arguments: replyArgs.isEmpty ? null : replyArgs,
+        ArticlePage.toArticlePage(
+          id: response.idStr,
+          type: .opus,
+          rpid: rpid,
+          rootRpId: rootRpId,
+          secondRpId: secondRpId,
           off: off,
         );
       } else {
@@ -184,9 +179,9 @@ abstract final class PageUtils {
           '/dynamicDetail',
           arguments: {
             'item': response,
-            if (rpid != null) 'rpid': rpid,
-            if (rootRpId != null) rootRpIdKey: rootRpId,
-            if (secondRpId != null) secondRpIdKey: secondRpId,
+            'rpid': ?rpid,
+            rootRpIdKey: ?rootRpId,
+            secondRpIdKey: ?secondRpId,
           },
           off: off,
         );
@@ -282,13 +277,10 @@ abstract final class PageUtils {
 
     void push() {
       if (item.basic?.commentType == 12) {
-        toDupNamed(
-          '/articlePage',
-          parameters: {
-            'id': item.idStr,
-            'type': 'opus',
-            if (viewComment) 'viewComment': '',
-          },
+        ArticlePage.toArticlePage(
+          id: item.idStr,
+          type: .opus,
+          viewComment: viewComment,
         );
       } else {
         toDupNamed(
@@ -350,7 +342,7 @@ abstract final class PageUtils {
             }
           }
           // redirectUrl from jumpUrl
-          if (await UrlUtils.parseRedirectUrl(archive.jumpUrl.http2https, false)
+          if (await UrlUtils.parseRedirectUrl(archive.jumpUrl.http2https)
               case final redirectUrl?) {
             if (viewPgcFromUri(
               redirectUrl,
@@ -397,13 +389,10 @@ abstract final class PageUtils {
 
       /// 涓撴爮鏂囩珷鏌ョ湅
       case 'DYNAMIC_TYPE_ARTICLE':
-        toDupNamed(
-          '/articlePage',
-          parameters: {
-            'id': item.idStr,
-            'type': 'opus',
-            if (viewComment) 'viewComment': '',
-          },
+        ArticlePage.toArticlePage(
+          id: item.idStr,
+          type: .opus,
+          viewComment: viewComment,
         );
         break;
 
@@ -738,8 +727,8 @@ abstract final class PageUtils {
       extraArguments: {
         ...?extraArguments,
         'rpid': ?rpid,
-        if (rootRpId != null) rootRpIdKey: rootRpId,
-        if (secondRpId != null) secondRpIdKey: secondRpId,
+        rootRpIdKey: ?rootRpId,
+        secondRpIdKey: ?secondRpId,
       },
     );
     return _openVideoPage(
@@ -897,8 +886,9 @@ abstract final class PageUtils {
           staleToken.dispose();
         }
       } else {
-        arguments.remove(videoDetailPipReplacementKey);
-        arguments.remove(videoDetailPipReplacementHandoffKey);
+        arguments
+          ..remove(videoDetailPipReplacementKey)
+          ..remove(videoDetailPipReplacementHandoffKey);
         PipReplacementHandoff.clear();
       }
       if (!off &&

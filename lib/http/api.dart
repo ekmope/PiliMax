@@ -1045,6 +1045,15 @@ abstract final class Api {
   static const String liveFansMedalTakeOff =
       '${HttpString.liveBaseUrl}/xlive/app-ucenter/v1/fansMedal/take_off';
 
+  static const String liveUserMedalInfo =
+      '${HttpString.liveBaseUrl}/xlive/app-ucenter/v1/fansMedal/user_medal_info';
+
+  static const String liveConfigPlugs =
+      '${HttpString.liveBaseUrl}/xlive/web-ucenter/v1/labs/ConfigPlugs';
+
+  static const String liveEditPlugs =
+      '${HttpString.liveBaseUrl}/xlive/web-ucenter/v1/labs/EditPlugs';
+
   static const String liveMasterInfo =
       '${HttpString.liveBaseUrl}/live_user/v1/Master/info';
 }

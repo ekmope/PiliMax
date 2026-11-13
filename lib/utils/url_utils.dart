@@ -4,20 +4,19 @@ import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:PiliMax/pilimax/utils/log_redactor.dart';
 import 'package:PiliMax/utils/page_utils.dart';
+import 'package:PiliMax/utils/redirect_uri.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 abstract final class UrlUtils {
   // 302重定向路由截取
-  static Future<String?> parseRedirectUrl(
-    String url, [
-    bool returnOri = false,
-  ]) async {
+  static Future<String?> parseRedirectUrl(String url) async {
     String? redirectUrl;
     try {
-      final response = await Request.dio.head(
-        url,
+      final requestUri = redirectRequestUri(url);
+      final response = await Request.dio.headUri(
+        requestUri,
         options: Options(
           followRedirects: false,
           validateStatus: (status) {
@@ -31,13 +30,9 @@ abstract final class UrlUtils {
         debugPrint(LogRedactor.redactText('redirectUrl: $redirectUrl'));
       }
       if (redirectUrl != null && !redirectUrl.startsWith('http')) {
-        redirectUrl = Uri.parse(url).resolve(redirectUrl).toString();
+        redirectUrl = requestUri.resolve(redirectUrl).toString();
       }
     } catch (_) {}
-    if (returnOri && redirectUrl == null) redirectUrl = url;
-    if (redirectUrl != null && redirectUrl.endsWith('/')) {
-      redirectUrl = redirectUrl.substring(0, redirectUrl.length - 1);
-    }
     return redirectUrl;
   }
 

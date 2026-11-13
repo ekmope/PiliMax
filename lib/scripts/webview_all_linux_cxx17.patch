@@ -1,0 +1,10 @@
+diff --git a/linux/CMakeLists.txt b/linux/CMakeLists.txt
+--- a/linux/CMakeLists.txt
++++ b/linux/CMakeLists.txt
+@@ -29,4 +29,6 @@ add_library(${PLUGIN_NAME} SHARED
+ apply_standard_settings(${PLUGIN_NAME})
++# WebView 1.5 uses std::filesystem; keep this requirement local to the plugin.
++target_compile_features(${PLUGIN_NAME} PRIVATE cxx_std_17)
+ set_target_properties(${PLUGIN_NAME} PROPERTIES
+   CXX_VISIBILITY_PRESET hidden
+ )

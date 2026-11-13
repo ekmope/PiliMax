@@ -48,6 +48,7 @@ abstract final class DownloadHttp {
         != null when isLogin => VideoType.pgc,
         _ => VideoType.ugc,
       },
+      voiceBalance: true,
     );
     if (res case Success(:final response)) {
       final dash = response.dash;
@@ -127,6 +128,7 @@ abstract final class DownloadHttp {
             userAgent: userAgent,
           ),
           clipInfoList: response.clipInfoList,
+          volume: response.volume,
         );
       } else {
         final first = DownloadSourceSelector.selectDurl(response.durl);
@@ -197,6 +199,7 @@ abstract final class DownloadHttp {
             userAgent: userAgent,
           ),
           clipInfoList: response.clipInfoList,
+          volume: response.volume,
         );
       }
     } else {
@@ -208,9 +211,11 @@ abstract final class DownloadHttp {
 class DownloadVideoUrlResult {
   final BiliDownloadMediaInfo mediaFileInfo;
   final List<SegmentItemModel>? clipInfoList;
+  final Volume? volume;
 
   const DownloadVideoUrlResult({
     required this.mediaFileInfo,
     this.clipInfoList,
+    this.volume,
   });
 }

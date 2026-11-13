@@ -15,6 +15,7 @@ import 'package:PiliMax/models/common/video/source_type.dart';
 import 'package:PiliMax/models/common/video/video_type.dart';
 import 'package:PiliMax/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliMax/pilimax/models_new/download/download_collection.dart';
+import 'package:PiliMax/pilimax/pages/download/utils/cache_update.dart';
 import 'package:PiliMax/pages/common/multi_select/base.dart';
 import 'package:PiliMax/pages/download/downloading/view.dart';
 import 'package:PiliMax/services/download/download_service.dart';
@@ -679,17 +680,15 @@ class DetailItem extends StatelessWidget {
                       );
                     },
                   ),
-                if (canDel)
+                if (canDel && entry.isCompleted)
                   PopupMenuItem(
                     height: 38,
-                    child: const Text('更新弹幕', style: TextStyle(fontSize: 13)),
-                    onTap: () async {
-                      final res = await downloadService.downloadDanmaku(
-                        entry: entry,
-                        isUpdate: true,
-                      );
-                      SmartDialog.showToast(res ? '更新成功' : '更新失败');
-                    },
+                    child: const Text('更新缓存信息', style: TextStyle(fontSize: 13)),
+                    onTap: () => showDownloadUpdateMenu(
+                      context: context,
+                      downloadService: downloadService,
+                      entries: [entry],
+                    ),
                   ),
               ],
             );

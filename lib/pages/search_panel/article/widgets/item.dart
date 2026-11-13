@@ -1,3 +1,4 @@
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/common/widgets/image/image_save.dart';
 import 'package:PiliMax/common/widgets/image/network_img_layer.dart';
@@ -5,7 +6,6 @@ import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:get/get.dart';
 
 class SearchArticleItem extends StatelessWidget {
   const SearchArticleItem({super.key, required this.item});
@@ -26,12 +26,9 @@ class SearchArticleItem extends StatelessWidget {
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        onTap: () => Get.toNamed(
-          '/articlePage',
-          parameters: {
-            'id': '${item.id}',
-            'type': 'read',
-          },
+        onTap: () => ArticlePage.toArticlePage(
+          id: '${item.id}',
+          type: .read,
         ),
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,

@@ -1,15 +1,15 @@
 import 'dart:math' as math;
 
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/style.dart';
 import 'package:PiliMax/models_new/article/article_view/ops.dart';
-import 'package:PiliMax/pages/article/widgets/sliver_list_ext.dart';
+import 'package:PiliMax/common/widgets/sliver/sliver_reverse.dart';
 import 'package:PiliMax/pages/dynamics/widgets/vote.dart';
 import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:get/get.dart';
 
 class ArticleOpus extends StatelessWidget {
   const ArticleOpus({
@@ -29,7 +29,7 @@ class ArticleOpus extends StatelessWidget {
       return const SliverToBoxAdapter();
     }
 
-    return SliverListExt.separated(
+    return SliverListReverse.separated(
       reverse: reverse,
       itemCount: _ops.length,
       itemBuilder: (context, index) {
@@ -53,12 +53,9 @@ class ArticleOpus extends StatelessWidget {
                       switch (item.attributes?.clazz) {
                         case 'article-card card':
                           if (card.id != null) {
-                            Get.toNamed(
-                              '/articlePage',
-                              parameters: {
-                                'id': card.id!.substring(2),
-                                'type': 'read',
-                              },
+                            ArticlePage.toArticlePage(
+                              id: card.id!.substring(2),
+                              type: .read,
                             );
                           }
                         case 'video-card card':

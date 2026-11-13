@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:PiliMax/pages/article/view.dart';
 import 'package:PiliMax/common/widgets/emote_tooltip.dart';
 import 'package:PiliMax/common/constants.dart';
 import 'package:PiliMax/common/style.dart';
@@ -25,7 +26,6 @@ import 'package:PiliMax/utils/page_utils.dart';
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
 
 class ChatItem extends StatelessWidget {
   static MsgType msgTypeFromValue(int value) {
@@ -276,12 +276,9 @@ class ChatItem extends StatelessWidget {
   Widget msgTypeArticleCard_12(dynamic content, Color textColor) {
     return GestureDetector(
       behavior: .opaque,
-      onTap: () => Get.toNamed(
-        '/articlePage',
-        parameters: {
-          'id': '${content['rid']}',
-          'type': "read",
-        },
+      onTap: () => ArticlePage.toArticlePage(
+        id: '${content['rid']}',
+        type: .read,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -668,12 +665,9 @@ class ChatItem extends StatelessWidget {
       // article
       case 6:
         type = '专栏';
-        onTap = () => Get.toNamed(
-          '/articlePage',
-          parameters: {
-            'id': '${content['id']}',
-            'type': 'read',
-          },
+        onTap = () => ArticlePage.toArticlePage(
+          id: '${content['id']}',
+          type: .read,
         );
         break;
 

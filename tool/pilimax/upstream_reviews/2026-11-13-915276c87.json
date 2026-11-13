@@ -1,0 +1,1915 @@
+{
+  "schemaVersion": 1,
+  "branch": "Bug-Fixes",
+  "base": "6fa02be0755f74cd3de5db536cc1a253a7d2c380",
+  "selectedUpstream": "915276c87db37e5f361f5d30a0ed5dfe5ed7563a",
+  "commonAncestor": "4fce4bb5a35c425aee759ef9263352316a29e355",
+  "sourceRepository": "https://github.com/bggRGjQaUbCoE/PiliPlus",
+  "method": "normal no-ff merge, individual conflict and automatic-result review; keep prior approved B1 implementation",
+  "sourceCommitCount": 21,
+  "physicalSourcePaths": 110,
+  "reviewedPaths": 112,
+  "commits": [
+    {
+      "sha": "a76861a20a42e6dc482d427e2294d651f332d4b1",
+      "subject": "opt ui",
+      "files": [
+        "M\tlib/pages/video/download_panel/view.dart"
+      ],
+      "disposition": "下载间距已适配本地文字和音质布局。"
+    },
+    {
+      "sha": "090e5925d441ddd7b63d083619df1f8c4f5da1a8",
+      "subject": "fix article opus",
+      "files": [
+        "M\tlib/pages/article/widgets/opus_content.dart",
+        "M\tlib/utils/page_utils.dart",
+        "M\tlib/utils/url_utils.dart"
+      ],
+      "disposition": "已有Opus卡片guard与基于请求URI的相对重定向；保EVA3/投票/Hero兼容。"
+    },
+    {
+      "sha": "dc829bf265658d924fd5d217da9a5be3fe78044a",
+      "subject": "fix #3522",
+      "files": [
+        "M\tlib/pages/video/widgets/player_focus.dart",
+        "M\tlib/plugin/pl_player/controller.dart",
+        "M\tlib/plugin/pl_player/view/view.dart",
+        "M\tlib/plugin/pl_player/widgets/bottom_control.dart"
+      ],
+      "disposition": "已有键盘seek/hover清理；保预览epoch、PiP与本地生命周期。"
+    },
+    {
+      "sha": "24f798d0d88700c3800bf03aba92386e5b6bdd40",
+      "subject": "handle dyn foldAction",
+      "files": [
+        "A\tlib/models/common/dynamic/article_type.dart",
+        "M\tlib/models/dynamics/result.dart",
+        "M\tlib/pages/article/controller.dart",
+        "M\tlib/pages/article/view.dart",
+        "M\tlib/pages/article/widgets/article_ops.dart",
+        "M\tlib/pages/article_list/widgets/item.dart",
+        "M\tlib/pages/bubble/view.dart",
+        "M\tlib/pages/dynamics/widgets/rich_node_panel.dart",
+        "M\tlib/pages/fav/article/widget/item.dart",
+        "M\tlib/pages/history/widgets/item.dart",
+        "M\tlib/pages/my_reply/view.dart",
+        "M\tlib/pages/pgc_review/child/view.dart",
+        "M\tlib/pages/search_panel/article/controller.dart",
+        "M\tlib/pages/search_panel/article/widgets/item.dart",
+        "M\tlib/pages/video/note/view.dart",
+        "M\tlib/pages/video/reply/widgets/reply_item_grpc.dart",
+        "M\tlib/pages/whisper_detail/widget/chat_item.dart",
+        "M\tlib/utils/app_scheme.dart",
+        "M\tlib/utils/page_utils.dart"
+      ],
+      "disposition": "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+    },
+    {
+      "sha": "86f4759d4f816bf6115603a346f84e45ee5b2b03",
+      "subject": "fix calcWindowOffset (#3533)",
+      "files": [
+        "M\tlib/utils/desktop/window_bounds.dart",
+        "M\ttest/utils/desktop/window_bounds_test.dart"
+      ],
+      "disposition": "窗口矩形helper与上游一致；保本地真实接线、选屏/坏值保护和身份导入。"
+    },
+    {
+      "sha": "f52160af0a026adfefaa4f9f99f0702b2cab0200",
+      "subject": "chore(grpc): upgrade proto (#3535)",
+      "files": [
+        "M\tlib/grpc/bilibili/main/community/reply/v1.pb.dart",
+        "M\tlib/grpc/bilibili/main/community/reply/v1.pbenum.dart",
+        "M\tlib/grpc/bilibili/main/community/reply/v1.pbjson.dart"
+      ],
+      "disposition": "三份生成文件与所选上游逐字节一致；另保旧field100/JSON完整缓存codec。"
+    },
+    {
+      "sha": "c9fef1a66c4a0f0432cc0cc19b6208d4e72911bd",
+      "subject": "fix season index on download",
+      "files": [
+        "M\tlib/pages/video/download_panel/view.dart",
+        "M\tlib/services/download/download_service.dart"
+      ],
+      "disposition": "已修合集位置；保手工文件夹名称、顺序及关联。"
+    },
+    {
+      "sha": "b5e13839829d8c17bc60237d14ecfad208a5e832",
+      "subject": "refresh download entry on qa updated",
+      "files": [
+        "M\tlib/services/download/download_service.dart"
+      ],
+      "disposition": "有效任务取流后已即时刷新UI；保任务有效性保护。"
+    },
+    {
+      "sha": "07c48d0c34c4d90662ad2003de6cecc95add3c85",
+      "subject": "fix get anonymous buivid",
+      "files": [
+        "M\tlib/utils/accounts/account.dart"
+      ],
+      "disposition": "匿名SPI已在活动fork按单飞/代际适配；不向旧锚添加不完整调用。"
+    },
+    {
+      "sha": "c520a3fe1b210b7af09b1c8cb58d85ee162472cd",
+      "subject": "feat: offline volume",
+      "files": [
+        "M\tlib/http/download.dart",
+        "M\tlib/models/video/play/url.dart",
+        "M\tlib/models_new/download/bili_download_entry_info.dart",
+        "M\tlib/pages/download/detail/widgets/item.dart",
+        "M\tlib/pages/download/download/view.dart",
+        "M\tlib/pages/download/download/widgets/page.dart",
+        "M\tlib/pages/download/download/widgets/season.dart",
+        "M\tlib/pages/download/download_action_mixin.dart",
+        "M\tlib/pages/download/page/view.dart",
+        "M\tlib/pages/video/controller.dart",
+        "M\tlib/services/download/download_service.dart"
+      ],
+      "disposition": "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。"
+    },
+    {
+      "sha": "2dd24225b01a4d7b7aab6ac8eb3398c1bf1d0642",
+      "subject": "feat: update offline ugc season info",
+      "files": [
+        "M\tlib/models/video/play/url.dart",
+        "M\tlib/models_new/sponsor_block/segment_item.dart",
+        "M\tlib/pages/download/detail/widgets/item.dart",
+        "M\tlib/pages/download/download/view.dart",
+        "M\tlib/pages/download/download/widgets/page.dart",
+        "M\tlib/pages/download/download/widgets/season.dart",
+        "M\tlib/pages/download/download_action_mixin.dart",
+        "M\tlib/pages/download/page/view.dart",
+        "M\tlib/services/download/download_service.dart"
+      ],
+      "disposition": "已有旧数据安全解析和离线合集更新；保SponsorBlock多来源元数据与手工分组。"
+    },
+    {
+      "sha": "bd93f479262637f03a91efbbd05b660b194e0943",
+      "subject": "feat: live trace",
+      "files": [
+        "M\tlib/http/api.dart",
+        "M\tlib/http/constants.dart",
+        "M\tlib/http/live.dart",
+        "M\tlib/models_new/live/live_room_info_h5/room_info.dart",
+        "A\tlib/models_new/live/live_trace/data.dart",
+        "M\tlib/pages/live_room/controller.dart",
+        "M\tlib/pages/live_room/view.dart",
+        "M\tlib/pages/live_room/widgets/bottom_control.dart",
+        "M\tlib/pages/live_room/widgets/chat_panel.dart",
+        "M\tlib/utils/accounts/api_type.dart",
+        "A\tlib/utils/live_trace_utils.dart"
+      ],
+      "disposition": "按用户批准范围排除web live trace；保mobile heartbeat。"
+    },
+    {
+      "sha": "cab0114a21ce7fad5b90b9a4d788d35d313d25f9",
+      "subject": "opt mpris (#3560)",
+      "files": [
+        "M\tpubspec.lock",
+        "M\tpubspec.yaml"
+      ],
+      "disposition": "已采用目标MPRIS Git fork并适配seek/倍速；保审计后的fork/overrides/增量lock。"
+    },
+    {
+      "sha": "f61cdab35cd831ff9ea4787458d4349588dbe315",
+      "subject": "allow toggle reply tree",
+      "files": [
+        "M\tlib/pages/video/reply_reply/controller.dart",
+        "M\tlib/pages/video/reply_reply/view.dart"
+      ],
+      "disposition": "已有树/平铺切换、当前数据重建与加载中保护；保拉全确认。"
+    },
+    {
+      "sha": "3bfb84e37429e978c017e56b287c4e581085760c",
+      "subject": "opt handle dash video",
+      "files": [
+        "M\tlib/pages/video/controller.dart"
+      ],
+      "disposition": "已有空DASH检查；保严格选流、源隔离和错误恢复。"
+    },
+    {
+      "sha": "87dd54b8d7a184dca3e3061671e00c6d81003be7",
+      "subject": "support reverse article list",
+      "files": [
+        "A\tlib/common/widgets/sliver/sliver_reverse.dart",
+        "M\tlib/pages/article/view.dart",
+        "M\tlib/pages/article/widgets/article_ops.dart",
+        "M\tlib/pages/article/widgets/opus_content.dart",
+        "D\tlib/pages/article/widgets/sliver_list_ext.dart",
+        "M\tlib/pages/article_list/view.dart"
+      ],
+      "disposition": "已有文章合集倒序/public sliver；保SDK兼容、主题/Hero和回复定位。"
+    },
+    {
+      "sha": "6a1090102723cd4469d847b01506223aee62d15d",
+      "subject": "feat: fans medal management",
+      "files": [
+        "M\tlib/http/api.dart",
+        "M\tlib/http/live.dart",
+        "A\tlib/models_new/live/live_config_plugs/data.dart",
+        "D\tlib/models_new/live/live_dm_block/data.dart",
+        "A\tlib/models_new/live/live_fans_medal/anchor_info.dart",
+        "A\tlib/models_new/live/live_fans_medal/data.dart",
+        "A\tlib/models_new/live/live_fans_medal/item.dart",
+        "A\tlib/models_new/live/live_fans_medal/medal.dart",
+        "A\tlib/models_new/live/live_info_by_user/data.dart",
+        "A\tlib/models_new/live/live_info_by_user/medal.dart",
+        "R086\tlib/models_new/live/live_dm_block/shield_info.dart\tlib/models_new/live/live_info_by_user/shield_info.dart",
+        "R100\tlib/models_new/live/live_dm_block/shield_user_list.dart\tlib/models_new/live/live_info_by_user/shield_user_list.dart",
+        "M\tlib/models_new/live/live_medal_wall/uinfo_medal.dart",
+        "A\tlib/pages/fans_medal/controller.dart",
+        "A\tlib/pages/fans_medal/medal_setting_mixin.dart",
+        "A\tlib/pages/fans_medal/view.dart",
+        "M\tlib/pages/live_dm_block/controller.dart",
+        "M\tlib/pages/live_dm_block/view.dart",
+        "M\tlib/pages/live_room/controller.dart",
+        "A\tlib/pages/live_room/controller_mixin/block.dart",
+        "A\tlib/pages/live_room/controller_mixin/data.dart",
+        "A\tlib/pages/live_room/controller_mixin/dm.dart",
+        "A\tlib/pages/live_room/controller_mixin/dm_stream.dart",
+        "A\tlib/pages/live_room/controller_mixin/dm_trim.dart",
+        "A\tlib/pages/live_room/controller_mixin/like.dart",
+        "A\tlib/pages/live_room/controller_mixin/medal.dart",
+        "A\tlib/pages/live_room/controller_mixin/sc.dart",
+        "A\tlib/pages/live_room/controller_mixin/size.dart",
+        "A\tlib/pages/live_room/controller_mixin/time.dart",
+        "A\tlib/pages/live_room/controller_mixin/trace.dart",
+        "A\tlib/pages/live_room/medal/medal_mixin.dart",
+        "M\tlib/pages/live_room/send_danmaku/view.dart",
+        "M\tlib/pages/live_room/view.dart",
+        "M\tlib/pages/member/view.dart",
+        "M\tlib/pages/setting/models/play_settings.dart",
+        "M\tlib/router/app_pages.dart",
+        "M\tlib/utils/bili_colors.dart",
+        "M\tlib/utils/storage_key.dart",
+        "M\tlib/utils/storage_pref.dart"
+      ],
+      "disposition": "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+    },
+    {
+      "sha": "de3558cf75338d96e80c85276ca6ffb84e781922",
+      "subject": "remove debug log",
+      "files": [
+        "M\tlib/pages/fans_medal/medal_setting_mixin.dart"
+      ],
+      "disposition": "已有最终无debug print状态；不为去日志复活独立设置mixin。"
+    },
+    {
+      "sha": "f284577b570c506b87310c2e968ccc29716ed932",
+      "subject": "fix build linux",
+      "files": [
+        "M\t.github/workflows/linux_x64.yml"
+      ],
+      "disposition": "已有elfutils；保RPM、PiliMax品牌和原生下载重试。"
+    },
+    {
+      "sha": "724f24517e0af5ffd9eb130d60687858e371d11c",
+      "subject": "upgrade deps",
+      "files": [
+        "M\tpubspec.lock"
+      ],
+      "disposition": "全部落后依赖已经过兼容审计；保Flutter3.47.9及现有Git fork/overrides，不复制上游lock。"
+    },
+    {
+      "sha": "915276c87db37e5f361f5d30a0ed5dfe5ed7563a",
+      "subject": "update patches",
+      "files": [
+        "M\tlib/common/widgets/flutter/dyn_tab_bar.dart",
+        "M\tlib/scripts/material/bottom_sheet_android.patch",
+        "M\tlib/scripts/material/bottom_sheet_ios_flutter_material.patch",
+        "M\tlib/scripts/material/fab.patch",
+        "M\tlib/scripts/material/modal_barrier_material.patch",
+        "M\tlib/scripts/material/navigation_drawer.patch",
+        "M\tlib/scripts/material/popup_menu.patch",
+        "M\tlib/scripts/material/refresh_indicator.patch",
+        "M\tlib/scripts/material/scaffold.patch",
+        "M\tlib/scripts/material/tabs.patch"
+      ],
+      "disposition": "五项活动Material补丁已经验证适配；源只调整活动补丁行号/索引，无新语义；保自有SDK补丁且不复活已删TabBar/补丁。"
+    }
+  ],
+  "paths": [
+    {
+      "path": ".github/workflows/linux_x64.yml",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "f284577b570c506b87310c2e968ccc29716ed932"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "46df44566c40b364a3ce2c97f09d3a9782b55fda",
+      "upstreamBlob": "8dd7499ccbe4824bbc5d73300d792f3149c332a1",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有elfutils；保RPM、PiliMax品牌和原生下载重试。"
+      ]
+    },
+    {
+      "path": "lib/common/widgets/flutter/dyn_tab_bar.dart",
+      "initialMergeStatus": "DU",
+      "sourceCommits": [
+        "915276c87db37e5f361f5d30a0ed5dfe5ed7563a"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "fa0a24b7246826bfb71a1b19af4800791b40a6a1",
+      "alreadyIdentical": false,
+      "rationale": [
+        "五项活动Material补丁已经验证适配；源只调整活动补丁行号/索引，无新语义；保自有SDK补丁且不复活已删TabBar/补丁。"
+      ]
+    },
+    {
+      "path": "lib/common/widgets/sliver/sliver_reverse.dart",
+      "initialMergeStatus": "AA",
+      "sourceCommits": [
+        "87dd54b8d7a184dca3e3061671e00c6d81003be7"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "331bf55e4e2caf79f98be24bd52fd1021270b59c",
+      "upstreamBlob": "04095d3f373443c3ab5c1ca6ff14ffc0320f45a3",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有文章合集倒序/public sliver；保SDK兼容、主题/Hero和回复定位。"
+      ]
+    },
+    {
+      "path": "lib/grpc/bilibili/main/community/reply/v1.pb.dart",
+      "initialMergeStatus": "unchanged",
+      "sourceCommits": [
+        "f52160af0a026adfefaa4f9f99f0702b2cab0200"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "06fc2daf42accc48e889fe10c2e596b0de44b00f",
+      "upstreamBlob": "06fc2daf42accc48e889fe10c2e596b0de44b00f",
+      "alreadyIdentical": true,
+      "rationale": [
+        "三份生成文件与所选上游逐字节一致；另保旧field100/JSON完整缓存codec。"
+      ]
+    },
+    {
+      "path": "lib/grpc/bilibili/main/community/reply/v1.pbenum.dart",
+      "initialMergeStatus": "unchanged",
+      "sourceCommits": [
+        "f52160af0a026adfefaa4f9f99f0702b2cab0200"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "486eb6323c7f7f3ffc3425618e522719fe0d4d92",
+      "upstreamBlob": "486eb6323c7f7f3ffc3425618e522719fe0d4d92",
+      "alreadyIdentical": true,
+      "rationale": [
+        "三份生成文件与所选上游逐字节一致；另保旧field100/JSON完整缓存codec。"
+      ]
+    },
+    {
+      "path": "lib/grpc/bilibili/main/community/reply/v1.pbjson.dart",
+      "initialMergeStatus": "unchanged",
+      "sourceCommits": [
+        "f52160af0a026adfefaa4f9f99f0702b2cab0200"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "96fc36ff932e217ce6ee1e72b60278bb47e5d053",
+      "upstreamBlob": "96fc36ff932e217ce6ee1e72b60278bb47e5d053",
+      "alreadyIdentical": true,
+      "rationale": [
+        "三份生成文件与所选上游逐字节一致；另保旧field100/JSON完整缓存codec。"
+      ]
+    },
+    {
+      "path": "lib/http/api.dart",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "bd93f479262637f03a91efbbd05b660b194e0943",
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "bb7a88264cf10a53f167751c2beac13ffc49b61d",
+      "upstreamBlob": "33fa1482b60e687ca34978ecdb9631bd97334960",
+      "alreadyIdentical": false,
+      "rationale": [
+        "按用户批准范围排除web live trace；保mobile heartbeat。",
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。",
+        "自动块含已排除trace端点和重复liveConfigPlugs/liveEditPlugs定义。"
+      ]
+    },
+    {
+      "path": "lib/http/constants.dart",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "bd93f479262637f03a91efbbd05b660b194e0943"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "bb369f0dfd5059da0be69901c5b9def806d8f63b",
+      "upstreamBlob": "77b9e3e9921e95f6853996278c2391780e906fcb",
+      "alreadyIdentical": false,
+      "rationale": [
+        "按用户批准范围排除web live trace；保mobile heartbeat。"
+      ]
+    },
+    {
+      "path": "lib/http/download.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "c520a3fe1b210b7af09b1c8cb58d85ee162472cd"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "05c2ebed354761778c9173e3bebad5b1c484fe54",
+      "upstreamBlob": "d7867a8dbbb57823662964a2bb643ce454627491",
+      "alreadyIdentical": false,
+      "rationale": [
+        "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。"
+      ]
+    },
+    {
+      "path": "lib/http/live.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "bd93f479262637f03a91efbbd05b660b194e0943",
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "39581ac50871a7a473267518fd4a71f3c0b48a0c",
+      "upstreamBlob": "5c0396a8db173553ce6006c0c54e44959d862465",
+      "alreadyIdentical": false,
+      "rationale": [
+        "按用户批准范围排除web live trace；保mobile heartbeat。",
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models/common/dynamic/article_type.dart",
+      "initialMergeStatus": "AA",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "2f46655b201d2c1d7df3b33229e534d45b1bcd0e",
+      "upstreamBlob": "a195e5cfebe8b15c64997148d2b8211aba2df2a3",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/models/dynamics/result.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "b0cfe239cf8bc76697c4a1e4d61bd0359bac188e",
+      "upstreamBlob": "c4b0e39398263aff7748b11d77dd7e9b0feb7ae3",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/models/video/play/url.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "c520a3fe1b210b7af09b1c8cb58d85ee162472cd",
+        "2dd24225b01a4d7b7aab6ac8eb3398c1bf1d0642"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "880ff65587210847651d9cd82c02f6b41cce8b02",
+      "upstreamBlob": "66c758f3c9e96550f5cbeba0df29eeeffe0ca8c0",
+      "alreadyIdentical": false,
+      "rationale": [
+        "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。",
+        "已有旧数据安全解析和离线合集更新；保SponsorBlock多来源元数据与手工分组。"
+      ]
+    },
+    {
+      "path": "lib/models_new/download/bili_download_entry_info.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "c520a3fe1b210b7af09b1c8cb58d85ee162472cd"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "e322f75b7d0136717b25960c57bc67164c3ee5ee",
+      "upstreamBlob": "5f205b581f11209472d3cdd948d083846b4feaa2",
+      "alreadyIdentical": false,
+      "rationale": [
+        "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_config_plugs/data.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "12c9721515b81098a957477a47f1d20139f35c9e",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_dm_block/data.dart",
+      "initialMergeStatus": "UD",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "a967a569f85ba2314b568e0bc0e64e3c683ac35b",
+      "upstreamBlob": null,
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_dm_block/shield_info.dart",
+      "initialMergeStatus": "D ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "770994c54320cbfe308b129137793535889b3adb",
+      "upstreamBlob": null,
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_dm_block/shield_rules.dart",
+      "initialMergeStatus": "D ",
+      "sourceCommits": [],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "0cfbf69f90958728075a8aee16a7460919273166",
+      "upstreamBlob": null,
+      "alreadyIdentical": false,
+      "rationale": [
+        "Git目录rename推断会移动我方新增规则；保留旧目录扩展与UID归一化。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_dm_block/shield_user_list.dart",
+      "initialMergeStatus": "R ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "ce125cf9a423337ef80da07af5835afb8328157e",
+      "upstreamBlob": null,
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_fans_medal/anchor_info.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "16c25a1ccd34ef4fca4feb646e68152b0b275bc2",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_fans_medal/data.dart",
+      "initialMergeStatus": "AA",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "9ca3f3ca5ba570ca2e8bfd0f435047a232b2cfd8",
+      "upstreamBlob": "398304cba74323c776d3a7af9702af45e66439bd",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_fans_medal/item.dart",
+      "initialMergeStatus": "AA",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "9342f44a95d03191be812f208e5d9ccd5958fedf",
+      "upstreamBlob": "032aec322ebf6e7ef5c67fce3867a5d711bdafbe",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_fans_medal/medal.dart",
+      "initialMergeStatus": "AA",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "71de7905adccd5524d8349803b77b307f2955242",
+      "upstreamBlob": "1759b240c7321d121d26d72afec9577de5616b7d",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_info_by_user/data.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "ecd54ae21713648d34ffd0fba0268606182cb568",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_info_by_user/medal.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "2996e2e765b78e96c4a84ce947e213afc1950f6b",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_info_by_user/shield_info.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "311d47ae0c92dc2e5ae53543c08c17692ae0db21",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_info_by_user/shield_rules.dart",
+      "initialMergeStatus": "AU",
+      "sourceCommits": [],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": null,
+      "alreadyIdentical": true,
+      "rationale": [
+        "Git目录rename推断会移动我方新增规则；保留旧目录扩展与UID归一化。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_info_by_user/shield_user_list.dart",
+      "initialMergeStatus": "R ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "d07dc2657cd81934db23e31c402114c15ff806b4",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_medal_wall/uinfo_medal.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "1c9eb19208d89f7f8519d03ea010b5321db45fd1",
+      "upstreamBlob": "9eac1dabed9dfb1ed76c7ad83b7a2f456d885a56",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_room_info_h5/room_info.dart",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "bd93f479262637f03a91efbbd05b660b194e0943"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "7d7124bc799337126096f95ae5767473811249cb",
+      "upstreamBlob": "e599f8f9a79ea4ca25240f5f00c10820d8a11a06",
+      "alreadyIdentical": false,
+      "rationale": [
+        "按用户批准范围排除web live trace；保mobile heartbeat。"
+      ]
+    },
+    {
+      "path": "lib/models_new/live/live_trace/data.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "bd93f479262637f03a91efbbd05b660b194e0943"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "02feeeaa2c98f04fb5222a30d8acb040c195f3c0",
+      "alreadyIdentical": false,
+      "rationale": [
+        "按用户批准范围排除web live trace；保mobile heartbeat。"
+      ]
+    },
+    {
+      "path": "lib/models_new/sponsor_block/segment_item.dart",
+      "initialMergeStatus": "unchanged",
+      "sourceCommits": [
+        "2dd24225b01a4d7b7aab6ac8eb3398c1bf1d0642"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "9fb8f0f45c91f01e4dc768494c75bfcaf09e5ccb",
+      "upstreamBlob": "50c91e362cd44a386aee0469b3d8b932a5503de2",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有旧数据安全解析和离线合集更新；保SponsorBlock多来源元数据与手工分组。"
+      ]
+    },
+    {
+      "path": "lib/pages/article/controller.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "98bb132d72ba65adae8d2a7d94cad378cabbb361",
+      "upstreamBlob": "2d1f76603510451963d8b137c686be74ce9cfcd7",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/article/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40",
+        "87dd54b8d7a184dca3e3061671e00c6d81003be7"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "9819b28bf71e6c5845d139117ce018744c98bcd8",
+      "upstreamBlob": "17248ab689dbb9a4a7d4f136e2a46cdfc5e72173",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。",
+        "已有文章合集倒序/public sliver；保SDK兼容、主题/Hero和回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/article/widgets/article_ops.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40",
+        "87dd54b8d7a184dca3e3061671e00c6d81003be7"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "47c746b770028108142fdb79c913283536c2b8aa",
+      "upstreamBlob": "1906cd3c406c25e48ee81c9cb1e004551e7ab283",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。",
+        "已有文章合集倒序/public sliver；保SDK兼容、主题/Hero和回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/article/widgets/opus_content.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "090e5925d441ddd7b63d083619df1f8c4f5da1a8",
+        "87dd54b8d7a184dca3e3061671e00c6d81003be7"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "87c11fab9034df58bed23533b8a0c8f68e2232c6",
+      "upstreamBlob": "70b61c44c0321b178aab1cc7596936950b51d68e",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有Opus卡片guard与基于请求URI的相对重定向；保EVA3/投票/Hero兼容。",
+        "已有文章合集倒序/public sliver；保SDK兼容、主题/Hero和回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/article/widgets/sliver_list_ext.dart",
+      "initialMergeStatus": "unchanged",
+      "sourceCommits": [
+        "87dd54b8d7a184dca3e3061671e00c6d81003be7"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": null,
+      "alreadyIdentical": true,
+      "rationale": [
+        "已有文章合集倒序/public sliver；保SDK兼容、主题/Hero和回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/article_list/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "87dd54b8d7a184dca3e3061671e00c6d81003be7"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "ade3eeae8383b83c27c5fa8ac204db4bbf20325c",
+      "upstreamBlob": "7c1e76cc9c11e32cea69e365299aa8e1929be544",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有文章合集倒序/public sliver；保SDK兼容、主题/Hero和回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/article_list/widgets/item.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "eaeea54adf072f6949b9981b31b73848465c6585",
+      "upstreamBlob": "3d6dbbee8311fe4bdc1abb36d5c08c9c71fec396",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/bubble/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "f01b326709a93ab125978674d4a63cc6d753c5af",
+      "upstreamBlob": "665d509b17f9e7acf9fc0ad3fea42268efe87da8",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/download/detail/widgets/item.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "c520a3fe1b210b7af09b1c8cb58d85ee162472cd",
+        "2dd24225b01a4d7b7aab6ac8eb3398c1bf1d0642"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "a00dca2120e69564e698b9b319a55dd33cf20b29",
+      "upstreamBlob": "92330e204173a1bfe29554dc2cd6e3e3ea6872eb",
+      "alreadyIdentical": false,
+      "rationale": [
+        "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。",
+        "已有旧数据安全解析和离线合集更新；保SponsorBlock多来源元数据与手工分组。"
+      ]
+    },
+    {
+      "path": "lib/pages/download/download/view.dart",
+      "initialMergeStatus": "DU",
+      "sourceCommits": [
+        "c520a3fe1b210b7af09b1c8cb58d85ee162472cd",
+        "2dd24225b01a4d7b7aab6ac8eb3398c1bf1d0642"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "99770ec335488431ea3411593f0f8e097a5d5f0a",
+      "alreadyIdentical": false,
+      "rationale": [
+        "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。",
+        "已有旧数据安全解析和离线合集更新；保SponsorBlock多来源元数据与手工分组。"
+      ]
+    },
+    {
+      "path": "lib/pages/download/download/widgets/page.dart",
+      "initialMergeStatus": "DU",
+      "sourceCommits": [
+        "c520a3fe1b210b7af09b1c8cb58d85ee162472cd",
+        "2dd24225b01a4d7b7aab6ac8eb3398c1bf1d0642"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "a3beae6cb9d547c549f97a8516c33b6911fc781f",
+      "alreadyIdentical": false,
+      "rationale": [
+        "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。",
+        "已有旧数据安全解析和离线合集更新；保SponsorBlock多来源元数据与手工分组。"
+      ]
+    },
+    {
+      "path": "lib/pages/download/download/widgets/season.dart",
+      "initialMergeStatus": "DU",
+      "sourceCommits": [
+        "c520a3fe1b210b7af09b1c8cb58d85ee162472cd",
+        "2dd24225b01a4d7b7aab6ac8eb3398c1bf1d0642"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "14c6f6c7325b5f6dbd86160db7170b0cad697fbe",
+      "alreadyIdentical": false,
+      "rationale": [
+        "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。",
+        "已有旧数据安全解析和离线合集更新；保SponsorBlock多来源元数据与手工分组。"
+      ]
+    },
+    {
+      "path": "lib/pages/download/download_action_mixin.dart",
+      "initialMergeStatus": "DU",
+      "sourceCommits": [
+        "c520a3fe1b210b7af09b1c8cb58d85ee162472cd",
+        "2dd24225b01a4d7b7aab6ac8eb3398c1bf1d0642"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "f1930074df424a9f8d60899d2db8a3128dc23a68",
+      "alreadyIdentical": false,
+      "rationale": [
+        "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。",
+        "已有旧数据安全解析和离线合集更新；保SponsorBlock多来源元数据与手工分组。"
+      ]
+    },
+    {
+      "path": "lib/pages/download/page/view.dart",
+      "initialMergeStatus": "DU",
+      "sourceCommits": [
+        "c520a3fe1b210b7af09b1c8cb58d85ee162472cd",
+        "2dd24225b01a4d7b7aab6ac8eb3398c1bf1d0642"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "bb5595527992968e7b3cd072c2ca841cade1ba2f",
+      "alreadyIdentical": false,
+      "rationale": [
+        "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。",
+        "已有旧数据安全解析和离线合集更新；保SponsorBlock多来源元数据与手工分组。"
+      ]
+    },
+    {
+      "path": "lib/pages/dynamics/widgets/rich_node_panel.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "146ff737bb2de5edabe5a546f7acf5d1f84914ef",
+      "upstreamBlob": "0d45b17b366ac8fbbe6cd2edf4fb37d6b3abb5b0",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/fans_medal/controller.dart",
+      "initialMergeStatus": "AA",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "0f004df0543a0c94656e9f54a1fca5a41bc82bf1",
+      "upstreamBlob": "e400d19ad0103d6f4f199674c460c0224b9277a8",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/fans_medal/medal_setting_mixin.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d",
+        "de3558cf75338d96e80c85276ca6ffb84e781922"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "4441c81ea5726834638ce07d5513b4366345b1f4",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。",
+        "已有最终无debug print状态；不为去日志复活独立设置mixin。"
+      ]
+    },
+    {
+      "path": "lib/pages/fans_medal/view.dart",
+      "initialMergeStatus": "AA",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "2b95ee713b4b3ea67c533579af3e74effc831d04",
+      "upstreamBlob": "5a4ce6c99ce66c99cf2900ff03281e0004a20daf",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/fav/article/widget/item.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "038cb9b885b844f6aef052da8e3de96a656f972b",
+      "upstreamBlob": "1d32b30c700c41f8bc3941d7305c299087df8f86",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/history/widgets/item.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "21b1bef3aaedcfb1b77574122b61b51b2c0ed4e7",
+      "upstreamBlob": "2448a49733c7e2aed3f5cbb0a8dbc5bcc1a46122",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_dm_block/controller.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "29ce9bf64c9bd0ca42fcde36a8e90117628a5954",
+      "upstreamBlob": "014e50d04ed446268937bdad5cace354b3d842c3",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_dm_block/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "00907d8997bfa427f4d846c33daef8c709d7d463",
+      "upstreamBlob": "83cc0caacadbb38d9e0d345c51c2f7b010d63e66",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "bd93f479262637f03a91efbbd05b660b194e0943",
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "e62b0d5f6c594b87869ede6a370e15095bcec2bd",
+      "upstreamBlob": "1e020b8f9d1303e70da678d6009f8ca41c4f578d",
+      "alreadyIdentical": false,
+      "rationale": [
+        "按用户批准范围排除web live trace；保mobile heartbeat。",
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller_mixin/block.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "d5e876668da6653c2815798b43258cb1df76ff14",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller_mixin/data.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "ae3c7b610db10d75892bb1d2724019c8386e4f30",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller_mixin/dm.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "0bb502863d7377397ad03c9b045ab66f106a7963",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller_mixin/dm_stream.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "c4fa15dde8e35d1f1c6edbc3e6494596d8042b66",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller_mixin/dm_trim.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "43abf306b058e3acfb89e9a54758137ccde72a1e",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller_mixin/like.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "591d20eba8cbb67e4e2315835a768e82baf98ae9",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller_mixin/medal.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "ad81c1c518074edcd719c2263a3540a770a40b4c",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller_mixin/sc.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "16ec9a3c1e36cf99cfba9369cfa75ee94763f0ca",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller_mixin/size.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "022f32904f12d015b7deba9e3056407633f8b005",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller_mixin/time.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "3ab191abdb919afc0ae567a1e8bf01ce2501a1d7",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/controller_mixin/trace.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "f68b05dcd0476769f2c5faf4c3e46cc40a157734",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/medal/medal_mixin.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "9f65cac0423916d7ab2671872b973420b1cd3758",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/send_danmaku/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "85915447dd2f0418b75c6f332c680b25288000fc",
+      "upstreamBlob": "158f8cd9c5c981103ed2a5c77e3bdad80dea00ed",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "bd93f479262637f03a91efbbd05b660b194e0943",
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "f01b8941ec5f084b41fb114096c2fae26072ca38",
+      "upstreamBlob": "9d6cab17392326f180716c0d5788407b5b635956",
+      "alreadyIdentical": false,
+      "rationale": [
+        "按用户批准范围排除web live trace；保mobile heartbeat。",
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/widgets/bottom_control.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "bd93f479262637f03a91efbbd05b660b194e0943"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "513f779f5b31858997a95e406f5708b7d713ea15",
+      "upstreamBlob": "79b8f1fdfb615e70444cf4f4e267845d68f0e7ff",
+      "alreadyIdentical": false,
+      "rationale": [
+        "按用户批准范围排除web live trace；保mobile heartbeat。"
+      ]
+    },
+    {
+      "path": "lib/pages/live_room/widgets/chat_panel.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "bd93f479262637f03a91efbbd05b660b194e0943"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "a471ca8dc75061342f36b5118df560995bfd60d1",
+      "upstreamBlob": "964e5ca950109a285244b688cc1cfccadc0e6cad",
+      "alreadyIdentical": false,
+      "rationale": [
+        "按用户批准范围排除web live trace；保mobile heartbeat。"
+      ]
+    },
+    {
+      "path": "lib/pages/member/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "c770ca9e756ca3381124547abfac407e74e77d05",
+      "upstreamBlob": "f32d02473e7acb50d6833ae003bcf7aed6a8ff15",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/pages/my_reply/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "7e446d8bece54d77f45d2ba33420dc384f748740",
+      "upstreamBlob": "fabbaf2eb6b150ad39e03f12ae32ff1eb8ab6001",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/pgc_review/child/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "459b686df858f22133a2ac40e47d3eeb98f8deef",
+      "upstreamBlob": "45995913ffb077bf6d126ea1766a35d6110415f0",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/search_panel/article/controller.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "643abc942d079b672d2af726f5ce611154a4da36",
+      "upstreamBlob": "d875049c1abef2428b6923ee48bb43d32dc76b13",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/search_panel/article/widgets/item.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "23f0a42c44783fca3595db6c6d2ff74b4a2c4ff3",
+      "upstreamBlob": "ae56bdfdd8ae14b6888c782dbca2e2e5c910171b",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/setting/models/play_settings.dart",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "c31e3efb55ffb5b4042c7a9dc923af0255d8ffb4",
+      "upstreamBlob": "46781b3007149543b53a794450f39e28e4498e73",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。",
+        "自动合并会重复autoWearMedal并添加SwitchModel不支持的defaultVal参数。"
+      ]
+    },
+    {
+      "path": "lib/pages/video/controller.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "c520a3fe1b210b7af09b1c8cb58d85ee162472cd",
+        "3bfb84e37429e978c017e56b287c4e581085760c"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "96e24b6fd6e65bc942ca8a1db7bdc9550fa19617",
+      "upstreamBlob": "ffe709252bdd08d7ae66b7e01db553802138b63a",
+      "alreadyIdentical": false,
+      "rationale": [
+        "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。",
+        "已有空DASH检查；保严格选流、源隔离和错误恢复。"
+      ]
+    },
+    {
+      "path": "lib/pages/video/download_panel/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "a76861a20a42e6dc482d427e2294d651f332d4b1",
+        "c9fef1a66c4a0f0432cc0cc19b6208d4e72911bd"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "524b4f3fc780550d6a5466f59efabdd662c5225a",
+      "upstreamBlob": "375111ae33ef885d819869c9874d3967c3fce446",
+      "alreadyIdentical": false,
+      "rationale": [
+        "下载间距已适配本地文字和音质布局。",
+        "已修合集位置；保手工文件夹名称、顺序及关联。"
+      ]
+    },
+    {
+      "path": "lib/pages/video/note/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "2feb6f5ac21a9fc2360ca5a325b5030b3ef4e0f1",
+      "upstreamBlob": "87f8d344fd94b5a8b0d7edbe3c9c6b274ed2602e",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/video/reply/widgets/reply_item_grpc.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "66e9e19c2419361ae057b538c6b5574489ac70df",
+      "upstreamBlob": "1996035e8bb2f51f46682d44c14f2ba3586489db",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/pages/video/reply_reply/controller.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "f61cdab35cd831ff9ea4787458d4349588dbe315"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "c6af1ad75af9f1c67cb6ce51f7f5547caacf6b72",
+      "upstreamBlob": "0223e6308d57f737219b8f9f1de65e2e2dae6c7a",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有树/平铺切换、当前数据重建与加载中保护；保拉全确认。"
+      ]
+    },
+    {
+      "path": "lib/pages/video/reply_reply/view.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "f61cdab35cd831ff9ea4787458d4349588dbe315"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "93efb4b17199c03ca7986f3a56d5f79ddf62e805",
+      "upstreamBlob": "aa908933a7bb92ef2115eedeb9418d4389d8583c",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有树/平铺切换、当前数据重建与加载中保护；保拉全确认。"
+      ]
+    },
+    {
+      "path": "lib/pages/video/widgets/player_focus.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "dc829bf265658d924fd5d217da9a5be3fe78044a"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "50dc24f3296ebfe43147572b0b13ec719729f92d",
+      "upstreamBlob": "7915a8e588927ae3590dc18c14d51f37f081d5d5",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有键盘seek/hover清理；保预览epoch、PiP与本地生命周期。"
+      ]
+    },
+    {
+      "path": "lib/pages/whisper_detail/widget/chat_item.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "e33b9f40dc3a2867ccf7f46e60b3ed09b032a9bc",
+      "upstreamBlob": "1282f0c364009b1a8e2954e0ae71297ea5be04fe",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/plugin/pl_player/controller.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "dc829bf265658d924fd5d217da9a5be3fe78044a"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "54bba87f0b1449fa642c921e0f28456ac76d76d5",
+      "upstreamBlob": "1d7c07352849ce7d1e7dcf3c0dbd0044223ffe02",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有键盘seek/hover清理；保预览epoch、PiP与本地生命周期。"
+      ]
+    },
+    {
+      "path": "lib/plugin/pl_player/view/view.dart",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "dc829bf265658d924fd5d217da9a5be3fe78044a"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "5597aad8d00a4fb6a0bcf5bd6d46e1b55b59b083",
+      "upstreamBlob": "230c39cbe24d501a503df0e5c8132f5c44936fe0",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有键盘seek/hover清理；保预览epoch、PiP与本地生命周期。",
+        "自动合并会引入不存在的hidePreviewIfNeeded；保现实现。"
+      ]
+    },
+    {
+      "path": "lib/plugin/pl_player/widgets/bottom_control.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "dc829bf265658d924fd5d217da9a5be3fe78044a"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "157a4e156b209b4b74ad148895506789a300e788",
+      "upstreamBlob": "53050ed5d84d8f6605a44d23189cc3d9829fe9ff",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有键盘seek/hover清理；保预览epoch、PiP与本地生命周期。"
+      ]
+    },
+    {
+      "path": "lib/router/app_pages.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "bc4f1c419a270f07a5c5dda29974ac9206ed6295",
+      "upstreamBlob": "2facb3230b745b05feda235c5fe26efc95f5816c",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/scripts/material/bottom_sheet_android.patch",
+      "initialMergeStatus": "DU",
+      "sourceCommits": [
+        "915276c87db37e5f361f5d30a0ed5dfe5ed7563a"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "228e00e645f61f97eae20298e9ca1525916a81ab",
+      "alreadyIdentical": false,
+      "rationale": [
+        "五项活动Material补丁已经验证适配；源只调整活动补丁行号/索引，无新语义；保自有SDK补丁且不复活已删TabBar/补丁。"
+      ]
+    },
+    {
+      "path": "lib/scripts/material/bottom_sheet_ios_flutter_material.patch",
+      "initialMergeStatus": "DU",
+      "sourceCommits": [
+        "915276c87db37e5f361f5d30a0ed5dfe5ed7563a"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "d27d6c03a72059be462f2442aa45a480ea964dee",
+      "alreadyIdentical": false,
+      "rationale": [
+        "五项活动Material补丁已经验证适配；源只调整活动补丁行号/索引，无新语义；保自有SDK补丁且不复活已删TabBar/补丁。"
+      ]
+    },
+    {
+      "path": "lib/scripts/material/fab.patch",
+      "initialMergeStatus": "DU",
+      "sourceCommits": [
+        "915276c87db37e5f361f5d30a0ed5dfe5ed7563a"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "8c6bbedc144eb0284281fa5e2d9debfb85f9c969",
+      "alreadyIdentical": false,
+      "rationale": [
+        "五项活动Material补丁已经验证适配；源只调整活动补丁行号/索引，无新语义；保自有SDK补丁且不复活已删TabBar/补丁。"
+      ]
+    },
+    {
+      "path": "lib/scripts/material/modal_barrier_material.patch",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "915276c87db37e5f361f5d30a0ed5dfe5ed7563a"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "6d7a361983ccf4da6f8e1be4808776d0f5175e2e",
+      "upstreamBlob": "0374a56025a2ce54281363faa58b2134abf5de89",
+      "alreadyIdentical": false,
+      "rationale": [
+        "五项活动Material补丁已经验证适配；源只调整活动补丁行号/索引，无新语义；保自有SDK补丁且不复活已删TabBar/补丁。"
+      ]
+    },
+    {
+      "path": "lib/scripts/material/navigation_drawer.patch",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "915276c87db37e5f361f5d30a0ed5dfe5ed7563a"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "2b2bd7341af686dd91d0ebd4a8a7634d95cbef90",
+      "upstreamBlob": "0b308fb0e3c1b511487648d8938e7a3157591f08",
+      "alreadyIdentical": false,
+      "rationale": [
+        "五项活动Material补丁已经验证适配；源只调整活动补丁行号/索引，无新语义；保自有SDK补丁且不复活已删TabBar/补丁。"
+      ]
+    },
+    {
+      "path": "lib/scripts/material/popup_menu.patch",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "915276c87db37e5f361f5d30a0ed5dfe5ed7563a"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "99631c746cd97360fc62421b3548aa98e22c381f",
+      "upstreamBlob": "857633266334f8a478ce48299f9602381b638dc4",
+      "alreadyIdentical": false,
+      "rationale": [
+        "五项活动Material补丁已经验证适配；源只调整活动补丁行号/索引，无新语义；保自有SDK补丁且不复活已删TabBar/补丁。"
+      ]
+    },
+    {
+      "path": "lib/scripts/material/refresh_indicator.patch",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "915276c87db37e5f361f5d30a0ed5dfe5ed7563a"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "fb215a85a5d8e51949531798bbd7ea9ad02d63bd",
+      "upstreamBlob": "6717c90f6188d0274e54a20bf71f74f7d37f2650",
+      "alreadyIdentical": false,
+      "rationale": [
+        "五项活动Material补丁已经验证适配；源只调整活动补丁行号/索引，无新语义；保自有SDK补丁且不复活已删TabBar/补丁。"
+      ]
+    },
+    {
+      "path": "lib/scripts/material/scaffold.patch",
+      "initialMergeStatus": "DU",
+      "sourceCommits": [
+        "915276c87db37e5f361f5d30a0ed5dfe5ed7563a"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "114f33f7c41181ab9938d49c15540764eb0e4377",
+      "alreadyIdentical": false,
+      "rationale": [
+        "五项活动Material补丁已经验证适配；源只调整活动补丁行号/索引，无新语义；保自有SDK补丁且不复活已删TabBar/补丁。"
+      ]
+    },
+    {
+      "path": "lib/scripts/material/tabs.patch",
+      "initialMergeStatus": "DU",
+      "sourceCommits": [
+        "915276c87db37e5f361f5d30a0ed5dfe5ed7563a"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "f470d22f8ee75375fcee969e7acb6fec81317d7b",
+      "alreadyIdentical": false,
+      "rationale": [
+        "五项活动Material补丁已经验证适配；源只调整活动补丁行号/索引，无新语义；保自有SDK补丁且不复活已删TabBar/补丁。"
+      ]
+    },
+    {
+      "path": "lib/services/download/download_service.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "c9fef1a66c4a0f0432cc0cc19b6208d4e72911bd",
+        "b5e13839829d8c17bc60237d14ecfad208a5e832",
+        "c520a3fe1b210b7af09b1c8cb58d85ee162472cd",
+        "2dd24225b01a4d7b7aab6ac8eb3398c1bf1d0642"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "fae6b852287c5184e376c2418cbf7fbd75c2a5df",
+      "upstreamBlob": "66ff886daeaae5af8eebfc104e0174ee1c1f32fe",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已修合集位置；保手工文件夹名称、顺序及关联。",
+        "有效任务取流后已即时刷新UI；保任务有效性保护。",
+        "离线音量已全链适配，元数据在任务锁/代际边界更新；不复活已删除旧下载UI。",
+        "已有旧数据安全解析和离线合集更新；保SponsorBlock多来源元数据与手工分组。"
+      ]
+    },
+    {
+      "path": "lib/utils/accounts/account.dart",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "07c48d0c34c4d90662ad2003de6cecc95add3c85"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "cc6eb1a7fc8952d0bfe5fb3368925f4824f9c9e2",
+      "upstreamBlob": "9e1dc36879d2a45c1ffba342baf82cb75eb2756b",
+      "alreadyIdentical": false,
+      "rationale": [
+        "匿名SPI已在活动fork按单飞/代际适配；不向旧锚添加不完整调用。",
+        "自动合并会引入未定义_getBuvid；有效SPI在活动fork，旧锚必须保留。"
+      ]
+    },
+    {
+      "path": "lib/utils/accounts/api_type.dart",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "bd93f479262637f03a91efbbd05b660b194e0943"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "6d52f291920544292886a54305aefe400fc97c57",
+      "upstreamBlob": "0696488e82b659beff909ec02864e1c16568af2c",
+      "alreadyIdentical": false,
+      "rationale": [
+        "按用户批准范围排除web live trace；保mobile heartbeat。"
+      ]
+    },
+    {
+      "path": "lib/utils/app_scheme.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "4e4ca000f488f9223a184eba4c9118fdba71ed36",
+      "upstreamBlob": "e71da313ab87feb6328c34d523ee040b40214440",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/utils/bili_colors.dart",
+      "initialMergeStatus": "M ",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "f4dc98ea13da0454559e1aaadab66e129e12dac5",
+      "upstreamBlob": "e316a31cf3fc62f4163ab61e5ebc75df566314b9",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/utils/desktop/window_bounds.dart",
+      "initialMergeStatus": "unchanged",
+      "sourceCommits": [
+        "86f4759d4f816bf6115603a346f84e45ee5b2b03"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "357c1c84e566f3033994c85a784c5454b0740b8a",
+      "upstreamBlob": "357c1c84e566f3033994c85a784c5454b0740b8a",
+      "alreadyIdentical": true,
+      "rationale": [
+        "窗口矩形helper与上游一致；保本地真实接线、选屏/坏值保护和身份导入。"
+      ]
+    },
+    {
+      "path": "lib/utils/live_trace_utils.dart",
+      "initialMergeStatus": "A ",
+      "sourceCommits": [
+        "bd93f479262637f03a91efbbd05b660b194e0943"
+      ],
+      "resolution": "retain-reviewed-B1-absence",
+      "baseBlob": null,
+      "upstreamBlob": "1de3e52ebd1307d506daf3cece2c9be714b40fa6",
+      "alreadyIdentical": false,
+      "rationale": [
+        "按用户批准范围排除web live trace；保mobile heartbeat。"
+      ]
+    },
+    {
+      "path": "lib/utils/page_utils.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "090e5925d441ddd7b63d083619df1f8c4f5da1a8",
+        "24f798d0d88700c3800bf03aba92386e5b6bdd40"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "4941352463f520d17cc943f1150e2d26f4ad0548",
+      "upstreamBlob": "207546d20c6171cadb930579e4e3430255e765cc",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有Opus卡片guard与基于请求URI的相对重定向；保EVA3/投票/Hero兼容。",
+        "已有类型化文章入口、动态全文和全部入口迁移；保legacy参数及回复定位。"
+      ]
+    },
+    {
+      "path": "lib/utils/storage_key.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "50b9b41e3c81366e4328a30ce13507f313af6ebc",
+      "upstreamBlob": "a3e219179d50c2bd8563969674470382fe41b790",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/utils/storage_pref.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "6a1090102723cd4469d847b01506223aee62d15d"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "86807f333034e7c1b173f48e6bdb18040659ddcb",
+      "upstreamBlob": "3bab3c83c42969b03fbafd4b93c031162661ee55",
+      "alreadyIdentical": false,
+      "rationale": [
+        "全局粉丝牌管理/展示设置/WS同步已按主账号、互斥及代际适配；保现有模型/控制器，不引入11part结构、重复模型或设置。"
+      ]
+    },
+    {
+      "path": "lib/utils/url_utils.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "090e5925d441ddd7b63d083619df1f8c4f5da1a8"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "17d2c1b5608fa9fc05ce3a9fc1de4a21816a91ae",
+      "upstreamBlob": "638bf926fa3491681716e09231a5e4316a2c5a8f",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已有Opus卡片guard与基于请求URI的相对重定向；保EVA3/投票/Hero兼容。"
+      ]
+    },
+    {
+      "path": "pubspec.lock",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "cab0114a21ce7fad5b90b9a4d788d35d313d25f9",
+        "724f24517e0af5ffd9eb130d60687858e371d11c"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "9682c4484445df15005e703dbc2d194fa44abc54",
+      "upstreamBlob": "bc9ff76400fce5622a1cfa5374280a2a7a21ffcb",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已采用目标MPRIS Git fork并适配seek/倍速；保审计后的fork/overrides/增量lock。",
+        "全部落后依赖已经过兼容审计；保Flutter3.47.9及现有Git fork/overrides，不复制上游lock。"
+      ]
+    },
+    {
+      "path": "pubspec.yaml",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "cab0114a21ce7fad5b90b9a4d788d35d313d25f9"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "3b2d975ea19b064149bf3de750040bf6acb16758",
+      "upstreamBlob": "af9686c286fdabfc05eace62101b6dd448573727",
+      "alreadyIdentical": false,
+      "rationale": [
+        "已采用目标MPRIS Git fork并适配seek/倍速；保审计后的fork/overrides/增量lock。"
+      ]
+    },
+    {
+      "path": "test/utils/desktop/window_bounds_test.dart",
+      "initialMergeStatus": "UU",
+      "sourceCommits": [
+        "86f4759d4f816bf6115603a346f84e45ee5b2b03"
+      ],
+      "resolution": "retain-reviewed-B1-blob",
+      "baseBlob": "e7f9eebde8bee5108a2e690e4f745dfc7f6e552b",
+      "upstreamBlob": "6b475c95f0edca21b864a312c4ecfe575d6ca5a5",
+      "alreadyIdentical": false,
+      "rationale": [
+        "窗口矩形helper与上游一致；保本地真实接线、选屏/坏值保护和身份导入。"
+      ]
+    }
+  ],
+  "retainedExclusions": [
+    "PiliNara README and version logs",
+    "web live trace from bd93f4792",
+    "11-part live controller rearrangement",
+    "automatic folder regrouping overriding manual names/order/associations"
+  ],
+  "forkMapSnapshot": "c92476e671a5d1a3a44d0e59a42c7cfca568a388",
+  "forkMapNote": "The old per-path drift snapshot is intentionally unchanged. Git ancestry inclusion does not assert code equality or acceptance of every upstream implementation.",
+  "platformBuild": false,
+  "pullRequest": false
+}

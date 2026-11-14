@@ -11,7 +11,6 @@ import 'package:PiliMax/pages/setting/widgets/multi_select_dialog.dart';
 import 'package:PiliMax/pages/webdav/view.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts/account.dart';
-import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/utils.dart';
 import 'package:material_ui/material_ui.dart' hide ListTile;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -36,7 +35,7 @@ class _SettingPageState extends State<SettingPage> {
     super.didChangeDependencies();
 
     theme = Theme.of(context);
-    _isPortrait = MediaQuery.sizeOf(context).isPortrait;
+    _isPortrait = MediaQuery.isPortraitOf(context);
   }
 
   @override

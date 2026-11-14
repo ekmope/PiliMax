@@ -6,7 +6,6 @@ import 'package:PiliMax/models/search/result.dart';
 import 'package:PiliMax/pages/search/widgets/search_text.dart';
 import 'package:PiliMax/pilimax/forks/pages/search_panel/controller.dart';
 import 'package:PiliMax/utils/recommend_filter.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
 
@@ -32,7 +31,8 @@ class SearchUserController
     final list = response.response.list;
     if (list != null) {
       list.removeWhere(
-        (item) => RecommendFilter.searchShouldRemove(item.mid, item.uname ?? ''),
+        (item) =>
+            RecommendFilter.searchShouldRemove(item.mid, item.uname ?? ''),
       );
     }
     return false;
@@ -44,7 +44,7 @@ class SearchUserController
       useSafeArea: true,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxWidth: min(640, context.mediaQueryShortestSide),
+        maxWidth: min(640, MediaQuery.shortestSideOf(context)),
       ),
       builder: (context) {
         final theme = Theme.of(context);

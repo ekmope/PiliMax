@@ -40,7 +40,6 @@ import 'package:PiliMax/utils/color_utils.dart';
 import 'package:PiliMax/utils/danmaku_utils.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
@@ -161,7 +160,7 @@ class ReplyItemGrpc extends StatelessWidget {
       useSafeArea: true,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxWidth: min(640, context.mediaQueryShortestSide),
+        maxWidth: min(640, MediaQuery.shortestSideOf(context)),
       ),
       builder: (context) {
         return morePanel(
@@ -720,7 +719,7 @@ class ReplyItemGrpc extends StatelessWidget {
                   useSafeArea: true,
                   isScrollControlled: true,
                   constraints: BoxConstraints(
-                    maxWidth: min(640, context.mediaQueryShortestSide),
+                    maxWidth: min(640, MediaQuery.shortestSideOf(context)),
                   ),
                   builder: (context) {
                     return morePanel(

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math' show max;
 
 import 'package:PiliMax/models/common/publish_panel_type.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:chat_bottom_container/chat_bottom_container.dart';
 import 'package:material_ui/material_ui.dart';
@@ -142,7 +141,7 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
   }
 
   Widget buildEmojiPickerPanel() {
-    double height = context.isTablet ? 300 : 170;
+    double height = MediaQuery.isTabletOf(context) ? 300 : 170;
     final keyboardHeight = controller.keyboardHeight;
     if (keyboardHeight != 0) {
       height = max(height, keyboardHeight);

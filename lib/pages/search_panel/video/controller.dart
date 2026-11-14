@@ -10,7 +10,6 @@ import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/url_utils.dart';
 import 'package:PiliMax/utils/recommend_filter.dart';
 import 'package:PiliMax/utils/date_utils.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/id_utils.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -49,7 +48,8 @@ class SearchVideoController
     final list = response.response.list;
     if (list != null) {
       list.removeWhere(
-        (item) => RecommendFilter.searchShouldRemove(item.owner.mid, item.title),
+        (item) =>
+            RecommendFilter.searchShouldRemove(item.owner.mid, item.title),
       );
     }
     if (searchType == SearchType.video && !hasJump2Video && isRefresh) {
@@ -68,7 +68,10 @@ class SearchVideoController
     } catch (_) {}
   }
 
-  static final _b23Regex = RegExp(r'b23\.tv/[A-Za-z0-9]{7}$', caseSensitive: false);
+  static final _b23Regex = RegExp(
+    r'b23\.tv/[A-Za-z0-9]{7}$',
+    caseSensitive: false,
+  );
 
   Future<void> jump2Video() async {
     if (IdUtils.avRegexExact.hasMatch(keyword)) {
@@ -109,7 +112,7 @@ class SearchVideoController
       useSafeArea: true,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxWidth: min(640, context.mediaQueryShortestSide),
+        maxWidth: min(640, MediaQuery.shortestSideOf(context)),
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {

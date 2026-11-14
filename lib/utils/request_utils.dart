@@ -28,8 +28,6 @@ import 'package:PiliMax/pages/fav_detail/controller.dart'
 import 'package:PiliMax/pages/group_panel/view.dart';
 import 'package:PiliMax/pages/login/geetest/geetest_webview_dialog.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
-import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
@@ -212,12 +210,12 @@ abstract final class RequestUtils {
                     useSafeArea: true,
                     isScrollControlled: true,
                     constraints: BoxConstraints(
-                      maxWidth: min(640, context.mediaQueryShortestSide),
+                      maxWidth: min(640, MediaQuery.shortestSideOf(context)),
                     ),
                     builder: (BuildContext context) {
                       final maxChildSize =
                           PlatformUtils.isMobile &&
-                              !context.mediaQuerySize.isPortrait
+                              !MediaQuery.isPortraitOf(context)
                           ? 1.0
                           : 0.7;
                       return DraggableScrollableSheet(

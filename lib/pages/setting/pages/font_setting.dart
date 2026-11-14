@@ -9,7 +9,6 @@ import 'package:PiliMax/utils/extension/box_ext.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/scroll_controller_ext.dart';
-import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/font_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
@@ -81,7 +80,7 @@ final class _FontSettingPageState extends State<FontSettingPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _colorScheme = ColorScheme.of(context);
-    _isPortrait = MediaQuery.sizeOf(context).isPortrait;
+    _isPortrait = MediaQuery.isPortraitOf(context);
     _scrollController = PrimaryScrollController.of(context);
   }
 

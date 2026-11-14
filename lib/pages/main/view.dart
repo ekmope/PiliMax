@@ -21,7 +21,6 @@ import 'package:PiliMax/pilimax/utils/clipboard_video_link_handler.dart';
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:PiliMax/utils/desktop/window_controller.dart';
 import 'package:PiliMax/utils/desktop/tray_controller.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/mobile_observer.dart';
@@ -538,7 +537,7 @@ class _MainAppState extends PopScopeState<MainApp>
 
   Widget _sideBar(ThemeData theme) {
     return _mainController.navigationBars.length > 1
-        ? context.isTablet && _mainController.optTabletNav
+        ? MediaQuery.isTabletOf(context) && _mainController.optTabletNav
               ? Obx(() {
                   final showLabel =
                       _mainController.showNavBarLabel.value &&

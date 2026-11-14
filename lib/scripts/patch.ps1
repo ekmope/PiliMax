@@ -76,6 +76,9 @@ $WebviewLinuxCxx17Patch = "lib/scripts/webview_all_linux_cxx17.patch"
 
 $RefreshIndicatorPatch = "lib/scripts/refresh_indicator.patch"
 
+# Expose the app's selective MediaQuery aspects on the pinned Flutter SDK.
+$MediaQueryPatch = "lib/scripts/media_query.patch"
+
 # TODO: remove
 # https://github.com/flutter/flutter/pull/183261
 $SelectableRegionPatch = "lib/scripts/null_safety_for_selectable_region.patch"
@@ -632,7 +635,8 @@ $patches = @($ModalBarrierPatch, $TextSelectionPatch, $MouseCursorPatch,
             $ScrollPositionPatch,
             $ScrollablePatch,
             $DraggableScrollableSheetPatch,
-            $RefreshIndicatorPatch)
+            $RefreshIndicatorPatch,
+            $MediaQueryPatch)
 
 switch ($platform.ToLower()) {
     "android" {

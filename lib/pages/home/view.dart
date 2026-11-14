@@ -8,7 +8,6 @@ import 'package:PiliMax/pages/home/home_preview_scope.dart';
 import 'package:PiliMax/pages/main/controller.dart';
 import 'package:PiliMax/pages/mine/controller.dart';
 import 'package:PiliMax/utils/extension/get_ext.dart';
-import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:get/get.dart';
@@ -82,8 +81,7 @@ class _HomePageState extends CommonPageState<HomePage>
       enabled: widget.preview,
       child: Column(
         children: [
-          if (!_mainController.useSideBar &&
-              MediaQuery.sizeOf(context).isPortrait)
+          if (!_mainController.useSideBar && MediaQuery.isPortraitOf(context))
             customAppBar(),
           tabBar,
           Expanded(

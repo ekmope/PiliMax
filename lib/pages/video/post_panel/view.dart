@@ -19,7 +19,6 @@ import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart'
     hide ExtendedVisibilityDetector;
 import 'package:PiliMax/pilimax/common/widgets/extended_visibility_detector.dart';
 import 'package:PiliMax/common/widgets/view_insets_safe_area.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:material_ui/material_ui.dart';
@@ -128,7 +127,7 @@ class PostPanel extends CommonSlidePage {
                     FilteringTextInputFormatter.allow(RegExp(r'[\d:.]+')),
                   ],
                 );
-                if (PlatformUtils.isDesktop || context.isTablet) {
+                if (PlatformUtils.isDesktop || MediaQuery.isTabletOf(context)) {
                   res = await showDialog<String>(
                     context: context,
                     builder: (context) => AlertDialog(

@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/common/widgets/view_safe_area.dart';
 import 'package:PiliMax/pages/setting/widgets/switch_item.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/filtering_text.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
@@ -119,7 +118,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
       isScrollControlled: true,
       clipBehavior: Clip.hardEdge,
       constraints: BoxConstraints(
-        maxWidth: min(640, context.mediaQueryShortestSide),
+        maxWidth: min(640, MediaQuery.shortestSideOf(context)),
       ),
       builder: (context) {
         return Column(

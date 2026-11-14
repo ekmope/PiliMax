@@ -25,9 +25,7 @@ import 'package:PiliMax/common/widgets/image_grid/image_grid_builder.dart';
 import 'package:PiliMax/common/widgets/image_viewer/image_hero_tag.dart';
 import 'package:PiliMax/common/widgets/image_viewer/hero.dart';
 import 'package:PiliMax/models/common/image_preview_type.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
-import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/image_utils.dart';
 import 'package:PiliMax/utils/page_utils.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
@@ -103,7 +101,7 @@ class ImageGridView extends StatelessWidget {
     if (horizontalPreview &&
         !fullScreen &&
         Get.currentRoute.startsWith(_regex) &&
-        !context.mediaQuerySize.isPortrait) {
+        !MediaQuery.isPortraitOf(context)) {
       final scaffoldState = Scaffold.maybeOf(context);
       if (scaffoldState != null) {
         onViewImage?.call();

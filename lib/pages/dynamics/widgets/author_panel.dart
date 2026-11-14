@@ -23,7 +23,6 @@ import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:PiliMax/utils/date_utils.dart';
 import 'package:PiliMax/pilimax/utils/download_dialog_utils.dart';
 import 'package:PiliMax/utils/duration_utils.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
@@ -306,7 +305,7 @@ class AuthorPanel extends StatelessWidget {
       useSafeArea: true,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxWidth: min(640, context.mediaQueryShortestSide),
+        maxWidth: min(640, MediaQuery.shortestSideOf(context)),
       ),
       builder: (context1) {
         final theme = Theme.of(context);

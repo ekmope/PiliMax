@@ -15,8 +15,6 @@ import 'package:PiliMax/plugin/pl_player/widgets/common_btn.dart';
 import 'package:PiliMax/services/shutdown_timer_service.dart'
     show shutdownTimerService;
 import 'package:PiliMax/utils/android/android_helper.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
-import 'package:PiliMax/utils/extension/size_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/ios/pip_helper.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
@@ -76,7 +74,7 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
     showCurrTimeIfNeeded(isFullScreen);
     final liveController = widget.liveController;
     final showCastButton =
-        PlatformUtils.isDesktop || !context.mediaQuerySize.isPortrait;
+        PlatformUtils.isDesktop || !MediaQuery.isPortraitOf(context);
     Widget child;
     child = Obx(
       key: titleKey,
@@ -371,11 +369,11 @@ class _LiveHeaderControlState extends State<LiveHeaderControl>
       useSafeArea: true,
       isScrollControlled: true,
       constraints: BoxConstraints(
-        maxWidth: math.min(640, context.mediaQueryShortestSide),
+        maxWidth: math.min(640, MediaQuery.shortestSideOf(context)),
       ),
       builder: (context) {
         final maxChildSize =
-            PlatformUtils.isMobile && !context.mediaQuerySize.isPortrait
+            PlatformUtils.isMobile && !MediaQuery.isPortraitOf(context)
             ? 1.0
             : 0.7;
         return DynDraggableScrollableSheet(

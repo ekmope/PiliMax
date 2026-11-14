@@ -29,7 +29,6 @@ import 'package:PiliMax/pages/emote/controller.dart';
 import 'package:PiliMax/pages/emote/view.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/date_utils.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/grid.dart';
 import 'package:PiliMax/utils/request_utils.dart';
 import 'package:collection/collection.dart';
@@ -584,7 +583,7 @@ class _CreateDynPanelState extends CommonRichTextPubPageState<CreateDynPanel> {
 
   @override
   Widget buildMorePanel() {
-    double height = context.isTablet ? 300 : 170;
+    double height = MediaQuery.isTabletOf(context) ? 300 : 170;
     final keyboardHeight = controller.keyboardHeight;
     if (keyboardHeight != 0) {
       height = max(height, keyboardHeight);

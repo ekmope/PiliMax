@@ -31,7 +31,6 @@ import 'package:PiliMax/utils/app_scheme.dart';
 import 'package:PiliMax/utils/bili_colors.dart';
 import 'package:PiliMax/utils/bili_utils.dart';
 import 'package:PiliMax/utils/color_utils.dart';
-import 'package:PiliMax/utils/extension/context_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/extension/string_ext.dart';
 import 'package:PiliMax/utils/extension/theme_ext.dart';
@@ -90,7 +89,7 @@ class UserInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isLight = colorScheme.isLight;
-    final width = context.width;
+    final width = MediaQuery.widthOf(context);
     final isPortrait = width < 600;
     return ViewSafeArea(
       top: !isPortrait,

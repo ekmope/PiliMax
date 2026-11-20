@@ -118,10 +118,12 @@ class MainActivity : AudioServiceActivity() {
 
     override fun onStart() {
         super.onStart()
+        PlaybackExitSnapshot.recordActivityForeground(applicationContext, true)
         RouteRestoreLifecycle.onActivityStarted(this)
     }
 
     override fun onStop() {
+        PlaybackExitSnapshot.recordActivityForeground(applicationContext, false)
         RouteRestoreLifecycle.onActivityStopped(this)
         super.onStop()
     }

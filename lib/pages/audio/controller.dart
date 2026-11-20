@@ -135,8 +135,13 @@ class AudioController extends GetxController
         return;
       }
       if (!identical(this.player, player) || isClosed) return;
-      videoPlayerServiceHandler?.onSpeedChange(player.state.rate);
-      _updatePlaybackState();
+      final handler = videoPlayerServiceHandler;
+      if (handler != null && handler.currentHeroTag == hashCode.toString()) {
+        handler.onPositionChange(
+          player.state.position,
+          speed: player.state.rate,
+        );
+      }
     }
   }
 
@@ -969,22 +974,6 @@ class AudioController extends GetxController
     _start = null;
   }
 
-  final PlayerStatus _playerStatus = .paused;
-
-  /// 上行播放状态到 videoPlayerServiceHandler。
-  ///
-  /// 注意：本仓库的 videoPlayerServiceHandler 契约为
-  /// `onStatusChange(PlayerStatus, bool, bool)` + `onPositionChange(Duration)`，
-  /// 不存在 `onUpdateState`（那是上游 PiliPlus 的契约）。此处按本地契约调用。
-  void _updatePlaybackState({Duration? position}) {
-    final handler = videoPlayerServiceHandler;
-    if (handler == null) return;
-    handler.onStatusChange(_playerStatus, false, false);
-    if (position != null) {
-      handler.onPositionChange(position);
-    }
-  }
-
   Future<void> _initPlayerIfNeeded() async {
     if (_hasInit) return;
     _hasInit = true;
@@ -1016,9 +1005,6 @@ class AudioController extends GetxController
         }
         final seconds = position.inSeconds;
         if (seconds != this.position.value) {
-          if (seconds == 0 && _playerStatus.isPlaying) {
-            _updatePlaybackState(position: position);
-          }
           this.position.value = seconds;
           _recordCurrentAudioProgress(seconds);
           _videoDetailController?.playedTime = position;

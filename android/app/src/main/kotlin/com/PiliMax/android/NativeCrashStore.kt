@@ -36,8 +36,7 @@ internal object NativeCrashStore {
                 sanitizeAndTruncate(thread.name, MAX_THREAD_NAME_LENGTH),
             )
             put("threadId", thread.id)
-            val snapshot = PlaybackExitSnapshot.forExit(context, Process.myPid(), timestamp)
-            if (snapshot.isNotEmpty()) put("playbackSnapshot", snapshot)
+            putExitSnapshot(PlaybackExitSnapshot.forExit(context, Process.myPid(), timestamp))
             put(
                 "stackTrace",
                 sanitizeAndTruncate(Log.getStackTraceString(error), MAX_STACK_LENGTH),
@@ -61,7 +60,7 @@ internal object NativeCrashStore {
         pid: Int,
         exitReasonCode: Int,
         fatal: Boolean,
-        playbackSnapshot: String,
+        playbackSnapshot: PlaybackExitSnapshot.ExitSnapshot?,
     ) {
         if (reason == "java_crash" &&
             hasNearbyUncaught(context, timestamp, processName)
@@ -83,9 +82,7 @@ internal object NativeCrashStore {
             put("importance", importance)
             put("pss", pss)
             put("rss", rss)
-            if (playbackSnapshot.isNotEmpty()) {
-                put("playbackSnapshot", sanitizeAndTruncate(playbackSnapshot, 2048))
-            }
+            putExitSnapshot(playbackSnapshot)
             put("stackTrace", sanitizeAndTruncate(trace, MAX_STACK_LENGTH))
         }
         writeRecord(context, record, recordId)
@@ -216,7 +213,7 @@ internal object NativeCrashStore {
         return "android"
     }
 
-    private fun appVersion(context: Context): String {
+    fun appVersion(context: Context): String {
         return try {
             val info = context.packageManager.getPackageInfo(context.packageName, 0)
             val versionCode = if (Build.VERSION.SDK_INT >= 28) {
@@ -233,6 +230,17 @@ internal object NativeCrashStore {
 
     private fun processName(context: Context): String =
         if (Build.VERSION.SDK_INT >= 28) Application.getProcessName() else context.packageName
+
+    private fun JSONObject.putExitSnapshot(snapshot: PlaybackExitSnapshot.ExitSnapshot?) {
+        if (snapshot == null) return
+        put("exitProcessAppVersion", snapshot.appVersion)
+        put("playbackSnapshotAgeMillis", snapshot.ageMillis)
+        put("playbackStateAgeMillis", snapshot.playbackAgeMillis)
+        put(
+            "playbackSnapshot",
+            sanitizeAndTruncate(snapshot.json, PlaybackExitSnapshot.MAX_EXPORT_LENGTH),
+        )
+    }
 
     private fun jsonToMap(json: JSONObject): Map<String, Any?> = buildMap {
         for (key in json.keys()) {

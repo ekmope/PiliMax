@@ -138,6 +138,8 @@ void main() {
       expect(report.recentEvents, ['12:00:00.000  Route push /videoV']);
       expect(report.systemInfo, contains('Exit status: 0'));
       expect(report.systemInfo, contains('Exit importance: 100'));
+      expect(report.systemInfo, contains('Exited process app: unknown'));
+      expect(report.systemInfo, isNot(contains('Last playback state age')));
       expect(report.isFatalCandidate, isTrue);
     });
 
@@ -155,8 +157,13 @@ void main() {
           'importance': 100,
           'pss': 12345,
           'rss': 23456,
+          'appVersion': '2.2.1-collector (6156)',
+          'exitProcessAppVersion': '2.2.1-previous (6155)',
+          'playbackSnapshotAgeMillis': 100,
+          'playbackStateAgeMillis': 900,
           'playbackSnapshot':
-              '{"playback":{"playing":true,"mediaKind":"live"}}',
+              '{"playback":{"playing":true,"mediaKind":"live"},'
+              '"events":[{"kind":"foregroundService","value":false}]}',
         }, systemInfo: 'current system');
 
         expect(report.severity, CrashSeverity.diagnostic);
@@ -165,6 +172,26 @@ void main() {
         expect(report.systemInfo, contains('Exit status: 9'));
         expect(report.systemInfo, contains('Exit PSS (KiB): 12345'));
         expect(report.systemInfo, contains('Exit RSS (KiB): 23456'));
+        expect(
+          report.systemInfo,
+          contains('Exit collector app: 2.2.1-collector (6156)'),
+        );
+        expect(
+          report.systemInfo,
+          contains('Exited process app: 2.2.1-previous (6155)'),
+        );
+        expect(
+          report.systemInfo,
+          contains('Last diagnostic event age at exit (ms): 100'),
+        );
+        expect(
+          report.systemInfo,
+          contains('Last playback state age at exit (ms): 900'),
+        );
+        expect(
+          report.systemInfo,
+          contains('"kind":"foregroundService","value":false'),
+        );
         expect(report.systemInfo, contains('"mediaKind":"live"'));
         final exported = CrashReport.fromJson(report.toJson());
         expect(exported.isFatalCandidate, isFalse);

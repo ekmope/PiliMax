@@ -290,7 +290,12 @@ class CrashReport {
       <String>[
         systemInfo,
         if (capturedSystemInfo.isNotEmpty) capturedSystemInfo,
-        'Captured app: ${_text(json['appVersion'], 'unknown')}',
+        if (source == CrashSource.androidExitInfo) ...[
+          'Exit collector app: ${_text(json['appVersion'], 'unknown')}',
+          'Exited process app: '
+              '${_text(json['exitProcessAppVersion'], 'unknown')}',
+        ] else
+          'Captured app: ${_text(json['appVersion'], 'unknown')}',
         'Captured Android: ${_text(json['androidRelease'], 'unknown')} '
             '(SDK ${json['sdk'] ?? 'unknown'})',
         'Captured device: ${_text(json['manufacturer'], 'unknown')} '
@@ -302,9 +307,13 @@ class CrashReport {
           'Exit importance: ${json['importance']}',
         if (json['pss'] != null) 'Exit PSS (KiB): ${json['pss']}',
         if (json['rss'] != null) 'Exit RSS (KiB): ${json['rss']}',
+        if (_number(json['playbackSnapshotAgeMillis']) case final age?)
+          'Last diagnostic event age at exit (ms): $age',
+        if (_number(json['playbackStateAgeMillis']) case final age?)
+          'Last playback state age at exit (ms): $age',
         if (json['playbackSnapshot'] != null)
           'Previous playback/restore state: '
-              '${_context(json['playbackSnapshot'], '', maxLength: 2048)}',
+              '${_context(json['playbackSnapshot'], '', maxLength: 8192)}',
       ].join('\n'),
     );
     DateTime crashedAt;

@@ -27,11 +27,38 @@ import 'package:PiliMax/utils/storage_pref.dart';
 import 'package:PiliMax/utils/device_utils.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_service_mpris/audio_service_mpris.dart';
+import 'package:audio_service_platform_interface/audio_service_platform_interface.dart';
+import 'package:audio_service_platform_interface/method_channel_audio_service.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter/services.dart';
 import 'package:jni/jni.dart' show JStringExtension;
 import 'package:path/path.dart' as path;
 
+final _liveRecoveryStates = Expando<bool>();
+
+class _AndroidAudioService extends MethodChannelAudioService {
+  static const _stateChannel = MethodChannel(
+    'com.ryanheise.audio_service.handler.methods',
+  );
+
+  @override
+  Future<void> setState(SetStateRequest request) async {
+    if (_liveRecoveryStates[request.state.updateTime] != true) {
+      return super.setState(request);
+    }
+    await _stateChannel.invokeMethod<void>('setState', <String, dynamic>{
+      'state': <String, dynamic>{
+        ...request.state.toMap(),
+        'pilimaxKeepForegroundDuringRecovery': true,
+      },
+    });
+  }
+}
+
 Future<VideoPlayerServiceHandler> initAudioService() {
+  if (Platform.isAndroid) {
+    AudioServicePlatform.instance = _AndroidAudioService();
+  }
   if (Platform.isLinux) {
     AudioServiceMpris.init(
       dBusName: 'com.PiliMax.audio',
@@ -83,12 +110,15 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
   String _mediaKind = 'none';
   String _lastClearReason = 'none';
   Map<String, Object?>? _lastDiagnosticState;
+  Map<String, Object?>? _livePlaybackContext;
+  bool _liveMetadataFallback = false;
 
   bool get enableBackgroundPlay => _enableBackgroundPlay;
 
   set enableBackgroundPlay(bool value) {
     if (_enableBackgroundPlay == value) return;
     _enableBackgroundPlay = value;
+    if (!value) endLiveRecovery();
     _recordSessionDiagnostics();
   }
 
@@ -103,6 +133,8 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       'status': state.processingState.name,
       'clearReason': _lastClearReason,
       'mediaKind': _mediaKind,
+      ...?_livePlaybackContext,
+      if (_mediaKind == 'live') 'metadataFallback': _liveMetadataFallback,
     };
     final previous = _lastDiagnosticState;
     if (previous != null &&
@@ -164,6 +196,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     }
     currentHeroTag = null;
     _mediaKind = 'none';
+    _livePlaybackContext = null;
     _lastClearReason = reason;
     _clearCallbacks();
     _emitIdleState();
@@ -319,7 +352,12 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     return false;
   }
 
-  void setPlaybackState(PlayerStatus status, bool isBuffering, bool isLive) {
+  void setPlaybackState(
+    PlayerStatus status,
+    bool isBuffering,
+    bool isLive, {
+    bool keepForegroundDuringRecovery = false,
+  }) {
     if (!enableBackgroundPlay || _item.isEmpty) {
       return;
     }
@@ -376,7 +414,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       compactIndices = List.generate(controls.length, (i) => i);
     }
 
-    playbackState.add(
+    _publishState(
       playbackState.value.copyWith(
         processingState: isBuffering
             ? AudioProcessingState.buffering
@@ -392,6 +430,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
           if (!isLive && hasEpisodes) MediaAction.skipToNext,
         },
       ),
+      keepForegroundDuringRecovery: keepForegroundDuringRecovery,
     );
     _recordSessionDiagnostics();
     if (Platform.isAndroid &&
@@ -405,11 +444,44 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
     }
   }
 
-  void onStatusChange(PlayerStatus status, bool isBuffering, isLive) {
-    if (!enableBackgroundPlay) return;
+  void _publishState(
+    PlaybackState state, {
+    bool keepForegroundDuringRecovery = false,
+  }) {
+    if (Platform.isAndroid && keepForegroundDuringRecovery) {
+      // audio_service preserves updateTime identity when mapping state to its
+      // platform message. Keep this Android flag on that specific emission.
+      _liveRecoveryStates[state.updateTime] = true;
+    }
+    playbackState.add(state);
+  }
 
-    if (_item.isEmpty) return;
-    setPlaybackState(status, isBuffering, isLive);
+  void endLiveRecovery() {
+    if (_liveRecoveryStates[playbackState.value.updateTime] != true) return;
+    _publishState(playbackState.value.copyWith());
+    final context = _livePlaybackContext;
+    if (context != null) context['isRecovering'] = false;
+    _recordSessionDiagnostics();
+  }
+
+  void onStatusChange(
+    PlayerStatus status,
+    bool isBuffering,
+    isLive, {
+    bool keepForegroundDuringRecovery = false,
+    Map<String, Object?>? livePlaybackContext,
+  }) {
+    _livePlaybackContext = isLive ? livePlaybackContext : null;
+    if (!enableBackgroundPlay || _item.isEmpty) {
+      _recordSessionDiagnostics();
+      return;
+    }
+    setPlaybackState(
+      status,
+      isBuffering,
+      isLive,
+      keepForegroundDuringRecovery: keepForegroundDuringRecovery,
+    );
   }
 
   Uri _artworkUri(String? cover) {
@@ -421,6 +493,49 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       url = '${url.substring(0, url.length - '.webp'.length)}.jpg';
     }
     return Uri.parse(url);
+  }
+
+  void registerLiveMediaItem(
+    int roomId,
+    String heroTag, {
+    RoomInfoH5Data? roomInfo,
+    String fallbackTitle = '',
+  }) {
+    if (!enableBackgroundPlay || mediaItem.isClosed) return;
+    final id = '$roomId$heroTag';
+    _liveMetadataFallback = roomInfo == null;
+    final roomTitle = roomInfo?.roomInfo?.title;
+    final title = roomTitle != null && roomTitle.isNotEmpty
+        ? roomTitle
+        : fallbackTitle.isNotEmpty
+        ? fallbackTitle
+        : '直播间 $roomId';
+    final artist = roomInfo?.anchorInfo?.baseInfo?.uname;
+    final cover = roomInfo?.roomInfo?.cover;
+    final artUri = cover == null || cover.isEmpty ? null : _artworkUri(cover);
+    final current = mediaItem.value;
+    if (currentHeroTag == heroTag &&
+        _mediaKind == 'live' &&
+        current != null &&
+        current.id == id &&
+        current.title == title &&
+        current.artist == artist &&
+        current.artUri == artUri) {
+      _recordSessionDiagnostics();
+      return;
+    }
+    final item = MediaItem(
+      id: id,
+      title: title,
+      artist: artist,
+      artUri: artUri,
+      isLive: true,
+    );
+    currentHeroTag = heroTag;
+    _item
+      ..removeWhere((item) => item.id == id || item.id.endsWith(heroTag))
+      ..add(item);
+    setMediaItem(item, mediaKind: 'live');
   }
 
   void onVideoDetailChange(
@@ -470,13 +585,8 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
           artUri: _artworkUri(data.cover),
         );
       case RoomInfoH5Data():
-        mediaItem = MediaItem(
-          id: id,
-          title: data.roomInfo?.title ?? '',
-          artist: data.anchorInfo?.baseInfo?.uname,
-          artUri: _artworkUri(data.roomInfo?.cover),
-          isLive: true,
-        );
+        registerLiveMediaItem(cid, herotag, roomInfo: data);
+        return;
       case Part():
         mediaItem = MediaItem(
           id: id,
@@ -522,11 +632,7 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       ..add(mediaItem);
     setMediaItem(
       mediaItem,
-      mediaKind: data is RoomInfoH5Data
-          ? 'live'
-          : data is DetailItem
-          ? 'audio'
-          : 'video',
+      mediaKind: data is DetailItem ? 'audio' : 'video',
     );
   }
 
@@ -615,11 +721,14 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       return;
     }
     if (playbackState.value.speed == speed) return;
-    playbackState.add(
-      playbackState.value.copyWith(
+    final state = playbackState.value;
+    _publishState(
+      state.copyWith(
         speed: speed,
-        updatePosition: playbackState.value.position,
+        updatePosition: state.position,
       ),
+      keepForegroundDuringRecovery:
+          _liveRecoveryStates[state.updateTime] == true,
     );
   }
 
@@ -628,13 +737,16 @@ class VideoPlayerServiceHandler extends BaseAudioHandler with SeekHandler {
       return;
     }
 
-    playbackState.add(
-      playbackState.value.copyWith(
+    final state = playbackState.value;
+    _publishState(
+      state.copyWith(
         updatePosition: position,
         speed: speed != null && speed.isFinite && speed > 0
             ? speed
             : playbackState.value.speed,
       ),
+      keepForegroundDuringRecovery:
+          _liveRecoveryStates[state.updateTime] == true,
     );
   }
 }

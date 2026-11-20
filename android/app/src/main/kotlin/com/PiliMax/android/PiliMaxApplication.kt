@@ -18,6 +18,7 @@ class PiliMaxApplication : Application() {
                 ProcessExitCollector.collect(applicationContext)
             }
         }
+        PlaybackExitSnapshot.recordProcessStarted(applicationContext)
     }
 
     internal companion object {

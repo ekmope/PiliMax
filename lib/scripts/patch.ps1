@@ -71,6 +71,9 @@ $MediaKitSecondarySubtitlePatch = "lib/scripts/media_kit_secondary_subtitle.patc
 # Keep notification custom-action PendingIntents stable across position updates.
 $AudioServicePendingIntentPatch = "lib/scripts/audio_service_pending_intent.patch"
 
+# Retain Android's active media service during a bounded live recovery.
+$AudioServiceForegroundRecoveryPatch = "lib/scripts/audio_service_foreground_recovery.patch"
+
 # WebView 1.5 uses std::filesystem; do not raise every plugin's C++ standard.
 $WebviewLinuxCxx17Patch = "lib/scripts/webview_all_linux_cxx17.patch"
 
@@ -765,6 +768,9 @@ if ($platform.ToLower() -eq "macos") {
 if ($platform.ToLower() -eq "android") {
     Set-Location $AudioServiceRoot
     if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $AudioServicePendingIntentPatch) -Description "$AudioServicePendingIntentPatch to audio_service")) {
+        exit 1
+    }
+    if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $AudioServiceForegroundRecoveryPatch) -Description "$AudioServiceForegroundRecoveryPatch to audio_service")) {
         exit 1
     }
     try {

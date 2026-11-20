@@ -44,6 +44,7 @@ dependencies:
       url: https://github.com/bggRGjQaUbCoE/audio_service.git
       path: audio_service
       ref: dev
+  audio_service_platform_interface: ^0.1.3
   audio_service_win:
     git:
       url: https://github.com/Starfallan/audio_service_win.git

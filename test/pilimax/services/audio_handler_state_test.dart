@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:PiliMax/models_new/live/live_room_info_h5/data.dart';
+import 'package:PiliMax/models_new/live/live_room_info_h5/room_info.dart';
 import 'package:PiliMax/models_new/video/video_detail/page.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/plugin/pl_player/models/play_status.dart';
@@ -46,6 +47,33 @@ void main() {
     await handler.seek(const Duration(seconds: 30));
     expect(sought, isFalse);
     expect(handler.playbackState.value.updatePosition, oldPosition);
+  });
+
+  test('live can publish playing before details and enrich the same item', () {
+    handler
+      ..registerLiveMediaItem(42, 'room')
+      ..onStatusChange(PlayerStatus.playing, false, true);
+    final fallback = handler.mediaItem.value!;
+    expect(fallback.title, '直播间 42');
+    expect(fallback.isLive, isTrue);
+    expect(handler.currentHeroTag, 'room');
+    expect(handler.playbackState.value.playing, isTrue);
+
+    final roomInfo = RoomInfoH5Data(roomInfo: RoomInfo(title: '房间名'));
+    final state = handler.playbackState.value;
+    handler.registerLiveMediaItem(42, 'room', roomInfo: roomInfo);
+    final enriched = handler.mediaItem.value!;
+    expect(enriched.id, fallback.id);
+    expect(enriched.title, '房间名');
+    expect(handler.playbackState.value, same(state));
+    handler.registerLiveMediaItem(42, 'room', roomInfo: roomInfo);
+    expect(handler.mediaItem.value, same(enriched));
+
+    handler
+      ..forceClear()
+      ..registerLiveMediaItem(42, 'room', fallbackTitle: '临时标题');
+    expect(handler.mediaItem.value?.title, '临时标题');
+    expect(handler.mediaItem.value?.id, fallback.id);
   });
 
   test(

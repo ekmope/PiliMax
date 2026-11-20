@@ -1,0 +1,193 @@
+diff --git a/android/src/main/java/com/ryanheise/audioservice/AudioService.java b/android/src/main/java/com/ryanheise/audioservice/AudioService.java
+index cede508..0cef2a7 100644
+--- a/android/src/main/java/com/ryanheise/audioservice/AudioService.java
++++ b/android/src/main/java/com/ryanheise/audioservice/AudioService.java
+@@ -59,6 +59,7 @@ public class AudioService extends MediaBrowserServiceCompat {
+     private static final String SHARED_PREFERENCES_NAME = "audio_service_preferences";
+
+     private static final int NOTIFICATION_ID = 1124;
++    private static final long FOREGROUND_RECOVERY_TIMEOUT_MS = 30_000;
+     private static final int REQUEST_CONTENT_INTENT = 1000;
+     public static final String NOTIFICATION_CUSTOM_ACTION = "com.ryanheise.audioservice.NOTIFICATION_CUSTOM_ACTION";
+     public static final String NOTIFICATION_CUSTOM_ACTION_NAME = "com.ryanheise.audioservice.NOTIFICATION_CUSTOM_ACTION_NAME";
+@@ -289,6 +290,12 @@ public class AudioService extends MediaBrowserServiceCompat {
+     private int shuffleMode;
+     private boolean notificationCreated;
+     private final Handler handler = new Handler(Looper.getMainLooper());
++    private boolean foregroundActive;
++    private boolean foregroundRecoveryScheduled;
++    private final Runnable foregroundRecoveryTimeout = () -> {
++        foregroundRecoveryScheduled = false;
++        exitPlayingState();
++    };
+     private VolumeProviderCompat volumeProvider;
+
+     public AudioProcessingState getProcessingState() {
+@@ -356,12 +363,17 @@ public class AudioService extends MediaBrowserServiceCompat {
+     }
+
+     public void stop() {
++        if (foregroundRecoveryScheduled) {
++            cancelForegroundRecovery();
++            exitPlayingState();
++        }
+         deactivateMediaSession();
+         stopSelf();
+     }
+
+     @Override
+     public void onDestroy() {
++        cancelForegroundRecovery();
+         super.onDestroy();
+         if (listener != null) {
+             listener.onDestroy();
+@@ -376,6 +388,7 @@ public class AudioService extends MediaBrowserServiceCompat {
+         compactActionIndices = null;
+         releaseMediaSession();
+         ServiceCompat.stopForeground(this, config.androidResumeOnClick ? ServiceCompat.STOP_FOREGROUND_DETACH : ServiceCompat.STOP_FOREGROUND_REMOVE);
++        setForegroundActive(false);
+         // This still does not solve the Android 11 problem.
+         // if (notificationCreated) {
+         //     NotificationManager notificationManager = getNotificationManager();
+@@ -528,7 +541,7 @@ public class AudioService extends MediaBrowserServiceCompat {
+         return PendingIntent.getBroadcast(this, 0, intent, flags);
+     }
+
+-    void setState(List<MediaControl> controls, long actionBits, int[] compactActionIndices, AudioProcessingState processingState, boolean playing, long position, long bufferedPosition, float speed, long updateTime, Integer errorCode, String errorMessage, int repeatMode, int shuffleMode, boolean captioningEnabled, Long queueIndex) {
++    void setState(List<MediaControl> controls, long actionBits, int[] compactActionIndices, AudioProcessingState processingState, boolean playing, long position, long bufferedPosition, float speed, long updateTime, Integer errorCode, String errorMessage, int repeatMode, int shuffleMode, boolean captioningEnabled, Long queueIndex, boolean keepForegroundDuringRecovery) {
+         boolean notificationChanged = false;
+         if (!Arrays.equals(compactActionIndices, this.compactActionIndices)) {
+             notificationChanged = true;
+@@ -591,15 +604,35 @@ public class AudioService extends MediaBrowserServiceCompat {
+         mediaSession.setShuffleMode(shuffleMode);
+         mediaSession.setCaptioningEnabled(captioningEnabled);
+
+-        boolean exitPlaying = wasPlaying && !playing;
+-        if (!wasPlaying && playing) {
++        final boolean wasRetainingForeground = foregroundRecoveryScheduled;
++        // Only retain an existing foreground service. Repeated recovery updates
++        // share the deadline set when playback first stalled.
++        if (keepForegroundDuringRecovery && !playing && foregroundActive
++                && config.androidStopForegroundOnPause
++                && (wasPlaying || wasRetainingForeground)
++                && (processingState == AudioProcessingState.buffering
++                    || processingState == AudioProcessingState.loading)) {
++            if (!wasRetainingForeground) {
++                foregroundRecoveryScheduled = handler.postDelayed(
++                        foregroundRecoveryTimeout, FOREGROUND_RECOVERY_TIMEOUT_MS);
++            }
++        } else {
++            cancelForegroundRecovery();
++        }
++        final boolean resumeRetainedForeground = playing && wasRetainingForeground && foregroundActive;
++        final boolean exitPlaying = !playing && (wasPlaying || wasRetainingForeground)
++                && !foregroundRecoveryScheduled;
++        if (!wasPlaying && playing && !resumeRetainedForeground) {
+             enterPlayingState();
+         } else {
+-            if (processingState != AudioProcessingState.idle && notificationChanged) {
+-                updateNotification();
+-            }
+-            if (exitPlaying) {
+-                exitPlayingState();
++            try {
++                if (processingState != AudioProcessingState.idle && notificationChanged) {
++                    updateNotification();
++                }
++            } finally {
++                if (exitPlaying) {
++                    exitPlayingState();
++                }
+             }
+         }
+
+@@ -746,13 +779,25 @@ public class AudioService extends MediaBrowserServiceCompat {
+     }
+
+     private void enterPlayingState() {
+-        ContextCompat.startForegroundService(this, new Intent(AudioService.this, AudioService.class));
+-        if (!mediaSession.isActive())
+-            mediaSession.setActive(true);
++        try {
++            ContextCompat.startForegroundService(this, new Intent(AudioService.this, AudioService.class));
++            if (!mediaSession.isActive())
++                mediaSession.setActive(true);
+
++            mediaSession.setSessionActivity(contentIntent);
++            internalStartForeground();
++        } catch (RuntimeException failure) {
++            recordForegroundServiceStartFailed();
++            throw failure;
++        }
+         acquireWakeLock();
+-        mediaSession.setSessionActivity(contentIntent);
+-        internalStartForeground();
++    }
++
++    private void cancelForegroundRecovery() {
++        if (foregroundRecoveryScheduled) {
++            handler.removeCallbacks(foregroundRecoveryTimeout);
++            foregroundRecoveryScheduled = false;
++        }
+     }
+
+     private void exitPlayingState() {
+@@ -764,11 +809,35 @@ public class AudioService extends MediaBrowserServiceCompat {
+     private void exitForegroundState() {
+         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH);
+         releaseWakeLock();
++        setForegroundActive(false);
+     }
+
+     private void internalStartForeground() {
+         startForeground(NOTIFICATION_ID, buildNotification());
+         notificationCreated = true;
++        setForegroundActive(true);
++    }
++
++    private void setForegroundActive(boolean active) {
++        if (foregroundActive == active) return;
++        foregroundActive = active;
++        try {
++            Class.forName("com.PiliMax.android.PlaybackExitSnapshot")
++                    .getMethod("recordForegroundService", Context.class, boolean.class)
++                    .invoke(null, getApplicationContext(), active);
++        } catch (ReflectiveOperationException | LinkageError | SecurityException ignored) {
++            // Optional application diagnostics must not affect playback.
++        }
++    }
++
++    private void recordForegroundServiceStartFailed() {
++        try {
++            Class.forName("com.PiliMax.android.PlaybackExitSnapshot")
++                    .getMethod("recordForegroundServiceStartFailed", Context.class)
++                    .invoke(null, getApplicationContext());
++        } catch (ReflectiveOperationException | LinkageError | SecurityException ignored) {
++            // Optional application diagnostics must not affect playback.
++        }
+     }
+
+     private void acquireWakeLock() {
+diff --git a/android/src/main/java/com/ryanheise/audioservice/AudioServicePlugin.java b/android/src/main/java/com/ryanheise/audioservice/AudioServicePlugin.java
+index ec25444..a0c8739 100644
+--- a/android/src/main/java/com/ryanheise/audioservice/AudioServicePlugin.java
++++ b/android/src/main/java/com/ryanheise/audioservice/AudioServicePlugin.java
+@@ -865,6 +865,8 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
+                     Map<?, ?> stateMap = (Map<?, ?>)args.get("state");
+                     AudioProcessingState processingState = AudioProcessingState.values()[(Integer)stateMap.get("processingState")];
+                     boolean playing = (Boolean)stateMap.get("playing");
++                    boolean keepForegroundDuringRecovery =
++                            Boolean.TRUE.equals(stateMap.get("pilimaxKeepForegroundDuringRecovery"));
+                     @SuppressWarnings("unchecked") List<Map<?, ?>> rawControls = (List<Map<?, ?>>)stateMap.get("controls");
+                     @SuppressWarnings("unchecked") List<Object> compactActionIndexList = (List<Object>)stateMap.get("androidCompactActionIndices");
+                     @SuppressWarnings("unchecked") List<Integer> rawSystemActions = (List<Integer>)stateMap.get("systemActions");
+@@ -924,7 +926,8 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
+                             repeatMode,
+                             shuffleMode,
+                             captioningEnabled,
+-                            queueIndex);
++                            queueIndex,
++                            keepForegroundDuringRecovery);
+                     result.success(null);
+                     break;
+                 }

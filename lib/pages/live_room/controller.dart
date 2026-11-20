@@ -285,8 +285,10 @@ class LiveRoomController extends GetxController {
 
     plPlayerController.bindLiveSourceRefresh(
       this,
-      () => queryLiveUrl(silent: true),
+      (recoveryIsCurrent) =>
+          queryLiveUrl(silent: true, recoveryIsCurrent: recoveryIsCurrent),
     );
+    plPlayerController.bindLiveMediaSession(this, _syncLiveMediaSession);
 
     scrollController = ScrollController()..addListener(listener);
     final account = Accounts.main;
@@ -316,8 +318,9 @@ class LiveRoomController extends GetxController {
   Future<bool>? playerInit({
     bool autoplay = true,
     bool autoFullScreenFlag = false,
+    bool Function()? recoveryIsCurrent,
   }) {
-    if (videoUrl == null) {
+    if (videoUrl == null || recoveryIsCurrent?.call() == false) {
       return null;
     }
     // 濡傛灉鏄粠灏忕獥杩斿洖锛屾挱鏀惧櫒宸插湪鎾斁锛岃烦杩囧垵濮嬪寲
@@ -330,27 +333,25 @@ class LiveRoomController extends GetxController {
       plPlayerController = PlPlayerController.getInstance(isLive: true)
         ..bindLiveSourceRefresh(
           this,
-          () => queryLiveUrl(silent: true),
-        );
+          (recoveryIsCurrent) =>
+              queryLiveUrl(silent: true, recoveryIsCurrent: recoveryIsCurrent),
+        )
+        ..bindLiveMediaSession(this, _syncLiveMediaSession);
     }
 
     // 纭繚鎾斁鍣ㄥ浜庣洿鎾ā寮?
     plPlayerController.isLive = true;
 
-    return plPlayerController
-        .setDataSource(
-          NetworkSource(videoSource: videoUrl!, audioSource: null),
-          sourceOwner: this,
-          isLive: true,
-          autoplay: autoplay,
-          isVertical: isPortrait.value,
-          autoFullScreenFlag: autoFullScreenFlag,
-          roomId: roomId,
-        )
-        .then((initialized) {
-          if (initialized) _syncAudioServiceState();
-          return initialized;
-        });
+    return plPlayerController.setDataSource(
+      NetworkSource(videoSource: videoUrl!, audioSource: null),
+      sourceOwner: this,
+      isLive: true,
+      autoplay: autoplay,
+      shouldAutoplay: recoveryIsCurrent,
+      isVertical: isPortrait.value,
+      autoFullScreenFlag: autoFullScreenFlag,
+      roomId: roomId,
+    );
   }
 
   Future<void> toggleOnlyPlayAudio() {
@@ -374,9 +375,7 @@ class LiveRoomController extends GetxController {
         PlPlayerController.playOwner?.tag != heroTag) {
       return;
     }
-    plPlayerController.setContinuePlayInBackground(
-      onEnable: _syncAudioServiceState,
-    );
+    plPlayerController.setContinuePlayInBackground();
     unawaited(_syncBackgroundAudioMixMode());
   }
 
@@ -392,10 +391,15 @@ class LiveRoomController extends GetxController {
     return run;
   }
 
-  bool _isLiveRequestCurrent(int epoch, bool onlyAudio) =>
+  bool _isLiveRequestCurrent(
+    int epoch,
+    bool onlyAudio, {
+    bool Function()? recoveryIsCurrent,
+  }) =>
       !isClosed &&
       epoch == _liveRequestEpoch &&
-      plPlayerController.onlyPlayAudio.value == onlyAudio;
+      plPlayerController.onlyPlayAudio.value == onlyAudio &&
+      recoveryIsCurrent?.call() != false;
 
   Future<void> setOnlyPlayAudio(bool value) {
     final previousValue = plPlayerController.onlyPlayAudio.value;
@@ -417,37 +421,33 @@ class LiveRoomController extends GetxController {
       }
       if (requestEpoch != _liveRequestEpoch) return;
       await _syncBackgroundAudioMixMode();
-      if (success) {
-        _syncAudioServiceState();
-      }
     });
   }
 
-  bool get _ownsPlayback =>
-      !isClosed &&
-      identical(plPlayerController, PlPlayerController.instance) &&
-      plPlayerController.isSourceOwnerActive(this);
-
-  void _syncAudioServiceState() {
-    if (!_ownsPlayback) return;
-    if (roomInfoH5.value case final roomInfo?) {
-      videoPlayerServiceHandler?.onVideoDetailChange(
-        roomInfo,
-        roomId,
-        heroTag,
-      );
+  void _syncLiveMediaSession() {
+    if (isClosed ||
+        !identical(plPlayerController, PlPlayerController.instance) ||
+        !plPlayerController.isLive ||
+        plPlayerController.roomId != roomId ||
+        !plPlayerController.isSourceOwnerActive(this)) {
+      return;
     }
-    videoPlayerServiceHandler?.onStatusChange(
-      plPlayerController.playerStatus.value,
-      plPlayerController.isBuffering.value,
-      true,
+    videoPlayerServiceHandler?.registerLiveMediaItem(
+      roomId,
+      heroTag,
+      roomInfo: roomInfoH5.value,
+      fallbackTitle: title.value,
     );
   }
 
   Future<bool> queryLiveUrl({
     bool autoFullScreenFlag = false,
     bool silent = false,
+    bool Function()? recoveryIsCurrent,
   }) {
+    if (recoveryIsCurrent?.call() == false) {
+      return Future<bool>.value(false);
+    }
     final requestedOnlyAudio = plPlayerController.onlyPlayAudio.value;
     final requestEpoch = ++_liveRequestEpoch;
     return _enqueueLiveTransition(
@@ -456,6 +456,7 @@ class LiveRoomController extends GetxController {
         silent: silent,
         requestedOnlyAudio: requestedOnlyAudio,
         requestEpoch: requestEpoch,
+        recoveryIsCurrent: recoveryIsCurrent,
       ),
     );
   }
@@ -465,24 +466,27 @@ class LiveRoomController extends GetxController {
     bool silent = false,
     required bool requestedOnlyAudio,
     required int requestEpoch,
+    bool Function()? recoveryIsCurrent,
   }) async {
-    if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
-      return false;
-    }
+    bool isCurrent() => _isLiveRequestCurrent(
+      requestEpoch,
+      requestedOnlyAudio,
+      recoveryIsCurrent: recoveryIsCurrent,
+    );
+    if (!isCurrent()) return false;
     currentQn.value ??= LiveQuality.fromCode(
       await ConnectivityUtils.isWiFi
           ? Pref.liveQuality
           : Pref.liveQualityCellular,
     );
+    if (!isCurrent()) return false;
     final res = await LiveHttp.liveRoomInfo(
       roomId: roomId,
       qn: currentQn.value!.code,
       onlyAudio: requestedOnlyAudio,
     );
+    if (!isCurrent()) return false;
     if (res case Success(:final response)) {
-      if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
-        return false;
-      }
       if (response.liveStatus != 1) {
         if (response.liveStatus == 0 || response.liveStatus == 2) {
           _initUnstartedRoom(response);
@@ -512,15 +516,24 @@ class LiveRoomController extends GetxController {
       isPortrait.value = response.isPortrait ?? false;
       stream = playurl.stream;
       _initStreamIndex();
-      if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
-        return false;
-      }
+      if (!isCurrent()) return false;
       final returningFromPip = isReturningFromPip;
-      if (!returningFromPip &&
-          plPlayerController.videoPlayerController != null) {
+      final previousPlayer = plPlayerController.videoPlayerController;
+      if (!returningFromPip && previousPlayer != null) {
+        final wasLoaded = isLoaded.value;
         isLoaded.value = false;
-        await plPlayerController.recreateLivePlayer();
-        if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
+        await plPlayerController.recreateLivePlayer(
+          recoveryIsCurrent: recoveryIsCurrent == null ? null : isCurrent,
+        );
+        if (!isCurrent()) {
+          if (wasLoaded &&
+              _isLiveRequestCurrent(requestEpoch, requestedOnlyAudio) &&
+              identical(
+                plPlayerController.videoPlayerController,
+                previousPlayer,
+              )) {
+            isLoaded.value = true;
+          }
           return false;
         }
       }
@@ -532,6 +545,7 @@ class LiveRoomController extends GetxController {
         requestedOnlyAudio: requestedOnlyAudio,
         requestEpoch: requestEpoch,
         autoFullScreenFlag: autoFullScreenFlag,
+        recoveryIsCurrent: recoveryIsCurrent,
       );
       if (returningFromPip && requestEpoch == _liveRequestEpoch) {
         isReturningFromPip = false;
@@ -646,10 +660,14 @@ class LiveRoomController extends GetxController {
     required bool requestedOnlyAudio,
     required int requestEpoch,
     bool autoFullScreenFlag = false,
+    bool Function()? recoveryIsCurrent,
   }) async {
-    if (!_isLiveRequestCurrent(requestEpoch, requestedOnlyAudio)) {
-      return false;
-    }
+    bool isCurrent() => _isLiveRequestCurrent(
+      requestEpoch,
+      requestedOnlyAudio,
+      recoveryIsCurrent: recoveryIsCurrent,
+    );
+    if (!isCurrent()) return false;
     this.streamIndex = streamIndex;
     this.formatIndex = formatIndex;
     this.codecIndex = codecIndex;
@@ -674,12 +692,14 @@ class LiveRoomController extends GetxController {
     }
     final initialized = canReusePipPlayer
         ? true
-        : await playerInit(autoFullScreenFlag: autoFullScreenFlag) ?? false;
-    if (initialized) {
-      _startSizeSub();
-    }
-    return initialized &&
-        _isLiveRequestCurrent(requestEpoch, requestedOnlyAudio);
+        : await playerInit(
+                autoFullScreenFlag: autoFullScreenFlag,
+                recoveryIsCurrent: recoveryIsCurrent == null ? null : isCurrent,
+              ) ??
+              false;
+    if (!initialized || !isCurrent()) return false;
+    _startSizeSub();
+    return true;
   }
 
   // 直播投屏时，优先选择 HLS 协议的播放地址，且不使用 AV1 编码
@@ -765,7 +785,7 @@ class LiveRoomController extends GetxController {
       roomInfoH5.value = response;
       title.value = response.roomInfo?.title ?? '';
       watchedShow.value = response.watchedShow?.textLarge;
-      _syncAudioServiceState();
+      _syncLiveMediaSession();
       unawaited(refreshCurrentFansMedal(autoWear: true));
     } else {
       res.toast();
@@ -1062,6 +1082,7 @@ class LiveRoomController extends GetxController {
     closeLiveMsg();
     cancelLikeTimer();
     cancelLiveTimer();
+    plPlayerController.unbindLiveMediaSession(this);
     // 濡傛灉鍦ㄥ皬绐楁ā寮忥紝涓嶆竻鐞嗚祫婧?
     if (!isInPipMode.value) {
       plPlayerController.unbindLiveSourceRefresh(this);

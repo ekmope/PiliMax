@@ -40,6 +40,7 @@ import 'package:PiliMax/pilimax/services/live_pip_overlay_service.dart';
 import 'package:PiliMax/pilimax/services/pip_overlay_service.dart';
 import 'package:PiliMax/pilimax/services/playback/trial_quality_policy.dart';
 import 'package:PiliMax/services/service_locator.dart';
+import 'package:PiliMax/services/shutdown_timer_service.dart';
 import 'package:PiliMax/pilimax/forks/utils/accounts.dart';
 import 'package:PiliMax/utils/android/android_helper.dart';
 import 'package:PiliMax/utils/android/bindings.g.dart';
@@ -240,8 +241,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   bool _livePausedForLifecycle = false;
   int _liveRecoveryFailureCount = 0;
   DateTime? _nextLiveRecoveryAt;
-  Future<bool> Function()? _liveSourceRefreshCallback;
+  Future<bool> Function(bool Function()? recoveryIsCurrent)?
+  _liveSourceRefreshCallback;
   Object? _liveSourceRefreshOwner;
+  Object? _liveRecoveryAttempt;
+  Object? _liveMediaSessionOwner;
+  VoidCallback? _syncLiveMediaSessionCallback;
   // Cancelled by the source coordinator and by [_cancelSubForSeek].
   // ignore: cancel_subscriptions
   StreamSubscription? _subForSeek;
@@ -266,31 +271,64 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   void bindLiveSourceRefresh(
     Object owner,
-    Future<bool> Function() callback,
+    Future<bool> Function(bool Function()? recoveryIsCurrent) callback,
   ) {
+    if (!identical(_liveSourceRefreshOwner, owner)) {
+      _cancelLiveMediaRecovery();
+    }
     _liveSourceRefreshOwner = owner;
     _liveSourceRefreshCallback = callback;
   }
 
   void unbindLiveSourceRefresh(Object owner) {
     if (!identical(_liveSourceRefreshOwner, owner)) return;
+    _cancelLiveMediaRecovery();
     _liveSourceRefreshOwner = null;
     _liveSourceRefreshCallback = null;
+  }
+
+  void bindLiveMediaSession(Object owner, VoidCallback sync) {
+    _liveMediaSessionOwner = owner;
+    _syncLiveMediaSessionCallback = sync;
+  }
+
+  void unbindLiveMediaSession(Object owner) {
+    if (!identical(_liveMediaSessionOwner, owner)) return;
+    _liveMediaSessionOwner = null;
+    _syncLiveMediaSessionCallback = null;
+  }
+
+  void _syncLiveMediaSession() {
+    final owner = _liveMediaSessionOwner;
+    if (isLive && owner != null && isSourceOwnerActive(owner)) {
+      _syncLiveMediaSessionCallback?.call();
+    }
+  }
+
+  void _cancelLiveMediaRecovery() {
+    _liveRecoveryAttempt = null;
+    videoPlayerServiceHandler?.endLiveRecovery();
   }
 
   /// Rebuilds the native live player without disposing this shared controller.
   /// A live audio/video mode switch can leave mpv's audio pipeline wedged even
   /// after the same media is reopened, so a fresh native instance is required.
-  Future<void> recreateLivePlayer() async {
+  Future<void> recreateLivePlayer({bool Function()? recoveryIsCurrent}) async {
     if (!isLive || _sourceCoordinator.isDisposed) return;
+    if (recoveryIsCurrent == null) _cancelLiveMediaRecovery();
     await _capturePipTransitionFrame(force: true);
+    if (_sourceCoordinator.isDisposed || recoveryIsCurrent?.call() == false) {
+      return;
+    }
     if (_pendingPipTransitionToken != null) {
       _pipTransitionTargetGeneration = _sourceCoordinator.currentGeneration;
     }
-    await _recreateLivePlayerNow();
+    await _recreateLivePlayerNow(recoveryIsCurrent);
   }
 
-  Future<void> _recreateLivePlayerNow() async {
+  Future<void> _recreateLivePlayerNow(
+    bool Function()? recoveryIsCurrent,
+  ) async {
     final player = _videoPlayerController;
     _livePlaybackRequested = false;
     _livePausedForInterruption = false;
@@ -306,6 +344,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       await audioSessionHandler?.setActive(false);
     } catch (_) {}
 
+    if (_sourceCoordinator.isDisposed || recoveryIsCurrent?.call() == false) {
+      return;
+    }
     _sourceCoordinator.invalidate();
     _videoPlayerController = null;
     _videoController = null;
@@ -878,7 +919,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   /// the user still expects it to recover.
   bool get hasPlaybackIntent =>
       playerStatus.isPlaying ||
-      (isLive && _livePlaybackRequested && !_livePausedForLifecycle);
+      (isLive &&
+          (_livePlaybackRequested || _liveRecoveryAttempt != null) &&
+          !_livePausedForLifecycle);
 
   /// Records an automatic lifecycle pause without clearing the user's live
   /// playback intent. The view layer calls this immediately before pausing
@@ -886,6 +929,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   /// correctly.
   void markLifecyclePause() {
     if (isLive && hasPlaybackIntent) {
+      _cancelLiveMediaRecovery();
       _livePausedForLifecycle = true;
     }
   }
@@ -1596,6 +1640,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     required Object sourceOwner,
     bool isLive = false,
     bool autoplay = true,
+    bool Function()? shouldAutoplay,
     // 初始化播放位置
     Duration? seekTo,
     // 初始化播放速度
@@ -1619,6 +1664,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     bool autoFullScreenFlag = false,
     int? rotate,
   }) async {
+    if (shouldAutoplay == null) _cancelLiveMediaRecovery();
     final nextContextKey = _buildSourceContextKey(
       isLive: isLive,
       videoType: videoType,
@@ -1630,45 +1676,49 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     );
     await _releaseLongPressForSourceSwitch();
     return _runAfterPipSourceCapture(
-      () => _sourceCoordinator.openSource(
-        owner: sourceOwner,
-        prepare: (attempt) => _prepareSource(
-          attempt: attempt,
-          dataSource: dataSource,
-          isLive: isLive,
-          autoplay: autoplay,
-          seekTo: seekTo,
-          speed: speed,
-          width: width,
-          height: height,
-          duration: duration,
-          isVertical: isVertical,
-          aid: aid,
-          bvid: bvid,
-          cid: cid,
-          roomId: roomId,
-          epid: epid,
-          seasonId: seasonId,
-          pgcType: pgcType,
-          videoType: videoType,
-          onInit: onInit,
-          volume: volume,
-          autoFullScreenFlag: autoFullScreenFlag,
-          rotate: rotate,
-          sourceOwner: sourceOwner,
-        ),
-        onError: (err, stackTrace, attempt) {
-          if (attempt.isCurrent) {
-            dataStatus.value = DataStatus.error;
-          }
-          if (kDebugMode) {
-            debugPrint(stackTrace.toString());
-            debugPrint(
-              'PlPlayer source setup failed (${err.runtimeType})',
-            );
-          }
-        },
-      ),
+      () {
+        if (shouldAutoplay?.call() == false) return Future.value(false);
+        return _sourceCoordinator.openSource(
+          owner: sourceOwner,
+          prepare: (attempt) => _prepareSource(
+            attempt: attempt,
+            dataSource: dataSource,
+            isLive: isLive,
+            autoplay: autoplay,
+            shouldAutoplay: shouldAutoplay,
+            seekTo: seekTo,
+            speed: speed,
+            width: width,
+            height: height,
+            duration: duration,
+            isVertical: isVertical,
+            aid: aid,
+            bvid: bvid,
+            cid: cid,
+            roomId: roomId,
+            epid: epid,
+            seasonId: seasonId,
+            pgcType: pgcType,
+            videoType: videoType,
+            onInit: onInit,
+            volume: volume,
+            autoFullScreenFlag: autoFullScreenFlag,
+            rotate: rotate,
+            sourceOwner: sourceOwner,
+          ),
+          onError: (err, stackTrace, attempt) {
+            if (attempt.isCurrent) {
+              dataStatus.value = DataStatus.error;
+            }
+            if (kDebugMode) {
+              debugPrint(stackTrace.toString());
+              debugPrint(
+                'PlPlayer source setup failed (${err.runtimeType})',
+              );
+            }
+          },
+        );
+      },
       nextContextKey: nextContextKey,
       expectedPosition: seekTo ?? Duration.zero,
     );
@@ -1679,6 +1729,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     required DataSource dataSource,
     required bool isLive,
     required bool autoplay,
+    required bool Function()? shouldAutoplay,
     required Duration? seekTo,
     required double speed,
     required int? width,
@@ -1699,7 +1750,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     required int? rotate,
     required Object sourceOwner,
   }) async {
-    bool isCurrent() => attempt.isCurrent;
+    bool isCurrent() => attempt.isCurrent && shouldAutoplay?.call() != false;
     attempt.registerAbort(_abortUncommittedSourcePlayer);
     if (!isCurrent()) return null;
     final nextVideoContextKey = _buildSourceContextKey(
@@ -1873,6 +1924,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         await _initializePlayer(
           lease,
           onlyPlayAudioForSource: sourceOnlyPlayAudio,
+          shouldAutoplay: shouldAutoplay,
         );
         if (lease.isCurrent(_videoPlayerController, requireActive: true) &&
             isSourceOwnerActive(sourceOwner)) {
@@ -2023,6 +2075,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (!isLive ||
         epoch != _liveMonitorEpoch ||
         _liveRecoveryInFlight ||
+        _liveRecoveryAttempt != null ||
         _sourceCoordinator.processing ||
         !lease.isCurrent(_videoPlayerController, requireActive: true)) {
       return;
@@ -2105,26 +2158,38 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       return;
     }
 
+    final owner = _liveSourceRefreshOwner;
+    final refresh = _liveSourceRefreshCallback;
+    if (owner != null && !identical(owner, lease.owner)) return;
+    final recoveryAttempt = Object();
+    _liveRecoveryAttempt = recoveryAttempt;
+    bool recoveryIsCurrent() =>
+        identical(_liveRecoveryAttempt, recoveryAttempt) &&
+        identical(_instance, this) &&
+        identical(_liveSourceRefreshOwner, owner) &&
+        !_livePausedForInterruption &&
+        !_livePausedForLifecycle &&
+        (visible || continuePlayInBackground.value);
+
     _liveRecoveryInFlight = true;
     _lastLiveActivityAt = now;
     isBuffering.value = true;
-    videoPlayerServiceHandler?.onStatusChange(
-      playerStatus.value,
-      true,
-      true,
-    );
+    _publishPlaybackState();
     var recovered = false;
     try {
-      final refresh = _liveSourceRefreshCallback;
       recovered = refresh != null
-          ? await refresh.call()
-          : await refreshPlayer(generation: lease.generation);
+          ? await refresh(recoveryIsCurrent)
+          : await _refreshPlayerNow(generation: lease.generation);
     } catch (error, stackTrace) {
       if (kDebugMode) {
         debugPrint('Live stall recovery failed: $error');
         debugPrint(stackTrace.toString());
       }
     } finally {
+      if (identical(_liveRecoveryAttempt, recoveryAttempt)) {
+        _liveRecoveryAttempt = null;
+        if (!recovered) videoPlayerServiceHandler?.endLiveRecovery();
+      }
       if (epoch == _liveMonitorEpoch) {
         if (recovered) {
           _liveRecoveryFailureCount = 0;
@@ -2145,11 +2210,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
           );
           if (lease.isCurrent(_videoPlayerController, requireActive: true)) {
             isBuffering.value = false;
-            videoPlayerServiceHandler?.onStatusChange(
-              playerStatus.value,
-              false,
-              true,
-            );
+            _publishPlaybackState(allowLiveRecovery: false);
           }
         }
         _liveRecoveryInFlight = false;
@@ -2172,11 +2233,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (!lease.isCurrent(_videoPlayerController)) return;
 
     playerStatus.value = PlayerStatus.paused;
-    videoPlayerServiceHandler?.onStatusChange(
-      playerStatus.value,
-      isBuffering.value,
-      isLive,
-    );
+    _publishPlaybackState();
   }
 
   String? shadersDirPath;
@@ -2388,11 +2445,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
         ? PlayerStatus.playing
         : PlayerStatus.paused;
     unawaited(WakelockPlus.toggle(enable: state.playing));
-    videoPlayerServiceHandler?.onStatusChange(
-      playerStatus.value,
-      isBuffering.value,
-      isLive,
-    );
+    _syncLiveMediaSession();
+    _publishPlaybackState();
   }
 
   Future<bool> refreshPlayer({int? generation}) {
@@ -2418,14 +2472,17 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       _pipTransitionTargetGeneration = _sourceCoordinator.currentGeneration;
     }
     final refresh = _liveSourceRefreshCallback;
-    return refresh?.call() ?? false;
+    if (refresh == null) return false;
+    _cancelLiveMediaRecovery();
+    return refresh(null);
   }
 
   Future<bool> _refreshPlayerNow({int? generation}) {
     if (isLive) {
       final refresh = _liveSourceRefreshCallback;
       if (refresh != null) {
-        return refresh();
+        _cancelLiveMediaRecovery();
+        return refresh(null);
       }
     }
     // Refresh reopens the current native player without invalidating the
@@ -2516,6 +2573,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   Future<void> _initializePlayer(
     PlPlayerSourceLease<Player> sourceLease, {
     bool? onlyPlayAudioForSource,
+    bool Function()? shouldAutoplay,
   }) async {
     final player = sourceLease.player;
     bool isCurrent() =>
@@ -2543,7 +2601,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
     if (!isCurrent()) return;
     // 自动播放
-    if (_autoPlay) {
+    if (_autoPlay && shouldAutoplay?.call() != false) {
       await playIfExists();
     }
   }
@@ -2621,11 +2679,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
           _disableAutoEnterPip();
         }
 
-        videoPlayerServiceHandler?.onStatusChange(
-          playerStatus.value,
-          isBuffering.value,
-          isLive,
-        );
+        _publishPlaybackState();
 
         for (final element in _statusListeners) {
           element(playing ? .playing : .paused);
@@ -2694,11 +2748,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
           _maybeMarkPipTransitionReady(sourceLease);
         }
         isBuffering.value = buffering;
-        videoPlayerServiceHandler?.onStatusChange(
-          playerStatus.value,
-          buffering,
-          isLive,
-        );
+        _publishPlaybackState();
       }),
       if (kDebugMode)
         stream.log.listen(((PlayerLog log) {
@@ -3055,6 +3105,12 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       } catch (_) {}
     }
     if (!isCurrent()) return;
+    if (isLive &&
+        (!_livePlaybackRequested ||
+            _livePausedForInterruption ||
+            _livePausedForLifecycle)) {
+      return;
+    }
     await player.play();
     if (!isCurrent()) return;
 
@@ -3070,6 +3126,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
 
   /// 暂停播放
   Future<void> pause({bool notify = true, bool isInterrupt = false}) async {
+    if (isLive) _cancelLiveMediaRecovery();
     final player = _videoPlayerController;
     if (player == null) return;
     final lease = _sourceCoordinator.currentLease(player);
@@ -3321,18 +3378,59 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     if (handler == null || !handler.enableBackgroundPlay) {
       return;
     }
+    _syncLiveMediaSession();
     final nativePosition = videoPlayerController?.state.position;
     final positionSnapshot =
         nativePosition != null &&
             (nativePosition > Duration.zero || position.value == 0)
         ? nativePosition
         : Duration(seconds: position.value);
-    handler
-      ..onStatusChange(playerStatus.value, isBuffering.value, isLive)
-      ..onPositionChange(
-        positionSnapshot,
-        speed: videoPlayerController?.state.rate,
-      );
+    _publishPlaybackState();
+    handler.onPositionChange(
+      positionSnapshot,
+      speed: videoPlayerController?.state.rate,
+    );
+  }
+
+  void _publishPlaybackState({bool allowLiveRecovery = true}) {
+    final handler = videoPlayerServiceHandler;
+    if (handler == null) return;
+    final status = playerStatus.value;
+    final owner = _liveMediaSessionOwner;
+    final recovering =
+        Platform.isAndroid &&
+        allowLiveRecovery &&
+        isLive &&
+        continuePlayInBackground.value &&
+        !status.isPlaying &&
+        !status.isCompleted &&
+        !_livePausedForLifecycle &&
+        !_livePausedForInterruption &&
+        (_liveRecoveryAttempt != null ||
+            (_livePlaybackRequested &&
+                owner != null &&
+                isSourceOwnerActive(owner)));
+    handler.onStatusChange(
+      status,
+      isBuffering.value || recovering,
+      isLive,
+      keepForegroundDuringRecovery: recovering,
+      livePlaybackContext: isLive && Platform.isAndroid
+          ? {
+              'hasPlaybackIntent': hasPlaybackIntent,
+              'isRecovering': recovering || _liveRecoveryAttempt != null,
+              'isBackground': switch (WidgetsBinding.instance.lifecycleState) {
+                AppLifecycleState.hidden ||
+                AppLifecycleState.paused ||
+                AppLifecycleState.detached => true,
+                _ => false,
+              },
+              'onlyAudio': _liveSourceOnlyAudio ?? onlyPlayAudio.value,
+              'continueInBackground': continuePlayInBackground.value,
+              'shutdownTimerActive': shutdownTimerService.isActive,
+            }
+          : null,
+    );
   }
 
   set controls(bool visible) {
@@ -3783,6 +3881,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _pipTransitionFrame = null;
     _pendingPipTransitionToken = null;
     _pipTransitionTargetGeneration = null;
+    _cancelLiveMediaRecovery();
     _livePlaybackRequested = false;
     _livePausedForInterruption = false;
     _livePausedForLifecycle = false;
@@ -3876,6 +3975,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       syncBackgroundMediaSession();
       unawaited(audioSessionHandler?.setActive(hasPlaybackIntent));
     } else {
+      _cancelLiveMediaRecovery();
       videoPlayerServiceHandler?.forceClear(reason: 'background_disabled');
       unawaited(audioSessionHandler?.setActive(hasPlaybackIntent));
     }

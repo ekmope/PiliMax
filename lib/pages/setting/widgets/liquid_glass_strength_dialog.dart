@@ -5,7 +5,7 @@ import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Live preview of the strength and quality of [GlassStyle.liquid].
+/// Live preview of the strength of [GlassStyle.liquid].
 ///
 /// The preview is a real [FloatingNavigationBar] over sample content, hosted by its
 /// own capture layer because it lives in a dialog route rather than under the
@@ -15,13 +15,11 @@ class LiquidGlassStrengthDialog extends StatefulWidget {
   const LiquidGlassStrengthDialog({
     super.key,
     required this.initialValue,
-    required this.initialQuality,
     this.onChanged,
   });
 
   final int initialValue;
-  final LiquidGlassQuality initialQuality;
-  final void Function(int strength, LiquidGlassQuality quality)? onChanged;
+  final ValueChanged<int>? onChanged;
 
   @override
   State<LiquidGlassStrengthDialog> createState() =>
@@ -30,15 +28,11 @@ class LiquidGlassStrengthDialog extends StatefulWidget {
 
 class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
   late int _strength = widget.initialValue.clamp(0, 100);
-  late LiquidGlassQuality _quality = widget.initialQuality;
 
-  void _update(int strength, LiquidGlassQuality quality) {
-    if (strength == _strength && quality == _quality) return;
-    setState(() {
-      _strength = strength;
-      _quality = quality;
-    });
-    widget.onChanged?.call(strength, quality);
+  void _update(int strength) {
+    if (strength == _strength) return;
+    setState(() => _strength = strength);
+    widget.onChanged?.call(strength);
   }
 
   @override
@@ -60,7 +54,7 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(18),
-              child: _Preview(strength: _strength, quality: _quality),
+              child: _Preview(strength: _strength),
             ),
             const SizedBox(height: 12),
             Row(
@@ -90,32 +84,17 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
                 divisions: 100,
                 label: '$_strength%',
                 semanticFormatterCallback: (value) => '${value.round()}%',
-                onChanged: (value) => _update(value.round(), _quality),
+                onChanged: (value) => _update(value.round()),
               ),
             ),
             Text(
               supportsRefraction ? '强度越高，背景越通透，折射越明显。' : '强度越高，背景磨砂越轻。',
               style: hintStyle,
             ),
-            const SizedBox(height: 12),
-            Semantics(
-              header: true,
-              child: Text('画质', style: theme.textTheme.labelLarge),
-            ),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final quality in LiquidGlassQuality.values)
-                  ChoiceChip(
-                    label: Text(quality.label),
-                    selected: _quality == quality,
-                    onSelected: (_) => _update(_strength, quality),
-                  ),
-              ],
-            ),
+            const SizedBox(height: 4),
             Text(
               supportsRefraction
-                  ? '按住或拖动预览底栏可查看透镜。超清会折射透镜内的图标和文字。'
+                  ? '按住或拖动预览底栏可观察透镜折射。'
                   : '当前设备使用磨砂。按住或拖动预览底栏可查看透镜变化。',
               style: hintStyle,
             ),
@@ -129,9 +108,7 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
           child: const Text('取消'),
         ),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(
-            (strength: _strength, quality: _quality),
-          ),
+          onPressed: () => Navigator.of(context).pop(_strength),
           child: const Text('确定'),
         ),
       ],
@@ -140,10 +117,9 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
 }
 
 class _Preview extends StatefulWidget {
-  const _Preview({required this.strength, required this.quality});
+  const _Preview({required this.strength});
 
   final int strength;
-  final LiquidGlassQuality quality;
 
   @override
   State<_Preview> createState() => _PreviewState();
@@ -178,33 +154,29 @@ class _PreviewState extends State<_Preview> {
           padding: EdgeInsets.zero,
           viewPadding: EdgeInsets.zero,
         ),
-        child: LiquidGlassScope(
+        child: LiquidGlassHost(
           enabled: true,
-          quality: widget.quality,
-          child: LiquidGlassHost(
-            enabled: true,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                const ExcludeSemantics(child: _PreviewFeed()),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 10,
-                  child: FloatingNavigationBar(
-                    glassStyle: GlassStyle.liquid,
-                    liquidGlassStrength: widget.strength / 100,
-                    selectedIndex: _selectedIndex,
-                    onDestinationSelected: (index) {
-                      if (_selectedIndex == index) return;
-                      setState(() => _selectedIndex = index);
-                    },
-                    bottomPadding: 0,
-                    destinations: destinations,
-                  ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const ExcludeSemantics(child: _PreviewFeed()),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 10,
+                child: FloatingNavigationBar(
+                  glassStyle: GlassStyle.liquid,
+                  liquidGlassStrength: widget.strength / 100,
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: (index) {
+                    if (_selectedIndex == index) return;
+                    setState(() => _selectedIndex = index);
+                  },
+                  bottomPadding: 0,
+                  destinations: destinations,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

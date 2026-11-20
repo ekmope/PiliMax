@@ -214,7 +214,6 @@ abstract final class SettingBoxKey {
       floatingNavBar = 'floatingNavBar',
       glassStyle = 'glassStyle',
       liquidGlassStrength = 'liquidGlassStrength',
-      liquidGlassQuality = 'liquidGlassQuality',
       floatingNavBottomLift = 'floatingNavBottomLift',
       mixWithOthers = 'mixWithOthers',
       removeSafeArea = 'removeSafeArea',

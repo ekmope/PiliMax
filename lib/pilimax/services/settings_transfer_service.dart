@@ -1,5 +1,4 @@
 import 'package:PiliMax/utils/storage_key.dart';
-import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass_quality.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 
 final class SettingsImportReport {
@@ -36,6 +35,7 @@ abstract final class SettingsTransferService {
   static const settingSection = 'setting';
   static const videoSection = 'video';
   static const localCacheSection = 'localCache';
+  static const _obsoleteGlassQualityKey = 'liquidGlassQuality';
 
   static const sensitiveSettingKeys = <String>{
     SettingBoxKey.aiApiKey,
@@ -65,6 +65,9 @@ abstract final class SettingsTransferService {
         continue;
       }
       final key = entry.key as String;
+      if (key == _obsoleteGlassQualityKey) {
+        continue;
+      }
       if (!includeSensitive && sensitiveSettingKeys.contains(key)) {
         continue;
       }
@@ -200,7 +203,8 @@ abstract final class SettingsTransferService {
     values
       ..remove(SettingBoxKey.appFontWeight)
       ..remove(SettingBoxKey.reply2SortType)
-      ..remove(SettingBoxKey.appRcmd);
+      ..remove(SettingBoxKey.appRcmd)
+      ..remove(_obsoleteGlassQualityKey);
     return values;
   }
 
@@ -234,14 +238,6 @@ abstract final class SettingsTransferService {
       } else {
         values.remove(SettingBoxKey.liquidGlassStrength);
       }
-    }
-
-    if (values.containsKey(SettingBoxKey.liquidGlassQuality) &&
-        LiquidGlassQuality.tryFromName(
-              values[SettingBoxKey.liquidGlassQuality],
-            ) ==
-            null) {
-      values.remove(SettingBoxKey.liquidGlassQuality);
     }
   }
 

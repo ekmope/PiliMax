@@ -137,22 +137,21 @@ void main() {
     );
   });
 
-  test('preserves named liquid glass quality in imported settings', () {
-    for (final quality in ['standard', 'ultra']) {
-      final payload = SettingsTransferService.normalize({
-        'setting': {SettingBoxKey.liquidGlassQuality: quality},
-      });
-      expect(payload.setting[SettingBoxKey.liquidGlassQuality], quality);
-    }
+  test('drops obsolete liquid glass quality from imports and exports', () {
+    const qualityKey = 'liquidGlassQuality';
+    const strengthKey = SettingBoxKey.liquidGlassStrength;
+    for (final quality in ['standard', 'ultra', 'max', 1, null]) {
+      final setting = {qualityKey: quality, strengthKey: 73};
+      final imported = SettingsTransferService.normalize({'setting': setting});
+      expect(imported.setting, {strengthKey: 73});
 
-    for (final invalid in ['max', 1, null]) {
-      final payload = SettingsTransferService.normalize({
-        'setting': {SettingBoxKey.liquidGlassQuality: invalid},
-      });
-      expect(
-        payload.setting.containsKey(SettingBoxKey.liquidGlassQuality),
-        isFalse,
+      final exported = SettingsTransferService.buildExportMap(
+        setting: setting,
+        video: const {},
+        localCache: const {},
       );
+      expect(exported['setting'], {strengthKey: 73});
+      expect(setting.containsKey(qualityKey), isTrue);
     }
   });
 }

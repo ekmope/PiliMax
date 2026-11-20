@@ -32,7 +32,7 @@ LiquidGlassCapture get _capture => LiquidGlassHost.debugLastCapture!;
 void main() {
   setUp(() => LiquidGlassHost.debugLastCapture = null);
 
-  testWidgets('nested hosts capture once using the inner quality', (
+  testWidgets('nested hosts share one capture of the full glass material', (
     tester,
   ) async {
     const hazy = LiquidGlassStyle(
@@ -41,25 +41,21 @@ void main() {
       haze: 0.7,
       hazeBlur: 24,
     );
-    Widget scene(LiquidGlassQuality quality) => _scene([
-      LiquidGlassScope(
-        enabled: true,
-        quality: quality,
-        child: LiquidGlassHost(
+    final before = LiquidGlassHost.debugCaptures;
+    await tester.pumpWidget(
+      _scene([
+        LiquidGlassHost(
           enabled: true,
           child: Stack(children: [_pane(_paneRect, style: hazy)]),
         ),
-      ),
-    ]);
-
-    final before = LiquidGlassHost.debugCaptures;
-    await tester.pumpWidget(scene(LiquidGlassQuality.standard));
+      ]),
+    );
     expect(LiquidGlassHost.debugCaptures - before, 1);
-    final standardScale = _capture.panes.single.scale;
-
-    await tester.pumpWidget(scene(LiquidGlassQuality.ultra));
-    expect(LiquidGlassHost.debugCaptures - before, 2);
-    expect(_capture.panes.single.scale, greaterThan(standardScale));
+    expect(_capture.snapshots, 1);
+    final pane = _capture.panes.single;
+    expect(pane.pane, _paneRect);
+    // The clear pass stays at device resolution even when the haze is strong.
+    expect(pane.scale, tester.view.devicePixelRatio);
   });
 
   testWidgets('a still-mounted offstage pane releases its capture', (

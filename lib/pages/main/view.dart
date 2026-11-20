@@ -717,13 +717,7 @@ class _MainAppState extends PopScopeState<MainApp>
           _mainController.floatingNavBar &&
           _mainController.useBottomNav &&
           _mainController.navigationBars.length > 1;
-      return LiquidGlassScope(
-        enabled: liquid,
-        quality: liquid
-            ? _mainController.liquidGlassQuality.value
-            : LiquidGlassQuality.ultra,
-        child: LiquidGlassHost(enabled: liquid, child: glassPage),
-      );
+      return LiquidGlassHost(enabled: liquid, child: glassPage);
     });
 
     if (PlatformUtils.isMobile) {

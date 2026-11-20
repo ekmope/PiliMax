@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:PiliMax/common/widgets/dialog/dialog.dart';
 import 'package:PiliMax/common/widgets/flutter/list_tile.dart';
 import 'package:PiliMax/pages/setting/widgets/liquid_glass_switch.dart';
-import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
@@ -70,8 +69,7 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
         ? GStorage.setting.watch().where(
             (event) =>
                 event.key == enabledByKey ||
-                event.key == SettingBoxKey.glassStyle ||
-                event.key == SettingBoxKey.liquidGlassQuality,
+                event.key == SettingBoxKey.glassStyle,
           )
         : enabledByKey == null
         ? null
@@ -175,14 +173,10 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
     final mergeSwitchSemantics =
         usesGlassThumb && !widget.isSplit && widget.onTap == null;
     final switchBtn = usesGlassThumb
-        ? LiquidGlassScope(
-            enabled: true,
-            quality: Pref.liquidGlassQuality,
-            child: LiquidGlassSwitch(
-              value: val,
-              onChanged: enabled ? switchChange : null,
-              semanticLabel: mergeSwitchSemantics ? null : widget.title,
-            ),
+        ? LiquidGlassSwitch(
+            value: val,
+            onChanged: enabled ? switchChange : null,
+            semanticLabel: mergeSwitchSemantics ? null : widget.title,
           )
         : Transform.scale(
             scale: 0.8,

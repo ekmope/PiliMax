@@ -779,11 +779,7 @@ class _InteractiveFloatingNavigationBarState
     final lensStyle = widget.liquid
         ? liquidNavigationLensStyle(colorScheme, widget.liquidGlassStrength)
         : null;
-    final warpContent =
-        widget.liquid &&
-        shaderSupported &&
-        LiquidGlassScope.qualityOf(context) == LiquidGlassQuality.ultra;
-    final contentStyle = warpContent
+    final contentStyle = widget.liquid && shaderSupported
         ? liquidNavigationLensContentStyle(
             colorScheme,
             widget.liquidGlassStrength,

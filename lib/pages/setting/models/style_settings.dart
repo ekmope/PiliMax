@@ -30,7 +30,6 @@ import 'package:PiliMax/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliMax/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliMax/plugin/pl_player/utils/fullscreen.dart';
-import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass_quality.dart';
 import 'package:PiliMax/pilimax/utils/app_font.dart';
 import 'package:PiliMax/pilimax/utils/danmaku_font.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
@@ -218,10 +217,9 @@ List<SettingsModel> get styleSettings => [
     },
   ),
   NormalModel(
-    title: '液态玻璃强度与画质',
+    title: '液态玻璃强度',
     leading: const Icon(Icons.blur_on_outlined),
-    getSubtitle: () =>
-        '${Pref.liquidGlassStrength}% · ${Pref.liquidGlassQuality.label}',
+    getSubtitle: () => '${Pref.liquidGlassStrength}%',
     enabled: () => Pref.glassStyle == GlassStyle.liquid,
     enabledByKey: SettingBoxKey.floatingNavBar,
     refreshOnKey: SettingBoxKey.glassStyle,
@@ -1144,7 +1142,6 @@ Future<void> _showLiquidGlassStrengthDialog(
   VoidCallback setState,
 ) async {
   final initial = Pref.liquidGlassStrength;
-  final initialQuality = Pref.liquidGlassQuality;
   MainController? controller;
   try {
     controller = Get.find<MainController>();
@@ -1153,33 +1150,22 @@ Future<void> _showLiquidGlassStrengthDialog(
   }
 
   var strength = initial;
-  var quality = initialQuality;
   try {
-    final result =
-        await showDialog<({int strength, LiquidGlassQuality quality})>(
-          context: context,
-          builder: (context) => LiquidGlassStrengthDialog(
-            initialValue: initial,
-            initialQuality: initialQuality,
-            onChanged: (value, quality) {
-              controller?.liquidGlassStrength.value = value;
-              controller?.liquidGlassQuality.value = quality;
-            },
-          ),
-        );
+    final result = await showDialog<int>(
+      context: context,
+      builder: (context) => LiquidGlassStrengthDialog(
+        initialValue: initial,
+        onChanged: (value) => controller?.liquidGlassStrength.value = value,
+      ),
+    );
     if (result == null) return;
 
-    final normalized = result.strength.clamp(0, kMaxLiquidGlassStrength);
-    await GStorage.setting.putAll({
-      SettingBoxKey.liquidGlassStrength: normalized,
-      SettingBoxKey.liquidGlassQuality: result.quality.name,
-    });
+    final normalized = result.clamp(0, kMaxLiquidGlassStrength);
+    await GStorage.setting.put(SettingBoxKey.liquidGlassStrength, normalized);
     strength = normalized;
-    quality = result.quality;
     setState();
   } finally {
     controller?.liquidGlassStrength.value = strength;
-    controller?.liquidGlassQuality.value = quality;
   }
 }
 

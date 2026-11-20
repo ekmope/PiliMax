@@ -12,12 +12,9 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass_quality.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
-
-export 'liquid_glass_quality.dart';
 
 part 'liquid_glass_capture.dart';
 
@@ -63,31 +60,6 @@ final _noShine = List<double>.unmodifiable(
 final _flatProfile = List<double>.unmodifiable(
   List<double>.filled(_profileTurns, 0),
 );
-
-/// Whether the navigation dock and the buttons of a page's bar are glass.
-class LiquidGlassScope extends InheritedWidget {
-  const LiquidGlassScope({
-    super.key,
-    required this.enabled,
-    this.quality = LiquidGlassQuality.ultra,
-    required super.child,
-  });
-
-  final bool enabled;
-  final LiquidGlassQuality quality;
-
-  static bool of(BuildContext context) => _of(context)?.enabled ?? false;
-
-  static LiquidGlassQuality qualityOf(BuildContext context) =>
-      _of(context)?.quality ?? LiquidGlassQuality.ultra;
-
-  static LiquidGlassScope? _of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<LiquidGlassScope>();
-
-  @override
-  bool updateShouldNotify(LiquidGlassScope oldWidget) =>
-      enabled != oldWidget.enabled || quality != oldWidget.quality;
-}
 
 /// Lengths are dp. The shader shrinks [bevel] and [refraction] to fit a pane
 /// too small for them, so that a button bends in proportion to the dock.
@@ -408,31 +380,6 @@ class LiquidGlassStyle {
   );
 
   double get _hairlineSide => hairlineSide ?? hairline;
-
-  /// The standard tier's: no colors parted, and a haze for the whole frost.
-  LiquidGlassStyle get _standard {
-    if (haze == 0 && dispersion == 0) {
-      return this;
-    }
-    return LiquidGlassStyle(
-      tint: tint,
-      contrast: contrast,
-      blur: haze > 0 ? hazeBlur : blur,
-      refraction: refraction,
-      bevel: bevel,
-      saturation: saturation,
-      brightness: brightness,
-      rim: rim,
-      rimWidth: rimWidth,
-      rimTail: rimTail,
-      rimFocus: rimFocus,
-      rimAdded: rimAdded,
-      endShade: endShade,
-      rimBlur: rimBlur,
-      hairline: hairline,
-      hairlineSide: hairlineSide,
-    );
-  }
 }
 
 /// An iOS 27 menu's or alert's, measured over white.

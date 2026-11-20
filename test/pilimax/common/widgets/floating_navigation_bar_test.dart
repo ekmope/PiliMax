@@ -33,7 +33,6 @@ void main() {
     EdgeInsets safePadding = EdgeInsets.zero,
     Widget Function(Widget bar)? wrapBar,
     TextDirection textDirection = TextDirection.ltr,
-    LiquidGlassQuality liquidQuality = LiquidGlassQuality.ultra,
     bool disableAnimations = false,
   }) {
     final bar = FloatingNavigationBar(
@@ -54,15 +53,11 @@ void main() {
         ),
         child: Directionality(textDirection: textDirection, child: child!),
       ),
-      home: LiquidGlassScope(
-        enabled: style == GlassStyle.liquid,
-        quality: liquidQuality,
-        child: Scaffold(
-          body: const RepaintBoundary(
-            child: SizedBox.expand(key: ValueKey('content')),
-          ),
-          bottomNavigationBar: wrapBar?.call(bar) ?? bar,
+      home: Scaffold(
+        body: const RepaintBoundary(
+          child: SizedBox.expand(key: ValueKey('content')),
         ),
+        bottomNavigationBar: wrapBar?.call(bar) ?? bar,
       ),
     );
   }
@@ -715,52 +710,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final quality in LiquidGlassQuality.values) {
-    testWidgets('a ${quality.name} lens refines only the raised state', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        host(style: GlassStyle.liquid, liquidQuality: quality),
+  testWidgets('lens content refraction requires lift and shader support', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(style: GlassStyle.liquid));
+    final lens = find.byKey(glassLensKey);
+    final restingElement = tester.element(lens);
+    final restingRefraction = tester.widget<LiquidGlass>(lens).style.refraction;
+    final gesture = await tester.startGesture(dockDestination(tester, 0));
+    await tester.pumpAndSettle();
+    expect(tester.element(lens), same(restingElement));
+    expect(
+      tester.widget<LiquidGlass>(lens).style.refraction,
+      lessThan(restingRefraction),
+    );
+    expect(find.byKey(lensContentKey), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNWidgets(2));
+    final warp = ImageFilter.isShaderFilterSupported;
+    expect(find.byKey(warpKey), warp ? findsOneWidget : findsNothing);
+    if (warp) {
+      final clip = tester.widget<ClipPath>(
+        find
+            .ancestor(
+              of: find.byKey(warpKey),
+              matching: find.byType(ClipPath),
+            )
+            .first,
       );
-      final lens = find.byKey(glassLensKey);
-      final restingElement = tester.element(lens);
-      final restingRefraction = tester
-          .widget<LiquidGlass>(lens)
-          .style
-          .refraction;
-      final gesture = await tester.startGesture(dockDestination(tester, 0));
-      await tester.pumpAndSettle();
-      expect(tester.element(lens), same(restingElement));
-      expect(
-        tester.widget<LiquidGlass>(lens).style.refraction,
-        lessThan(restingRefraction),
-      );
-      expect(find.byKey(lensContentKey), findsOneWidget);
-      expect(find.byType(NavigationBar), findsNWidgets(2));
-      final warp =
-          quality == LiquidGlassQuality.ultra &&
-          ImageFilter.isShaderFilterSupported;
-      expect(find.byKey(warpKey), warp ? findsOneWidget : findsNothing);
-      if (warp) {
-        final clip = tester.widget<ClipPath>(
-          find
-              .ancestor(
-                of: find.byKey(warpKey),
-                matching: find.byType(ClipPath),
-              )
-              .first,
-        );
-        expect(clip.clipBehavior, Clip.antiAliasWithSaveLayer);
-      }
-      await gesture.up();
-      await tester.pumpAndSettle();
-      expect(tester.element(lens), same(restingElement));
-      expect(find.byType(LiquidGlass), findsNWidgets(2));
-      expect(find.byKey(lensContentKey), findsNothing);
-      expect(find.byType(NavigationBar), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-  }
+      expect(clip.clipBehavior, Clip.antiAliasWithSaveLayer);
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.element(lens), same(restingElement));
+    expect(find.byType(LiquidGlass), findsNWidgets(2));
+    expect(find.byKey(lensContentKey), findsNothing);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('liquid tap commits during lift and releases after its peak', (
     tester,

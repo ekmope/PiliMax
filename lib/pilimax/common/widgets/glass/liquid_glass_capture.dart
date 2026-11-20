@@ -43,7 +43,7 @@ typedef LiquidGlassCapture = ({
 });
 
 /// Draws panes from a shared backdrop capture when the frame is composited.
-/// Nested hosts share the outer capture and apply their own quality settings.
+/// Nested hosts share the outer capture.
 class LiquidGlassHost extends StatelessWidget {
   const LiquidGlassHost({
     super.key,
@@ -72,7 +72,6 @@ class LiquidGlassHost extends StatelessWidget {
     return _LiquidGlassHostBox(
       enabled: enabled,
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-      quality: LiquidGlassScope.qualityOf(context),
       child: child,
     );
   }
@@ -194,20 +193,17 @@ class _LiquidGlassHostBox extends SingleChildRenderObjectWidget {
   const _LiquidGlassHostBox({
     required this.enabled,
     required this.devicePixelRatio,
-    required this.quality,
     super.child,
   });
 
   final bool enabled;
   final double devicePixelRatio;
-  final LiquidGlassQuality quality;
 
   @override
   _RenderLiquidGlassHost createRenderObject(BuildContext context) {
     return _RenderLiquidGlassHost(
       enabled: enabled,
       devicePixelRatio: devicePixelRatio,
-      quality: quality,
     );
   }
 
@@ -218,8 +214,7 @@ class _LiquidGlassHostBox extends SingleChildRenderObjectWidget {
   ) {
     renderObject
       ..enabled = enabled
-      ..devicePixelRatio = devicePixelRatio
-      ..quality = quality;
+      ..devicePixelRatio = devicePixelRatio;
   }
 }
 
@@ -227,10 +222,8 @@ class _RenderLiquidGlassHost extends RenderProxyBox {
   _RenderLiquidGlassHost({
     required bool enabled,
     required double devicePixelRatio,
-    required LiquidGlassQuality quality,
   }) : _enabled = enabled,
-       _devicePixelRatio = devicePixelRatio,
-       _quality = quality;
+       _devicePixelRatio = devicePixelRatio;
 
   final _layer = LayerHandle<_LiquidGlassHostLayer>();
 
@@ -253,15 +246,6 @@ class _RenderLiquidGlassHost extends RenderProxyBox {
     markNeedsPaint();
   }
 
-  LiquidGlassQuality _quality;
-  set quality(LiquidGlassQuality value) {
-    if (value == _quality) {
-      return;
-    }
-    _quality = value;
-    markNeedsPaint();
-  }
-
   @override
   bool get alwaysNeedsCompositing => _enabled;
 
@@ -275,7 +259,6 @@ class _RenderLiquidGlassHost extends RenderProxyBox {
     final layer = _layer.layer ??= _LiquidGlassHostLayer();
     layer
       ..devicePixelRatio = _devicePixelRatio
-      ..quality = _quality
       ..bounds = offset & size;
     context.pushLayer(layer, super.paint, offset);
   }
@@ -299,7 +282,6 @@ class _LiquidGlassHostLayer extends ContainerLayer {
   static int _pass = 0;
 
   double devicePixelRatio = 1;
-  LiquidGlassQuality quality = LiquidGlassQuality.ultra;
   Rect bounds = Rect.zero;
 
   final _atlases = <({ui.Image image, List<_Band> bands})>[];
@@ -354,7 +336,6 @@ class _LiquidGlassHostLayer extends ContainerLayer {
       Matrix4.identity(),
       [],
       found,
-      quality,
     );
     final panes = {for (final entry in found) entry.pane};
     _releasePanes(_panes.where((pane) => !panes.contains(pane)));
@@ -442,20 +423,14 @@ class _LiquidGlassHostLayer extends ContainerLayer {
     Matrix4 rootToHost,
     List<ContainerLayer> chain,
     List<_Behind> found,
-    LiquidGlassQuality quality,
   ) {
     chain.add(layer);
     for (Layer? child = layer.firstChild; child != null;) {
       switch (child) {
         case final _LiquidGlassLayer pane:
-          final style = switch (quality) {
-            LiquidGlassQuality.standard => pane.style._standard,
-            LiquidGlassQuality.ultra => pane.style,
-          };
           found.add(
             _Behind(
               pane,
-              style,
               toHost,
               root,
               rootToHost,
@@ -471,7 +446,6 @@ class _LiquidGlassHostLayer extends ContainerLayer {
             offscreen ? toHost : rootToHost,
             chain,
             found,
-            container is _LiquidGlassHostLayer ? container.quality : quality,
           );
       }
       child = child.nextSibling;
@@ -772,7 +746,6 @@ bool _encloses(Rect outer, Rect inner) =>
 class _Behind {
   _Behind(
     this.pane,
-    this.style,
     this.toHost,
     this.root,
     this.rootToHost,
@@ -781,7 +754,6 @@ class _Behind {
 
   _Behind.hazeOf(_Behind owner)
     : pane = owner.pane,
-      style = owner.style,
       toHost = owner.toHost,
       root = owner.root,
       rootToHost = owner.rootToHost,
@@ -789,7 +761,7 @@ class _Behind {
       hazed = true;
 
   final _LiquidGlassLayer pane;
-  final LiquidGlassStyle style;
+  LiquidGlassStyle get style => pane.style;
   final Matrix4 toHost;
 
   /// The host, or below it the nearest layer that draws offscreen: a backdrop

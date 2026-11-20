@@ -41,7 +41,6 @@ import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/extension/num_ext.dart';
 import 'package:PiliMax/utils/global_data.dart';
 import 'package:PiliMax/utils/login_utils.dart';
-import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass_quality.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/utils/platform_utils.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
@@ -1864,12 +1863,6 @@ abstract final class Pref {
   static GlassStyle get glassStyle {
     return GlassStyle.fromIndex(_setting.get(SettingBoxKey.glassStyle));
   }
-
-  static LiquidGlassQuality get liquidGlassQuality =>
-      LiquidGlassQuality.tryFromName(
-        _setting.get(SettingBoxKey.liquidGlassQuality),
-      ) ??
-      LiquidGlassQuality.ultra;
 
   static int get liquidGlassStrength {
     final value = _setting.get(

@@ -17,6 +17,7 @@ import 'package:PiliMax/utils/extension/get_ext.dart';
 import 'package:PiliMax/utils/extension/iterable_ext.dart';
 import 'package:PiliMax/utils/feed_back.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
+import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass_quality.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/services/route_restore_startup.dart';
 import 'package:PiliMax/utils/storage_key.dart';
@@ -64,6 +65,8 @@ class MainController extends GetxController
   final floatingNavBar = Pref.floatingNavBar;
   late final Rx<GlassStyle> glassStyle = Pref.glassStyle.obs;
   late final RxInt liquidGlassStrength = Pref.liquidGlassStrength.obs;
+  late final Rx<LiquidGlassQuality> liquidGlassQuality =
+      Pref.liquidGlassQuality.obs;
   late final RxDouble floatingNavBottomLift = Pref.floatingNavBottomLift.obs;
   final startupRestoreIntent = RouteRestoreIntentGate();
   final useSideBar = Pref.useSideBar;

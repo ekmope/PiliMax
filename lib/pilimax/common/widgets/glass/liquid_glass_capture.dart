@@ -1,4 +1,5 @@
 // Ported from FlClash (GPL-3.0), lib/ui/liquid_glass_capture.dart.
+// Capture updates from prism_ui at 6c47901cc80b5325bdb9650579ca2e000a60b39e.
 //
 // ignore_for_file: prefer_initializing_formals, cascade_invocations
 part of 'liquid_glass.dart';
@@ -41,9 +42,8 @@ typedef LiquidGlassCapture = ({
   panes,
 });
 
-/// Draws the panes below from one capture of what lies behind them, taken as
-/// the frame is composited, in place of each pane reading the backdrop
-/// (.agents/architecture.md). Only one may enclose a pane.
+/// Draws panes from a shared backdrop capture when the frame is composited.
+/// Nested hosts share the outer capture and apply their own quality settings.
 class LiquidGlassHost extends StatelessWidget {
   const LiquidGlassHost({
     super.key,
@@ -58,7 +58,14 @@ class LiquidGlassHost extends StatelessWidget {
   static LiquidGlassCapture? debugLastCapture;
 
   @visibleForTesting
+  static int debugCaptures = 0;
+
+  @visibleForTesting
   static bool? debugCarryBandsOverride;
+
+  /// How many panes hold a capture, under a host or not.
+  @visibleForTesting
+  static int get debugHeldCaptures => _LiquidGlassLayer._capturesHeld;
 
   @override
   Widget build(BuildContext context) {
@@ -116,15 +123,26 @@ class _RenderLiquidGlassFade extends RenderProxyBox {
       return;
     }
     if (attached) {
-      _opacity.removeListener(markNeedsPaint);
-      value.addListener(markNeedsPaint);
+      _opacity.removeListener(_handleOpacity);
+      value.addListener(_handleOpacity);
     }
     _opacity = value;
-    markNeedsPaint();
+    _handleOpacity();
   }
 
   int get _alpha =>
       ui.Color.getAlphaFromOpacity(_opacity.value.clamp(0.0, 1.0));
+
+  late bool _visible = _alpha != 0;
+
+  void _handleOpacity() {
+    markNeedsPaint();
+    final visible = _alpha != 0;
+    if (visible != _visible) {
+      _visible = visible;
+      markNeedsSemanticsUpdate();
+    }
+  }
 
   @override
   bool get alwaysNeedsCompositing => child != null;
@@ -132,12 +150,13 @@ class _RenderLiquidGlassFade extends RenderProxyBox {
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
-    _opacity.addListener(markNeedsPaint);
+    _opacity.addListener(_handleOpacity);
+    _handleOpacity();
   }
 
   @override
   void detach() {
-    _opacity.removeListener(markNeedsPaint);
+    _opacity.removeListener(_handleOpacity);
     super.detach();
   }
 
@@ -163,7 +182,7 @@ class _RenderLiquidGlassFade extends RenderProxyBox {
 
   @override
   void visitChildrenForSemantics(RenderObjectVisitor visitor) {
-    if (_alpha != 0) {
+    if (_visible) {
       super.visitChildrenForSemantics(visitor);
     }
   }
@@ -285,27 +304,61 @@ class _LiquidGlassHostLayer extends ContainerLayer {
 
   final _atlases = <({ui.Image image, List<_Band> bands})>[];
 
+  // A pane that leaves the tree but lives on, as under a route that covers it,
+  // would hold the atlas it last drew from until it painted again.
+  var _panes = <_LiquidGlassLayer>{};
+
   @override
   void addToScene(ui.SceneBuilder builder) {
-    _capture();
+    if (_hasHostAbove) {
+      _releaseCaptures();
+    } else {
+      _capture();
+    }
     super.addToScene(builder);
+  }
+
+  bool get _hasHostAbove {
+    for (Layer? above = parent; above != null; above = above.parent) {
+      if (above is _LiquidGlassHostLayer) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @override
   void dispose() {
+    _releaseCaptures();
+    super.dispose();
+  }
+
+  void _releaseCaptures() {
+    _releasePanes(_panes);
+    _panes.clear();
     for (final atlas in _atlases) {
       atlas.image.dispose();
     }
     _atlases.clear();
-    super.dispose();
   }
 
-  /// A pane over one painted before it in the same root sits a level above
-  /// it, and reads a capture with that one drawn as glass.
+  /// A pane takes a level above overlapping earlier panes in its root,
+  /// so the capture includes them.
   void _capture() {
     _pass++;
     final found = <_Behind>[];
-    _gather(this, Matrix4.identity(), this, Matrix4.identity(), [], found);
+    _gather(
+      this,
+      Matrix4.identity(),
+      this,
+      Matrix4.identity(),
+      [],
+      found,
+      quality,
+    );
+    final panes = {for (final entry in found) entry.pane};
+    _releasePanes(_panes.where((pane) => !panes.contains(pane)));
+    _panes = panes;
     final placed = <_Behind>[];
     for (final entry in found) {
       if (_place(entry)) {
@@ -317,7 +370,7 @@ class _LiquidGlassHostLayer extends ContainerLayer {
           }
         }
       } else {
-        entry.pane._captureNothing(_pass);
+        entry.pane._captureNothing(this, _pass);
       }
     }
     var levels = 0;
@@ -354,6 +407,7 @@ class _LiquidGlassHostLayer extends ContainerLayer {
       _atlases.removeLast().image.dispose();
     }
     assert(() {
+      LiquidGlassHost.debugCaptures++;
       LiquidGlassHost.debugLastCapture = (
         snapshots: snapshots,
         keptBands: keptBands,
@@ -373,6 +427,14 @@ class _LiquidGlassHostLayer extends ContainerLayer {
     }());
   }
 
+  void _releasePanes(Iterable<_LiquidGlassLayer> panes) {
+    for (final pane in panes) {
+      if (identical(pane._captureOwner, this)) {
+        pane._dropCaptured();
+      }
+    }
+  }
+
   void _gather(
     ContainerLayer layer,
     Matrix4 toHost,
@@ -380,18 +442,20 @@ class _LiquidGlassHostLayer extends ContainerLayer {
     Matrix4 rootToHost,
     List<ContainerLayer> chain,
     List<_Behind> found,
+    LiquidGlassQuality quality,
   ) {
     chain.add(layer);
     for (Layer? child = layer.firstChild; child != null;) {
       switch (child) {
         case final _LiquidGlassLayer pane:
+          final style = switch (quality) {
+            LiquidGlassQuality.standard => pane.style._standard,
+            LiquidGlassQuality.ultra => pane.style,
+          };
           found.add(
             _Behind(
               pane,
-              switch (quality) {
-                LiquidGlassQuality.standard => pane.style._standard,
-                LiquidGlassQuality.ultra => pane.style,
-              },
+              style,
               toHost,
               root,
               rootToHost,
@@ -407,6 +471,7 @@ class _LiquidGlassHostLayer extends ContainerLayer {
             offscreen ? toHost : rootToHost,
             chain,
             found,
+            container is _LiquidGlassHostLayer ? container.quality : quality,
           );
       }
       child = child.nextSibling;
@@ -427,10 +492,12 @@ class _LiquidGlassHostLayer extends ContainerLayer {
     final stretch = math.max(storage[0].abs(), storage[5].abs());
     final device = entry.device;
     if (stretch == 0 || device.isEmpty || !device.overlaps(bounds)) {
-      pane._held = null;
+      pane
+        .._held = null
+        .._heldHaze = null;
       return false;
     }
-    final hold = hazed ? null : pane.hold;
+    final hold = pane.hold;
     final sweep = hold == null
         ? device
         : device.expandToInclude(MatrixUtils.transformRect(entry.toHost, hold));
@@ -458,7 +525,7 @@ class _LiquidGlassHostLayer extends ContainerLayer {
     final blurSigma = frost > softness
         ? math.sqrt(frost * frost - softness * softness)
         : 0.0;
-    final held = pane._held;
+    final held = hazed ? pane._heldHaze : pane._held;
     final _Placement placement;
     if (hold != null &&
         held != null &&
@@ -485,7 +552,9 @@ class _LiquidGlassHostLayer extends ContainerLayer {
         blurSigma: blurSigma,
       );
     }
-    if (!hazed) {
+    if (hazed) {
+      pane._heldHaze = hold == null ? null : placement;
+    } else {
       pane._held = hold == null ? null : placement;
     }
     entry
@@ -525,7 +594,14 @@ class _LiquidGlassHostLayer extends ContainerLayer {
       final sigma = entries.first.blurSigma;
       final drawn = <Object?>[sigma, rect.size];
       final recorder = ui.PictureRecorder();
-      final canvas = Canvas(recorder);
+      // Impeller scales a wide blur to what its layer covers (architecture.md).
+      final canvas = Canvas(recorder)
+        ..drawRect(
+          Offset.zero & rect.size,
+          Paint()
+            ..color = Colors.transparent
+            ..blendMode = BlendMode.src,
+        );
       for (final entry in entries) {
         final place = entry.place.shift(-rect.topLeft);
         drawn
@@ -636,6 +712,7 @@ class _LiquidGlassHostLayer extends ContainerLayer {
     final storage = entry.toHost.storage;
     final haze = entry.haze;
     pane._captureFrom(
+      this,
       _pass,
       atlas,
       [
@@ -851,8 +928,29 @@ class _Replay {
     while (_saves.length < _entered.length) {
       _saves.add(_apply(_entered[_saves.length]));
     }
-    canvas.drawPicture(picture);
+    final shift = _wholeTexelShift();
+    canvas
+      ..save()
+      ..translate(shift.dx, shift.dy)
+      ..drawPicture(picture)
+      ..restore();
     drawn.add(picture);
+  }
+
+  Offset _wholeTexelShift() {
+    final m = _toHost.last.storage;
+    if (m[1] != 0 || m[4] != 0 || m[3] != 0 || m[7] != 0) {
+      return Offset.zero;
+    }
+    final scale = entry.texelsPerDp;
+    double by(double translation, double stretch) {
+      final texels = translation * scale;
+      return stretch == 0
+          ? 0
+          : (texels.roundToDouble() - texels) / (scale * stretch);
+    }
+
+    return Offset(by(m[12], m[0]), by(m[13], m[5]));
   }
 
   int _apply((ContainerLayer, Matrix4?, bool) entered) {
@@ -905,6 +1003,12 @@ class _Replay {
           ..save()
           ..clipRect(clipRect, doAntiAlias: clipBehavior != Clip.hardEdge);
         clip = clipRect;
+      case ClipRRectLayer(:final clipRRect?, :final clipBehavior)
+          when clipBehavior != Clip.none:
+        canvas
+          ..save()
+          ..clipRRect(clipRRect, doAntiAlias: clipBehavior != Clip.hardEdge);
+        clip = clipRRect;
       case ClipRSuperellipseLayer(
             :final clipRSuperellipse?,
             :final clipBehavior,
@@ -924,8 +1028,6 @@ class _Replay {
           ..clipPath(clipPath, doAntiAlias: clipBehavior != Clip.hardEdge);
         clip = clipPath;
       default:
-        // Lib clips to no rounded rect, so one a package draws clips by its
-        // bounds here.
         final bounds = layer.describeClipBounds();
         if (bounds == null) {
           return false;

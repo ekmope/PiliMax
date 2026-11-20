@@ -67,6 +67,7 @@ class SplitModel extends SettingsModel {
     contentPadding: contentPadding,
     titleStyle: titleStyle,
     isSplit: true,
+    liquidGlassThumb: switchModel.liquidGlassThumb,
   );
 }
 
@@ -127,6 +128,7 @@ class NormalModel extends SettingsModel {
   final void Function(BuildContext context, VoidCallback setState)? onTap;
   final bool Function()? enabled;
   final String? enabledByKey;
+  final String? refreshOnKey;
 
   const NormalModel({
     super.subtitle,
@@ -141,6 +143,7 @@ class NormalModel extends SettingsModel {
     this.onTap,
     this.enabled,
     this.enabledByKey,
+    this.refreshOnKey,
   }) : assert(title != null || getTitle != null);
 
   const NormalModel.split({
@@ -156,6 +159,7 @@ class NormalModel extends SettingsModel {
   }) : onTap = null,
        enabled = null,
        enabledByKey = null,
+       refreshOnKey = null,
        assert(title != null || getTitle != null);
 
   @override
@@ -174,6 +178,7 @@ class NormalModel extends SettingsModel {
     onTap: onTap,
     enabled: enabled,
     enabledByKey: enabledByKey,
+    refreshOnKey: refreshOnKey,
     contentPadding: contentPadding,
     titleStyle: titleStyle,
   );
@@ -189,6 +194,7 @@ class SwitchModel extends SettingsModel {
   final void Function(BuildContext context)? onTap;
   final bool Function()? enabled;
   final String? enabledByKey;
+  final bool liquidGlassThumb;
 
   const SwitchModel({
     super.subtitle,
@@ -203,6 +209,7 @@ class SwitchModel extends SettingsModel {
     this.onTap,
     this.enabled,
     this.enabledByKey,
+    this.liquidGlassThumb = false,
   });
 
   const SwitchModel.split({
@@ -213,6 +220,7 @@ class SwitchModel extends SettingsModel {
     this.onTap,
     this.enabled,
     this.enabledByKey,
+    this.liquidGlassThumb = false,
   }) : title = null;
 
   @override
@@ -234,6 +242,7 @@ class SwitchModel extends SettingsModel {
     enabledByKey: enabledByKey,
     contentPadding: contentPadding,
     titleStyle: titleStyle,
+    liquidGlassThumb: liquidGlassThumb,
   );
 }
 

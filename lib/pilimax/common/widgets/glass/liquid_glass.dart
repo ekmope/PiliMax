@@ -3,6 +3,7 @@
 // shape helpers were replaced by Flutter/Material equivalents, and motion
 // respects the platform's reduce-motion setting.
 //
+// Capture updates from prism_ui at 6c47901cc80b5325bdb9650579ca2e000a60b39e (GPL-3.0).
 // This file is deliberately kept close to upstream so later fixes can be
 // compared with the original implementation.
 //
@@ -11,9 +12,12 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass_quality.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
+
+export 'liquid_glass_quality.dart';
 
 part 'liquid_glass_capture.dart';
 
@@ -59,9 +63,6 @@ final _noShine = List<double>.unmodifiable(
 final _flatProfile = List<double>.unmodifiable(
   List<double>.filled(_profileTurns, 0),
 );
-
-/// How much of iOS's glass the panes draw (.agents/architecture.md).
-enum LiquidGlassQuality { standard, ultra }
 
 /// Whether the navigation dock and the buttons of a page's bar are glass.
 class LiquidGlassScope extends InheritedWidget {
@@ -330,8 +331,8 @@ class LiquidGlassStyle {
     );
   }
 
-  LiquidGlassStyle copyWith({double? blur}) => LiquidGlassStyle(
-    tint: tint,
+  LiquidGlassStyle copyWith({Color? tint, double? blur}) => LiquidGlassStyle(
+    tint: tint ?? this.tint,
     contrast: contrast,
     blur: blur ?? this.blur,
     haze: haze,
@@ -661,21 +662,29 @@ class LiquidGlassGlow {
 }
 
 /// A pane of glass behind [child], after iOS's Liquid Glass, a pill unless
-/// [clipper] shapes it. It casts [shadows] only outside itself, as one
+/// [borderRadius] or [clipper] shapes it. It casts [shadows] only outside itself, as one
 /// under it would show through. Without Impeller's shader filters it frosts
 /// but does not bend.
 class LiquidGlass extends StatelessWidget {
   const LiquidGlass({
     super.key,
     required this.style,
+    this.borderRadius,
     this.clipper,
     this.shadows = const [],
     this.pressed = false,
     this.glow,
+    this.hold,
     this.child,
   });
 
   final LiquidGlassStyle style;
+
+  /// Bounds for reusing a capture during motion, relative to this pane’s top left.
+  final Rect? hold;
+
+  /// Rounds each corner on its own in place of the pill.
+  final BorderRadius? borderRadius;
 
   /// Shapes the pane to its path in place of the pill. The glass bends
   /// to the path by how far it reaches from the pane's center in each
@@ -721,28 +730,29 @@ class LiquidGlass extends StatelessWidget {
     if (glow case final glow?) {
       return _LiquidGlassPane(
         style: style,
+        borderRadius: borderRadius,
         clipper: clipper,
         shadows: shadows,
         press: 0,
         fading: false,
         glow: glow,
+        hold: hold,
         child: child,
       );
     }
     return TweenAnimationBuilder<double>(
       tween: Tween(end: pressed ? 1 : 0),
-      duration: _glassMotionDuration(
-        context,
-        pressed ? _glowIn : _glowOut,
-      ),
+      duration: _glassMotionDuration(context, pressed ? _glowIn : _glowOut),
       curve: Curves.easeOut,
       builder: (context, press, child) => _LiquidGlassPane(
         style: style,
+        borderRadius: borderRadius,
         clipper: clipper,
         shadows: shadows,
         press: press,
         fading: !pressed,
         glow: null,
+        hold: hold,
         child: child,
       ),
       child: child,
@@ -753,30 +763,36 @@ class LiquidGlass extends StatelessWidget {
 class _LiquidGlassPane extends SingleChildRenderObjectWidget {
   const _LiquidGlassPane({
     required this.style,
+    required this.borderRadius,
     required this.clipper,
     required this.shadows,
     required this.press,
     required this.fading,
     required this.glow,
+    required this.hold,
     super.child,
   });
 
   final LiquidGlassStyle style;
+  final BorderRadius? borderRadius;
   final CustomClipper<Path>? clipper;
   final List<BoxShadow> shadows;
   final double press;
   final bool fading;
   final LiquidGlassGlow? glow;
+  final Rect? hold;
 
   @override
   _RenderLiquidGlass createRenderObject(BuildContext context) {
     return _RenderLiquidGlass(
       style: style,
+      borderRadius: borderRadius,
       clipper: clipper,
       shadows: shadows,
       press: press,
       fading: fading,
       glow: glow,
+      hold: hold,
     );
   }
 
@@ -787,23 +803,29 @@ class _LiquidGlassPane extends SingleChildRenderObjectWidget {
   ) {
     renderObject
       ..style = style
+      ..borderRadius = borderRadius
       ..clipper = clipper
       ..shadows = shadows
       ..press = press
       ..fading = fading
-      ..glow = glow;
+      ..glow = glow
+      ..hold = hold;
   }
 }
 
 class _RenderLiquidGlass extends RenderProxyBox {
   _RenderLiquidGlass({
     required LiquidGlassStyle style,
+    required BorderRadius? borderRadius,
     required CustomClipper<Path>? clipper,
     required List<BoxShadow> shadows,
     required double press,
     required bool fading,
     required LiquidGlassGlow? glow,
-  }) : _style = style,
+    required Rect? hold,
+  }) : _hold = hold,
+       _style = style,
+       _borderRadius = borderRadius,
        _clipper = clipper,
        _shadows = shadows,
        _press = press,
@@ -812,12 +834,30 @@ class _RenderLiquidGlass extends RenderProxyBox {
 
   late final _pane = LiquidGlassPane(markNeedsPaint);
 
+  Rect? _hold;
+  set hold(Rect? value) {
+    if (value == _hold) {
+      return;
+    }
+    _hold = value;
+    markNeedsPaint();
+  }
+
   LiquidGlassStyle _style;
   set style(LiquidGlassStyle value) {
     if (value == _style) {
       return;
     }
     _style = value;
+    markNeedsPaint();
+  }
+
+  BorderRadius? _borderRadius;
+  set borderRadius(BorderRadius? value) {
+    if (value == _borderRadius) {
+      return;
+    }
+    _borderRadius = value;
     markNeedsPaint();
   }
 
@@ -947,9 +987,12 @@ class _RenderLiquidGlass extends RenderProxyBox {
         offset & size,
         shape: outline != null
             ? LiquidGlassOutline(outline)
-            : LiquidGlassCorners(BorderRadius.circular(size.shortestSide / 2)),
+            : LiquidGlassCorners(
+                _borderRadius ?? BorderRadius.circular(size.shortestSide / 2),
+              ),
         style: _style,
         shadows: _shadows,
+        hold: _hold?.shift(offset),
         glow:
             _glow ??
             LiquidGlassGlow(
@@ -997,7 +1040,7 @@ class LiquidGlassPane {
   Path? _profiled;
   List<double> _profile = _flatProfile;
 
-  /// A pane moving within [hold] keeps one capture (.agents/architecture.md).
+  /// A pane moving within [hold] can reuse the same capture.
   void paint(
     PaintingContext context,
     Rect rect, {
@@ -1020,7 +1063,7 @@ class LiquidGlassPane {
           bottomRight: radius.bottomRight.clamp(maximum: limit),
         );
         _profiled = null;
-        if (hold == null) {
+        if (hold == null && shadows.isNotEmpty) {
           _paintShadows(context.canvas, rect, corners, shadows);
         }
         pane
@@ -1046,7 +1089,7 @@ class LiquidGlassPane {
       ..hold = hold
       ..rim = rim;
     context.addLayer(pane);
-    if (hold != null) {
+    if (hold != null && shadows.isNotEmpty) {
       _paintShadows(context.canvas, rect, pane.corners, shadows);
     }
   }
@@ -1143,6 +1186,7 @@ abstract final class _GlassProgram {
 
 class _LiquidGlassLayer extends Layer {
   static int _skipped = 0;
+  static int _capturesHeld = 0;
 
   ui.FragmentProgram? program;
   Rect rect = Rect.zero;
@@ -1154,11 +1198,13 @@ class _LiquidGlassLayer extends Layer {
   Rect? hold;
   LiquidGlassRim? rim;
   _Placement? _held;
+  _Placement? _heldHaze;
 
   ui.Picture? _frost;
   (Rect, BorderRadius, Path?, LiquidGlassStyle, LiquidGlassRim?)? _frostKey;
 
   int _capturedPass = -1;
+  _LiquidGlassHostLayer? _captureOwner;
   ui.Picture? _captured;
   ui.FragmentShader? _captureShader;
   (ui.Image, Path?, BlendMode, ui.FragmentProgram?, List<double>)? _captureKey;
@@ -1170,7 +1216,6 @@ class _LiquidGlassLayer extends Layer {
   void dispose() {
     _frost?.dispose();
     _dropCaptured();
-    _captureShader?.dispose();
     super.dispose();
   }
 
@@ -1248,6 +1293,7 @@ class _LiquidGlassLayer extends Layer {
   /// Draws the pane from [atlas], where a host laid out what lies behind it,
   /// until the next pass of the host; [mapping] places the pane's slot.
   void _captureFrom(
+    _LiquidGlassHostLayer owner,
     int pass,
     ui.Image atlas,
     List<double> mapping,
@@ -1255,6 +1301,7 @@ class _LiquidGlassLayer extends Layer {
     LiquidGlassStyle style,
   ) {
     _capturedPass = pass;
+    _captureOwner = owner;
     final program = this.program;
     final uniforms = <double>[
       atlas.width.toDouble(),
@@ -1295,8 +1342,7 @@ class _LiquidGlassLayer extends Layer {
         canvas.drawRSuperellipse(corners.toRSuperellipse(rect), paint);
       }
     }
-    _captured?.dispose();
-    _captured = recorder.endRecording();
+    _hold(recorder.endRecording());
     _captureKey = (atlas, outline, blendMode, program, uniforms);
   }
 
@@ -1342,15 +1388,29 @@ class _LiquidGlassLayer extends Layer {
 
   /// Draws nothing until the next pass of the host, as nothing of the pane
   /// shows.
-  void _captureNothing(int pass) {
+  void _captureNothing(_LiquidGlassHostLayer owner, int pass) {
     _capturedPass = pass;
     _dropCaptured();
+    _captureOwner = owner;
   }
 
+  // The shader samples the last atlas set on it until it is disposed.
   void _dropCaptured() {
-    _captured?.dispose();
-    _captured = null;
+    _hold(null);
     _captureKey = null;
+    _captureOwner = null;
+    _held = null;
+    _heldHaze = null;
+    _captureShader?.dispose();
+    _captureShader = null;
+  }
+
+  void _hold(ui.Picture? captured) {
+    if ((captured == null) != (_captured == null)) {
+      _capturesHeld += captured == null ? -1 : 1;
+    }
+    _captured?.dispose();
+    _captured = captured;
   }
 
   ui.Picture _paintFrost() {

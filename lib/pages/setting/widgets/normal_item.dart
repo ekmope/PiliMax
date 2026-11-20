@@ -14,6 +14,7 @@ class NormalItem extends StatefulWidget {
   final void Function(BuildContext context, VoidCallback setState)? onTap;
   final bool Function()? enabled;
   final String? enabledByKey;
+  final String? refreshOnKey;
   final EdgeInsetsGeometry? contentPadding;
   final TextStyle? titleStyle;
 
@@ -27,6 +28,7 @@ class NormalItem extends StatefulWidget {
     this.onTap,
     this.enabled,
     this.enabledByKey,
+    this.refreshOnKey,
     this.contentPadding,
     this.titleStyle,
     super.key,
@@ -39,24 +41,29 @@ class NormalItem extends StatefulWidget {
 class _NormalItemState extends State<NormalItem> {
   Stream<BoxEvent>? _enabledStream;
 
-  void _setEnabledStream() {
+  void _watchSettings() {
     final enabledByKey = widget.enabledByKey;
-    _enabledStream = enabledByKey == null
-        ? null
-        : GStorage.setting.watch(key: enabledByKey);
+    final refreshOnKey = widget.refreshOnKey;
+    final keys = {?enabledByKey, ?refreshOnKey};
+    _enabledStream = switch (keys.length) {
+      0 => null,
+      1 => GStorage.setting.watch(key: keys.single),
+      _ => GStorage.setting.watch().where((event) => keys.contains(event.key)),
+    };
   }
 
   @override
   void initState() {
     super.initState();
-    _setEnabledStream();
+    _watchSettings();
   }
 
   @override
   void didUpdateWidget(NormalItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.enabledByKey != widget.enabledByKey) {
-      _setEnabledStream();
+    if (oldWidget.enabledByKey != widget.enabledByKey ||
+        oldWidget.refreshOnKey != widget.refreshOnKey) {
+      _watchSettings();
     }
   }
 

@@ -136,4 +136,23 @@ void main() {
       isFalse,
     );
   });
+
+  test('preserves named liquid glass quality in imported settings', () {
+    for (final quality in ['standard', 'ultra']) {
+      final payload = SettingsTransferService.normalize({
+        'setting': {SettingBoxKey.liquidGlassQuality: quality},
+      });
+      expect(payload.setting[SettingBoxKey.liquidGlassQuality], quality);
+    }
+
+    for (final invalid in ['max', 1, null]) {
+      final payload = SettingsTransferService.normalize({
+        'setting': {SettingBoxKey.liquidGlassQuality: invalid},
+      });
+      expect(
+        payload.setting.containsKey(SettingBoxKey.liquidGlassQuality),
+        isFalse,
+      );
+    }
+  });
 }

@@ -1,9 +1,12 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass_theme.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
-import 'package:flutter/gestures.dart' show kTouchSlop;
+import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/gestures.dart'
+    show VelocityTracker, computeHitSlop, kPrimaryButton;
 import 'package:flutter/physics.dart' show SpringDescription, SpringSimulation;
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
@@ -12,6 +15,15 @@ const double _kNavigationHeight = 64.0;
 const double _kIndicatorWidth = 86.0;
 const double _kIndicatorPadding = 4.0;
 const Duration _kPressDuration = Duration(milliseconds: 130);
+// Lens lift and fling projection follow Prism UI navigation_dock.dart
+// at 6c47901cc80b5325bdb9650579ca2e000a60b39e.
+const int _kFlingProjectionMs = 100;
+const double _kLiftReleaseDistance = 0.04;
+const _kSelectionSpring = SpringDescription(
+  mass: 1,
+  stiffness: 420,
+  damping: 36,
+);
 const BorderRadius _kBorderRadius = BorderRadius.all(
   Radius.circular(_kNavigationHeight / 2),
 );
@@ -22,8 +34,7 @@ const double _kSoftGlassBlurSigma = 18.0;
 
 /// Floating navigation bar used by the PiliMax main shell.
 ///
-/// The bar supports the regular Material surface and the translucent
-/// soft-glass surface.
+/// The bar supports Material, soft glass and liquid glass surfaces.
 class FloatingNavigationBar extends StatelessWidget {
   FloatingNavigationBar({
     super.key,
@@ -69,7 +80,7 @@ class FloatingNavigationBar extends StatelessWidget {
   final ShapeBorder? indicatorShape;
   final NavigationDestinationLabelBehavior? labelBehavior;
 
-  /// Kept for API compatibility; the custom indicator owns all feedback.
+  /// Overrides the keyboard focus and pointer hover overlays.
   final WidgetStateProperty<Color?>? overlayColor;
   final WidgetStateProperty<TextStyle?>? labelTextStyle;
   final EdgeInsetsGeometry? labelPadding;
@@ -91,7 +102,9 @@ class FloatingNavigationBar extends StatelessWidget {
     final barWidth = destinations.length * _kIndicatorWidth;
     final effectiveIndicatorColor =
         indicatorColor ??
-        (isSoft || isLiquid
+        (isLiquid
+            ? liquidNavigationSelectionColor(colorScheme)
+            : isSoft
             ? (isDark ? _softIndicatorDark : _softIndicatorLight)
             : navigationBarTheme.indicatorColor ??
                   colorScheme.secondaryContainer);
@@ -127,14 +140,9 @@ class FloatingNavigationBar extends StatelessWidget {
       ],
     );
 
-    final content = Stack(
-      fit: StackFit.expand,
-      // The shell background keeps its rounded clip, while the pressed
-      // indicator is allowed to reach the rim by a small amount.
-      clipBehavior: Clip.none,
-      children: [
-        if (!isLiquid)
-          ClipRRect(
+    final background = isLiquid
+        ? null
+        : ClipRRect(
             borderRadius: _kBorderRadius,
             child: Stack(
               fit: StackFit.expand,
@@ -158,53 +166,30 @@ class FloatingNavigationBar extends StatelessWidget {
                   ),
               ],
             ),
-          ),
-        MediaQuery.removePadding(
-          context: context,
-          removeLeft: true,
-          removeTop: true,
-          removeRight: true,
-          removeBottom: true,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: _kIndicatorPadding,
-            ),
-            child: _InteractiveFloatingNavigationBar(
-              key: const ValueKey('glassNavigationBar'),
-              animationDuration: animationDuration,
-              selectedIndex: selectedIndex,
-              destinations: destinations,
-              onDestinationSelected: onDestinationSelected,
-              elevation: elevation ?? 0,
-              surfaceTintColor: surfaceTintColor ?? Colors.transparent,
-              indicatorColor: effectiveIndicatorColor,
-              indicatorShape: indicatorShape,
-              labelBehavior: labelBehavior,
-              labelTextStyle: labelTextStyle,
-              liquid: isLiquid,
-              liquidGlassStrength: liquidGlassStrength,
-              labelPadding:
-                  labelPadding ??
-                  navigationBarTheme.labelPadding ??
-                  const EdgeInsets.only(top: 2),
-            ),
-          ),
-        ),
-      ],
-    );
-
-    final bar = isLiquid
-        ? LiquidGlass(
-            key: const ValueKey('glassVisualShell'),
-            style: liquidNavigationBarStyle(colorScheme, liquidGlassStrength),
-            shadows: liquidDockShadows(colorScheme),
-            child: content,
-          )
-        : DecoratedBox(
-            key: const ValueKey('glassVisualShell'),
-            decoration: shellDecoration,
-            child: content,
           );
+
+    final bar = _InteractiveFloatingNavigationBar(
+      key: const ValueKey('glassNavigationBar'),
+      animationDuration: animationDuration,
+      selectedIndex: selectedIndex,
+      destinations: destinations,
+      onDestinationSelected: onDestinationSelected,
+      elevation: elevation ?? 0,
+      surfaceTintColor: surfaceTintColor ?? Colors.transparent,
+      indicatorColor: effectiveIndicatorColor,
+      indicatorShape: indicatorShape,
+      overlayColor: overlayColor,
+      labelBehavior: labelBehavior,
+      labelTextStyle: labelTextStyle,
+      liquid: isLiquid,
+      liquidGlassStrength: liquidGlassStrength,
+      labelPadding:
+          labelPadding ??
+          navigationBarTheme.labelPadding ??
+          const EdgeInsets.only(top: 2),
+      shellDecoration: shellDecoration,
+      background: background,
+    );
 
     return Transform.translate(
       offset: Offset(0, -bottomLift),
@@ -220,51 +205,11 @@ class FloatingNavigationBar extends StatelessWidget {
           child: SizedBox(
             width: barWidth,
             height: _kNavigationHeight,
-            child: bar,
+            child: RepaintBoundary(child: bar),
           ),
         ),
       ),
     );
-  }
-}
-
-/// A soft white light under the icons, lit from the finger and spreading as it
-/// fades. It sits below the content so labels keep their contrast.
-class _GlassPressGlowPainter extends CustomPainter {
-  const _GlassPressGlowPainter({
-    required this.center,
-    required this.opacity,
-    required this.strength,
-  });
-
-  final Offset center;
-  final double opacity;
-  final double strength;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final amount = opacity.clamp(0.0, 1.0);
-    if (amount <= 0 || strength <= 0) {
-      return;
-    }
-    final reach = 28.0 * (1 + 2 * (1 - amount));
-    final alpha = (0.10 * strength * amount).clamp(0.0, 0.10);
-    final paint = Paint()
-      ..blendMode = BlendMode.plus
-      ..shader = RadialGradient(
-        colors: [
-          Colors.white.withValues(alpha: alpha),
-          Colors.white.withValues(alpha: 0),
-        ],
-      ).createShader(Rect.fromCircle(center: center, radius: reach));
-    canvas.drawCircle(center, reach, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _GlassPressGlowPainter oldDelegate) {
-    return oldDelegate.center != center ||
-        oldDelegate.opacity != opacity ||
-        oldDelegate.strength != strength;
   }
 }
 
@@ -281,11 +226,14 @@ class _InteractiveFloatingNavigationBar extends StatefulWidget {
     required this.surfaceTintColor,
     required this.indicatorColor,
     required this.indicatorShape,
+    required this.overlayColor,
     required this.labelBehavior,
     required this.labelTextStyle,
     required this.labelPadding,
     required this.liquid,
     required this.liquidGlassStrength,
+    required this.shellDecoration,
+    required this.background,
   });
 
   final Duration animationDuration;
@@ -296,16 +244,21 @@ class _InteractiveFloatingNavigationBar extends StatefulWidget {
   final Color surfaceTintColor;
   final Color indicatorColor;
   final ShapeBorder? indicatorShape;
+  final WidgetStateProperty<Color?>? overlayColor;
   final NavigationDestinationLabelBehavior? labelBehavior;
   final WidgetStateProperty<TextStyle?>? labelTextStyle;
   final EdgeInsetsGeometry labelPadding;
   final bool liquid;
   final double liquidGlassStrength;
+  final BoxDecoration shellDecoration;
+  final Widget? background;
 
   @override
   State<_InteractiveFloatingNavigationBar> createState() =>
       _InteractiveFloatingNavigationBarState();
 }
+
+enum _DockGesture { pending, horizontal, verticalCanceled }
 
 class _InteractiveFloatingNavigationBarState
     extends State<_InteractiveFloatingNavigationBar>
@@ -313,79 +266,86 @@ class _InteractiveFloatingNavigationBarState
   late final AnimationController _selectionController;
   late final AnimationController _pressController;
   late final AnimationController _glowController;
-  late final AnimationController _contentHandoffController;
-  late final Listenable _interactionListenable;
-  Offset? _glowAt;
-  late double _fromIndex;
-  late double _targetIndex;
-  double? _dragIndex;
+  late final Listenable _lensMotion;
+  final _drag = ValueNotifier<({double index, double stretch})?>(null);
+  final _glow = ValueNotifier(LiquidGlassGlow.none);
+  Offset _glowAt = Offset.zero;
+  late double _selectionTarget;
   double _itemExtent = _kIndicatorWidth;
-  bool _isPressed = false;
-  bool _interactionCommitted = false;
-  int? _activePointer;
-  int? _pendingPointerUp;
-  Offset _pointerDownPosition = Offset.zero;
-  Offset _lastPointerPosition = Offset.zero;
-  Duration _lastPointerTime = Duration.zero;
-  bool _gestureDirectionLocked = false;
-  bool _isVerticalGesture = false;
-  double _dragVelocity = 0;
   TextDirection _textDirection = TextDirection.ltr;
-  int _contentFromIndex = 0;
-  int _contentToIndex = 0;
-  static const _contentHandoffDuration = Duration(milliseconds: 120);
+  bool _reduceMotion = false;
+  bool _dropAfterLift = false;
+  int? _activePointer;
+  Object? _pendingPointerUp;
+  Offset _pointerDownPosition = Offset.zero;
+  _DockGesture _gesture = _DockGesture.pending;
+  double _gestureSlop = 0;
+  VelocityTracker? _velocityTracker;
 
-  double get _animatedIndex =>
-      _fromIndex + (_targetIndex - _fromIndex) * _selectionController.value;
-
-  bool get _isRtl => _textDirection == TextDirection.rtl;
-
-  double get _directionSign => _isRtl ? -1 : 1;
+  double get _lastIndex => (widget.destinations.length - 1).toDouble();
+  double get _directionSign => _textDirection == TextDirection.rtl ? -1 : 1;
 
   @override
   void initState() {
     super.initState();
-    _fromIndex = widget.selectedIndex.toDouble();
-    _targetIndex = _fromIndex;
-    _selectionController = AnimationController(vsync: this, value: 1)
-      ..addListener(_maybeStartContentHandoff);
+    _selectionTarget = widget.selectedIndex.toDouble();
+    _selectionController = AnimationController.unbounded(
+      vsync: this,
+      value: _selectionTarget,
+    )..addListener(_dropLiftWhenReady);
     _pressController = AnimationController(
       vsync: this,
       duration: _kPressDuration,
       reverseDuration: const Duration(milliseconds: 180),
-    );
+    )..addListener(_dropLiftWhenReady);
     _glowController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 100),
       reverseDuration: const Duration(milliseconds: 300),
-    );
-    _contentHandoffController = AnimationController(
-      vsync: this,
-      duration: _contentHandoffDuration,
-    );
-    _contentFromIndex = widget.selectedIndex;
-    _contentToIndex = widget.selectedIndex;
-    _interactionListenable = Listenable.merge([
+    )..addListener(_updateGlow);
+    _lensMotion = Listenable.merge([
       _selectionController,
       _pressController,
-      _glowController,
-      _contentHandoffController,
+      _drag,
     ]);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (reduceMotion == _reduceMotion) return;
+    _reduceMotion = reduceMotion;
+    if (reduceMotion) {
+      _dropAfterLift = false;
+      _pressController.value = 0;
+      _glowController.value = 0;
+      _selectionController.value = _selectionTarget;
+    }
   }
 
   @override
   void didUpdateWidget(_InteractiveFloatingNavigationBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.destinations.length != widget.destinations.length) {
-      final maxIndex = (widget.destinations.length - 1).toDouble();
-      _fromIndex = _fromIndex.clamp(0, maxIndex).toDouble();
-      _targetIndex = _targetIndex.clamp(0, maxIndex).toDouble();
-      _dragIndex = _dragIndex?.clamp(0, maxIndex).toDouble();
-      _contentFromIndex = _contentFromIndex.clamp(0, maxIndex).toInt();
-      _contentToIndex = _contentToIndex.clamp(0, maxIndex).toInt();
+      _drag.value = null;
+      _selectionController.value = _selectionController.value.clamp(
+        0,
+        _lastIndex,
+      );
     }
-    if (_targetIndex != widget.selectedIndex.toDouble()) {
-      _animateTo(widget.selectedIndex.toDouble());
+    if (_activePointer == null &&
+        (oldWidget.selectedIndex != widget.selectedIndex ||
+            oldWidget.destinations.length != widget.destinations.length)) {
+      _settleSelection(widget.selectedIndex);
+    }
+    if (oldWidget.liquidGlassStrength != widget.liquidGlassStrength) {
+      _updateGlow();
+    }
+    if (oldWidget.liquid && !widget.liquid) {
+      _dropAfterLift = false;
+      _pressController.value = 0;
+      _glowController.value = 0;
     }
   }
 
@@ -394,312 +354,218 @@ class _InteractiveFloatingNavigationBarState
     _selectionController.dispose();
     _pressController.dispose();
     _glowController.dispose();
-    _contentHandoffController.dispose();
+    _drag.dispose();
+    _glow.dispose();
     super.dispose();
   }
 
-  void _animateTo(double index, {double velocity = 0}) {
-    final targetIndex = index
-        .round()
-        .clamp(0, widget.destinations.length - 1)
-        .toInt();
-    final currentContentIndex = _contentHandoffController.value >= 0.5
-        ? _contentToIndex
-        : _contentFromIndex;
-    final currentIndex = _dragIndex ?? _animatedIndex;
-    _selectionController.stop();
-    _contentHandoffController
-      ..stop()
-      ..value = 0;
-    _fromIndex = currentIndex;
-    _targetIndex = targetIndex.toDouble();
-    _dragIndex = null;
-    _contentFromIndex = currentContentIndex;
-    _contentToIndex = targetIndex;
-    _gestureDirectionLocked = false;
-    _isVerticalGesture = false;
-    _dragVelocity = 0;
-    _isPressed = false;
-    final disableAnimations =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    if (disableAnimations) {
-      _pressController.value = 0;
-      _selectionController.value = 1;
-      _contentFromIndex = targetIndex;
-      _contentToIndex = targetIndex;
+  void _settleSelection(int index, {double? velocity}) {
+    final drag = _drag.value;
+    final current = drag?.index ?? _selectionController.value;
+    final physicalVelocity = velocity ?? _selectionController.velocity;
+    if (drag == null &&
+        _selectionTarget == index &&
+        (_selectionController.isAnimating || current == index)) {
       return;
     }
-    _pressController.reverse();
-    _selectionController.value = 0;
+    _selectionTarget = index.toDouble();
+    _drag.value = null;
+    if (_reduceMotion || current == index) {
+      _selectionController.value = _selectionTarget;
+      _dropLiftWhenReady();
+      return;
+    }
     _selectionController.animateWith(
       SpringSimulation(
-        SpringDescription.withDampingRatio(
-          ratio: 0.88,
-          stiffness: 420,
-          mass: 1,
-        ),
-        0,
-        1,
-        velocity.clamp(-3.0, 3.0).toDouble(),
+        _kSelectionSpring,
+        current,
+        _selectionTarget,
+        physicalVelocity.clamp(-16.0, 16.0),
         snapToEnd: true,
       ),
     );
-    if (mounted) setState(() {});
   }
 
-  void _maybeStartContentHandoff() {
-    if (widget.liquid &&
-        !(MediaQuery.maybeOf(context)?.disableAnimations ?? false) &&
-        _contentFromIndex != _contentToIndex &&
-        !_contentHandoffController.isAnimating &&
-        _contentHandoffController.value == 0 &&
-        _selectionController.value >= 0.62) {
-      _contentHandoffController.forward();
+  void _dropLiftWhenReady() {
+    if (!_dropAfterLift ||
+        _pressController.value < 1 ||
+        (_selectionController.value - _selectionTarget).abs() >
+            _kLiftReleaseDistance) {
+      return;
     }
+    _dropAfterLift = false;
+    _pressController.reverse();
   }
 
-  Widget _buildContentNavigationBar(int index, Key key) {
-    return KeyedSubtree(
-      key: key,
-      child: MediaQuery.removePadding(
-        context: context,
-        removeLeft: true,
-        removeTop: true,
-        removeRight: true,
-        removeBottom: true,
-        child: _buildNavigationBar(duplicate: true, selectedIndex: index),
-      ),
-    );
-  }
-
-  Widget _buildLensContent() {
-    if (_dragIndex case final dragIndex?) {
-      final index =
-          _nearestEnabledIndex(dragIndex.round()) ?? widget.selectedIndex;
-      final reduceMotion =
-          MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-      return AnimatedSwitcher(
-        duration: reduceMotion ? Duration.zero : _contentHandoffDuration,
-        switchInCurve: Curves.easeOut,
-        switchOutCurve: Curves.easeOut,
-        transitionBuilder: (child, animation) => FadeTransition(
-          opacity: animation,
-          child: child,
-        ),
-        child: _buildContentNavigationBar(
-          index,
-          ValueKey('liquid-drag-destination-$index'),
-        ),
-      );
-    }
-    if (_contentFromIndex == _contentToIndex) {
-      return _buildContentNavigationBar(
-        _contentToIndex,
-        ValueKey('liquid-destination-$_contentToIndex'),
-      );
-    }
-    final opacity = _contentFade;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Opacity(
-          opacity: 1 - opacity,
-          child: _buildContentNavigationBar(
-            _contentFromIndex,
-            ValueKey('liquid-source-$_contentFromIndex'),
-          ),
-        ),
-        Opacity(
-          opacity: opacity,
-          child: _buildContentNavigationBar(
-            _contentToIndex,
-            ValueKey('liquid-target-$_contentToIndex'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _handleDestinationSelected(int index) {
-    if (_interactionCommitted) return;
-    _interactionCommitted = true;
-    _animateTo(index.toDouble());
-    widget.onDestinationSelected?.call(index);
-    if (_activePointer == null && _pendingPointerUp == null) {
-      _scheduleInteractionReset();
-    }
-  }
-
-  void _scheduleInteractionReset() {
-    Future<void>.microtask(() {
-      if (mounted && _activePointer == null) {
-        _interactionCommitted = false;
+  void _releasePress({required bool finishLift}) {
+    if (finishLift && widget.liquid && !_reduceMotion) {
+      _dropAfterLift = true;
+      _dropLiftWhenReady();
+    } else {
+      _dropAfterLift = false;
+      if (_reduceMotion) {
+        _pressController.value = 0;
+      } else {
+        _pressController.reverse();
       }
-    });
+    }
   }
 
-  double _indexForX(double x) {
-    final logicalX = _isRtl ? _itemExtent * widget.destinations.length - x : x;
-    return (logicalX / _itemExtent - 0.5)
-        .clamp(0.0, (widget.destinations.length - 1).toDouble())
-        .toDouble();
+  void _updateGlow() {
+    final amount = _glowController.value;
+    _glow.value = amount == 0
+        ? LiquidGlassGlow.none
+        : LiquidGlassGlow(
+            center: _glowAt + const Offset(_kIndicatorPadding, 0),
+            reach: 28 * (1 + 3 * (1 - amount)),
+            strength: 0.06 * widget.liquidGlassStrength * amount * amount,
+            wash: 0.7,
+          );
   }
 
   void _fadeGlow() {
-    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+    if (_reduceMotion) {
       _glowController.value = 0;
     } else {
       _glowController.reverse();
     }
   }
 
+  // Flutter's real destinations own the keyboard and semantics actions. The
+  // pointer listener handles touch/mouse once, including taps where another
+  // recognizer preempts Material's tap.
+  void _handleDestinationSelected(int index) {
+    if (_activePointer != null || _pendingPointerUp != null) return;
+    _settleSelection(index);
+    widget.onDestinationSelected?.call(index);
+  }
+
+  double _indexForX(double x) {
+    final width = _itemExtent * widget.destinations.length;
+    final logicalX = _directionSign < 0 ? width - x : x;
+    return (logicalX / _itemExtent - 0.5).clamp(0, _lastIndex);
+  }
+
   void _handlePointerDown(PointerDownEvent event) {
-    if (_activePointer != null) return;
-    _selectionController.stop();
-    _contentHandoffController.stop();
+    if (_activePointer != null || event.buttons & kPrimaryButton == 0) return;
     _activePointer = event.pointer;
     _pendingPointerUp = null;
     _pointerDownPosition = event.localPosition;
-    _lastPointerPosition = event.localPosition;
-    _lastPointerTime = event.timeStamp;
-    _gestureDirectionLocked = false;
-    _isVerticalGesture = false;
-    _dragVelocity = 0;
-    _interactionCommitted = false;
+    _gesture = _DockGesture.pending;
+    _gestureSlop = computeHitSlop(
+      event.kind,
+      MediaQuery.gestureSettingsOf(context),
+    );
+    _velocityTracker = VelocityTracker.withKind(event.kind)
+      ..addPosition(event.timeStamp, event.localPosition);
+    _dropAfterLift = false;
     if (widget.liquid) {
+      final index = _indexForX(event.localPosition.dx).round();
+      if (!_destinationEnabled(index)) return;
+      _settleSelection(index);
       _glowAt = event.localPosition;
-      if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
+      if (_reduceMotion) {
         _glowController.value = 1;
       } else {
-        _glowController.forward(from: 0);
+        _glowController.forward();
       }
+      _updateGlow();
     }
-    setState(() => _isPressed = true);
-    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
-      _pressController.value = 1;
-    } else {
-      _pressController.forward();
-    }
+    if (!_reduceMotion) _pressController.forward();
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
-    if (event.pointer != _activePointer) return;
+    if (event.pointer != _activePointer ||
+        _gesture == _DockGesture.verticalCanceled) {
+      return;
+    }
+    _velocityTracker?.addPosition(event.timeStamp, event.localPosition);
     final delta = event.localPosition - _pointerDownPosition;
-    if (!_gestureDirectionLocked && delta.distance > kTouchSlop) {
-      _gestureDirectionLocked = true;
-      _isVerticalGesture = delta.dy.abs() > delta.dx.abs();
-      if (_isVerticalGesture) {
+    if (_gesture == _DockGesture.pending && delta.distance > _gestureSlop) {
+      if (delta.dy.abs() > delta.dx.abs()) {
+        _gesture = _DockGesture.verticalCanceled;
+        _settleSelection(widget.selectedIndex);
+        _releasePress(finishLift: false);
         _fadeGlow();
-        _animateTo(widget.selectedIndex.toDouble());
         return;
       }
+      _gesture = _DockGesture.horizontal;
+      if (!_reduceMotion) _pressController.forward();
+      if (widget.liquid && !_reduceMotion) _glowController.forward();
     }
-    if (_isVerticalGesture) return;
-
     if (widget.liquid) {
       _glowAt = event.localPosition;
-      if (_glowController.value > 0) {
-        setState(() {});
-      }
+      _updateGlow();
     }
-
-    final elapsed = (event.timeStamp - _lastPointerTime).inMicroseconds;
-    final deltaX = event.localPosition.dx - _lastPointerPosition.dx;
-    final instantaneousVelocity = elapsed > 0
-        ? (deltaX * _directionSign / elapsed * 1000000 / _itemExtent)
-              .clamp(-3.0, 3.0)
-              .toDouble()
-        : 0.0;
-    _dragVelocity = (_dragVelocity * 0.82 + instantaneousVelocity * 0.18)
-        .clamp(-3.0, 3.0)
-        .toDouble();
-    _lastPointerPosition = event.localPosition;
-    _lastPointerTime = event.timeStamp;
-    final nextIndex = _indexForX(event.localPosition.dx);
-    final dragTarget = _nearestEnabledIndex(nextIndex.round());
-    if (_dragIndex == null || (nextIndex - _dragIndex!).abs() > 0.001) {
-      setState(() {
-        _dragIndex = nextIndex;
-        if (dragTarget != null && dragTarget != _contentToIndex) {
-          _contentFromIndex = dragTarget;
-          _contentToIndex = dragTarget;
-        }
-      });
+    if (_gesture == _DockGesture.horizontal) {
+      final width = _itemExtent * widget.destinations.length;
+      final x = event.localPosition.dx;
+      final overrun = x - x.clamp(0, width);
+      final stretch = widget.liquid && !_reduceMotion
+          ? 8 * overrun / (24 + overrun.abs())
+          : 0.0;
+      _selectionController.stop();
+      _drag.value = (index: _indexForX(x), stretch: stretch);
     }
-  }
-
-  double _pointerVelocity(PointerUpEvent event) {
-    final elapsed = (event.timeStamp - _lastPointerTime).inMicroseconds;
-    if (elapsed <= 0) return _dragVelocity;
-    return ((event.localPosition.dx - _lastPointerPosition.dx) *
-            _directionSign /
-            elapsed *
-            1000000 /
-            _itemExtent)
-        .clamp(-3.0, 3.0)
-        .toDouble();
   }
 
   void _handlePointerUp(PointerUpEvent event) {
     if (event.pointer != _activePointer) return;
-    final dragIndex = _dragIndex ?? _indexForX(event.localPosition.dx);
-    final velocity = _pointerVelocity(event);
+    final phase = _gesture;
+    final down = _pointerDownPosition;
+    final drag = _drag.value;
+    final velocity =
+        (_velocityTracker?.getVelocity().pixelsPerSecond.dx ?? 0) *
+        _directionSign /
+        _itemExtent;
     _activePointer = null;
-    _pendingPointerUp = event.pointer;
+    _velocityTracker = null;
+    final pending = _pendingPointerUp = Object();
     _fadeGlow();
+    // Finish dispatch before routing. Material's tap is ignored while this
+    // release is pending, so the selected callback fires once.
     Future<void>.microtask(() {
-      if (!mounted || _pendingPointerUp != event.pointer) return;
+      if (!mounted || !identical(_pendingPointerUp, pending)) return;
       _pendingPointerUp = null;
-      if (_interactionCommitted) {
-        _scheduleInteractionReset();
+      if (phase == _DockGesture.verticalCanceled) {
+        _settleSelection(widget.selectedIndex);
         return;
       }
-      _interactionCommitted = true;
-      if (_isVerticalGesture) {
-        _animateTo(widget.selectedIndex.toDouble());
-        _scheduleInteractionReset();
-        return;
-      }
-      if (!_gestureDirectionLocked) {
-        // The NavigationBar tap recognizer normally commits this selection
-        // first. If it does not, keep the completed pointer tap from snapping
-        // the indicator back without changing the page.
-        final tappedIndex = _indexForX(_pointerDownPosition.dx).round();
-        if (_destinationEnabled(tappedIndex) &&
-            widget.onDestinationSelected != null) {
-          _animateTo(tappedIndex.toDouble());
-          widget.onDestinationSelected?.call(tappedIndex);
+      if (phase == _DockGesture.pending) {
+        final index = _indexForX(down.dx).round();
+        final withinSlop =
+            (event.localPosition - down).distance <= _gestureSlop;
+        if (withinSlop && _destinationEnabled(index)) {
+          _settleSelection(index);
+          _releasePress(finishLift: true);
+          widget.onDestinationSelected?.call(index);
         } else {
-          _animateTo(widget.selectedIndex.toDouble());
+          _settleSelection(widget.selectedIndex);
+          _releasePress(finishLift: false);
         }
-        _scheduleInteractionReset();
         return;
       }
-      final nearest = (dragIndex + velocity * 0.08)
-          .round()
-          .clamp(0, widget.destinations.length - 1)
-          .toInt();
-      final targetIndex = _nearestEnabledIndex(nearest);
-      if (targetIndex == null) {
-        _animateTo(widget.selectedIndex.toDouble());
-      } else {
-        _animateTo(targetIndex.toDouble(), velocity: velocity);
-        if (targetIndex != widget.selectedIndex) {
-          widget.onDestinationSelected?.call(targetIndex);
-        }
+      final position = drag?.index ?? _indexForX(event.localPosition.dx);
+      final target = _projectDragTarget(position, velocity);
+      _settleSelection(target ?? widget.selectedIndex, velocity: velocity);
+      _releasePress(finishLift: target != null);
+      if (target != null && target != widget.selectedIndex) {
+        widget.onDestinationSelected?.call(target);
       }
-      _scheduleInteractionReset();
     });
   }
 
   void _handlePointerCancel(PointerCancelEvent event) {
     if (event.pointer != _activePointer) return;
     _activePointer = null;
-    _pendingPointerUp = null;
-    _interactionCommitted = true;
+    _velocityTracker = null;
+    final pending = _pendingPointerUp = Object();
+    _settleSelection(widget.selectedIndex);
+    _releasePress(finishLift: false);
     _fadeGlow();
-    _animateTo(widget.selectedIndex.toDouble());
-    _scheduleInteractionReset();
+    Future<void>.microtask(() {
+      if (identical(_pendingPointerUp, pending)) _pendingPointerUp = null;
+    });
   }
 
   bool _destinationEnabled(int index) {
@@ -711,105 +577,129 @@ class _InteractiveFloatingNavigationBarState
     return true;
   }
 
-  int? _nearestEnabledIndex(int index) {
-    final maxIndex = widget.destinations.length - 1;
-    final clamped = index.clamp(0, maxIndex).toInt();
-    if (_destinationEnabled(clamped)) return clamped;
-    for (var distance = 1; distance <= maxIndex; distance++) {
-      final left = clamped - distance;
-      if (left >= 0 && _destinationEnabled(left)) return left;
-      final right = clamped + distance;
-      if (right <= maxIndex && _destinationEnabled(right)) return right;
+  int? _nearestEnabledIndex(double position) {
+    int? nearest;
+    var shortestDistance = double.infinity;
+    for (var index = 0; index < widget.destinations.length; index++) {
+      final distance = (index - position).abs();
+      if (distance < shortestDistance && _destinationEnabled(index)) {
+        nearest = index;
+        shortestDistance = distance;
+      }
     }
-    return null;
+    return nearest;
   }
 
-  Rect _lensRect() {
-    final progress = _pressController.value.clamp(0.0, 1.0).toDouble();
-    final visualIndex = _dragIndex ?? _animatedIndex;
-    final logicalCenter = (visualIndex + 0.5) * _itemExtent;
-    final center = _isRtl
+  int? _projectDragTarget(double position, double velocity) {
+    final nearest = _nearestEnabledIndex(position);
+    if (nearest == null || velocity == 0) return nearest;
+    final projected = position + velocity * _kFlingProjectionMs / 1000;
+    final step = velocity > 0 ? 1 : -1;
+    for (
+      var index = nearest + step;
+      index >= 0 && index < widget.destinations.length;
+      index += step
+    ) {
+      if (_destinationEnabled(index)) {
+        return (index - projected).abs() < (nearest - projected).abs()
+            ? index
+            : nearest;
+      }
+    }
+    return nearest;
+  }
+
+  Rect _lensRect(double progress) {
+    final drag = _drag.value;
+    final index =
+        drag?.index ?? _selectionController.value.clamp(0, _lastIndex);
+    final logicalCenter = (index + 0.5) * _itemExtent;
+    final center = _directionSign < 0
         ? _itemExtent * widget.destinations.length - logicalCenter
         : logicalCenter;
-    final jelly = widget.liquid
-        ? 0.03 * (_dragVelocity.abs() / 3).clamp(0.0, 1.0)
+    final stretch = drag?.stretch ?? 0;
+    final jelly = widget.liquid && !_reduceMotion && drag == null
+        ? 0.04 * (_selectionController.velocity.abs() / 8).clamp(0.0, 1.0)
         : 0.0;
     final width =
-        _kIndicatorWidth *
-        (1 + (widget.liquid ? 0.065 : 0.08) * progress + jelly);
+        math.min(_kIndicatorWidth, _itemExtent + _kIndicatorPadding) *
+            (1 + (widget.liquid ? 0.065 : 0.08) * progress + jelly) +
+        stretch.abs() / 2;
     final height =
         _kNavigationHeight -
         2 * _kIndicatorPadding +
-        4 * progress +
-        (widget.liquid ? 8 * progress : 0);
-    // Keep the pressed lens centered on the dock so growth stays symmetric
-    // instead of shifting the overflow toward one edge.
-    final top = (_kNavigationHeight - height) / 2;
-    return Rect.fromLTWH(center - width / 2, top, width, height);
+        (widget.liquid ? 12 : 4) * progress;
+    return Rect.fromCenter(
+      center: Offset(center + stretch, _kNavigationHeight / 2),
+      width: width,
+      height: height,
+    );
   }
 
-  Widget _buildIndicator(Rect rect) {
+  Rect _lensCaptureHold(Rect pane) {
+    final width = _itemExtent * widget.destinations.length;
+    final anchor = _drag.value?.index.roundToDouble() ?? _selectionTarget;
+    final logicalCenter = (anchor + 0.5) * _itemExtent;
+    final center = _directionSign < 0 ? width - logicalCenter : logicalCenter;
+    return Rect.fromLTRB(
+      math.max(-_kIndicatorPadding, center - _itemExtent),
+      -2,
+      math.min(width + _kIndicatorPadding, center + _itemExtent),
+      _kNavigationHeight + 2,
+    ).shift(-pane.topLeft);
+  }
+
+  Widget _buildIndicator(
+    Rect rect, {
+    required double lift,
+    required LiquidGlassStyle? lensStyle,
+    required bool shaderSupported,
+  }) {
     final shape =
         widget.indicatorShape ??
         RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(rect.height / 2),
         );
-    if (widget.liquid) {
-      final colorScheme = Theme.of(context).colorScheme;
-      return Positioned.fromRect(
-        rect: rect,
-        child: IgnorePointer(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // A faint plate keeps the selected destination legible when
-              // the shader filter is unavailable; when it is available the
-              // glass lens paints the same shape over it.
-              DecoratedBox(
-                key: const ValueKey('floatingNavigationIndicator'),
-                decoration: ShapeDecoration(
-                  color: widget.indicatorColor,
-                  shape: shape,
-                ),
-              ),
-              LiquidGlass(
-                key: const ValueKey('liquidGlassLens'),
-                style: liquidNavigationLensStyle(
-                  colorScheme,
-                  widget.liquidGlassStrength,
-                ),
-                child: const SizedBox.expand(),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    final color = widget.indicatorColor;
+    final fill = widget.liquid
+        ? color.withValues(
+            alpha: color.a * (1 - (shaderSupported ? 1 : 0.65) * lift),
+          )
+        : color;
     return Positioned.fromRect(
       rect: rect,
       child: IgnorePointer(
-        child: DecoratedBox(
-          key: const ValueKey('floatingNavigationIndicator'),
-          decoration: ShapeDecoration(
-            color: widget.indicatorColor,
-            shape: shape,
-          ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            DecoratedBox(
+              key: const ValueKey('floatingNavigationIndicator'),
+              decoration: ShapeDecoration(color: fill, shape: shape),
+            ),
+            if (lensStyle != null && lift > 0)
+              LiquidGlass(
+                key: const ValueKey('liquidGlassLens'),
+                style: lensStyle.scale(lift),
+                hold: shaderSupported ? _lensCaptureHold(rect) : null,
+              ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildNavigationBar({
+    required int selectedIndex,
     required bool duplicate,
-    int? selectedIndex,
+    required ColorScheme colorScheme,
   }) {
     return NavigationBar(
       key: duplicate ? null : const ValueKey('floatingNavigationSemanticsBar'),
-      selectedIndex: selectedIndex ?? widget.selectedIndex,
+      selectedIndex: selectedIndex,
       destinations: widget.destinations,
-      onDestinationSelected: duplicate
-          ? _ignoreDestination
-          : _handleDestinationSelected,
+      onDestinationSelected: !duplicate && widget.onDestinationSelected != null
+          ? _handleDestinationSelected
+          : null,
       backgroundColor: Colors.transparent,
       elevation: widget.elevation,
       shadowColor: Colors.transparent,
@@ -818,167 +708,258 @@ class _InteractiveFloatingNavigationBarState
       indicatorShape: widget.indicatorShape,
       height: _kNavigationHeight,
       labelBehavior: widget.labelBehavior,
-      // The custom indicator is the only interaction surface. Disable
-      // Material's pressed, hover, and focus overlay so it cannot paint a
-      // second mask over the icon.
-      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      overlayColor: duplicate
+          ? const WidgetStatePropertyAll(Colors.transparent)
+          : widget.overlayColor ??
+                WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.focused)) {
+                    return colorScheme.onSurface.withValues(alpha: 0.16);
+                  }
+                  if (states.contains(WidgetState.hovered)) {
+                    return colorScheme.onSurface.withValues(alpha: 0.07);
+                  }
+                  return Colors.transparent;
+                }),
       labelTextStyle: widget.labelTextStyle,
       labelPadding: widget.labelPadding,
-      animationDuration: widget.liquid
+      animationDuration: widget.liquid || _reduceMotion
           ? Duration.zero
           : widget.animationDuration,
     );
   }
 
-  void _ignoreDestination(int index) {}
-
-  Matrix4 _lensContentTransform(Rect rect) {
-    final progress = _pressController.value.clamp(0.0, 1.0).toDouble();
-    final scale = 1 + 0.10 * progress;
-    final center = rect.center;
-    return Matrix4.identity()
-      ..translateByDouble(center.dx, center.dy, 0, 1)
-      ..scaleByDouble(scale, scale, 1, 1)
-      ..translateByDouble(-center.dx, -center.dy, 0, 1);
-  }
-
-  bool get _showLensContent {
-    return widget.liquid &&
-        (_isPressed ||
-            _pressController.value > 0.001 ||
-            _dragIndex != null ||
-            _selectionController.isAnimating ||
-            _contentHandoffController.isAnimating);
-  }
-
-  double get _contentFade {
-    if (_contentFromIndex == _contentToIndex) return 1;
-    return Curves.easeOut.transform(_contentHandoffController.value);
+  Widget _lensContent({
+    required Rect lens,
+    required Widget content,
+    required LiquidGlassStyle? contentStyle,
+  }) {
+    return Positioned.fill(
+      key: const ValueKey('liquidGlassLensContent'),
+      child: IgnorePointer(
+        child: ExcludeSemantics(
+          child: ExcludeFocus(
+            child: ClipPath(
+              clipper: _LensClip(rect: lens, outside: false),
+              // Offscreen clipping lets this pane sample just the destination
+              // paint underneath it, independent of the shell and page.
+              clipBehavior: contentStyle == null
+                  ? Clip.antiAlias
+                  : Clip.antiAliasWithSaveLayer,
+              child: Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.none,
+                children: [
+                  content,
+                  if (contentStyle != null)
+                    Positioned.fromRect(
+                      rect: lens,
+                      child: LiquidGlass(
+                        key: const ValueKey('liquidGlassLensWarp'),
+                        style: contentStyle,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     _textDirection = Directionality.of(context);
-    final realBar = MediaQuery.removePadding(
-      context: context,
-      removeLeft: true,
-      removeTop: true,
-      removeRight: true,
-      removeBottom: true,
-      child: _buildNavigationBar(duplicate: false),
+    final colorScheme = Theme.of(context).colorScheme;
+    final realBar = RepaintBoundary(
+      child: _buildNavigationBar(
+        selectedIndex: widget.selectedIndex,
+        duplicate: false,
+        colorScheme: colorScheme,
+      ),
     );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.hasBoundedWidth
-            ? constraints.maxWidth
-            : widget.destinations.length * _kIndicatorWidth;
-        _itemExtent = width / widget.destinations.length;
-        return AnimatedBuilder(
-          animation: _interactionListenable,
-          builder: (context, _) {
-            final lens = _lensRect();
-            final showLensContent = _showLensContent;
-            final colorScheme = Theme.of(context).colorScheme;
-            return Listener(
+    final shaderSupported = ui.ImageFilter.isShaderFilterSupported;
+    final lensStyle = widget.liquid
+        ? liquidNavigationLensStyle(colorScheme, widget.liquidGlassStrength)
+        : null;
+    final warpContent =
+        widget.liquid &&
+        shaderSupported &&
+        LiquidGlassScope.qualityOf(context) == LiquidGlassQuality.ultra;
+    final contentStyle = warpContent
+        ? liquidNavigationLensContentStyle(
+            colorScheme,
+            widget.liquidGlassStrength,
+          )
+        : null;
+
+    final content = Stack(
+      fit: StackFit.expand,
+      clipBehavior: Clip.none,
+      children: [
+        ?widget.background,
+        if (widget.liquid && !shaderSupported)
+          IgnorePointer(
+            child: ClipRRect(
+              borderRadius: _kBorderRadius,
+              child: CustomPaint(painter: _FrostedDockGlow(_glow)),
+            ),
+          ),
+        MediaQuery.removePadding(
+          context: context,
+          removeLeft: true,
+          removeTop: true,
+          removeRight: true,
+          removeBottom: true,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: _kIndicatorPadding),
+            child: Listener(
               behavior: HitTestBehavior.opaque,
               onPointerDown: _handlePointerDown,
               onPointerMove: _handlePointerMove,
               onPointerUp: _handlePointerUp,
               onPointerCancel: _handlePointerCancel,
-              child: Stack(
-                fit: StackFit.expand,
-                clipBehavior: Clip.none,
-                children: [
-                  _buildIndicator(lens),
-                  if (widget.liquid && _glowAt != null)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: ClipRRect(
-                          borderRadius: _kBorderRadius,
-                          child: CustomPaint(
-                            painter: _GlassPressGlowPainter(
-                              center: _glowAt!,
-                              opacity: _glowController.value,
-                              strength: widget.liquidGlassStrength,
-                            ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  _itemExtent =
+                      constraints.maxWidth / widget.destinations.length;
+                  int? paintedIndex;
+                  Widget? visualBar;
+                  return AnimatedBuilder(
+                    animation: _lensMotion,
+                    builder: (context, _) {
+                      final lift = _reduceMotion ? 0.0 : _pressController.value;
+                      final lens = _lensRect(lift);
+                      final showLensContent = widget.liquid && lift > 0;
+                      if (showLensContent) {
+                        final index =
+                            _nearestEnabledIndex(
+                              _drag.value?.index ?? _selectionTarget,
+                            ) ??
+                            widget.selectedIndex;
+                        if (index != paintedIndex) {
+                          paintedIndex = index;
+                          visualBar = _buildNavigationBar(
+                            selectedIndex: index,
+                            duplicate: true,
+                            colorScheme: colorScheme,
+                          );
+                        }
+                      }
+                      return Stack(
+                        fit: StackFit.expand,
+                        clipBehavior: Clip.none,
+                        children: [
+                          _buildIndicator(
+                            lens,
+                            lift: lift,
+                            lensStyle: lensStyle,
+                            shaderSupported: shaderSupported,
                           ),
-                        ),
-                      ),
-                    ),
-                  // Paint the real bar's content only outside the lens. This
-                  // is a paint-only clip: hit testing, focus and semantics stay
-                  // on the real NavigationBar. Non-liquid styles keep the
-                  // original tree without the clip.
-                  if (widget.liquid)
-                    _PaintClipPath(
-                      clipper: _LensClip(
-                        rect: lens,
-                        outside: true,
-                        enabled: showLensContent,
-                      ),
-                      child: realBar,
-                    )
-                  else
-                    realBar,
-                  // Inside the lens, draw a second, magnified and tinted copy.
-                  // It is inert and excluded from semantics/focus; the real bar
-                  // still owns the interaction.
-                  if (showLensContent && widget.liquid)
-                    Positioned.fill(
-                      key: const ValueKey('liquidGlassLensContent'),
-                      child: IgnorePointer(
-                        child: ExcludeSemantics(
-                          child: ExcludeFocus(
-                            child: _PaintClipPath(
-                              clipper: _LensClip(
-                                rect: lens,
-                                outside: false,
-                                enabled: true,
-                              ),
-                              child: Transform(
-                                transform: _lensContentTransform(lens),
-                                filterQuality: FilterQuality.high,
-                                child: ColorFiltered(
-                                  colorFilter: ui.ColorFilter.mode(
-                                    colorScheme.primary.withValues(alpha: 0.20),
-                                    ui.BlendMode.srcATop,
-                                  ),
-                                  child: _buildLensContent(),
-                                ),
-                              ),
+                          // The same destination render objects keep focus and
+                          // hit-testing as their paint is clipped during lift.
+                          if (widget.liquid)
+                            _PaintClipPath(
+                              clipper: showLensContent
+                                  ? _LensClip(rect: lens, outside: true)
+                                  : null,
+                              child: realBar,
+                            )
+                          else
+                            realBar,
+                          if (showLensContent)
+                            _lensContent(
+                              lens: lens,
+                              content: visualBar!,
+                              contentStyle: contentStyle?.scale(lift),
                             ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+                        ],
+                      );
+                    },
+                  );
+                },
               ),
-            );
-          },
-        );
-      },
+            ),
+          ),
+        ),
+      ],
+    );
+    const shellKey = ValueKey('glassVisualShell');
+    if (!widget.liquid) {
+      return DecoratedBox(
+        key: shellKey,
+        decoration: widget.shellDecoration,
+        child: content,
+      );
+    }
+    final style = liquidNavigationBarStyle(
+      colorScheme,
+      widget.liquidGlassStrength,
+    );
+    final shadows = liquidDockShadows(colorScheme);
+    if (!shaderSupported) {
+      return LiquidGlass(
+        key: shellKey,
+        style: style,
+        shadows: shadows,
+        child: content,
+      );
+    }
+    return ValueListenableBuilder(
+      valueListenable: _glow,
+      builder: (context, glow, child) => LiquidGlass(
+        key: shellKey,
+        style: style,
+        shadows: shadows,
+        glow: glow,
+        child: child,
+      ),
+      child: content,
     );
   }
 }
 
+/// Keeps the press light visible when the shell only paints its frosted fill.
+class _FrostedDockGlow extends CustomPainter {
+  _FrostedDockGlow(this.glow) : super(repaint: glow);
+
+  final ValueListenable<LiquidGlassGlow> glow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final current = glow.value;
+    if (current.strength <= 0) return;
+    final light = RadialGradient(
+      colors: [
+        Colors.white.withValues(alpha: current.strength),
+        Colors.transparent,
+      ],
+    );
+    final bounds = Rect.fromCircle(
+      center: current.center,
+      radius: current.reach,
+    );
+    canvas.drawCircle(
+      current.center,
+      current.reach,
+      Paint()
+        ..blendMode = BlendMode.plus
+        ..shader = light.createShader(bounds),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_FrostedDockGlow oldDelegate) => glow != oldDelegate.glow;
+}
+
 /// Clips paint (not hit testing) to a moving lens.
 class _LensClip extends CustomClipper<Path> {
-  const _LensClip({
-    required this.rect,
-    required this.outside,
-    required this.enabled,
-  });
+  const _LensClip({required this.rect, required this.outside});
 
   final Rect rect;
   final bool outside;
-  final bool enabled;
-
   @override
   Path getClip(Size size) {
-    final full = Path()..addRect(Offset.zero & size);
-    if (!enabled) {
-      return full;
-    }
     final lens = Path()
       ..addRRect(
         RRect.fromRectAndRadius(rect, Radius.circular(rect.height / 2)),
@@ -986,14 +967,13 @@ class _LensClip extends CustomClipper<Path> {
     if (!outside) {
       return lens;
     }
+    final full = Path()..addRect(Offset.zero & size);
     return Path.combine(ui.PathOperation.difference, full, lens);
   }
 
   @override
   bool shouldReclip(_LensClip oldClipper) {
-    return oldClipper.rect != rect ||
-        oldClipper.outside != outside ||
-        oldClipper.enabled != enabled;
+    return oldClipper.rect != rect || oldClipper.outside != outside;
   }
 }
 
@@ -1003,7 +983,7 @@ class _LensClip extends CustomClipper<Path> {
 class _PaintClipPath extends SingleChildRenderObjectWidget {
   const _PaintClipPath({required this.clipper, super.child});
 
-  final CustomClipper<Path> clipper;
+  final _LensClip? clipper;
 
   @override
   _RenderPaintClipPath createRenderObject(BuildContext context) {
@@ -1022,25 +1002,41 @@ class _PaintClipPath extends SingleChildRenderObjectWidget {
 class _RenderPaintClipPath extends RenderProxyBox {
   _RenderPaintClipPath(this._clipper);
 
-  CustomClipper<Path> _clipper;
+  final _clipLayer = LayerHandle<ClipPathLayer>();
+  _LensClip? _clipper;
 
-  set clipper(CustomClipper<Path> value) {
-    if (identical(value, _clipper)) {
-      return;
-    }
+  set clipper(_LensClip? value) {
+    final previous = _clipper;
     _clipper = value;
-    markNeedsPaint();
+    if (previous == null || value == null
+        ? previous != value
+        : value.shouldReclip(previous)) {
+      markNeedsPaint();
+    }
   }
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    context.pushClipPath(
+    final clipper = _clipper;
+    if (clipper == null) {
+      _clipLayer.layer = null;
+      super.paint(context, offset);
+      return;
+    }
+    _clipLayer.layer = context.pushClipPath(
       needsCompositing,
       offset,
       (Offset.zero & size).inflate(8),
-      _clipper.getClip(size),
+      clipper.getClip(size),
       (context, offset) => super.paint(context, offset),
+      oldLayer: _clipLayer.layer,
     );
+  }
+
+  @override
+  void dispose() {
+    _clipLayer.layer = null;
+    super.dispose();
   }
 }
 

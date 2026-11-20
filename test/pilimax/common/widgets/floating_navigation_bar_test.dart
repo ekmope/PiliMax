@@ -1,10 +1,12 @@
-import 'dart:ui' show Tristate;
+import 'dart:ui' show ImageFilter, Tristate;
 
 import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -30,6 +32,9 @@ void main() {
     double bottomLift = 0,
     EdgeInsets safePadding = EdgeInsets.zero,
     Widget Function(Widget bar)? wrapBar,
+    TextDirection textDirection = TextDirection.ltr,
+    LiquidGlassQuality liquidQuality = LiquidGlassQuality.ultra,
+    bool disableAnimations = false,
   }) {
     final bar = FloatingNavigationBar(
       glassStyle: style,
@@ -45,12 +50,19 @@ void main() {
         data: MediaQuery.of(context).copyWith(
           padding: safePadding,
           viewPadding: safePadding,
+          disableAnimations: disableAnimations,
         ),
-        child: child!,
+        child: Directionality(textDirection: textDirection, child: child!),
       ),
-      home: Scaffold(
-        body: const SizedBox.expand(key: ValueKey('content')),
-        bottomNavigationBar: wrapBar?.call(bar) ?? bar,
+      home: LiquidGlassScope(
+        enabled: style == GlassStyle.liquid,
+        quality: liquidQuality,
+        child: Scaffold(
+          body: const RepaintBoundary(
+            child: SizedBox.expand(key: ValueKey('content')),
+          ),
+          bottomNavigationBar: wrapBar?.call(bar) ?? bar,
+        ),
       ),
     );
   }
@@ -68,6 +80,19 @@ void main() {
       matching: find.byType(FadeTransition),
     );
     return tester.widget<FadeTransition>(fade.first).opacity.value;
+  }
+
+  const dockShellKey = ValueKey('glassVisualShell');
+  const indicatorKey = ValueKey('floatingNavigationIndicator');
+  const raisedLensKey = ValueKey('liquidGlassLens');
+  const warpKey = ValueKey('liquidGlassLensWarp');
+
+  Offset dockDestination(WidgetTester tester, int index, {int count = 2}) {
+    final shell = tester.getRect(find.byKey(dockShellKey));
+    return Offset(
+      shell.left + 4 + (shell.width - 8) / count * (index + 0.5),
+      shell.center.dy,
+    );
   }
 
   testWidgets('renders regular and soft glass styles with only soft blur', (
@@ -91,14 +116,17 @@ void main() {
     final nav = tester.widget<NavigationBar>(
       find.byKey(const ValueKey('floatingNavigationSemanticsBar')),
     );
-    for (final state in [
-      {WidgetState.pressed},
-      {WidgetState.hovered},
-      {WidgetState.focused},
-      {WidgetState.pressed, WidgetState.focused},
-    ]) {
-      expect(nav.overlayColor?.resolve(state), Colors.transparent);
-    }
+    expect(
+      nav.overlayColor?.resolve({WidgetState.pressed}),
+      Colors.transparent,
+    );
+    expect(nav.overlayColor?.resolve({WidgetState.hovered})?.a, greaterThan(0));
+    final focus = nav.overlayColor?.resolve({WidgetState.focused});
+    expect(focus?.a, greaterThan(0));
+    expect(
+      nav.overlayColor?.resolve({WidgetState.pressed, WidgetState.focused}),
+      focus,
+    );
     expect(nav.indicatorColor, Colors.transparent);
   });
 
@@ -343,6 +371,7 @@ void main() {
     final gesture = await tester.startGesture(
       Offset(shell.left + shell.width / 4, shell.center.dy),
     );
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
     expect(tester.getSize(indicator).width, greaterThan(idleWidth));
     await gesture.up();
@@ -377,6 +406,7 @@ void main() {
     expect(idleIndicator.bottom, lessThanOrEqualTo(shell.bottom));
 
     final gesture = await tester.startGesture(shell.center);
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 130));
 
     final indicator = tester.getRect(indicatorFinder);
@@ -412,12 +442,13 @@ void main() {
     final gesture = await tester.startGesture(
       Offset(shell.left + shell.width / 4, shell.center.dy),
     );
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 130));
     expect(tester.getRect(indicator).left, lessThanOrEqualTo(shell.left));
     await gesture.up();
     await tester.pumpAndSettle();
 
-    await tester.pumpWidget(host(selectedIndex: 2));
+    await tester.pumpWidget(host(selectedIndex: 1));
     await tester.pumpAndSettle();
     final idleLast = tester.getRect(indicator);
     expect(idleLast.right, lessThan(shell.right));
@@ -425,6 +456,7 @@ void main() {
     final lastGesture = await tester.startGesture(
       Offset(shell.left + shell.width * 0.75, shell.center.dy),
     );
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 130));
     expect(tester.getRect(indicator).right, greaterThanOrEqualTo(shell.right));
     await lastGesture.up();
@@ -454,27 +486,81 @@ void main() {
     expect(selected, [1]);
   });
 
-  testWidgets('vertical drag cancels without selecting a destination', (
+  for (final style in GlassStyle.values) {
+    testWidgets('${style.name}: vertical cancellation survives later moves', (
+      tester,
+    ) async {
+      final selected = <int>[];
+      await tester.pumpWidget(host(style: style, onSelected: selected.add));
+      final expected = tester.getCenter(find.byKey(indicatorKey));
+
+      for (final steerHorizontally in [false, true]) {
+        final gesture = await tester.startGesture(dockDestination(tester, 1));
+        await gesture.moveBy(const Offset(2, -42));
+        if (steerHorizontally) await gesture.moveBy(const Offset(-80, 30));
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(selected, isEmpty);
+        expect(tester.getCenter(find.byKey(indicatorKey)), expected);
+      }
+    });
+  }
+
+  for (final direction in TextDirection.values) {
+    testWidgets('only the fast drag projects forward in ${direction.name}', (
+      tester,
+    ) async {
+      final selected = <int>[];
+      await tester.pumpWidget(
+        host(textDirection: direction, onSelected: selected.add),
+      );
+      final first = direction == TextDirection.ltr ? 0 : 1;
+      final start = dockDestination(tester, first);
+      final pitch = (tester.getSize(find.byKey(dockShellKey)).width - 8) / 2;
+      final dragDistance = Offset(
+        pitch * 0.35 * (direction == TextDirection.ltr ? 1 : -1),
+        0,
+      );
+      await tester.timedDragFrom(
+        start,
+        dragDistance,
+        const Duration(seconds: 1),
+      );
+      await tester.pumpAndSettle();
+      expect(selected, isEmpty);
+      await tester.timedDragFrom(
+        start,
+        dragDistance,
+        const Duration(milliseconds: 50),
+      );
+      await tester.pumpAndSettle();
+      expect(selected, [1]);
+    });
+  }
+
+  testWidgets('ignores secondary mouse clicks and keeps keyboard activation', (
     tester,
   ) async {
     final selected = <int>[];
-    await tester.pumpWidget(host(onSelected: selected.add));
-    final shell = tester.getRect(
-      find.byKey(const ValueKey('glassVisualShell')),
+    await tester.pumpWidget(
+      host(style: GlassStyle.liquid, onSelected: selected.add),
     );
-    final indicator = find.byKey(
-      const ValueKey('floatingNavigationIndicator'),
+    await tester.tapAt(
+      dockDestination(tester, 1),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
     );
-    final idleCenter = tester.getCenter(indicator);
-    final gesture = await tester.startGesture(
-      Offset(shell.left + shell.width / 4, shell.center.dy),
-    );
-    await gesture.moveBy(const Offset(2, -64));
-    await tester.pump();
-    await gesture.up();
     await tester.pumpAndSettle();
     expect(selected, isEmpty);
-    expect(tester.getCenter(indicator).dx, moreOrLessEquals(idleCenter.dx));
+    expect(find.byKey(raisedLensKey), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(selected, [1]);
   });
 
   testWidgets('pointer cancellation restores the committed destination', (
@@ -612,73 +698,123 @@ void main() {
     },
   );
 
-  testWidgets(
-    'liquid style renders a glass shell and lens without the soft blur',
-    (tester) async {
+  testWidgets('liquid glass uses only the shell at rest', (tester) async {
+    await tester.pumpWidget(host(style: GlassStyle.liquid));
+    expect(find.byKey(dockShellKey), findsOneWidget);
+    expect(find.byKey(indicatorKey), findsOneWidget);
+    expect(find.byType(LiquidGlass), findsOneWidget);
+    expect(find.byKey(raisedLensKey), findsNothing);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byKey(const ValueKey('softGlassBackdropFilter')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final quality in LiquidGlassQuality.values) {
+    testWidgets('a ${quality.name} lens refines only the raised state', (
+      tester,
+    ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData(useMaterial3: true),
-          home: Scaffold(
-            body: const SizedBox.expand(),
-            bottomNavigationBar: FloatingNavigationBar(
-              glassStyle: GlassStyle.liquid,
-              liquidGlassStrength: 0.7,
-              destinations: destinations,
-            ),
-          ),
-        ),
+        host(style: GlassStyle.liquid, liquidQuality: quality),
       );
-      await tester.pump();
-
-      expect(find.byKey(const ValueKey('glassVisualShell')), findsOneWidget);
-      expect(find.byType(LiquidGlass), findsAtLeastNWidgets(2));
-      expect(
-        find.byKey(const ValueKey('softGlassBackdropFilter')),
-        findsNothing,
-      );
-      expect(find.byType(NavigationBar), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'liquid lens paints a magnified content copy while pressed',
-    (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData(useMaterial3: true),
-          home: Scaffold(
-            body: const SizedBox.expand(),
-            bottomNavigationBar: FloatingNavigationBar(
-              glassStyle: GlassStyle.liquid,
-              liquidGlassStrength: 0.7,
-              destinations: destinations,
-            ),
-          ),
-        ),
-      );
-      final shell = tester.getRect(
-        find.byKey(const ValueKey('glassVisualShell')),
-      );
-      final gesture = await tester.startGesture(shell.center);
-      await tester.pump(const Duration(milliseconds: 80));
-
+      final gesture = await tester.startGesture(dockDestination(tester, 0));
+      await tester.pumpAndSettle();
+      expect(find.byKey(raisedLensKey), findsOneWidget);
       expect(
         find.byKey(const ValueKey('liquidGlassLensContent')),
         findsOneWidget,
       );
       expect(find.byType(NavigationBar), findsNWidgets(2));
-      expect(tester.takeException(), isNull);
-
+      final warp =
+          quality == LiquidGlassQuality.ultra &&
+          ImageFilter.isShaderFilterSupported;
+      expect(find.byKey(warpKey), warp ? findsOneWidget : findsNothing);
+      if (warp) {
+        final clip = tester.widget<ClipPath>(
+          find
+              .ancestor(
+                of: find.byKey(warpKey),
+                matching: find.byType(ClipPath),
+              )
+              .first,
+        );
+        expect(clip.clipBehavior, Clip.antiAliasWithSaveLayer);
+      }
       await gesture.up();
       await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('liquidGlassLensContent')),
-        findsNothing,
-      );
+      expect(find.byType(LiquidGlass), findsOneWidget);
       expect(find.byType(NavigationBar), findsOneWidget);
-    },
-  );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('liquid tap commits during lift and releases after its peak', (
+    tester,
+  ) async {
+    final selected = <int>[];
+    await tester.pumpWidget(
+      host(style: GlassStyle.liquid, onSelected: selected.add),
+    );
+    final indicator = find.byKey(indicatorKey);
+    final restingHeight = tester.getSize(indicator).height;
+    final gesture = await tester.startGesture(dockDestination(tester, 1));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 32));
+    final heightBeforeRelease = tester.getSize(indicator).height;
+    await gesture.up();
+    expect(selected, [1]);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.getSize(indicator).height, greaterThan(heightBeforeRelease));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(indicator).height, restingHeight);
+    expect(find.byKey(raisedLensKey), findsNothing);
+    expect(selected, [1]);
+  });
+
+  testWidgets('dragging the liquid lens does not repaint the page body', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(style: GlassStyle.liquid));
+    final page = tester.renderObject<RenderRepaintBoundary>(
+      find
+          .ancestor(
+            of: find.byKey(const ValueKey('content')),
+            matching: find.byType(RepaintBoundary),
+          )
+          .first,
+    );
+    final gesture = await tester.startGesture(dockDestination(tester, 0));
+    await tester.pumpAndSettle();
+    page.debugResetMetrics();
+    await gesture.moveBy(const Offset(48, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(14, 0));
+    await tester.pump();
+    expect(page.debugSymmetricPaintCount + page.debugAsymmetricPaintCount, 0);
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('reduced motion uses immediate selection without a raised lens', (
+    tester,
+  ) async {
+    final selected = <int>[];
+    await tester.pumpWidget(
+      host(
+        style: GlassStyle.liquid,
+        disableAnimations: true,
+        onSelected: selected.add,
+      ),
+    );
+    final target = dockDestination(tester, 1);
+    final gesture = await tester.startGesture(target);
+    await tester.pump();
+    expect(tester.getCenter(find.byKey(indicatorKey)), target);
+    expect(find.byKey(raisedLensKey), findsNothing);
+    await gesture.up();
+    await tester.pump();
+    expect(selected, [1]);
+    expect(find.byKey(raisedLensKey), findsNothing);
+  });
 
   testWidgets('liquid glass keeps the bottom-lift transform', (tester) async {
     await tester.pumpWidget(host(style: GlassStyle.liquid));

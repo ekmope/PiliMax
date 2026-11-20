@@ -17,4 +17,21 @@ void main() {
     final lensHigh = liquidNavigationLensStyle(scheme, 1);
     expect(lensHigh.refraction.abs(), greaterThan(lensLow.refraction.abs()));
   });
+
+  test('dark shell tint keeps the same opacity and follows the theme', () {
+    const first = ColorScheme.dark(surfaceContainer: Color(0xFF202536));
+    const second = ColorScheme.dark(surfaceContainer: Color(0xFF364021));
+    final firstTint = liquidNavigationBarStyle(first, 1).tint;
+    final secondTint = liquidNavigationBarStyle(second, 1).tint;
+
+    expect(firstTint.a, closeTo(0.48, 0.001));
+    expect(secondTint.a, firstTint.a);
+    expect(secondTint, isNot(firstTint));
+    expect(
+      firstTint.computeLuminance(),
+      greaterThan(
+        first.surfaceContainer.computeLuminance(),
+      ),
+    );
+  });
 }

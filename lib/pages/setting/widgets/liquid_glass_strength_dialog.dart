@@ -1,9 +1,11 @@
+import 'dart:ui' as ui;
+
 import 'package:PiliMax/pilimax/common/widgets/glass/liquid_glass.dart';
 import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/forks/common/widgets/floating_navigation_bar.dart';
 import 'package:material_ui/material_ui.dart';
 
-/// Live preview and strength slider for [GlassStyle.liquid].
+/// Live preview of the strength and quality of [GlassStyle.liquid].
 ///
 /// The preview is a real [FloatingNavigationBar] over a gradient, hosted by its
 /// own capture layer because it lives in a dialog route rather than under the
@@ -13,11 +15,13 @@ class LiquidGlassStrengthDialog extends StatefulWidget {
   const LiquidGlassStrengthDialog({
     super.key,
     required this.initialValue,
+    required this.initialQuality,
     this.onChanged,
   });
 
   final int initialValue;
-  final ValueChanged<int>? onChanged;
+  final LiquidGlassQuality initialQuality;
+  final void Function(int strength, LiquidGlassQuality quality)? onChanged;
 
   @override
   State<LiquidGlassStrengthDialog> createState() =>
@@ -26,12 +30,23 @@ class LiquidGlassStrengthDialog extends StatefulWidget {
 
 class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
   late int _value = widget.initialValue.clamp(0, 100);
+  late LiquidGlassQuality _quality = widget.initialQuality;
+
+  void _update(int strength, LiquidGlassQuality quality) {
+    if (strength == _value && quality == _quality) return;
+    setState(() {
+      _value = strength;
+      _quality = quality;
+    });
+    widget.onChanged?.call(strength, quality);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      title: const Text('液态玻璃强度'),
+      title: const Text('液态玻璃'),
+      scrollable: true,
       contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       content: SizedBox(
         width: 320,
@@ -41,7 +56,7 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(18),
-              child: _Preview(value: _value),
+              child: _Preview(value: _value, quality: _quality),
             ),
             const SizedBox(height: 12),
             Row(
@@ -63,16 +78,24 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
               max: 100,
               divisions: 20,
               label: '$_value%',
-              onChanged: (value) {
-                final next = value.round();
-                if (next == _value) return;
-                setState(() => _value = next);
-                widget.onChanged?.call(next);
-              },
+              onChanged: (value) => _update(value.round(), _quality),
+            ),
+            Text('画质', style: theme.textTheme.labelLarge),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final quality in LiquidGlassQuality.values)
+                  ChoiceChip(
+                    label: Text(quality.label),
+                    selected: _quality == quality,
+                    onSelected: (_) => _update(_value, quality),
+                  ),
+              ],
             ),
             Text(
-              '调节折射、色散、边缘高光与光晕。0% 仍是可读的淡玻璃；'
-              '只有“液态玻璃”样式会使用这个值。',
+              ui.ImageFilter.isShaderFilterSupported
+                  ? '按住或拖动预览底栏，查看透镜效果。超清会折射透镜内的图标和文字。'
+                  : '当前设备使用磨砂效果。按住或拖动预览底栏可查看透镜反馈。',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.outline,
               ),
@@ -87,7 +110,9 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
           child: const Text('取消'),
         ),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(_value),
+          onPressed: () => Navigator.of(context).pop(
+            (strength: _value, quality: _quality),
+          ),
           child: const Text('确定'),
         ),
       ],
@@ -95,10 +120,18 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
   }
 }
 
-class _Preview extends StatelessWidget {
-  const _Preview({required this.value});
+class _Preview extends StatefulWidget {
+  const _Preview({required this.value, required this.quality});
 
   final int value;
+  final LiquidGlassQuality quality;
+
+  @override
+  State<_Preview> createState() => _PreviewState();
+}
+
+class _PreviewState extends State<_Preview> {
+  int _selectedIndex = 1;
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +162,7 @@ class _Preview extends StatelessWidget {
         ),
         child: LiquidGlassScope(
           enabled: true,
-          quality: LiquidGlassQuality.ultra,
+          quality: widget.quality,
           child: LiquidGlassHost(
             enabled: true,
             child: Stack(
@@ -162,16 +195,14 @@ class _Preview extends StatelessWidget {
                   left: 0,
                   right: 0,
                   bottom: 10,
-                  child: ExcludeSemantics(
-                    child: IgnorePointer(
-                      child: FloatingNavigationBar(
-                        glassStyle: GlassStyle.liquid,
-                        liquidGlassStrength: value / 100,
-                        selectedIndex: 1,
-                        bottomPadding: 0,
-                        destinations: destinations,
-                      ),
-                    ),
+                  child: FloatingNavigationBar(
+                    glassStyle: GlassStyle.liquid,
+                    liquidGlassStrength: widget.value / 100,
+                    selectedIndex: _selectedIndex,
+                    onDestinationSelected: (index) =>
+                        setState(() => _selectedIndex = index),
+                    bottomPadding: 0,
+                    destinations: destinations,
                   ),
                 ),
               ],

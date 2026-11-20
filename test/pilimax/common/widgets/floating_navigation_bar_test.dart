@@ -84,7 +84,8 @@ void main() {
 
   const dockShellKey = ValueKey('glassVisualShell');
   const indicatorKey = ValueKey('floatingNavigationIndicator');
-  const raisedLensKey = ValueKey('liquidGlassLens');
+  const glassLensKey = ValueKey('liquidGlassLens');
+  const lensContentKey = ValueKey('liquidGlassLensContent');
   const warpKey = ValueKey('liquidGlassLensWarp');
 
   Offset dockDestination(WidgetTester tester, int index, {int count = 2}) {
@@ -389,7 +390,6 @@ void main() {
           body: const SizedBox.expand(),
           bottomNavigationBar: FloatingNavigationBar(
             glassStyle: GlassStyle.liquid,
-            liquidGlassStrength: 0.7,
             destinations: destinations,
           ),
         ),
@@ -552,7 +552,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(selected, isEmpty);
-    expect(find.byKey(raisedLensKey), findsNothing);
+    expect(find.byKey(lensContentKey), findsNothing);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
@@ -698,12 +698,18 @@ void main() {
     },
   );
 
-  testWidgets('liquid glass uses only the shell at rest', (tester) async {
+  testWidgets('the shell and selected pill are both glass at rest', (
+    tester,
+  ) async {
     await tester.pumpWidget(host(style: GlassStyle.liquid));
-    expect(find.byKey(dockShellKey), findsOneWidget);
-    expect(find.byKey(indicatorKey), findsOneWidget);
-    expect(find.byType(LiquidGlass), findsOneWidget);
-    expect(find.byKey(raisedLensKey), findsNothing);
+    expect(tester.widget(find.byKey(dockShellKey)), isA<LiquidGlass>());
+    final lens = tester.widget<LiquidGlass>(find.byKey(glassLensKey));
+    expect(lens.style.refraction, lessThan(0));
+    expect(lens.style.rim, greaterThan(0));
+    final plate = tester.widget<DecoratedBox>(find.byKey(indicatorKey));
+    expect((plate.decoration as ShapeDecoration).color!.a, lessThan(0.2));
+    expect(find.byType(LiquidGlass), findsNWidgets(2));
+    expect(find.byKey(lensContentKey), findsNothing);
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byKey(const ValueKey('softGlassBackdropFilter')), findsNothing);
     expect(tester.takeException(), isNull);
@@ -716,13 +722,20 @@ void main() {
       await tester.pumpWidget(
         host(style: GlassStyle.liquid, liquidQuality: quality),
       );
+      final lens = find.byKey(glassLensKey);
+      final restingElement = tester.element(lens);
+      final restingRefraction = tester
+          .widget<LiquidGlass>(lens)
+          .style
+          .refraction;
       final gesture = await tester.startGesture(dockDestination(tester, 0));
       await tester.pumpAndSettle();
-      expect(find.byKey(raisedLensKey), findsOneWidget);
+      expect(tester.element(lens), same(restingElement));
       expect(
-        find.byKey(const ValueKey('liquidGlassLensContent')),
-        findsOneWidget,
+        tester.widget<LiquidGlass>(lens).style.refraction,
+        lessThan(restingRefraction),
       );
+      expect(find.byKey(lensContentKey), findsOneWidget);
       expect(find.byType(NavigationBar), findsNWidgets(2));
       final warp =
           quality == LiquidGlassQuality.ultra &&
@@ -741,7 +754,9 @@ void main() {
       }
       await gesture.up();
       await tester.pumpAndSettle();
-      expect(find.byType(LiquidGlass), findsOneWidget);
+      expect(tester.element(lens), same(restingElement));
+      expect(find.byType(LiquidGlass), findsNWidgets(2));
+      expect(find.byKey(lensContentKey), findsNothing);
       expect(find.byType(NavigationBar), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
@@ -766,7 +781,8 @@ void main() {
     expect(tester.getSize(indicator).height, greaterThan(heightBeforeRelease));
     await tester.pumpAndSettle();
     expect(tester.getSize(indicator).height, restingHeight);
-    expect(find.byKey(raisedLensKey), findsNothing);
+    expect(find.byKey(glassLensKey), findsOneWidget);
+    expect(find.byKey(lensContentKey), findsNothing);
     expect(selected, [1]);
   });
 
@@ -809,11 +825,13 @@ void main() {
     final gesture = await tester.startGesture(target);
     await tester.pump();
     expect(tester.getCenter(find.byKey(indicatorKey)), target);
-    expect(find.byKey(raisedLensKey), findsNothing);
+    expect(find.byKey(glassLensKey), findsOneWidget);
+    expect(find.byKey(lensContentKey), findsNothing);
     await gesture.up();
     await tester.pump();
     expect(selected, [1]);
-    expect(find.byKey(raisedLensKey), findsNothing);
+    expect(find.byKey(glassLensKey), findsOneWidget);
+    expect(find.byKey(lensContentKey), findsNothing);
   });
 
   testWidgets('liquid glass keeps the bottom-lift transform', (tester) async {

@@ -274,37 +274,6 @@ class LiquidGlassStyle {
   final double hairline;
   final double? hairlineSide;
 
-  /// Scales the optical effects for the user-facing strength setting while
-  /// keeping a legible tint, haze and rim floor. Unlike [scale], zero still
-  /// leaves a readable pane instead of bare air.
-  LiquidGlassStyle atStrength(double t) {
-    final amount = t.clamp(0.0, 1.0);
-    final optics = 0.35 + 0.65 * amount;
-    return LiquidGlassStyle(
-      tint: tint.withValues(alpha: tint.a * (0.72 + 0.28 * amount)),
-      contrast: contrast,
-      blur: blur,
-      haze: haze * (0.55 + 0.45 * amount),
-      hazeBlur: hazeBlur,
-      refraction: refraction * optics,
-      bevel: bevel,
-      saturation: 1 + (saturation - 1) * (0.6 + 0.4 * amount),
-      brightness: brightness,
-      rim: rim * (0.55 + 0.45 * amount),
-      rimWidth: rimWidth,
-      rimTail: rimTail,
-      rimFocus: rimFocus,
-      rimAdded: rimAdded,
-      endShade: endShade * amount,
-      dispersion: dispersion * amount,
-      rimBlur: rimBlur * amount,
-      hairline: hairline * (0.5 + 0.5 * amount),
-      hairlineSide: hairlineSide == null
-          ? null
-          : hairlineSide! * (0.5 + 0.5 * amount),
-    );
-  }
-
   /// Eases in from bare air, as glass materializes by bending, not fading.
   LiquidGlassStyle scale(double t) {
     final amount = t.clamp(0.0, 1.0);
@@ -331,17 +300,27 @@ class LiquidGlassStyle {
     );
   }
 
-  LiquidGlassStyle copyWith({Color? tint, double? blur}) => LiquidGlassStyle(
+  LiquidGlassStyle copyWith({
+    Color? tint,
+    double? blur,
+    double? haze,
+    double? hazeBlur,
+    double? refraction,
+    double? bevel,
+    double? saturation,
+    double? brightness,
+    double? rim,
+  }) => LiquidGlassStyle(
     tint: tint ?? this.tint,
     contrast: contrast,
     blur: blur ?? this.blur,
-    haze: haze,
-    hazeBlur: hazeBlur,
-    refraction: refraction,
-    bevel: bevel,
-    saturation: saturation,
-    brightness: brightness,
-    rim: rim,
+    haze: haze ?? this.haze,
+    hazeBlur: hazeBlur ?? this.hazeBlur,
+    refraction: refraction ?? this.refraction,
+    bevel: bevel ?? this.bevel,
+    saturation: saturation ?? this.saturation,
+    brightness: brightness ?? this.brightness,
+    rim: rim ?? this.rim,
     rimWidth: rimWidth,
     rimTail: rimTail,
     rimFocus: rimFocus,

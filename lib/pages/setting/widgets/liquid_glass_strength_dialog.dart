@@ -7,7 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 /// Live preview of the strength and quality of [GlassStyle.liquid].
 ///
-/// The preview is a real [FloatingNavigationBar] over a gradient, hosted by its
+/// The preview is a real [FloatingNavigationBar] over sample content, hosted by its
 /// own capture layer because it lives in a dialog route rather than under the
 /// main page's host. Values are applied to the caller as they change; the
 /// caller persists only after confirmation.
@@ -29,13 +29,13 @@ class LiquidGlassStrengthDialog extends StatefulWidget {
 }
 
 class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
-  late int _value = widget.initialValue.clamp(0, 100);
+  late int _strength = widget.initialValue.clamp(0, 100);
   late LiquidGlassQuality _quality = widget.initialQuality;
 
   void _update(int strength, LiquidGlassQuality quality) {
-    if (strength == _value && quality == _quality) return;
+    if (strength == _strength && quality == _quality) return;
     setState(() {
-      _value = strength;
+      _strength = strength;
       _quality = quality;
     });
     widget.onChanged?.call(strength, quality);
@@ -44,6 +44,10 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hintStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final supportsRefraction = ui.ImageFilter.isShaderFilterSupported;
     return AlertDialog(
       title: const Text('液态玻璃'),
       scrollable: true,
@@ -56,31 +60,48 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(18),
-              child: _Preview(value: _value, quality: _quality),
+              child: _Preview(strength: _strength, quality: _quality),
             ),
             const SizedBox(height: 12),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('强度', style: theme.textTheme.labelLarge),
-                const Spacer(),
-                Text(
-                  '$_value%',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                Semantics(
+                  header: true,
+                  child: Text('强度', style: theme.textTheme.labelLarge),
+                ),
+                ExcludeSemantics(
+                  child: Text(
+                    '$_strength%',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
               ],
             ),
-            Slider(
-              value: _value.toDouble(),
-              min: 0,
-              max: 100,
-              divisions: 20,
-              label: '$_value%',
-              onChanged: (value) => _update(value.round(), _quality),
+            Semantics(
+              label: '强度',
+              child: Slider(
+                value: _strength.toDouble(),
+                min: 0,
+                max: 100,
+                divisions: 100,
+                label: '$_strength%',
+                semanticFormatterCallback: (value) => '${value.round()}%',
+                onChanged: (value) => _update(value.round(), _quality),
+              ),
             ),
-            Text('画质', style: theme.textTheme.labelLarge),
+            Text(
+              supportsRefraction ? '强度越高，背景越通透，折射越明显。' : '强度越高，背景磨砂越轻。',
+              style: hintStyle,
+            ),
+            const SizedBox(height: 12),
+            Semantics(
+              header: true,
+              child: Text('画质', style: theme.textTheme.labelLarge),
+            ),
             Wrap(
               spacing: 8,
               children: [
@@ -88,17 +109,15 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
                   ChoiceChip(
                     label: Text(quality.label),
                     selected: _quality == quality,
-                    onSelected: (_) => _update(_value, quality),
+                    onSelected: (_) => _update(_strength, quality),
                   ),
               ],
             ),
             Text(
-              ui.ImageFilter.isShaderFilterSupported
-                  ? '按住或拖动预览底栏，查看透镜效果。超清会折射透镜内的图标和文字。'
-                  : '当前设备使用磨砂效果。按住或拖动预览底栏可查看透镜反馈。',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline,
-              ),
+              supportsRefraction
+                  ? '按住或拖动预览底栏可查看透镜。超清会折射透镜内的图标和文字。'
+                  : '当前设备使用磨砂。按住或拖动预览底栏可查看透镜变化。',
+              style: hintStyle,
             ),
             const SizedBox(height: 8),
           ],
@@ -111,7 +130,7 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(
-            (strength: _value, quality: _quality),
+            (strength: _strength, quality: _quality),
           ),
           child: const Text('确定'),
         ),
@@ -121,9 +140,9 @@ class _LiquidGlassStrengthDialogState extends State<LiquidGlassStrengthDialog> {
 }
 
 class _Preview extends StatefulWidget {
-  const _Preview({required this.value, required this.quality});
+  const _Preview({required this.strength, required this.quality});
 
-  final int value;
+  final int strength;
   final LiquidGlassQuality quality;
 
   @override
@@ -135,7 +154,6 @@ class _PreviewState extends State<_Preview> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     const destinations = [
       FloatingNavigationDestination(
         icon: Icon(Icons.home_outlined),
@@ -154,7 +172,7 @@ class _PreviewState extends State<_Preview> {
       ),
     ];
     return SizedBox(
-      height: 118,
+      height: 144,
       child: MediaQuery(
         data: MediaQuery.of(context).copyWith(
           padding: EdgeInsets.zero,
@@ -168,39 +186,19 @@ class _PreviewState extends State<_Preview> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        scheme.primaryContainer,
-                        scheme.tertiaryContainer,
-                        scheme.surfaceContainerHighest,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 18,
-                  top: 16,
-                  child: Text(
-                    '液态玻璃预览',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: scheme.onPrimaryContainer.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ),
+                const ExcludeSemantics(child: _PreviewFeed()),
                 Positioned(
                   left: 0,
                   right: 0,
                   bottom: 10,
                   child: FloatingNavigationBar(
                     glassStyle: GlassStyle.liquid,
-                    liquidGlassStrength: widget.value / 100,
+                    liquidGlassStrength: widget.strength / 100,
                     selectedIndex: _selectedIndex,
-                    onDestinationSelected: (index) =>
-                        setState(() => _selectedIndex = index),
+                    onDestinationSelected: (index) {
+                      if (_selectedIndex == index) return;
+                      setState(() => _selectedIndex = index);
+                    },
                     bottomPadding: 0,
                     destinations: destinations,
                   ),
@@ -208,6 +206,96 @@ class _PreviewState extends State<_Preview> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Provides distinct thumbnail and text edges behind the preview dock.
+class _PreviewFeed extends StatelessWidget {
+  const _PreviewFeed();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return ColoredBox(
+      color: scheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          spacing: 10,
+          children: [
+            for (final (icon, title, detail, thumbnail, accent, foreground) in [
+              (
+                Icons.terrain,
+                '沿海公路的黄昏',
+                '旅行 · 8:24',
+                scheme.tertiaryContainer,
+                scheme.tertiary,
+                scheme.onTertiaryContainer,
+              ),
+              (
+                Icons.local_cafe_outlined,
+                '周末手冲咖啡',
+                '生活 · 6:18',
+                scheme.primaryContainer,
+                scheme.primary,
+                scheme.onPrimaryContainer,
+              ),
+            ])
+              Expanded(
+                child: Row(
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 16 / 10,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          gradient: LinearGradient(
+                            begin: Alignment.topRight,
+                            end: Alignment.bottomLeft,
+                            colors: [
+                              thumbnail,
+                              Color.lerp(thumbnail, accent, 0.5)!,
+                            ],
+                          ),
+                        ),
+                        child: Icon(icon, size: 24, color: foreground),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelLarge,
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              detail,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );

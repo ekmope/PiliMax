@@ -62,11 +62,7 @@ class FloatingNavigationBar extends StatelessWidget {
        assert(elevation == null || elevation >= 0),
        assert(bottomPadding >= 0),
        assert(bottomLift.isFinite && bottomLift >= 0),
-       assert(
-         liquidGlassStrength.isFinite &&
-             liquidGlassStrength >= 0 &&
-             liquidGlassStrength <= 1,
-       );
+       assert(liquidGlassStrength >= 0 && liquidGlassStrength <= 1);
 
   final Duration animationDuration;
   final int selectedIndex;
@@ -102,9 +98,7 @@ class FloatingNavigationBar extends StatelessWidget {
     final barWidth = destinations.length * _kIndicatorWidth;
     final effectiveIndicatorColor =
         indicatorColor ??
-        (isLiquid
-            ? liquidNavigationSelectionColor(colorScheme)
-            : isSoft
+        (isSoft || isLiquid
             ? (isDark ? _softIndicatorDark : _softIndicatorLight)
             : navigationBarTheme.indicatorColor ??
                   colorScheme.secondaryContainer);
@@ -676,11 +670,14 @@ class _InteractiveFloatingNavigationBarState
               key: const ValueKey('floatingNavigationIndicator'),
               decoration: ShapeDecoration(color: fill, shape: shape),
             ),
-            if (lensStyle != null && lift > 0)
+            if (lensStyle != null)
               LiquidGlass(
                 key: const ValueKey('liquidGlassLens'),
-                style: lensStyle.scale(lift),
-                hold: shaderSupported ? _lensCaptureHold(rect) : null,
+                // The pane stays glass while resting and gains depth on lift.
+                style: lensStyle.scale(ui.lerpDouble(0.8, 1, lift)!),
+                hold: shaderSupported && lift > 0
+                    ? _lensCaptureHold(rect)
+                    : null,
               ),
           ],
         ),

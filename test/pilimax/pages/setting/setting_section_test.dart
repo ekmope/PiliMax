@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:PiliMax/models/common/reply/reply_sort_type.dart';
 import 'package:PiliMax/models/common/setting_type.dart';
@@ -6,6 +7,8 @@ import 'package:PiliMax/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliMax/pages/setting/common_setting.dart';
 import 'package:PiliMax/pages/setting/models/model.dart';
 import 'package:PiliMax/pages/setting/models/setting_section.dart';
+import 'package:PiliMax/pages/setting/widgets/liquid_glass_switch.dart';
+import 'package:PiliMax/pilimax/common/widgets/glass_style.dart';
 import 'package:PiliMax/pilimax/forks/utils/storage.dart';
 import 'package:PiliMax/utils/storage_key.dart';
 import 'package:PiliMax/utils/storage_pref.dart';
@@ -28,7 +31,7 @@ void main() {
     );
     Hive.init(hiveDirectory.path);
     localCacheBox = await Hive.openBox<dynamic>('localCache');
-    settingBox = await Hive.openBox<dynamic>('setting');
+    settingBox = await Hive.openBox<dynamic>('setting', bytes: Uint8List(0));
     videoBox = await Hive.openBox<dynamic>('video');
     GStorage.localCache = localCacheBox;
     GStorage.setting = settingBox;
@@ -321,6 +324,50 @@ void main() {
     final secondY = tester.getCenter(find.text('第二项')).dy;
     expect(firstY, lessThan(dividerY));
     expect(dividerY, lessThan(secondY));
+  });
+
+  testWidgets('the Navbar label switch keeps its size across dock styles', (
+    tester,
+  ) async {
+    final labelSwitch = settingSectionFor(SettingType.styleSetting)
+        .createSettings()
+        .whereType<SwitchModel>()
+        .singleWhere((model) => model.setKey == SettingBoxKey.showNavBarLabel);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeUtils.getThemeData(
+          colorScheme: const ColorScheme.light(),
+          isDynamic: false,
+        ),
+        home: Scaffold(body: labelSwitch.widget),
+      ),
+    );
+
+    Future<void> changeStyle(GlassStyle style) async {
+      await settingBox.put(SettingBoxKey.glassStyle, style.index);
+      await tester.pumpAndSettle();
+    }
+
+    final material = find.byType(Switch);
+    final ordinaryBounds = tester.getRect(material);
+    await changeStyle(GlassStyle.soft);
+    expect(tester.getRect(material), ordinaryBounds);
+
+    await changeStyle(GlassStyle.liquid);
+    final glass = find.byType(LiquidGlassSwitch);
+    final track = find.descendant(
+      of: glass,
+      matching: find.byType(DecoratedBox),
+    );
+    final trackBounds = tester.getRect(track.first);
+    expect(trackBounds.left, closeTo(ordinaryBounds.left, 0.001));
+    expect(trackBounds.right, closeTo(ordinaryBounds.right, 0.001));
+    expect(trackBounds.height, closeTo(32 * 0.8, 0.001));
+    expect(trackBounds.center.dy, closeTo(ordinaryBounds.center.dy, 0.001));
+    expect(tester.getSize(glass).height, 48);
+
+    await changeStyle(GlassStyle.none);
+    expect(tester.getRect(material), ordinaryBounds);
   });
 
   testWidgets('keyword filter auto-open runs once per activation', (

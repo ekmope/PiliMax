@@ -12,11 +12,13 @@ class LiquidGlassSwitch extends StatefulWidget {
     required this.value,
     required this.onChanged,
     this.semanticLabel,
-  });
+    this.visualScale = 1,
+  }) : assert(visualScale > 0);
 
   final bool value;
   final ValueChanged<bool>? onChanged;
   final String? semanticLabel;
+  final double visualScale;
 
   @override
   State<LiquidGlassSwitch> createState() => _LiquidGlassSwitchState();
@@ -24,6 +26,7 @@ class LiquidGlassSwitch extends StatefulWidget {
 
 class _LiquidGlassSwitchState extends State<LiquidGlassSwitch>
     with TickerProviderStateMixin {
+  // Match the Material 3 switch used by the other settings rows.
   static const _trackWidth = 52.0;
   static const _trackHeight = 32.0;
   static const _thumbTravel = _trackWidth - _trackHeight;
@@ -117,7 +120,8 @@ class _LiquidGlassSwitchState extends State<LiquidGlassSwitch>
   void _onDragUpdate(DragUpdateDetails details) {
     final delta = details.primaryDelta!;
     final rtl = Directionality.of(context) == TextDirection.rtl;
-    _position.value += (rtl ? -delta : delta) / _thumbTravel;
+    _position.value +=
+        (rtl ? -delta : delta) / (_thumbTravel * widget.visualScale);
   }
 
   void _onDragEnd(DragEndDetails details) {
@@ -167,11 +171,15 @@ class _LiquidGlassSwitchState extends State<LiquidGlassSwitch>
           onHorizontalDragEnd: enabled ? _onDragEnd : null,
           onHorizontalDragCancel: enabled ? _cancelDrag : null,
           child: SizedBox(
-            width: 60,
+            width: _trackWidth,
             height: kMinInteractiveDimension,
-            child: AnimatedBuilder(
-              animation: _motion,
-              builder: (context, _) => _buildVisual(context, enabled),
+            child: Transform.scale(
+              scale: widget.visualScale,
+              alignment: Alignment.centerRight,
+              child: AnimatedBuilder(
+                animation: _motion,
+                builder: (context, _) => _buildVisual(context, enabled),
+              ),
             ),
           ),
         ),
@@ -223,7 +231,9 @@ class _LiquidGlassSwitchState extends State<LiquidGlassSwitch>
                 border: focused
                     ? Border.all(color: scheme.onSurface, width: 2)
                     : null,
-                borderRadius: const BorderRadius.all(Radius.circular(16)),
+                borderRadius: const BorderRadius.all(
+                  Radius.circular(_trackHeight / 2),
+                ),
               ),
             ),
           ),
@@ -232,7 +242,7 @@ class _LiquidGlassSwitchState extends State<LiquidGlassSwitch>
             child: Transform.scale(
               scale: lerpDouble(1, 1.4, lift)!,
               child: SizedBox.square(
-                dimension: 24,
+                dimension: lerpDouble(16, 24, position)!,
                 child: lift > 0
                     ? LiquidGlass(
                         style: LiquidGlassStyle.lens(scheme).scale(lift),

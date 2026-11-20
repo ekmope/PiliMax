@@ -172,14 +172,16 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
         widget.liquidGlassThumb && Pref.glassStyle == GlassStyle.liquid;
     final mergeSwitchSemantics =
         usesGlassThumb && !widget.isSplit && widget.onTap == null;
+    const switchScale = 0.8;
     final switchBtn = usesGlassThumb
         ? LiquidGlassSwitch(
             value: val,
             onChanged: enabled ? switchChange : null,
             semanticLabel: mergeSwitchSemantics ? null : widget.title,
+            visualScale: switchScale,
           )
         : Transform.scale(
-            scale: 0.8,
+            scale: switchScale,
             alignment: .centerRight,
             child: Switch(
               value: val,

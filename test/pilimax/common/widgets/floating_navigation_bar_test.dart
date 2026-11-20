@@ -716,14 +716,11 @@ void main() {
     await tester.pumpWidget(host(style: GlassStyle.liquid));
     final lens = find.byKey(glassLensKey);
     final restingElement = tester.element(lens);
-    final restingRefraction = tester.widget<LiquidGlass>(lens).style.refraction;
+    final restingStyle = tester.widget<LiquidGlass>(lens).style;
     final gesture = await tester.startGesture(dockDestination(tester, 0));
     await tester.pumpAndSettle();
     expect(tester.element(lens), same(restingElement));
-    expect(
-      tester.widget<LiquidGlass>(lens).style.refraction,
-      lessThan(restingRefraction),
-    );
+    expect(tester.widget<LiquidGlass>(lens).style, restingStyle);
     expect(find.byKey(lensContentKey), findsOneWidget);
     expect(find.byType(NavigationBar), findsNWidgets(2));
     final warp = ImageFilter.isShaderFilterSupported;

@@ -673,8 +673,7 @@ class _InteractiveFloatingNavigationBarState
             if (lensStyle != null)
               LiquidGlass(
                 key: const ValueKey('liquidGlassLens'),
-                // The pane stays glass while resting and gains depth on lift.
-                style: lensStyle.scale(ui.lerpDouble(0.8, 1, lift)!),
+                style: lensStyle,
                 hold: shaderSupported && lift > 0
                     ? _lensCaptureHold(rect)
                     : null,

@@ -68,12 +68,6 @@ $GetxPredictiveBackPatch = "lib/scripts/getx_predictive_back.patch"
 # does not include the secondary subtitle API used by the app.
 $MediaKitSecondarySubtitlePatch = "lib/scripts/media_kit_secondary_subtitle.patch"
 
-# Keep notification custom-action PendingIntents stable across position updates.
-$AudioServicePendingIntentPatch = "lib/scripts/audio_service_pending_intent.patch"
-
-# Retain Android's active media service during a bounded live recovery.
-$AudioServiceForegroundRecoveryPatch = "lib/scripts/audio_service_foreground_recovery.patch"
-
 # WebView 1.5 uses std::filesystem; do not raise every plugin's C++ standard.
 $WebviewLinuxCxx17Patch = "lib/scripts/webview_all_linux_cxx17.patch"
 
@@ -101,13 +95,18 @@ $GeetestIOSPatch = "lib/scripts/geetest_ios.patch"
 function Apply-DependencyPatch {
     param(
         [Parameter(Mandatory = $true)][string]$PatchPath,
-        [Parameter(Mandatory = $true)][string]$Description
+        [Parameter(Mandatory = $true)][string]$Description,
+        [string]$Directory
     )
 
-    & git apply --ignore-space-change --check -- $PatchPath *> $null
+    $applyArgs = @("apply", "--ignore-space-change")
+    if ($Directory) {
+        $applyArgs += "--directory=$Directory"
+    }
+    & git @applyArgs --check -- $PatchPath *> $null
     $forwardCheckExit = $LASTEXITCODE
     if ($forwardCheckExit -eq 0) {
-        & git apply --ignore-space-change -- $PatchPath
+        & git @applyArgs -- $PatchPath
         $applyExit = $LASTEXITCODE
         if ($applyExit -eq 0) {
             Write-Host "$Description applied"
@@ -117,7 +116,7 @@ function Apply-DependencyPatch {
         return $false
     }
 
-    & git apply --ignore-space-change --reverse --check -- $PatchPath *> $null
+    & git @applyArgs --reverse --check -- $PatchPath *> $null
     $reverseCheckExit = $LASTEXITCODE
     if ($reverseCheckExit -eq 0) {
         Write-Host "$Description already applied"
@@ -133,6 +132,43 @@ function Apply-DependencyPatch {
 
     Write-Error "failed to apply ${Description}: patch matches neither the original nor the already-applied state"
     return $false
+}
+
+function Apply-AudioServicePatches {
+    param(
+        [Parameter(Mandatory = $true)][string]$PackageRoot,
+        [Parameter(Mandatory = $true)][string]$Workspace
+    )
+
+    $checkoutRoot = & git -C $PackageRoot rev-parse --show-toplevel
+    if ($LASTEXITCODE -ne 0) { throw "Unable to locate the audio_service Git checkout" }
+    $packagePrefix = & git -C $PackageRoot rev-parse --show-prefix
+    if ($LASTEXITCODE -ne 0) { throw "Unable to locate audio_service within its checkout" }
+    $patches = @(
+        "lib/scripts/audio_service_pending_intent.patch",
+        "lib/scripts/audio_service_foreground_recovery.patch"
+    )
+
+    Push-Location -LiteralPath $checkoutRoot
+    try {
+        # From a subdirectory, git apply can skip every hunk and still exit 0.
+        foreach ($patch in $patches) {
+            if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $patch) -Description "$patch to audio_service" -Directory $packagePrefix)) {
+                throw "Unable to apply $patch"
+            }
+        }
+        $javaDirectory = Join-Path $PackageRoot "android/src/main/java/com/ryanheise/audioservice"
+        $serviceSource = Get-Content -LiteralPath (Join-Path $javaDirectory "AudioService.java") -Raw -ErrorAction Stop
+        $pluginSource = Get-Content -LiteralPath (Join-Path $javaDirectory "AudioServicePlugin.java") -Raw -ErrorAction Stop
+        if ($serviceSource.Contains("++customKeyCode") -or
+            -not $serviceSource.Contains("buildCustomActionPendingIntent(String customAction)") -or
+            -not $serviceSource.Contains("FOREGROUND_RECOVERY_TIMEOUT_MS") -or
+            -not $pluginSource.Contains("pilimaxKeepForegroundDuringRecovery")) {
+            throw "audio_service Android sources are missing the PendingIntent or foreground recovery patch"
+        }
+    } finally {
+        Pop-Location
+    }
 }
 
 function Test-MediaKitSecondarySubtitlePatchApplied {
@@ -766,11 +802,10 @@ if ($platform.ToLower() -eq "macos") {
 }
 
 if ($platform.ToLower() -eq "android") {
-    Set-Location $AudioServiceRoot
-    if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $AudioServicePendingIntentPatch) -Description "$AudioServicePendingIntentPatch to audio_service")) {
-        exit 1
-    }
-    if (-not (Apply-DependencyPatch -PatchPath (Join-Path $Workspace $AudioServiceForegroundRecoveryPatch) -Description "$AudioServiceForegroundRecoveryPatch to audio_service")) {
+    try {
+        Apply-AudioServicePatches -PackageRoot $AudioServiceRoot -Workspace $Workspace
+    } catch {
+        Write-Error "failed to patch audio_service: $($_.Exception.Message)"
         exit 1
     }
     try {

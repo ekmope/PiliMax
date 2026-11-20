@@ -5,16 +5,17 @@ param(
 
 $ErrorActionPreference = "Stop"
 $WorkspaceRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
-$PatchPath = Join-Path $WorkspaceRoot "lib/scripts/audio_service_pending_intent.patch"
-$RelativeSource = "android/src/main/java/com/ryanheise/audioservice/AudioService.java"
+$PendingIntentPatch = Join-Path $WorkspaceRoot "lib/scripts/audio_service_pending_intent.patch"
+$ForegroundRecoveryPatch = Join-Path $WorkspaceRoot "lib/scripts/audio_service_foreground_recovery.patch"
+$ServiceJavaDirectory = "audio_service/android/src/main/java/com/ryanheise/audioservice"
 if ([string]::IsNullOrWhiteSpace($AudioServicePackageRoot)) {
     $config = Get-Content (Join-Path $WorkspaceRoot ".dart_tool/package_config.json") -Raw | ConvertFrom-Json
     $package = $config.packages | Where-Object name -eq "audio_service" | Select-Object -First 1
     if ($null -eq $package) { throw "audio_service is missing from package_config.json" }
     $AudioServicePackageRoot = ([Uri]$package.rootUri).LocalPath
 }
-$OriginalSourcePath = Join-Path $AudioServicePackageRoot $RelativeSource
-if (-not (Test-Path $OriginalSourcePath)) { throw "AudioService.java not found: $OriginalSourcePath" }
+$DependencyCheckout = & git -C $AudioServicePackageRoot rev-parse --show-toplevel
+if ($LASTEXITCODE -ne 0) { throw "audio_service must be resolved from its Git checkout" }
 $java = if ($JavaHome) { Join-Path $JavaHome "bin/java.exe" } else { "java" }
 $javac = if ($JavaHome) { Join-Path $JavaHome "bin/javac.exe" } else { "javac" }
 $TemporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("pilimax-pending-intent-" + [Guid]::NewGuid().ToString("N"))
@@ -54,7 +55,7 @@ function Invoke-ActualJavaRegression {
     $generated = $template.Replace("/* ACTUAL_DEPENDENCY_METHODS */", ($methods -join "`n"))
     $generatedPath = Join-Path $checkRoot "AudioServicePendingIntentHarness.java"
     [IO.File]::WriteAllText($generatedPath, $generated, [Text.UTF8Encoding]::new($false))
-    $sourceDirectory = Split-Path $OriginalSourcePath
+    $sourceDirectory = Join-Path $TemporaryRoot $ServiceJavaDirectory
     & $javac -encoding UTF-8 -d $checkRoot $generatedPath (Join-Path $sourceDirectory "MediaControl.java") (Join-Path $sourceDirectory "CustomMediaAction.java")
     if ($LASTEXITCODE -ne 0) { throw "Java regression compile failed: $Name" }
     $output = @(& $java -cp $checkRoot com.ryanheise.audioservice.AudioServicePendingIntentHarness 2>&1)
@@ -71,46 +72,75 @@ function Invoke-ActualJavaRegression {
 
 Push-Location $TemporaryRoot
 try {
-    $temporarySource = Join-Path $TemporaryRoot $RelativeSource
-    New-Item -ItemType Directory -Path (Split-Path $temporarySource) -Force | Out-Null
-    Copy-Item -LiteralPath $OriginalSourcePath -Destination $temporarySource
+    # Keep the same nested package layout as the Git checkout in the Pub cache.
+    $archive = Join-Path $TemporaryRoot "audio_service.zip"
+    & git -C $DependencyCheckout archive --format=zip --output=$archive HEAD -- $ServiceJavaDirectory
+    if ($LASTEXITCODE -ne 0) { throw "Unable to export clean audio_service sources" }
+    Expand-Archive -LiteralPath $archive -DestinationPath $TemporaryRoot
     & git init -q
     if ($LASTEXITCODE -ne 0) { throw "Unable to create isolated patch fixture" }
-    # Accept an already patched dependency, but normalize only the temporary copy.
-    & git apply --ignore-space-change --reverse --check -- $PatchPath *> $null
-    if ($LASTEXITCODE -eq 0) {
-        & git apply --ignore-space-change --reverse -- $PatchPath
-        if ($LASTEXITCODE -ne 0) { throw "Unable to normalize temporary fixture" }
-    }
-    $unpatched = Get-Content $temporarySource -Raw
-    Invoke-ActualJavaRegression -Source $unpatched -Name "unpatched" -ExpectFailure $true
+    $packageRoot = Join-Path $TemporaryRoot "audio_service"
+    $javaDirectory = Join-Path $TemporaryRoot $ServiceJavaDirectory
+    $serviceSource = Join-Path $javaDirectory "AudioService.java"
+    $pluginSource = Join-Path $javaDirectory "AudioServicePlugin.java"
+    Invoke-ActualJavaRegression -Source (Get-Content -LiteralPath $serviceSource -Raw) -Name "unpatched" -ExpectFailure $true
 
-    # Run the real CI helper, without executing pub get or SDK patch/reset code.
+    # Load only the functions used by the Android patch step.
     $parseErrors = $null
     $ast = [Management.Automation.Language.Parser]::ParseFile(
         (Join-Path $WorkspaceRoot "lib/scripts/patch.ps1"), [ref]$null, [ref]$parseErrors
     )
     if ($parseErrors.Count) { throw "patch.ps1 has parse errors" }
-    $helper = $ast.Find({ param($node)
-        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
-        $node.Name -eq "Apply-DependencyPatch"
+    foreach ($functionName in @("Apply-DependencyPatch", "Apply-AudioServicePatches")) {
+        $helper = $ast.Find({ param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq $functionName
+        }, $true)
+        if ($null -eq $helper) { throw "CI helper not found: $functionName" }
+        . ([ScriptBlock]::Create($helper.Extent.Text))
+    }
+    $androidPatchCall = $ast.Find({ param($node)
+        $node -is [Management.Automation.Language.CommandAst] -and
+        $node.GetCommandName() -eq "Apply-AudioServicePatches"
     }, $true)
-    if ($null -eq $helper) { throw "CI dependency-patch helper not found" }
-    . ([ScriptBlock]::Create($helper.Extent.Text))
-    if (-not (Apply-DependencyPatch -PatchPath $PatchPath -Description "AudioService PendingIntent regression fixture")) {
-        throw "Forward patch application failed"
+    if ($null -eq $androidPatchCall) { throw "patch.ps1 does not call the audio_service patch helper" }
+    $runAndroidPatch = [ScriptBlock]::Create($androidPatchCall.Extent.Text)
+
+    $AudioServiceRoot = $packageRoot
+    $Workspace = $WorkspaceRoot
+    Push-Location $packageRoot
+    try {
+        & $runAndroidPatch
+        $patchedService = Get-Content -LiteralPath $serviceSource -Raw
+        $patchedPlugin = Get-Content -LiteralPath $pluginSource -Raw
+        if ($patchedService.Contains("customKeyCode") -or
+            -not $patchedService.Contains("PendingIntent.FLAG_UPDATE_CURRENT")) {
+            throw "PendingIntent patch did not change AudioService.java in the Git cache layout"
+        }
+        if (-not $patchedService.Contains("FOREGROUND_RECOVERY_TIMEOUT_MS") -or
+            -not $patchedPlugin.Contains("pilimaxKeepForegroundDuringRecovery")) {
+            throw "Foreground recovery patch did not change both Java sources in the Git cache layout"
+        }
+        $patchedHashes = @($serviceSource, $pluginSource) | Get-FileHash
+        & $runAndroidPatch
+        foreach ($patchedFile in $patchedHashes) {
+            if ($patchedFile.Hash -ne (Get-FileHash -LiteralPath $patchedFile.Path).Hash) {
+                throw "Repeated application changed $($patchedFile.Path)"
+            }
+        }
+    } finally {
+        Pop-Location
     }
-    $patchedHash = (Get-FileHash -LiteralPath $temporarySource).Hash
-    if (-not (Apply-DependencyPatch -PatchPath $PatchPath -Description "AudioService PendingIntent regression fixture")) {
-        throw "Idempotent patch application failed"
+
+    foreach ($patch in @($PendingIntentPatch, $ForegroundRecoveryPatch)) {
+        & git -C $TemporaryRoot apply --ignore-space-change --directory=audio_service --reverse --check -- $patch
+        if ($LASTEXITCODE -ne 0) { throw "Reverse patch validation failed: $patch" }
     }
-    if ($patchedHash -ne (Get-FileHash -LiteralPath $temporarySource).Hash) {
-        throw "Repeated application changed the dependency"
-    }
-    & git apply --ignore-space-change --reverse --check -- $PatchPath
-    if ($LASTEXITCODE -ne 0) { throw "Reverse patch validation failed" }
-    Invoke-ActualJavaRegression -Source (Get-Content $temporarySource -Raw) -Name "patched"
-    Write-Host "Patch forward/reverse/idempotence and actual Java-method regression passed."
+    # The PendingIntent harness extracts the pre-recovery setState signature.
+    & git -C $TemporaryRoot apply --ignore-space-change --directory=audio_service --reverse -- $ForegroundRecoveryPatch
+    if ($LASTEXITCODE -ne 0) { throw "Unable to isolate the PendingIntent patch for its Java harness" }
+    Invoke-ActualJavaRegression -Source (Get-Content -LiteralPath $serviceSource -Raw) -Name "patched"
+    Write-Host "Both patches applied in the nested Git checkout and passed reverse and idempotence checks."
     Write-Host "Temporary fixture: $TemporaryRoot"
 } finally {
     Pop-Location
